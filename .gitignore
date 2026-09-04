@@ -1,0 +1,19 @@
+# Build output
+*.exe
+*.dll
+*.pdb
+*.obj
+
+# Visual Studio (if/when a .csproj/solution is added)
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Local user config (keep the example tracked)
+launcher_settings.json
+
+# OS noise
+Thumbs.db
+desktop.ini
