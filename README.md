@@ -38,7 +38,7 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
 - Windows
 - Distant Worlds 2
 - Steam version recommended
-- .NET Framework / Windows C# compiler for building
+- [.NET 8 SDK](https://dotnet.microsoft.com/download) for building
 
 ### Building
 
@@ -54,8 +54,11 @@ To build and immediately launch the application, run:
 BUILD_AND_RUN_BETA.cmd
 ```
 
-The current project intentionally uses a simple build structure and compiles `Program.cs` directly.  
-A Visual Studio solution or `.csproj` file is not required.
+Both scripts call `dotnet build` on [`DW2ModLauncher.sln`](DW2ModLauncher.sln). The project is split into
+`DW2ModLauncher.Core` (mod scanning, Steam/Workshop lookups, INI/JSON helpers — no UI dependency),
+`DW2ModLauncher.App` (the WinForms launcher), and `DW2ModLauncher.Tests` (unit tests for the Core logic);
+see [AGENTS.md](AGENTS.md) for details. The built executable is
+`src\DW2ModLauncher.App\bin\Release\net8.0-windows\DW2ModLauncherBeta.exe`.
 
 ### Initial Setup
 
@@ -144,7 +147,7 @@ Steam Workshopから導入したMODと、ゲーム本体のMODフォルダーに
 - Windows
 - Distant Worlds 2
 - Steam版を推奨
-- .NET Framework（Windowsに含まれるC#コンパイラを使用してビルド）
+- ビルドには [.NET 8 SDK](https://dotnet.microsoft.com/download) が必要です
 
 ### ビルド方法
 
@@ -164,8 +167,11 @@ BUILD_AND_RUN_BETA.cmd
 
 を使用できます。
 
-このプロジェクトは現在、`Program.cs` を直接コンパイルするシンプルな構成です。  
-Visual StudioのSolutionや`.csproj`は必須ではありません。
+内部では [`DW2ModLauncher.sln`](DW2ModLauncher.sln) に対して `dotnet build` を実行します。プロジェクトは
+`DW2ModLauncher.Core`（MOD検索、Steam／Workshop検出、INI／JSON処理などUIに依存しないロジック）、
+`DW2ModLauncher.App`（WinForms製ランチャー本体）、`DW2ModLauncher.Tests`（Coreロジックの単体テスト）に
+分割されています。詳細は [AGENTS.md](AGENTS.md) を参照してください。ビルドされた実行ファイルは
+`src\DW2ModLauncher.App\bin\Release\net8.0-windows\DW2ModLauncherBeta.exe` です。
 
 ### 初期設定
 
