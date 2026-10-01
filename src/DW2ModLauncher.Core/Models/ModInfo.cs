@@ -31,6 +31,10 @@ namespace DW2ModLauncher.Core.Models
         public List<string> ConflictMods { get; set; }
         public List<string> ConflictPathCache { get; set; }
         public string ModJsonPath { get; set; }
+        // The "workshopId" field from mod.json, if the MOD author has published it before (see
+        // ModPublishCommandBuilder/ModJsonWorkshopIdWriter) - distinct from IsWorkshop, which means
+        // "this copy came from a Steam Workshop subscription," not "this MOD has ever been published."
+        public string WorkshopId { get; set; }
         // Declarative low-level-inject target: a DLL path relative to this
         // mod's own content folder, plus its entry point. The launcher
         // composes every enabled mod's injection into a single well-formed

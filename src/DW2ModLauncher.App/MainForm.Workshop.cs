@@ -175,24 +175,5 @@ namespace DW2ModLauncherBeta
             catch { return unix.ToString(); }
         }
 
-        private void OpenSelectedWorkshopPage()
-        {
-            if (modList == null || modList.SelectedItems.Count == 0)
-            {
-                MessageBox.Show(T("SelectAWorkshopModFirst"), Text);
-                return;
-            }
-            ModInfo mod = modList.SelectedItems[0].Tag as ModInfo;
-            if (mod == null || !mod.IsWorkshop || string.IsNullOrWhiteSpace(mod.Id)) return;
-            try
-            {
-                Process.Start("steam://url/CommunityFilePage/" + mod.Id);
-            }
-            catch
-            {
-                try { Process.Start("https://steamcommunity.com/sharedfiles/filedetails/?id=" + mod.Id); }
-                catch (Exception ex) { MessageBox.Show(ex.Message, Text); }
-            }
-        }
     }
 }

@@ -335,59 +335,40 @@ namespace DW2ModLauncherBeta
 
             Panel leftTop = new Panel();
             leftTop.Dock = DockStyle.Fill;
-            leftTop.Height = 78;
+            leftTop.Height = 44;
             leftTop.BackColor = Dw2Panel;
 
-            modRootButton = MakeButton(T("MODRoot"), 8, 7, 110, 30);
-            modRootButton.Click += delegate { OpenFolder(settings.ManagedModsRoot); };
-            leftTop.Controls.Add(modRootButton);
-
-            workshopRootButton = MakeButton(T("WorkshopRoot"), 126, 7, 130, 30);
-            workshopRootButton.Click += delegate { OpenFolder(settings.WorkshopRoot); };
-            leftTop.Controls.Add(workshopRootButton);
-
-            selectedFolderButton = MakeButton(T("SelectedMODFolder"), 264, 7, 150, 30);
+            selectedFolderButton = MakeButton(T("SelectedMODFolder"), 8, 7, 150, 30);
             selectedFolderButton.Enabled = false;
             selectedFolderButton.Click += delegate { OpenSelectedModFolder(list); };
             leftTop.Controls.Add(selectedFolderButton);
 
-            iniButton = MakeButton(T("INISettings"), 422, 7, 115, 30);
+            iniButton = MakeButton(T("INISettings"), 166, 7, 115, 30);
             iniButton.Enabled = false;
             iniButton.Click += delegate { OpenSelectedManagedIniEditor(); };
             leftTop.Controls.Add(iniButton);
 
-            detailsButton = MakeButton(T("Details"), 545, 7, 70, 30);
-            detailsButton.Enabled = false;
-            detailsButton.Click += delegate { OpenSelectedModDetails(list); };
-            leftTop.Controls.Add(detailsButton);
-
-            Button toolsButton = MakeButton(T("RunTool"), 8, 41, 90, 30);
-            toolsButton.Name = "ModToolsButton";
-            toolsButton.Enabled = false;
-            toolsButton.Click += delegate { RunSelectedModTool(list); };
-            leftTop.Controls.Add(toolsButton);
-
-            Button documentsButton = MakeButton(T("OpenDocs"), 106, 41, 90, 30);
+            Button documentsButton = MakeButton(T("OpenDocs"), 289, 7, 90, 30);
             documentsButton.Name = "ModDocumentsButton";
             documentsButton.Enabled = false;
             documentsButton.Click += delegate { OpenSelectedModDocument(list); };
             leftTop.Controls.Add(documentsButton);
 
-            workshopUpdateButton = MakeButton(T("CheckUpdates"), 204, 41, 130, 30);
+            workshopUpdateButton = MakeButton(T("CheckUpdates"), 387, 7, 130, 30);
             workshopUpdateButton.Click += delegate { BeginWorkshopUpdateCheck(true); };
             leftTop.Controls.Add(workshopUpdateButton);
 
-            workshopSteamButton = MakeButton(T("SteamPage"), 342, 41, 110, 30);
-            workshopSteamButton.Enabled = false;
-            workshopSteamButton.Click += delegate { OpenSelectedWorkshopPage(); };
-            leftTop.Controls.Add(workshopSteamButton);
+            publishButton = MakeButton(T("PublishToWorkshop"), 525, 7, 150, 30);
+            publishButton.Enabled = false;
+            publishButton.Click += delegate { PublishSelectedMod(); };
+            leftTop.Controls.Add(publishButton);
 
             Label hint = new Label();
             hint.Name = "ModListHint";
             hint.AutoSize = true;
             hint.ForeColor = Dw2Gold;
             hint.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
-            hint.Location = new Point(460, 47);
+            hint.Location = new Point(685, 13);
             hint.Text = T("DragRowsToChangeLoadOrder");
             leftTop.Controls.Add(hint);
 
@@ -398,7 +379,7 @@ namespace DW2ModLauncherBeta
             listLayout.ColumnCount = 1;
             listLayout.RowCount = 2;
             listLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            listLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 78F));
+            listLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
             listLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             listLayout.BackColor = Dw2Panel;
             listLayout.Controls.Add(leftTop, 0, 0);
@@ -465,18 +446,15 @@ namespace DW2ModLauncherBeta
             list.SelectedIndexChanged += delegate
             {
                 ModInfo selectedMod = list.SelectedItems.Count == 0 ? null : list.SelectedItems[0].Tag as ModInfo;
-                if (iniButton != null) iniButton.Enabled = FindManagedIni(selectedMod) != null;
-                if (detailsButton != null) detailsButton.Enabled = list.SelectedItems.Count > 0;
-                if (workshopSteamButton != null) workshopSteamButton.Enabled = selectedMod != null && selectedMod.IsWorkshop;
+                if (iniButton != null) iniButton.Enabled = ModHasConfigurableSettings(selectedMod);
+                if (publishButton != null) publishButton.Enabled = selectedMod != null && !selectedMod.IsWorkshop;
                 selectedFolderButton.Enabled = list.SelectedItems.Count > 0;
-                Control toolsButton = FindControlRecursive(leftTop, "ModToolsButton");
-                if (toolsButton != null) toolsButton.Enabled = selectedMod != null && selectedMod.IncludedTools != null && selectedMod.IncludedTools.Count > 0;
                 Control documentsButton = FindControlRecursive(leftTop, "ModDocumentsButton");
                 if (documentsButton != null) documentsButton.Enabled = selectedMod != null && selectedMod.IncludedDocuments != null && selectedMod.IncludedDocuments.Count > 0;
                 if (list.SelectedItems.Count == 0) return;
                 ShowModDetails(selectedMod, preview, name, problemsPanel, problemsLabel, desc);
             };
-            list.DoubleClick += delegate { OpenSelectedModDetails(list); };
+            list.DoubleClick += delegate { OpenSelectedManagedIniEditor(); };
             list.MouseClick += delegate (object sender, MouseEventArgs e) { ToggleModStateAtLocation(list, e.Location); };
 
             modList = list;
@@ -543,12 +521,18 @@ namespace DW2ModLauncherBeta
             detectButton = MakeButton(T("AutoDetect"), 28, 468, 130, 34);
             saveSettingsButton = MakeButton(T("SaveSettings"), 172, 468, 130, 34);
             gameOpenButton = MakeButton(T("GameFolder"), 316, 468, 150, 34);
+            workshopRootButton = MakeButton(T("WorkshopRoot"), 480, 468, 150, 34);
+            modRootButton = MakeButton(T("MODRoot"), 644, 468, 150, 34);
             detectButton.Click += delegate { DetectPaths(true); RefreshAll(); };
             saveSettingsButton.Click += delegate { SaveSettingsFromUi(); RefreshAll(); };
             gameOpenButton.Click += delegate { OpenFolder(settings.GameRoot); };
+            workshopRootButton.Click += delegate { OpenFolder(settings.WorkshopRoot); };
+            modRootButton.Click += delegate { OpenFolder(settings.ManagedModsRoot); };
             p.Controls.Add(detectButton);
             p.Controls.Add(saveSettingsButton);
             p.Controls.Add(gameOpenButton);
+            p.Controls.Add(workshopRootButton);
+            p.Controls.Add(modRootButton);
 
             Label profileLabel = new Label();
             profileLabel.Name = "ProfileLabel";
@@ -668,10 +652,7 @@ namespace DW2ModLauncherBeta
             if (selectedFolderButton != null) selectedFolderButton.Text = T("SelectedMODFolder");
             if (iniButton != null) iniButton.Text = T("INISettings");
             if (workshopUpdateButton != null) workshopUpdateButton.Text = T("CheckUpdates");
-            if (workshopSteamButton != null) workshopSteamButton.Text = T("SteamPage");
-            if (detailsButton != null) detailsButton.Text = T("Details");
-            Control modToolsButton = FindControlRecursive(this, "ModToolsButton");
-            if (modToolsButton != null) modToolsButton.Text = T("RunTool");
+            if (publishButton != null) publishButton.Text = T("PublishToWorkshop");
             Control modDocumentsButton = FindControlRecursive(this, "ModDocumentsButton");
             if (modDocumentsButton != null) modDocumentsButton.Text = T("OpenDocs");
             if (detectButton != null) detectButton.Text = T("AutoDetect");

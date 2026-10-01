@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Windows.Forms;
 using DW2ModLauncher.Core.Models;
+using DW2ModLauncher.Core.Services;
 
 namespace DW2ModLauncherBeta
 {
@@ -21,33 +24,23 @@ namespace DW2ModLauncherBeta
             }).ToList();
         }
 
-        // The game's own --low-level-inject flag accepts multiple space-separated
-        // "dll!entryPoint" targets, but only ONE occurrence of the flag actually
-        // takes effect - a second occurrence doesn't merge with the first. So every
-        // enabled mod's declarative injection target is collected here and composed
-        // into a single flag in BuildLaunchArguments, rather than letting each mod
-        // contribute its own separate --low-level-inject occurrence.
-        private List<KeyValuePair<string, string>> CollectInjectionTargets(List<ModInfo> orderedMods)
+        // The launcher ships a single fixed loader DLL (see DW2ModLauncher.Loader) next to its
+        // own executable; that loader is the ONLY --low-level-inject target ever used. It reads
+        // manifest.json (written by WriteLoaderManifest below) and loads every enabled mod itself,
+        // in order, via reflection - see docs/dll-injection.md. This replaced composing every
+        // mod's own dll!entryPoint into one CLI flag directly, since the game only honors the
+        // last --low-level-inject occurrence and invokes entry points with zero arguments.
+        private string LoaderDllPath()
         {
-            List<KeyValuePair<string, string>> targets = new List<KeyValuePair<string, string>>();
-            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (ModInfo mod in orderedMods)
-            {
-                string modRoot = mod.ContentRoot ?? mod.Folder;
-                AddInjectionTarget(targets, seen, modRoot, mod.InjectionDll, mod.InjectionEntryPoint);
-                LauncherMeta meta = ReadLauncherMeta(mod);
-                if (meta != null && meta.injection != null)
-                    AddInjectionTarget(targets, seen, modRoot, meta.injection.dll, meta.injection.entryPoint);
-            }
-            return targets;
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Loader", "DW2ModLauncher.Loader.dll");
         }
 
-        private void AddInjectionTarget(List<KeyValuePair<string, string>> targets, HashSet<string> seen, string modRoot, string dllRelative, string entryPoint)
+        private void WriteLoaderManifest()
         {
-            if (string.IsNullOrWhiteSpace(modRoot) || string.IsNullOrWhiteSpace(dllRelative) || string.IsNullOrWhiteSpace(entryPoint)) return;
-            string full = Path.GetFullPath(Path.Combine(modRoot, dllRelative.Replace('/', Path.DirectorySeparatorChar)));
-            if (!seen.Add(full + "!" + entryPoint)) return;
-            targets.Add(new KeyValuePair<string, string>(full, entryPoint));
+            LoaderManifest manifest = LoaderManifestBuilder.Build(OrderedEnabledMods());
+            string loaderDir = Path.GetDirectoryName(LoaderDllPath());
+            Directory.CreateDirectory(loaderDir);
+            File.WriteAllText(Path.Combine(loaderDir, "manifest.json"), JsonSerializer.Serialize(manifest), new UTF8Encoding(false));
         }
 
         private string BuildLaunchArguments()
@@ -55,13 +48,9 @@ namespace DW2ModLauncherBeta
             EnsureSettingsState();
             List<string> args = new List<string>();
             HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            List<ModInfo> orderedMods = OrderedEnabledMods();
-            List<KeyValuePair<string, string>> injections = CollectInjectionTargets(orderedMods);
-            if (injections.Count > 0)
-            {
-                List<string> tokens = injections.Select(t => (t.Key.IndexOf(' ') >= 0 ? "\"" + t.Key + "\"" : t.Key) + "!" + t.Value).ToList();
-                args.Add("--low-level-inject " + string.Join(" ", tokens));
-            }
+            string loaderDll = LoaderDllPath();
+            string token = (loaderDll.IndexOf(' ') >= 0 ? "\"" + loaderDll + "\"" : loaderDll) + "!DW2ModLauncher.Loader.Entry.Init";
+            args.Add("--low-level-inject " + token);
             string global = launchArgsBox == null ? settings.GlobalLaunchArguments : launchArgsBox.Text.Trim();
             if (!string.IsNullOrWhiteSpace(global) && seen.Add(global)) args.Add(global);
             return string.Join(" ", args.Where(a => !string.IsNullOrWhiteSpace(a)).ToArray()).Trim();
@@ -103,6 +92,7 @@ namespace DW2ModLauncherBeta
             }
             try
             {
+                WriteLoaderManifest();
                 ProcessStartInfo psi = new ProcessStartInfo();
                 psi.FileName = exe;
                 psi.WorkingDirectory = settings.GameRoot;

@@ -318,14 +318,10 @@ namespace DW2ModLauncherBeta
             }
             foreach (KeyValuePair<string, List<string>> pair in dlls.Where(x => x.Value.Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))
                 issues.Add("⚠ " + T("DuplicateDLL") + pair.Key + " — " + string.Join(" / ", pair.Value.Distinct().ToArray()));
-            foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(BuildLaunchArguments(), "--low-level-inject\\s+(?:\\\"([^\\\"]+)\\\"|([^\\s!]+))!", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
-            {
-                string dll = !string.IsNullOrWhiteSpace(match.Groups[1].Value) ? match.Groups[1].Value : match.Groups[2].Value;
-                string full = Path.IsPathRooted(dll) ? dll : Path.Combine(settings.GameRoot ?? "", dll.Replace('/', Path.DirectorySeparatorChar));
-                if (!File.Exists(full)) issues.Add("⚠ " + T("LaunchArgumentDLLNotFound") + dll);
-            }
-            foreach (KeyValuePair<string, string> injection in CollectInjectionTargets(OrderedEnabledMods()))
-                if (!File.Exists(injection.Key)) issues.Add("⚠ " + T("LaunchArgumentDLLNotFound") + injection.Key);
+            string loaderDll = LoaderDllPath();
+            if (!File.Exists(loaderDll)) issues.Add("⚠ " + T("LaunchArgumentDLLNotFound") + loaderDll);
+            foreach (LoaderManifestEntry entry in LoaderManifestBuilder.Build(OrderedEnabledMods()).Entries)
+                if (!File.Exists(entry.DllPath)) issues.Add("⚠ " + T("LaunchArgumentDLLNotFound") + entry.DllPath);
             return issues.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 

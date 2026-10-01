@@ -1,0 +1,27 @@
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+namespace DW2ModLauncher.Core.Services
+{
+    /// <summary>
+    /// Writes the "workshopId" field back into a MOD's own mod.json after a first-time publish
+    /// (see ModPublishCommandBuilder/docs/dll-injection.md's publish workflow). DW2's own
+    /// --ugc-publish tool never writes this back itself - the official guide has the MOD author
+    /// copy the id out of the new Workshop item's URL and hand-edit it into mod.json - so this is
+    /// the one piece of that workflow the launcher can genuinely automate. The field name is
+    /// exactly "workshopId" (case-sensitive, per the guide), and everything else already in
+    /// mod.json is preserved as-is.
+    /// </summary>
+    public static class ModJsonWorkshopIdWriter
+    {
+        public static void Write(string modJsonPath, long workshopId)
+        {
+            JsonObject root = JsonNode.Parse(File.ReadAllText(modJsonPath, Encoding.UTF8)) as JsonObject;
+            if (root == null) throw new InvalidDataException("mod.json is not a JSON object.");
+            root["workshopId"] = workshopId;
+            File.WriteAllText(modJsonPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+        }
+    }
+}

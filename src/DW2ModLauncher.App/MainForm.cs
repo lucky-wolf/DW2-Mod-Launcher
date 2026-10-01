@@ -93,6 +93,7 @@ namespace DW2ModLauncherBeta
         private bool populating;
         private bool updateCheckRunning;
         private bool workshopCheckWasManual;
+        private bool publishRunning;
         private List<ModInfo> currentManagedMods = new List<ModInfo>();
         private List<ModInfo> currentWorkshopMods = new List<ModInfo>();
         private List<string> currentModOrder = new List<string>();
@@ -136,8 +137,7 @@ namespace DW2ModLauncherBeta
         private Button detectButton;
         private Button saveSettingsButton;
         private Button workshopUpdateButton;
-        private Button workshopSteamButton;
-        private Button detailsButton;
+        private Button publishButton;
         private Button selectedFolderButton;
         private Button modsNavigationButton;
         private Button settingsNavigationButton;

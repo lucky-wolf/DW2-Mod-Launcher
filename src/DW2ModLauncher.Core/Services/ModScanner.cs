@@ -109,6 +109,7 @@ namespace DW2ModLauncher.Core.Services
                         m.Version = LooseJson.GetString(d, new string[] { "version", "modVersion" }, "");
                         preview = LooseJson.GetString(d, new string[] { "previewImage", "preview", "thumbnail", "icon" }, "");
                         string wid = LooseJson.GetString(d, new string[] { "workshopId", "workshopID" }, "");
+                        if (!string.IsNullOrWhiteSpace(wid)) m.WorkshopId = wid;
                         if (workshop && !Regex.IsMatch(m.Id ?? "", "^\\d+$") && !string.IsNullOrWhiteSpace(wid)) m.Id = wid;
                         Dictionary<string, object> launcher = LooseJson.GetDictionary(d, "launcher");
                         if (launcher != null)

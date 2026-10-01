@@ -13,12 +13,43 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DW2ModLauncher.Core\DW2ModLauncher.Core.csproj" />
+    <!-- Not linked in: this ships as the standalone DLL the launcher injects via the game's
+         low level inject flag (see MainForm.Launch.LoaderDllPath). ReferenceOutputAssembly=false
+         keeps it out of DW2ModLauncherBeta's own dependency closure; the Target below copies its
+         build output into our own output folder's Loader\ subfolder. -->
+    <ProjectReference Include="..\DW2ModLauncher.Loader\DW2ModLauncher.Loader.csproj" ReferenceOutputAssembly="false" />
+    <!-- Referenced directly (not just transitively via Core) so GeneratePathProperty gives us
+         $(PkgFacepunch_Steamworks) below, to copy its native DLL - see docs/workshop-publish.md. -->
+    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Languages\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Required for SteamworksModPublisher: tells the Steamworks API which app this
+         non-Steam-launched process is acting as, so it can piggyback on the local Steam client's
+         already-logged-in session - see docs/workshop-publish.md. -->
+    <Content Include="steam_appid.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Facepunch.Steamworks ships this as a loose "content" file, which isn't auto-copied by a
+         PackageReference-style project the way it would be for the old packages.config style -
+         copy it explicitly instead. -->
+    <None Include="$(PkgFacepunch_Steamworks)\content\steam_api64.dll">
+      <Link>steam_api64.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
+
+  <Target Name="CopyLoaderOutput" AfterTargets="Build">
+    <MSBuild Projects="..\DW2ModLauncher.Loader\DW2ModLauncher.Loader.csproj" Targets="Build" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="LoaderBuildOutputs" />
+    </MSBuild>
+    <ItemGroup>
+      <LoaderFiles Include="..\DW2ModLauncher.Loader\bin\$(Configuration)\net8.0\DW2ModLauncher.Loader.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LoaderFiles)" DestinationFolder="$(OutDir)Loader" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

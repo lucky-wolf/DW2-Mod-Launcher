@@ -8,4 +8,8 @@
     <AssemblyName>DW2ModLauncher.Core</AssemblyName>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" />
+  </ItemGroup>
+
 </Project>
