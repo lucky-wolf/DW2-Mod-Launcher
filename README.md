@@ -29,7 +29,7 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
 - Detect and open included README/manual files
 - Detect included BAT/EXE tools
 - Open MOD folders directly
-- View and edit a MOD's settings through one schema-driven form, whether the MOD stores them in an INI file or a MOD-provided `settings.schema.json`
+- View and edit a MOD's settings through one schema-driven form from a MOD-provided `settings.schema.json`
 - Support per-MOD launch arguments
 - Load code MODs via a bundled loader DLL, so a MOD's settings can be handed to it directly
 - Publish a local MOD to the Steam Workshop (or push an update to one already published), and save the new item's Workshop ID into its `mod.json`
@@ -57,7 +57,7 @@ run.cmd
 ```
 
 Both scripts call `dotnet build` on [`DW2ModLauncher.sln`](DW2ModLauncher.sln). The project is split into
-`DW2ModLauncher.Core` (mod scanning, Steam/Workshop lookups, INI/JSON helpers — no UI dependency),
+`DW2ModLauncher.Core` (mod scanning, Steam/Workshop lookups, JSON helpers — no UI dependency),
 `DW2ModLauncher.App` (the WinForms launcher), and `DW2ModLauncher.Tests` (unit tests for the Core logic);
 see [AGENTS.md](AGENTS.md) for details. The built executable is
 `src\DW2ModLauncher.App\bin\Release\net8.0-windows\DW2ModLauncherBeta.exe`.

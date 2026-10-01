@@ -87,7 +87,6 @@ namespace DW2ModLauncherBeta
                 settings.Language = languageCodes[index];
                 ApplyLanguage();
                 SaveSettings();
-                ApplyLanguageToManagedMods();
                 AnalyzeConflicts();
                 RefreshModStatusColumns();
                 RefreshSelectedDetails();
@@ -343,10 +342,10 @@ namespace DW2ModLauncherBeta
             selectedFolderButton.Click += delegate { OpenSelectedModFolder(list); };
             leftTop.Controls.Add(selectedFolderButton);
 
-            iniButton = MakeButton(T("INISettings"), 166, 7, 115, 30);
-            iniButton.Enabled = false;
-            iniButton.Click += delegate { OpenSelectedManagedIniEditor(); };
-            leftTop.Controls.Add(iniButton);
+            modSettingsButton = MakeButton(T("ModSettings"), 166, 7, 115, 30);
+            modSettingsButton.Enabled = false;
+            modSettingsButton.Click += delegate { OpenSelectedModConfigEditor(); };
+            leftTop.Controls.Add(modSettingsButton);
 
             Button documentsButton = MakeButton(T("OpenDocs"), 289, 7, 90, 30);
             documentsButton.Name = "ModDocumentsButton";
@@ -446,7 +445,7 @@ namespace DW2ModLauncherBeta
             list.SelectedIndexChanged += delegate
             {
                 ModInfo selectedMod = list.SelectedItems.Count == 0 ? null : list.SelectedItems[0].Tag as ModInfo;
-                if (iniButton != null) iniButton.Enabled = ModHasConfigurableSettings(selectedMod);
+                if (modSettingsButton != null) modSettingsButton.Enabled = ModHasConfigurableSettings(selectedMod);
                 if (publishButton != null) publishButton.Enabled = selectedMod != null && !selectedMod.IsWorkshop;
                 selectedFolderButton.Enabled = list.SelectedItems.Count > 0;
                 Control documentsButton = FindControlRecursive(leftTop, "ModDocumentsButton");
@@ -454,7 +453,7 @@ namespace DW2ModLauncherBeta
                 if (list.SelectedItems.Count == 0) return;
                 ShowModDetails(selectedMod, preview, name, problemsPanel, problemsLabel, desc);
             };
-            list.DoubleClick += delegate { OpenSelectedManagedIniEditor(); };
+            list.DoubleClick += delegate { OpenSelectedModConfigEditor(); };
             list.MouseClick += delegate (object sender, MouseEventArgs e) { ToggleModStateAtLocation(list, e.Location); };
 
             modList = list;
@@ -598,7 +597,7 @@ namespace DW2ModLauncherBeta
             parent.Controls.Add(b);
         }
 
-        private Label MakeIniHeader(string text)
+        private Label MakeSettingsHeader(string text)
         {
             Label label = new Label();
             label.Text = text;
@@ -650,7 +649,7 @@ namespace DW2ModLauncherBeta
             if (modRootButton != null) modRootButton.Text = T("MODRoot");
             if (workshopRootButton != null) workshopRootButton.Text = T("WorkshopRoot");
             if (selectedFolderButton != null) selectedFolderButton.Text = T("SelectedMODFolder");
-            if (iniButton != null) iniButton.Text = T("INISettings");
+            if (modSettingsButton != null) modSettingsButton.Text = T("ModSettings");
             if (workshopUpdateButton != null) workshopUpdateButton.Text = T("CheckUpdates");
             if (publishButton != null) publishButton.Text = T("PublishToWorkshop");
             Control modDocumentsButton = FindControlRecursive(this, "ModDocumentsButton");

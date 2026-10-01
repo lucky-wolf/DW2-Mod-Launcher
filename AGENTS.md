@@ -6,7 +6,7 @@ Collective directives for anyone (human or AI) working in this repo. This file i
 
 DW2 Mod Launcher is an unofficial, open-source (MIT) community launcher/mod manager for **Distant Worlds 2**. It is a hobby project developed cooperatively; contributions, forks, and continued community development are explicitly welcomed (see [README.md](README.md)).
 
-Current features (implemented): scanning/enabling/disabling MODs from Steam Workshop and the local MOD folder, duplicate detection, file-conflict checks between enabled MODs, Workshop update checks, MOD info/README/tool discovery, INI editing, schema-driven JSON settings editing, per-MOD launch args, code-mod loading via an injected loader DLL (see [docs/dll-injection.md](docs/dll-injection.md)), publishing a local MOD to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI.
+Current features (implemented): scanning/enabling/disabling MODs from Steam Workshop and the local MOD folder, duplicate detection, file-conflict checks between enabled MODs, Workshop update checks, MOD info/README/tool discovery, schema-driven JSON settings editing, per-MOD launch args, code-mod loading via an injected loader DLL (see [docs/dll-injection.md](docs/dll-injection.md)), publishing a local MOD to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI.
 
 Planned/target scope (in progress or aspirational — confirm current state before assuming these exist):
 - Load order selection for enabled MODs
@@ -20,13 +20,11 @@ Planned/target scope (in progress or aspirational — confirm current state befo
   - `Models/` — plain data types (`ModInfo`, `LauncherSettings`, `ModProfile`, `LoaderManifest`,
     `ModSettingsSchema`, etc.)
   - `Services/` — `ModScanner` (mod.json discovery), `SteamLocator` (Steam/Workshop path detection),
-    `ConflictRules` (which files are excluded from conflict checks), `IniFile`, `AcfManifest` (Steam manifest
+    `ConflictRules` (which files are excluded from conflict checks), `AcfManifest` (Steam manifest
     parsing), `LooseJson` (loose JSON parsing), `WorkshopApiClient` (Steam Workshop API),
     `LauncherMetaReader` (launcher.json reader), `LoaderManifestBuilder` (builds the manifest the loader DLL
     reads — see [docs/dll-injection.md](docs/dll-injection.md)), `ModSettingsSchemaReader`/`ModSettingsStore`
-    (mod-authored `settings.schema.json` + per-user stored values), `IniSettingsSchemaBuilder` (infers an
-    equivalent schema + values straight from a plain INI file, so INI-based MODs render through the same
-    settings editor as schema-based ones), `IniKeyHumanizer`, `UserDataRoot` (`%AppData%\DW2ModLauncher`),
+    (mod-authored `settings.schema.json` + per-user stored values), `UserDataRoot` (`%AppData%\DW2ModLauncher`),
     `ModJsonWorkshopIdWriter`
   - `Services/Publishing/` — Steam Workshop publish (see [docs/workshop-publish.md](docs/workshop-publish.md)).
     `IModPublisher`/`ModPublishRequest`/`ModPublishResult`/`ModPublishMetadataEditor` (reads/writes
@@ -43,7 +41,7 @@ Planned/target scope (in progress or aspirational — confirm current state befo
   writes before launch.
 - [src/DW2ModLauncher.App/](src/DW2ModLauncher.App/) — the WinForms launcher. `MainForm` owns UI state and is
   split across multiple `partial class` files by concern (`MainForm.Ui.cs`, `MainForm.Mods.cs`,
-  `MainForm.Conflicts.cs`, `MainForm.Workshop.cs`, `MainForm.Ini.cs`, `MainForm.ModSettings.cs`,
+  `MainForm.Conflicts.cs`, `MainForm.Workshop.cs`, `MainForm.ModSettings.cs`,
   `MainForm.Launch.cs`, `MainForm.Settings.cs`, `MainForm.LoadOrder.cs`, `MainForm.Localization.cs`) rather
   than one class per file — this is one class organized across files, not several independent classes.
 - [src/DW2ModLauncher.Tests/](src/DW2ModLauncher.Tests/) — xUnit tests against `Core` (run with `dotnet test`)

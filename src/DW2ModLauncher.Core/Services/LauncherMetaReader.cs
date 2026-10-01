@@ -6,7 +6,7 @@ using DW2ModLauncher.Core.Models;
 
 namespace DW2ModLauncher.Core.Services
 {
-    /// <summary>Reads a mod's optional launcher.json (iniPath/enabledKey/languageKey/injection).</summary>
+    /// <summary>Reads a mod's optional launcher.json (injection).</summary>
     public static class LauncherMetaReader
     {
         public static LauncherMeta Read(ModInfo mod)
