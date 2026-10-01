@@ -131,7 +131,7 @@ namespace DW2ModLauncherBeta
         private TextBox commandPreviewBox;
 
         private Button modRootButton;
-        private Button iniButton;
+        private Button modSettingsButton;
         private Button workshopRootButton;
         private Button gameOpenButton;
         private Button detectButton;

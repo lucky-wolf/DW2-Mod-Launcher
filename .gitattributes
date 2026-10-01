@@ -6,6 +6,5 @@
 *.csproj eol=lf
 *.sln eol=lf
 *.json eol=lf
-*.ini eol=lf
 *.py eol=lf
 *.md eol=lf

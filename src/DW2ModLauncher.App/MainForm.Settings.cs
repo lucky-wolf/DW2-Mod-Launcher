@@ -111,15 +111,6 @@ namespace DW2ModLauncherBeta
             foreach (ModInfo mod in (currentManagedMods ?? new List<ModInfo>()).Concat(currentWorkshopMods ?? new List<ModInfo>()))
             {
                 profile.Versions[mod.ActiveToken ?? mod.Key] = mod.Version ?? "";
-                try
-                {
-                    foreach (string ini in Directory.GetFiles(mod.Folder, "*.ini", SearchOption.AllDirectories))
-                    {
-                        string rel = ini.Substring(mod.Folder.TrimEnd(Path.DirectorySeparatorChar).Length).TrimStart(Path.DirectorySeparatorChar);
-                        profile.IniFiles[(mod.ActiveToken ?? mod.Key) + "|" + rel] = Convert.ToBase64String(File.ReadAllBytes(ini));
-                    }
-                }
-                catch { }
             }
             try
             {
@@ -161,19 +152,6 @@ namespace DW2ModLauncherBeta
                 settings.ActiveProfile = profile.Name ?? name;
                 settings.GlobalLaunchArguments = profile.ManualLaunchArguments ?? "";
                 if (launchArgsBox != null) launchArgsBox.Text = settings.GlobalLaunchArguments;
-                foreach (KeyValuePair<string, string> kv in profile.IniFiles ?? new Dictionary<string, string>())
-                {
-                    int split = kv.Key.IndexOf('|');
-                    if (split <= 0) continue;
-                    string token = kv.Key.Substring(0, split);
-                    string rel = kv.Key.Substring(split + 1);
-                    ModInfo mod = all.FirstOrDefault(m => string.Equals(m.ActiveToken, token, StringComparison.OrdinalIgnoreCase) || string.Equals(m.Key, token, StringComparison.OrdinalIgnoreCase));
-                    if (mod == null) continue;
-                    string ini = Path.Combine(mod.Folder, rel);
-                    if (File.Exists(ini)) File.Copy(ini, ini + ".launcher_backup", true);
-                    Directory.CreateDirectory(Path.GetDirectoryName(ini));
-                    File.WriteAllBytes(ini, Convert.FromBase64String(kv.Value));
-                }
                 SaveSettings();
                 RefreshAll();
                 SetStatus(T("SwitchedMODProfile") + settings.ActiveProfile);

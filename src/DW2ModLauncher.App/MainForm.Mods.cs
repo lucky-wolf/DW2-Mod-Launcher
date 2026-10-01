@@ -310,7 +310,6 @@ namespace DW2ModLauncherBeta
             EnsureSettingsState();
             settings.SelectedMods[mod.Key] = enabled;
             SaveSettings();
-            ApplyManagedSelectionToIni(mod, enabled);
             SaveModOrderSelection(mod, enabled);
             AnalyzeConflicts();
             RefreshModStatusColumns();

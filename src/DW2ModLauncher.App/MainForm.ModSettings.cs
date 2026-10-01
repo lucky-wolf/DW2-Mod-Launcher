@@ -13,76 +13,33 @@ namespace DW2ModLauncherBeta
     public partial class MainForm
     {
         // Whether OpenModConfigEditor has anything to show for this MOD - a MOD-authored
-        // settings.schema.json, or a plain INI file it can infer a schema from.
+        // settings.schema.json.
         private bool ModHasConfigurableSettings(ModInfo mod)
         {
             if (mod == null) return false;
-            if (ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder) != null) return true;
-            return FindManagedIni(mod) != null;
+            return ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder) != null;
         }
 
-        // Dispatcher used by every "configure this MOD" entry point. Both a MOD-authored
-        // settings.schema.json and a plain INI file render through the same schema-driven editor
-        // below - for an INI-only MOD, IniSettingsSchemaBuilder infers a schema (and reads the
-        // current values) from the INI file itself, so there is only one settings UI in the
-        // launcher, not two.
+        // Dispatcher used by every "configure this MOD" entry point.
         private void OpenModConfigEditor(ModInfo mod)
         {
             if (mod == null) return;
             string root = mod.ContentRoot ?? mod.Folder;
-            ModSettingsSchema jsonSchema = ModSettingsSchemaReader.Read(root);
-            if (jsonSchema != null)
+            ModSettingsSchema schema = ModSettingsSchemaReader.Read(root);
+            if (schema == null)
             {
-                JsonObject values = ModSettingsStore.GetOrCreateValues(mod, jsonSchema);
-                OpenModSettingsEditor(mod, jsonSchema, values, v => ModSettingsStore.SaveValues(mod, v));
+                MessageBox.Show(T("NoConfigurableSettings"), Text);
                 return;
             }
-
-            string ini = FindManagedIni(mod);
-            if (ini == null)
-            {
-                MessageBox.Show(T("NoConfigurableIni"), Text);
-                return;
-            }
-
-            ModSettingsSchema iniSchema;
-            JsonObject iniValues;
-            try
-            {
-                iniSchema = IniSettingsSchemaBuilder.BuildSchema(ini, out iniValues);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogException("Build settings schema from INI", ex);
-                MessageBox.Show("The INI file could not be read.\r\n" + ex.Message, Text);
-                return;
-            }
-            if (iniSchema.Fields.Count == 0)
-            {
-                MessageBox.Show(T("IniHasNoSettings"), Text);
-                return;
-            }
-            foreach (ModSettingsField field in iniSchema.Fields)
-                if (string.IsNullOrEmpty(field.Description)) field.Description = T("IniGenericDescription", field.Key);
-
-            OpenModSettingsEditor(mod, iniSchema, iniValues, v => SaveIniSettingsValues(ini, iniSchema, v));
+            JsonObject values = ModSettingsStore.GetOrCreateValues(mod, schema);
+            OpenModSettingsEditor(mod, schema, values, v => ModSettingsStore.SaveValues(mod, v));
         }
 
-        private void SaveIniSettingsValues(string ini, ModSettingsSchema schema, JsonObject values)
+        private void OpenSelectedModConfigEditor()
         {
-            Dictionary<string, string> dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (ModSettingsField field in schema.Fields)
-            {
-                if (string.IsNullOrWhiteSpace(field.Key)) continue;
-                JsonNode node = values[field.Key];
-                string type = (field.Type ?? "").ToLowerInvariant();
-                string text;
-                if (type == "bool") text = (node != null && node.GetValue<bool>()) ? "true" : "false";
-                else text = node?.ToString() ?? "";
-                dict[field.Key] = text;
-            }
-            try { File.Copy(ini, ini + ".launcher_backup", true); } catch { }
-            WriteIniValues(ini, dict);
+            if (modList == null || modList.SelectedItems.Count == 0) return;
+            ModInfo mod = modList.SelectedItems[0].Tag as ModInfo;
+            OpenModConfigEditor(mod);
         }
 
         private void OpenModSettingsEditor(ModInfo mod, ModSettingsSchema schema, JsonObject values, Action<JsonObject> onSave)
@@ -124,9 +81,9 @@ namespace DW2ModLauncherBeta
                 editor.Controls.Add(table);
                 table.BringToFront();
 
-                table.Controls.Add(MakeIniHeader(T("Setting")), 0, 0);
-                table.Controls.Add(MakeIniHeader(T("Value")), 1, 0);
-                table.Controls.Add(MakeIniHeader(T("Description")), 2, 0);
+                table.Controls.Add(MakeSettingsHeader(T("Setting")), 0, 0);
+                table.Controls.Add(MakeSettingsHeader(T("Value")), 1, 0);
+                table.Controls.Add(MakeSettingsHeader(T("Description")), 2, 0);
                 int rowIndex = 1;
                 foreach (ModSettingsField field in schema.Fields)
                 {
@@ -134,7 +91,7 @@ namespace DW2ModLauncherBeta
                     table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
                     Label keyLabel = new Label();
-                    keyLabel.Text = string.IsNullOrWhiteSpace(field.Label) ? IniKeyHumanizer.Humanize(field.Key) : field.Label;
+                    keyLabel.Text = string.IsNullOrWhiteSpace(field.Label) ? field.Key : field.Label;
                     keyLabel.AutoSize = true;
                     keyLabel.MaximumSize = new Size(220, 0);
                     keyLabel.Margin = new Padding(3, 9, 3, 8);

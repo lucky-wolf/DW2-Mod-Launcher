@@ -94,18 +94,8 @@ its own settings (read by `DW2ModLauncher.Core.Services.ModSettingsSchemaReader`
 ```
 
 Supported `type` values: `bool`, `enum` (with `options`), `int`, `float` (both with optional
-`min`/`max`), and `string`. There is only one settings editor in the launcher
-(`MainForm.ModSettings.OpenModSettingsEditor`), not a separate bespoke one for INI files: when a
-mod ships `settings.schema.json`, its declared schema and `ModSettingsStore` values feed that
-editor directly; when it doesn't but has an `iniPath` in `launcher.json` (or a loose `.ini` in its
-folder), `DW2ModLauncher.Core.Services.IniSettingsSchemaBuilder` infers an equivalent schema (and
-reads the current values) straight from the INI file - `true`/`false` becomes `bool`, the
-well-known `Language` key becomes an `enum` of `["ja", "en"]`, everything else is a `string`, and
-a `#`/`;` comment directly above a key becomes that field's description. Saving an INI-derived
-form writes the values straight back to the same INI file (via `IniFile.Write`, after a
-`.launcher_backup` copy) instead of `ModSettingsStore` - the two sources of truth for *where
-values live* (INI file vs. `%AppData%` JSON) are unchanged, only the editor UI rendering them is
-now shared.
+`min`/`max`), and `string`. A mod's declared schema and `ModSettingsStore` values feed the
+launcher's settings editor (`MainForm.ModSettings.OpenModSettingsEditor`).
 
 The actual **values** for these fields are stored under the current user's AppData folder
 (`%AppData%\DW2ModLauncher\ModSettings\<mod token>.json`, via `DW2ModLauncher.Core.Services.
