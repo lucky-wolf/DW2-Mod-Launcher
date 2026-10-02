@@ -177,5 +177,21 @@
   "VisibilityPrivate": "非公開（自分のみ）",
   "VisibilityFriendsOnly": "フレンドのみ",
   "VisibilityUnlisted": "限定公開（リンクのみ）",
-  "VisibilityPublic": "公開"
+  "VisibilityPublic": "公開",
+  "RefreshModsTooltip": "Modリストを更新",
+  "PublishWorkshopId": "Workshop ID",
+  "PublishWorkshopIdUnpublished": "未公開",
+  "CreateMod": "新規Mod...",
+  "CreateModTitle": "新しいModを作成",
+  "CreateModPrompt": "Mod名",
+  "CreateModFolderPreview": "フォルダー: {0}",
+  "CreateModNoFolder": "DW2のModフォルダーが設定されていないか、存在しません。先に設定タブで設定してください。",
+  "CreateModFailed": "Modを作成できませんでした。\r\n{0}",
+  "ModCreatedStatus": "Modを作成しました: {0}",
+  "DeleteMod": "Modを削除...",
+  "DeleteModTitle": "Modを削除",
+  "ConfirmDeleteMod": "「{0}」とそのフォルダー内のすべてのファイルを削除しますか？\r\n\r\n{1}\r\n\r\nこの操作は元に戻せません。",
+  "ConfirmDeleteModPublished": "このModはSteam Workshopに公開されています（アイテム {0}）。ここで削除しても、Workshopのアイテムは削除されません。",
+  "DeleteModFailed": "Modを削除できませんでした。\r\n{0}",
+  "ModDeletedStatus": "Modを削除しました: {0}"
 }

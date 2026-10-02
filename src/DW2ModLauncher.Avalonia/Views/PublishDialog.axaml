@@ -12,6 +12,10 @@
           <TextBlock Text="{Binding L[PublishInfoTitle]}" />
           <TextBox Text="{Binding Title}" />
         </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding L[PublishWorkshopId]}" />
+          <TextBox Text="{Binding WorkshopIdText, Mode=OneWay}" IsReadOnly="True" />
+        </StackPanel>
         <Grid ColumnDefinitions="200,24,*">
           <StackPanel Grid.Column="0" Spacing="6">
             <TextBlock Text="{Binding L[Version]}" />

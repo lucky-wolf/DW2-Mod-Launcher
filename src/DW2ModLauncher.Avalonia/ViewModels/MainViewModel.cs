@@ -38,7 +38,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private List<ModInfo> workshopMods = new List<ModInfo>();
         private Dictionary<string, List<ModInfo>> collisions = new Dictionary<string, List<ModInfo>>(StringComparer.OrdinalIgnoreCase);
         private string statusText = "";
-        private bool showingSettings;
         private LanguageOption selectedLanguage;
         private ModRowViewModel selectedRow;
         private int sortColumn = -1;
@@ -70,8 +69,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             selectedLanguage = Languages.FirstOrDefault(l => l.Code == settings.Language) ?? Languages[0];
 
             Settings = new SettingsViewModel(this);
-            ShowModsCommand = new RelayCommand(delegate { ShowingSettings = false; });
-            ShowSettingsCommand = new RelayCommand(delegate { ShowingSettings = true; });
+            OpenSettingsCommand = new RelayCommand(() => Dialogs.ShowSettingsAsync(Settings));
             RefreshCommand = new RelayCommand(Refresh);
             PlayCommand = new RelayCommand(PlayOrStopAsync, () => gameState != GameState.Launching);
             gameWatchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
@@ -85,6 +83,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModSettingsCommand = new RelayCommand(OpenModSettingsAsync, () => HasModSettings(selectedRow));
             PublishCommand = new RelayCommand(PublishAsync, () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !publishRunning);
             CheckUpdatesCommand = new RelayCommand(() => BeginWorkshopUpdateCheck(true), () => !updateCheckRunning && workshopMods.Count > 0);
+            CreateModCommand = new RelayCommand(CreateModAsync);
+            DeleteModCommand = new RelayCommand(DeleteModAsync, () => selectedRow != null && LocalModManager.CanDelete(selectedRow.Mod, settings.ManagedModsRoot));
 
             PathDetector.Detect(settings, false);
             SaveSettings();
@@ -97,8 +97,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public ObservableCollection<LanguageOption> Languages { get; } = new ObservableCollection<LanguageOption>();
         public ObservableCollection<ModRowViewModel> Mods { get; } = new ObservableCollection<ModRowViewModel>();
 
-        public RelayCommand ShowModsCommand { get; }
-        public RelayCommand ShowSettingsCommand { get; }
+        public RelayCommand OpenSettingsCommand { get; }
         public RelayCommand RefreshCommand { get; }
         public RelayCommand PlayCommand { get; }
 
@@ -172,6 +171,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand CheckUpdatesCommand { get; }
         public RelayCommand ModSettingsCommand { get; }
         public RelayCommand PublishCommand { get; }
+        public RelayCommand CreateModCommand { get; }
+        public RelayCommand DeleteModCommand { get; }
 
         public ModRowViewModel SelectedRow
         {
@@ -185,6 +186,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 OpenDocsCommand.RaiseCanExecuteChanged();
                 ModSettingsCommand.RaiseCanExecuteChanged();
                 PublishCommand.RaiseCanExecuteChanged();
+                DeleteModCommand.RaiseCanExecuteChanged();
             }
         }
 
@@ -205,14 +207,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public IEnumerable<ModInfo> AllMods { get { return managedMods.Concat(workshopMods); } }
 
         public string StatusText { get { return statusText; } set { Set(ref statusText, value); } }
-
-        public bool ShowingSettings
-        {
-            get { return showingSettings; }
-            set { if (Set(ref showingSettings, value)) { Raise(nameof(ShowingMods)); } }
-        }
-
-        public bool ShowingMods { get { return !showingSettings; } }
 
         public string GamePathText { get { return "Game: " + (string.IsNullOrEmpty(settings.GameRoot) ? "Not found" : settings.GameRoot); } }
         public string WorkshopPathText { get { return "Workshop: " + (string.IsNullOrEmpty(settings.WorkshopRoot) ? "Not found" : settings.WorkshopRoot); } }
@@ -513,6 +507,75 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 Logger.LogException("Open included document", ex);
                 await Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+            }
+        }
+
+        // ---- creating and deleting local mods
+
+        private async Task CreateModAsync()
+        {
+            if (string.IsNullOrWhiteSpace(settings.ManagedModsRoot))
+            {
+                await Dialogs.ShowMessageAsync(T("CreateModNoFolder"), "DW2 Mod Launcher");
+                return;
+            }
+            string name = await Dialogs.PromptTextAsync(T("CreateModTitle"), T("CreateModPrompt"), "", T("OK"), T("Cancel"),
+                text => T("CreateModFolderPreview", LocalModManager.FolderNameFor(text)));
+            if (name == null) return;
+            try
+            {
+                string folder = LocalModManager.Create(settings.ManagedModsRoot, name);
+                Refresh();
+                SelectedRow = Mods.FirstOrDefault(r => !r.Mod.IsWorkshop && string.Equals(r.Mod.Folder, folder, StringComparison.OrdinalIgnoreCase));
+                SetStatus(T("ModCreatedStatus", name));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Create local Mod", ex);
+                await Dialogs.ShowMessageAsync(T("CreateModFailed", ex.Message), "DW2 Mod Launcher");
+            }
+        }
+
+        private async Task DeleteModAsync()
+        {
+            if (selectedRow == null) return;
+            ModInfo mod = selectedRow.Mod;
+            if (!LocalModManager.CanDelete(mod, settings.ManagedModsRoot)) return;
+            string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
+            string message = T("ConfirmDeleteMod", name, mod.Folder);
+            if (!string.IsNullOrWhiteSpace(mod.WorkshopId)) message += "\n\n" + T("ConfirmDeleteModPublished", mod.WorkshopId);
+            if (!await Dialogs.ConfirmAsync(message, T("DeleteModTitle"), T("Delete"), T("Cancel"))) return;
+            if (GameProcess.IsRunning())
+            {
+                await Dialogs.ShowMessageAsync(T("GameRunningWarning"), "DW2 Mod Launcher");
+                return;
+            }
+            try
+            {
+                // Take it out of mods.json first so DW2 is never left pointing at a folder that no longer exists.
+                if (IsSelected(mod))
+                {
+                    SetEnabledResult result = ModLibrary.SetEnabled(mod, false, settings, modOrder);
+                    if (result.Outcome != SetEnabledOutcome.Saved)
+                    {
+                        string reason = result.Outcome == SetEnabledOutcome.ModsJsonInvalid ? T("ModsJsonInvalidWarning")
+                            : result.Error != null ? result.Error.Message : T("ModsJsonERROR");
+                        await Dialogs.ShowMessageAsync(T("DeleteModFailed", reason), "DW2 Mod Launcher");
+                        Refresh();
+                        return;
+                    }
+                }
+                settings.SelectedMods.Remove(mod.Key);
+                SaveSettings();
+                LocalModManager.Delete(mod, settings.ManagedModsRoot);
+                Refresh();
+                SetStatus(T("ModDeletedStatus", name));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Delete local Mod", ex);
+                await Dialogs.ShowMessageAsync(T("DeleteModFailed", ex.Message), "DW2 Mod Launcher");
+                Refresh();
             }
         }
 

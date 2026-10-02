@@ -39,6 +39,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             contentFolder = mod.ContentRoot ?? mod.Folder;
             WindowTitle = l["PublishToWorkshop"] + " - " + (mod.DisplayName ?? mod.Id);
             Note = l[isUpdate ? "PublishAboutToRunUpdate" : "PublishAboutToRunFirstTime"];
+            WorkshopIdText = string.IsNullOrWhiteSpace(mod.WorkshopId) ? l["PublishWorkshopIdUnpublished"] : mod.WorkshopId.Trim();
             title = metadata.DisplayName;
             version = metadata.Version;
             previewImage = metadata.PreviewImage;
@@ -68,6 +69,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public LocalizedStrings L { get; }
         public string WindowTitle { get; }
         public string Note { get; }
+        /// <summary>The item's Workshop id (read-only), or "Unpublished" until a first publish has written one into mod.json.</summary>
+        public string WorkshopIdText { get; }
         public List<VisibilityOption> Visibilities { get; } = new List<VisibilityOption>();
         public RelayCommand BrowsePreviewCommand { get; }
 

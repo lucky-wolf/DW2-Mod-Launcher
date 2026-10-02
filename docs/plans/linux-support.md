@@ -1,6 +1,6 @@
 # Linux support
 
-Status: WinForms removed 2026-10-02 (Windows and Linux both ship the Avalonia launcher); references to the WinForms app below are historical. In progress (steps 1-2 done, see Progress). Release pipeline is done (see AGENTS.md "CI & Releases").
+Status: effectively DONE (all steps complete; only follow-ups remain). WinForms removed 2026-10-02 (Windows and Linux both ship the Avalonia launcher); references to the WinForms app below are historical. Release pipeline is done (see AGENTS.md "CI & Releases").
 
 ## Constraints
 - Distant Worlds 2 has no native Linux build; the game always runs under Proton.
@@ -86,14 +86,28 @@ then it is deleted. Phases, each runnable/testable on Linux:
   `SteamworksModPublisher` are removed. Core references the win-x64 wrapper at compile time only; each executable
   copies the matching OS build.
 
+## Resolved questions / findings
+- Full Avalonia port (option B) was chosen and completed; option A as a stopgap was never needed.
+- Loader manifest `Z:\` paths: CONFIRMED (extensively, by the maintainer) that the in-game loader resolves them under Proton.
+- The Avalonia launcher has been run repeatedly on Windows via `scripts/run.py` after the Phase A refactor; Windows
+  regression concern is closed.
+- Publish visibility (Visibility on `ModPublishRequest`, Private default for new items, "Unchanged" for updates,
+  dropdown in the publish dialog) is implemented (Phase D).
+- Local Mod management (2026-10-02, `LocalModManager` in Core, tested): "New Mod..." button on the Mods tab creates
+  `<Mod folder>/<sanitized name>/mod.json` (displayName, description, version 1.0.0; the folder name is the display name
+  with invalid characters/whitespace turned into `_`, Windows reserved names prefixed, and an existing folder is never
+  overwritten). "Delete Mod..." (right-click) asks for confirmation, refuses Workshop copies and anything not directly
+  inside the managed Mod folder, removes the Mod from `mods.json` first, then deletes the folder. It does NOT remove a
+  published Workshop item (the confirmation says so when the Mod has a workshopId). Not yet run by hand in the UI.
+- UI layout (2026-10-02): Settings is now a modal window (`SettingsDialog`) opened from a gear icon in the header; the
+  Mods/Settings tab buttons are gone and the Mods list is always shown. Refresh is an icon button on the row above the
+  mod list. Double-clicking the details preview image opens the Steam page. While the settings window is open,
+  `DialogService` parents pickers/messages to it (the main window is blocked). Not yet run by hand.
+- The publish dialog shows the Workshop ID read-only, or "Unpublished" when mod.json has none.
+
 ## Follow-ups
-- Publish visibility: both publishers hardcode Public today. Add `Visibility` (Public/FriendsOnly/Private/Unlisted)
-  to `ModPublishRequest`, default Private for new items, "unchanged" (skip `SetItemVisibility`) for updates, and a
-  dropdown in the publish dialog that remembers the mod's last choice. Behavior change on Windows too.
-- Add a "Delete" option (with are you sure) for any local mods
-- Add a "Create" option to create a new local mod (takes a name & autosanitize for a folder name to place it in)
+- Confirm the `release-linux` job in `release.yml` on its first real run on GitHub.
 
 ## Open questions
-- Full Avalonia port vs. option A as a stopgap first.
-- Loader manifest paths: confirm the in-game loader resolves `Z:\` paths under Proton.
+- None currently.
 

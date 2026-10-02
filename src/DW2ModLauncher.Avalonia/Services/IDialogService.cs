@@ -15,10 +15,14 @@ namespace DW2ModLauncher.Avalonia.Services
         Task<bool> ConfirmAsync(string message, string title, string yesText, string noText);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFromListAsync(string title, string note, IList<string> items);
+        /// <summary>The entered text (never blank), or null if the user cancelled. <paramref name="hint"/> turns the text typed so far into a note shown under the box.</summary>
+        Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFolderAsync(string title, string startFolder);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFileAsync(string title, string startFolder, string filterName, params string[] patterns);
+        /// <summary>Shows the launcher settings in a modal window; completes when it is closed. Pickers and messages opened from it sit on top of it.</summary>
+        Task ShowSettingsAsync(SettingsViewModel settings);
         /// <summary>True if the user saved.</summary>
         Task<bool> EditModSettingsAsync(ModSettingsEditorViewModel editor);
         /// <summary>

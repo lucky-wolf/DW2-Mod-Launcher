@@ -34,6 +34,7 @@ namespace DW2ModLauncher.Avalonia.Views
             ModList.AddHandler(PointerReleasedEvent, OnReleased, RoutingStrategies.Tunnel);
             ModList.AddHandler(PointerCaptureLostEvent, delegate { EndDrag(false); }, RoutingStrategies.Tunnel);
             ModList.AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+            PreviewBorder.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.OpenSteamPageCommand.CanExecute(null)) m.OpenSteamPageCommand.Execute(null); };
             ModList.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.ModSettingsCommand.CanExecute(null)) m.ModSettingsCommand.Execute(null); };
         }
 

@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
+        xmlns:views="using:DW2ModLauncher.Avalonia.Views"
+        x:Class="DW2ModLauncher.Avalonia.Views.SettingsDialog"
+        x:DataType="vm:SettingsViewModel"
+        Title="{Binding L[Settings]}" Width="1000" Height="780" MinWidth="760" MinHeight="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <Grid RowDefinitions="*,Auto">
+    <views:SettingsView Grid.Row="0" />
+    <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
+      <Button Name="CloseButton" Content="{Binding L[Close]}" MinWidth="125" HorizontalAlignment="Right" />
+    </Border>
+  </Grid>
+</Window>
