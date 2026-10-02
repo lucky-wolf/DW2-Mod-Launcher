@@ -1,6 +1,6 @@
 # Linux support
 
-Status: planned, not started. Do after the release pipeline (see AGENTS.md "CI & Releases").
+Status: in progress (steps 1-2 done, see Progress). Release pipeline is done (see AGENTS.md "CI & Releases").
 
 ## Constraints
 - Distant Worlds 2 has no native Linux build; the game always runs under Proton.
@@ -10,13 +10,13 @@ Status: planned, not started. Do after the release pipeline (see AGENTS.md "CI &
   (~3,000 lines across `MainForm.*.cs`; Core is ~1,200).
 
 ## Options
-| | A. Existing WinForms launcher inside Proton | B. Native Linux launcher (recommended) |
-|---|---|---|
-| Effort | Low: path fixes + docs | High: UI rewrite (Avalonia) |
-| Reliability | WinForms under Wine is fragile; needs a .NET Desktop Runtime in the prefix (wine-mono can't) | Solid |
-| Workshop | Only works if launcher shares the game's Proton prefix (Proton's `lsteamclient` bridge) | Native `libsteam_api.so` |
-| Game launch | Same prefix, easy | `steam -applaunch 1531540 <args>`; injection paths must be Windows-style (`Z:\home\...`) |
-| Packaging | Same zip | Separate `linux-x64` zip from CI |
+|             | A. Existing WinForms launcher inside Proton                                                  | B. Native Linux launcher (recommended)                                                   |
+| ----------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Effort      | Low: path fixes + docs                                                                       | High: UI rewrite (Avalonia)                                                              |
+| Reliability | WinForms under Wine is fragile; needs a .NET Desktop Runtime in the prefix (wine-mono can't) | Solid                                                                                    |
+| Workshop    | Only works if launcher shares the game's Proton prefix (Proton's `lsteamclient` bridge)      | Native `libsteam_api.so`                                                                 |
+| Game launch | Same prefix, easy                                                                            | `steam -applaunch 1531540 <args>`; injection paths must be Windows-style (`Z:\home\...`) |
+| Packaging   | Same zip                                                                                     | Separate `linux-x64` zip from CI                                                         |
 
 ## Plan (B, incremental)
 1. Put platform-specific code in Core behind small interfaces: Steam path discovery
@@ -28,6 +28,23 @@ Status: planned, not started. Do after the release pipeline (see AGENTS.md "CI &
 3. Port the UI to Avalonia (mostly mechanical, `MainForm` is already split by concern). The same app
    could then ship on Windows too.
 4. Add a `linux-x64` job to `release.yml`.
+
+## Progress
+- Step 1 DONE: Core/Tests are plain `net10.0`; `SteamLocator` is cross-platform; `GamePaths` (`Z:\` mapping),
+  `PlatformShell` (xdg-open), `GameLauncher` (`steam -applaunch`) added.
+- Step 2 DONE (verified 2026-10-02): `SteamworksNetModPublisher` created and updated a real Workshop item
+  from Linux against the native Steam client. Windows still uses the Facepunch publisher (`ModPublisherFactory`).
+- Step 3 (Avalonia UI) and step 4 (CI job) not started.
+
+## Steam library findings
+- Facepunch.Steamworks 2.3.3 is Windows-only (`Facepunch.Steamworks.Win64.dll`).
+- NuGet Steamworks.NET 2024.8.0 (SDK 1.60) does NOT work with the SDK 1.65 `libsteam_api.so`
+  (`EntryPointNotFoundException`). Wrapper and native lib must come from the same Steamworks.NET revision, so the
+  matched pair is vendored in `third_party/steamworks/` (see its README). Wrapper must be built with the
+  `OSX-Linux` configuration for Linux struct packing.
+- `steam_appid.txt` next to the binary is required; the `SteamAppId` env var alone is not enough.
+- Still to do: Windows config of the wrapper + `steam_api64.dll` from the same revision, then drop Facepunch
+  and the extern alias in `DW2ModLauncher.Core.csproj`.
 
 ## Open questions
 - Full Avalonia port vs. option A as a stopgap first.

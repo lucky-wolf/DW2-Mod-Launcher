@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -30,13 +31,16 @@ namespace DW2ModLauncher.Core.Services
                 if (IsGameRoot(p)) return p;
             }
 
-            for (char d = 'C'; d <= 'Z'; d++)
+            if (OperatingSystem.IsWindows())
             {
-                string[] bases = new string[] { d + @":\Steam", d + @":\steam", d + @":\SteamLibrary" };
-                foreach (string b in bases)
+                for (char d = 'C'; d <= 'Z'; d++)
                 {
-                    string p = Path.Combine(b, "steamapps", "common", "Distant Worlds 2");
-                    if (IsGameRoot(p)) return p;
+                    string[] bases = new string[] { d + @":\Steam", d + @":\steam", d + @":\SteamLibrary" };
+                    foreach (string b in bases)
+                    {
+                        string p = Path.Combine(b, "steamapps", "common", "Distant Worlds 2");
+                        if (IsGameRoot(p)) return p;
+                    }
                 }
             }
             return "";
@@ -67,13 +71,16 @@ namespace DW2ModLauncher.Core.Services
                 if (Directory.Exists(p)) return p;
             }
 
-            for (char d = 'C'; d <= 'Z'; d++)
+            if (OperatingSystem.IsWindows())
             {
-                string[] bases = new string[] { d + @":\Steam", d + @":\steam", d + @":\SteamLibrary" };
-                foreach (string b in bases)
+                for (char d = 'C'; d <= 'Z'; d++)
                 {
-                    string p = Path.Combine(b, "steamapps", "workshop", "content", AppId);
-                    if (Directory.Exists(p)) return p;
+                    string[] bases = new string[] { d + @":\Steam", d + @":\steam", d + @":\SteamLibrary" };
+                    foreach (string b in bases)
+                    {
+                        string p = Path.Combine(b, "steamapps", "workshop", "content", AppId);
+                        if (Directory.Exists(p)) return p;
+                    }
                 }
             }
             return "";
@@ -82,8 +89,7 @@ namespace DW2ModLauncher.Core.Services
         public static List<string> GetSteamLibraries()
         {
             List<string> libs = new List<string>();
-            string steam = ReadSteamPathFromRegistry();
-            if (!string.IsNullOrEmpty(steam)) libs.Add(steam);
+            foreach (string root in FindSteamRoots()) AddUnique(libs, root);
 
             List<string> initial = new List<string>(libs);
             foreach (string root in initial)
@@ -92,12 +98,9 @@ namespace DW2ModLauncher.Core.Services
                 try
                 {
                     if (!File.Exists(vdf)) continue;
-                    string text = File.ReadAllText(vdf);
-                    MatchCollection matches = Regex.Matches(text, "\\\"path\\\"\\s+\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);
-                    foreach (Match m in matches)
+                    foreach (string p in ParseLibraryPaths(File.ReadAllText(vdf)))
                     {
-                        string p = m.Groups[1].Value.Replace("\\\\", "\\");
-                        if (Directory.Exists(p) && !libs.Contains(p, System.StringComparer.OrdinalIgnoreCase)) libs.Add(p);
+                        if (Directory.Exists(p)) AddUnique(libs, p);
                     }
                 }
                 catch { }
@@ -105,8 +108,66 @@ namespace DW2ModLauncher.Core.Services
             return libs;
         }
 
+        internal static List<string> ParseLibraryPaths(string vdfText)
+        {
+            List<string> paths = new List<string>();
+            MatchCollection matches = Regex.Matches(vdfText ?? "", "\\\"path\\\"\\s+\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);
+            foreach (Match m in matches) paths.Add(m.Groups[1].Value.Replace("\\\\", "\\"));
+            return paths;
+        }
+
+        // The same library is often reachable through several paths on Linux (~/.steam/steam is a
+        // symlink to the real install), so compare by resolved path.
+        private static void AddUnique(List<string> libs, string path)
+        {
+            StringComparer comparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+            string resolved = Resolve(path);
+            if (!libs.Any(l => comparer.Equals(Resolve(l), resolved))) libs.Add(path);
+        }
+
+        private static string Resolve(string path)
+        {
+            try
+            {
+                FileSystemInfo target = new DirectoryInfo(path).ResolveLinkTarget(true);
+                return (target == null ? Path.GetFullPath(path) : target.FullName).TrimEnd(Path.DirectorySeparatorChar);
+            }
+            catch { return path; }
+        }
+
+        /// <summary>The Steam install folder(s) on this machine: registry on Windows, well-known folders on Linux.</summary>
+        public static List<string> FindSteamRoots()
+        {
+            List<string> roots = new List<string>();
+            if (OperatingSystem.IsWindows())
+            {
+                string fromRegistry = ReadSteamPathFromRegistry();
+                if (!string.IsNullOrEmpty(fromRegistry)) roots.Add(fromRegistry);
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                string dataHome = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+                if (string.IsNullOrEmpty(dataHome)) dataHome = Path.Combine(home, ".local", "share");
+                string[] candidates = new string[]
+                {
+                    Path.Combine(home, ".steam", "steam"),
+                    Path.Combine(dataHome, "Steam"),
+                    Path.Combine(home, ".steam", "debian-installation"),
+                    Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"),
+                    Path.Combine(home, "snap", "steam", "common", ".local", "share", "Steam")
+                };
+                foreach (string c in candidates)
+                {
+                    if (Directory.Exists(Path.Combine(c, "steamapps"))) AddUnique(roots, c);
+                }
+            }
+            return roots;
+        }
+
         public static string ReadSteamPathFromRegistry()
         {
+            if (!OperatingSystem.IsWindows()) return "";
             string[] keys = new string[]
             {
                 @"HKEY_CURRENT_USER\Software\Valve\Steam",

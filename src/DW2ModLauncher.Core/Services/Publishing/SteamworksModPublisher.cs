@@ -1,6 +1,7 @@
+extern alias facepunch;
 using System;
-using Steamworks;
-using Steamworks.Ugc;
+using facepunch::Steamworks;
+using facepunch::Steamworks.Ugc;
 
 namespace DW2ModLauncher.Core.Services.Publishing
 {
@@ -13,6 +14,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
     /// account is already logged into the local Steam client - no separate login, no credentials of
     /// any kind ever pass through the launcher, unlike driving steamcmd.exe (a genuinely separate
     /// tool with its own login session) would have required. See docs/workshop-publish.md.
+    ///
+    /// Windows only - see SteamworksNetModPublisher for Linux.
     ///
     /// Requires a "steam_appid.txt" file containing the app id next to the launcher's own
     /// executable, and the native steam_api64.dll shipped alongside it (see

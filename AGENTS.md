@@ -83,6 +83,7 @@ never hand-set a version in a `.csproj`. Full writeup: [docs/CI Releases.md](doc
 - Keep the README's English and Japanese sections in sync when user-facing behavior changes.
 - This is community-maintained: prefer clear, approachable code and PRs over clever ones — contributors will span a range of experience levels.
 - License is MIT; don't introduce dependencies with incompatible or unclear licensing. (`Facepunch.Steamworks`, used for Workshop publish, is MIT and ships its own native `steam_api64.dll` — see [docs/workshop-publish.md](docs/workshop-publish.md) for what that requires at build/runtime.)
+- Steam's native API library (`steam_api64.dll` / `libsteam_api.so`) is Valve's redistributable, not MIT. It is vendored unmodified under [third_party/steamworks/](third_party/steamworks/README.md) as a matched pair with the Steamworks.NET wrapper (same Steamworks.NET revision / SDK version); update both together. See README "License".
 - Favor open, cross-platform-friendly tooling where practical, since C# Dev Kit's free-use license (relied on by contributors in VS Code) is conditioned on this project staying open-source/non-commercial.
 - Document non-obvious decisions (mod conflict-detection rules, merge/load-order semantics, DLL-injection launch flags) in [docs/](docs/) rather than only in commit messages, since this shapes contributor and AI-agent understanding going forward.
 

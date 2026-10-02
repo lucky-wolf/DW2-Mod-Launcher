@@ -48,7 +48,7 @@ namespace DW2ModLauncherBeta
             EnsureSettingsState();
             List<string> args = new List<string>();
             HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            string loaderDll = LoaderDllPath();
+            string loaderDll = GamePaths.ToGameVisiblePath(LoaderDllPath());
             string token = (loaderDll.IndexOf(' ') >= 0 ? "\"" + loaderDll + "\"" : loaderDll) + "!DW2ModLauncher.Loader.Entry.Init";
             args.Add("--low-level-inject " + token);
             string global = launchArgsBox == null ? settings.GlobalLaunchArguments : launchArgsBox.Text.Trim();
@@ -93,12 +93,7 @@ namespace DW2ModLauncherBeta
             try
             {
                 WriteLoaderManifest();
-                ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = exe;
-                psi.WorkingDirectory = settings.GameRoot;
-                psi.Arguments = BuildLaunchArguments();
-                psi.UseShellExecute = true;
-                Process.Start(psi);
+                Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, BuildLaunchArguments()));
                 SetStatus(T("DistantWorlds2Launched"));
             }
             catch (Exception ex)
