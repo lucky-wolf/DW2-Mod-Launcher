@@ -27,7 +27,12 @@
           <Button Classes="nav" Classes.active="{Binding ShowingMods}" Command="{Binding ShowModsCommand}" Content="{Binding L[Mods]}" MinWidth="110" />
           <Button Classes="nav" Classes.active="{Binding ShowingSettings}" Command="{Binding ShowSettingsCommand}" Content="{Binding L[Settings]}" MinWidth="110" />
           <Button Command="{Binding RefreshCommand}" Content="{Binding L[Refresh]}" MinWidth="100" />
-          <Button Classes="play" Command="{Binding PlayCommand}" Content="{Binding L[PlayButton]}" Width="260" Height="46" Margin="0,-4,0,0" />
+          <Button Classes="play" Classes.stop="{Binding IsGameRunning}" Command="{Binding PlayCommand}" Width="260" Height="46" Margin="0,-4,0,0" HorizontalContentAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+              <Arc Classes="spinner" IsVisible="{Binding IsLaunching}" Width="18" Height="18" StartAngle="0" SweepAngle="270" Stroke="{StaticResource Dw2Gold}" StrokeThickness="3" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding PlayLabel}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
         </StackPanel>
       </Grid>
     </Border>

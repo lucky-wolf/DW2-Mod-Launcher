@@ -36,7 +36,7 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>
-        /// Writes the order atomically (temp file, backup, replace). Returns the list actually written, or
+        /// Writes the order atomically (temp file, timestamped backup, replace). Returns the list actually written, or
         /// null if the mods folder doesn't exist. Throws on I/O failure, after cleaning up the temp file.
         /// </summary>
         public static List<string> Write(string path, IEnumerable<string> order)
@@ -52,7 +52,7 @@ namespace DW2ModLauncher.Core.Services
                 File.WriteAllText(temp, output, new UTF8Encoding(false));
                 if (File.Exists(path))
                 {
-                    File.Copy(path, path + ".launcher_backup", true);
+                    BackUp(path, output);
                     try { File.Replace(temp, path, null, true); }
                     catch { File.Copy(temp, path, true); File.Delete(temp); }
                 }
@@ -64,6 +64,28 @@ namespace DW2ModLauncher.Core.Services
                 try { if (File.Exists(temp)) File.Delete(temp); } catch { }
                 throw;
             }
+        }
+
+        private const int BackupsToKeep = 20;
+
+        /// <summary>
+        /// Copies the current file to "mods.json.yyyyMMdd-HHmmss-fff.launcher_backup" and keeps only the newest few,
+        /// so one bad write can never be the only copy of the previous state. Skipped when the write changes nothing.
+        /// </summary>
+        private static void BackUp(string path, string newContent)
+        {
+            try
+            {
+                if (File.ReadAllText(path, Encoding.UTF8) == newContent) return;
+                string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture);
+                File.Copy(path, path + "." + stamp + ".launcher_backup", true);
+                string folder = System.IO.Path.GetDirectoryName(path);
+                string[] old = Directory.GetFiles(folder, System.IO.Path.GetFileName(path) + ".*.launcher_backup");
+                Array.Sort(old, StringComparer.Ordinal);
+                for (int i = 0; i < old.Length - BackupsToKeep; i++)
+                    try { File.Delete(old[i]); } catch { }
+            }
+            catch (Exception ex) { Logger.LogException("Back up DW2 mods.json", ex); }
         }
 
         /// <summary>The order with the token removed and, if enabling, appended at the end.</summary>

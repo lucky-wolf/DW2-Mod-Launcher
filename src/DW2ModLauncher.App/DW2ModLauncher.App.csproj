@@ -18,9 +18,6 @@
          keeps it out of DW2ModLauncher's own dependency closure; the Target below copies its
          build output into our own output folder's Loader\ subfolder. -->
     <ProjectReference Include="..\DW2ModLauncher.Loader\DW2ModLauncher.Loader.csproj" ReferenceOutputAssembly="false" />
-    <!-- Referenced directly (not just transitively via Core) so GeneratePathProperty gives us
-         $(PkgFacepunch_Steamworks) below, to copy its native DLL - see docs/workshop-publish.md. -->
-    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>
@@ -36,8 +33,12 @@
     <!-- Facepunch.Steamworks ships this as a loose "content" file, which isn't auto-copied by a
          PackageReference-style project the way it would be for the old packages.config style -
          copy it explicitly instead. -->
-    <None Include="$(PkgFacepunch_Steamworks)\content\steam_api64.dll">
+    <None Include="..\..\third_party\steamworks\win-x64\steam_api64.dll">
       <Link>steam_api64.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\third_party\steamworks\win-x64\Steamworks.NET.dll">
+      <Link>Steamworks.NET.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

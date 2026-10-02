@@ -11,8 +11,6 @@ namespace DW2ModLauncher.App
         [STAThread]
         private static void Main()
         {
-            try { ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072; } catch { }
-
             try
             {
                 Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);

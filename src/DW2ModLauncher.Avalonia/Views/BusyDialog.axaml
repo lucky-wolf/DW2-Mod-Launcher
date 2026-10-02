@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DW2ModLauncher.Avalonia.Views.BusyDialog"
+        SizeToContent="Height" Width="440"
+        WindowStartupLocation="CenterOwner" CanResize="False" ShowInTaskbar="False">
+  <StackPanel Margin="24" Spacing="18">
+    <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center">
+      <Arc Classes="spinner" Width="32" Height="32" StartAngle="0" SweepAngle="270" Stroke="{StaticResource Dw2Gold}" StrokeThickness="4" VerticalAlignment="Center" />
+      <TextBlock Name="MessageText" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320" />
+    </StackPanel>
+    <Button Name="CancelButton" IsVisible="False" HorizontalAlignment="Center" MinWidth="110" />
+  </StackPanel>
+</Window>

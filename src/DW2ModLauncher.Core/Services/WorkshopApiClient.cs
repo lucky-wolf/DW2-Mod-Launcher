@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net;
+using System.Net.Http;
 using System.Text;
 using DW2ModLauncher.Core.Models;
 
@@ -15,6 +15,15 @@ namespace DW2ModLauncher.Core.Services
     /// </summary>
     public static class WorkshopApiClient
     {
+        private static readonly HttpClient Http = CreateHttp();
+
+        private static HttpClient CreateHttp()
+        {
+            HttpClient client = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("DW2ModLauncher/" + AppVersion.Current);
+            return client;
+        }
+
         public static Dictionary<string, long> FetchRemoteTimes(List<string> ids, out Dictionary<string, WorkshopRemoteDetail> remoteDetails)
         {
             Dictionary<string, long> result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
@@ -30,17 +39,17 @@ namespace DW2ModLauncher.Core.Services
                     form.Append("&publishedfileids%5B").Append(i).Append("%5D=").Append(Uri.EscapeDataString(batch[i]));
                 byte[] body = Encoding.UTF8.GetBytes(form.ToString());
 
-                HttpWebRequest req = (HttpWebRequest)WebRequest.Create("https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/");
-                req.Method = "POST";
-                req.ContentType = "application/x-www-form-urlencoded";
-                req.ContentLength = body.Length;
-                req.Timeout = 8000;
-                req.ReadWriteTimeout = 8000;
-                req.UserAgent = "DW2ModLauncher/" + AppVersion.Current;
-                using (Stream stream = req.GetRequestStream()) stream.Write(body, 0, body.Length);
                 string responseText;
-                using (HttpWebResponse response = (HttpWebResponse)req.GetResponse())
-                using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8)) responseText = reader.ReadToEnd();
+                using (HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Post, "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/"))
+                {
+                    req.Content = new ByteArrayContent(body);
+                    req.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded");
+                    using (HttpResponseMessage response = Http.Send(req))
+                    {
+                        response.EnsureSuccessStatusCode();
+                        using (StreamReader reader = new StreamReader(response.Content.ReadAsStream(), Encoding.UTF8)) responseText = reader.ReadToEnd();
+                    }
+                }
 
                 object rootObj = LooseJson.Parse(responseText);
                 Dictionary<string, object> root = rootObj as Dictionary<string, object>;
