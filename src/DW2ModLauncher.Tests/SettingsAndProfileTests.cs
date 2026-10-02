@@ -39,6 +39,15 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Normalize_UsesNativeSeparatorsOnWindows()
+        {
+            if (!OperatingSystem.IsWindows()) return;
+            LauncherSettings s = new LauncherSettings { GameRoot = @"c:/steam\steamapps/common/Distant Worlds 2" };
+            LauncherSettingsStore.Normalize(s);
+            Assert.DoesNotContain("/", s.GameRoot);
+        }
+
+        [Fact]
         public void Normalize_FillsNulls()
         {
             LauncherSettings s = new LauncherSettings { Language = " ", GameRoot = null, ActiveProfile = null, SelectedMods = null };

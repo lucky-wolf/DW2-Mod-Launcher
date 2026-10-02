@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -63,6 +64,17 @@ namespace DW2ModLauncher.Core.Services
             if (settings.LaunchEnvironment == null) settings.LaunchEnvironment = new Dictionary<string, string>();
             if (settings.LastWorkshopUpdateCheckUtc == null) settings.LastWorkshopUpdateCheckUtc = "";
             if (settings.ActiveProfile == null) settings.ActiveProfile = "";
+            settings.GameRoot = NativePath(settings.GameRoot);
+            settings.WorkshopRoot = NativePath(settings.WorkshopRoot);
+            settings.ManagedModsRoot = NativePath(settings.ManagedModsRoot);
+        }
+
+        /// <summary>On Windows, turns "c:/steam\steamapps" (a mix Steam's registry value produced in older settings files) into backslashes only.</summary>
+        internal static string NativePath(string path)
+        {
+            if (!OperatingSystem.IsWindows() || string.IsNullOrWhiteSpace(path)) return path;
+            try { return System.IO.Path.GetFullPath(path); }
+            catch { return path; }
         }
 
         /// <summary>Blank folders are allowed (unset); non-blank ones must exist / look right.</summary>

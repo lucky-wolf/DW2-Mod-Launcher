@@ -56,8 +56,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- One set of language packs for both UIs (this project replaces DW2ModLauncher.App). -->
-    <Content Include="..\DW2ModLauncher.App\Languages\**\*.json" Link="Languages\%(RecursiveDir)%(Filename)%(Extension)">
+    <Content Include="Languages\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

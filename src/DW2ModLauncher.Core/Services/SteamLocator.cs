@@ -180,7 +180,8 @@ namespace DW2ModLauncher.Core.Services
                 {
                     object v = Registry.GetValue(key, "SteamPath", null);
                     if (v == null) v = Registry.GetValue(key, "InstallPath", null);
-                    if (v != null && Directory.Exists(v.ToString())) return v.ToString();
+                    // Steam stores this with forward slashes ("c:/steam"); use the native form so every path built from it is consistent.
+                    if (v != null && Directory.Exists(v.ToString())) return Path.GetFullPath(v.ToString());
                 }
                 catch { }
             }
