@@ -49,7 +49,7 @@ currently requires .NET 8. The .NET 10 SDK fully supports targeting 8, so you do
 ### Building
 
 On any OS (needs Python 3 and the .NET 10 SDK), `scripts/build.py` builds the launcher for the OS you are on —
-the Avalonia launcher on Linux, the WinForms launcher on Windows — after fixing formatting and running the unit
+the Avalonia launcher — after fixing formatting and running the unit
 tests; `scripts/run.py` does the same and then starts it:
 
 ```text
@@ -72,9 +72,9 @@ run.cmd
 
 Both scripts call `dotnet build` on [`DW2ModLauncher.sln`](DW2ModLauncher.sln). The project is split into
 `DW2ModLauncher.Core` (mod scanning, Steam/Workshop lookups, JSON helpers — no UI dependency),
-`DW2ModLauncher.App` (the WinForms launcher), and `DW2ModLauncher.Tests` (unit tests for the Core logic);
+`DW2ModLauncher.Avalonia` (the launcher UI), and `DW2ModLauncher.Tests` (unit tests for the Core logic);
 see [AGENTS.md](AGENTS.md) for details. The built executable is
-`src\DW2ModLauncher.App\bin\Release\net10.0-windows\DW2ModLauncher.exe`.
+`src\DW2ModLauncher.Avalonia\bin\Release\net10.0\DW2ModLauncher.exe`.
 
 By default, `build.cmd` (and `run.cmd`, which calls it) also fixes code formatting and runs the unit test suite —
 the same checks that run in CI — before building. Pass `--no-validate` to skip both and just build, for a faster

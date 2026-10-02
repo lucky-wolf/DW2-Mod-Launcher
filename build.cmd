@@ -45,5 +45,5 @@ if "%VALIDATE%"=="1" (
   )
 )
 
-echo [OK] Build complete: src\DW2ModLauncher.App\bin\Release\net10.0-windows\DW2ModLauncher.exe
+echo [OK] Build complete: src\DW2ModLauncher.Avalonia\bin\Release\net10.0\DW2ModLauncher.exe
 pause

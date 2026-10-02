@@ -7,8 +7,8 @@ on:
 
 jobs:
   build-and-test:
-    # Windows builds the WinForms launcher it ships today; Ubuntu proves Core, the tests and the Avalonia
-    # launcher (the Linux build) work off Windows.
+    # Both OSes build the whole solution and run the tests (Windows ships the win-x64 Avalonia build,
+    # Ubuntu the linux-x64 one).
     strategy:
       fail-fast: false
       matrix:

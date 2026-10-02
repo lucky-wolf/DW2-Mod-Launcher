@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the launcher for this OS: the Avalonia launcher on Linux/macOS, the WinForms launcher on Windows.
+"""Build the Avalonia launcher for this OS.
 
 By default it also applies `dotnet format` fixes and runs the unit tests (the same checks CI runs), then
 builds. Pass --no-validate to skip both and just build.
@@ -7,7 +7,6 @@ builds. Pass --no-validate to skip both and just build.
 Usage:
   scripts/build.py
   scripts/build.py --no-validate      # fast edit/build loop
-  scripts/build.py --ui winforms      # build the other launcher (WinForms only runs on Windows)
   scripts/build.py --dry-run          # print the steps, build nothing
 """
 

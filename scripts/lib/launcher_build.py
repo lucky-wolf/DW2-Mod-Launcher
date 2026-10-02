@@ -1,9 +1,8 @@
 """Builds the launcher for the current OS. Shared by scripts/build.py and scripts/run.py.
 usage: from lib import launcher_build; exe = launcher_build.build(repo_root, ui, config, validate)
 
-Which launcher is "the current OS's target" lives here in one place: the Avalonia launcher on Linux
-(and macOS), the WinForms launcher on Windows - until the Windows release moves to Avalonia too
-(docs/plans/linux-support.md), at which point only UI_DEFAULTS changes.
+Which launcher is "the current OS's target" lives here in one place: the Avalonia launcher on every
+OS (the WinForms app it replaced has been removed).
 """
 
 import json
@@ -25,18 +24,16 @@ class Ui:
     apphost_suffix: str  # appended to the assembly name for the executable ("" or ".exe")
 
 
-AVALONIA = Ui("avalonia", "src/DW2ModLauncher.Avalonia/DW2ModLauncher.Avalonia.csproj", "")
-WINFORMS = Ui("winforms", "src/DW2ModLauncher.App/DW2ModLauncher.App.csproj", ".exe")
-UIS = {ui.name: ui for ui in (AVALONIA, WINFORMS)}
+AVALONIA = Ui("avalonia", "src/DW2ModLauncher.Avalonia/DW2ModLauncher.Avalonia.csproj", ".exe" if sys.platform == "win32" else "")
+UIS = {ui.name: ui for ui in (AVALONIA,)}
 
 
 def default_ui() -> Ui:
-    return WINFORMS if sys.platform == "win32" else AVALONIA
+    return AVALONIA
 
 
 def resolve_ui(name: str) -> Ui:
-    """"auto" picks the current OS's launcher; otherwise the named one (WinForms only builds/runs on Windows
-    but compiles anywhere, so asking for it elsewhere is allowed for build-only use)."""
+    """"auto" and "avalonia" both give the Avalonia launcher (the flag is kept so existing invocations work)."""
     return default_ui() if name == "auto" else UIS[name]
 
 
@@ -98,7 +95,7 @@ def add_arguments(parser) -> None:
         "--ui",
         choices=["auto", *UIS],
         default="auto",
-        help=f"which launcher to build. Default: auto ({AVALONIA.name} on Linux/macOS, {WINFORMS.name} on Windows).",
+        help=f"which launcher to build. Default: auto ({AVALONIA.name}).",
     )
     parser.add_argument("--config", default="Release", help="build configuration. Default: Release.")
     parser.add_argument(

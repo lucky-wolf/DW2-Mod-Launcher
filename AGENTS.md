@@ -6,7 +6,7 @@ Collective directives for anyone (human or AI) working in this repo. This file i
 
 DW2 Mod Launcher is an unofficial, open-source (MIT) community launcher/mod manager for **Distant Worlds 2**. It is a hobby project developed cooperatively; contributions, forks, and continued community development are explicitly welcomed (see [README.md](README.md)).
 
-Current features (implemented): scanning/enabling/disabling Mods from Steam Workshop and the local Mod folder, duplicate detection, file-conflict checks between enabled Mods, Workshop update checks, Mod info/README/tool discovery, schema-driven JSON settings editing, per-Mod launch args, code-mod loading via an injected loader DLL (see [docs/DLL Injection.md](docs/DLL%20Injection.md)), publishing a local Mod to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI. Runs on Windows (WinForms) and Linux (Avalonia, game under Proton) — see [docs/plans/linux-support.md](docs/plans/linux-support.md).
+Current features (implemented): scanning/enabling/disabling Mods from Steam Workshop and the local Mod folder, duplicate detection, file-conflict checks between enabled Mods, Workshop update checks, Mod info/README/tool discovery, schema-driven JSON settings editing, per-Mod launch args, code-mod loading via an injected loader DLL (see [docs/DLL Injection.md](docs/DLL%20Injection.md)), publishing a local Mod to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI. Runs on Windows and Linux (Avalonia; on Linux the game runs under Proton) — see [docs/plans/linux-support.md](docs/plans/linux-support.md).
 
 Planned/target scope (in progress or aspirational — confirm current state before assuming these exist):
 - Load order selection for enabled Mods
@@ -43,19 +43,14 @@ Planned/target scope (in progress or aspirational — confirm current state befo
   - `Diagnostics/Logger.cs` — crash log writer
 - [src/DW2ModLauncher.Loader/](src/DW2ModLauncher.Loader/) — the standalone DLL the launcher injects via
   `--low-level-inject` (see [docs/DLL Injection.md](docs/DLL%20Injection.md)). Deliberately has no project
-  reference to `Core`/`App` — it runs inside the game process, so it stays minimal (BCL +
+  reference to `Core`/`Avalonia` — it runs inside the game process, so it stays minimal (BCL +
   `System.Text.Json` only). Loads every enabled mod itself, via reflection, from a manifest the launcher
   writes before launch.
-- [src/DW2ModLauncher.Avalonia/](src/DW2ModLauncher.Avalonia/) — the Avalonia launcher (Linux build; intended
-  to replace WinForms on Windows too). MVVM-lite: `ViewModels/` hold state and commands (`MainViewModel`,
-  `SettingsViewModel`, `PublishDialogViewModel`, ...), `Views/` are thin XAML, `Services/DialogService` is the
-  only code that touches windows/pickers. Bindings to language strings use `{Binding L[Key]}`. Shares the
-  `Languages/` packs with the WinForms app. Run with `dotnet run --project src/DW2ModLauncher.Avalonia`.
-- [src/DW2ModLauncher.App/](src/DW2ModLauncher.App/) — the WinForms launcher (Windows). `MainForm` owns UI state and is
-  split across multiple `partial class` files by concern (`MainForm.Ui.cs`, `MainForm.Mods.cs`,
-  `MainForm.Conflicts.cs`, `MainForm.Workshop.cs`, `MainForm.ModSettings.cs`,
-  `MainForm.Launch.cs`, `MainForm.Settings.cs`, `MainForm.LoadOrder.cs`, `MainForm.Localization.cs`) rather
-  than one class per file — this is one class organized across files, not several independent classes.
+- [src/DW2ModLauncher.Avalonia/](src/DW2ModLauncher.Avalonia/) — the launcher (Windows and Linux). MVVM-lite:
+  `ViewModels/` hold state and commands (`MainViewModel`, `SettingsViewModel`, `PublishDialogViewModel`, ...),
+  `Views/` are thin XAML, `Services/DialogService` is the only code that touches windows/pickers. Bindings to
+  language strings use `{Binding L[Key]}`; the EN/JP packs are in `Languages/`. Run with
+  `dotnet run --project src/DW2ModLauncher.Avalonia`.
 - [src/DW2ModLauncher.Tests/](src/DW2ModLauncher.Tests/) — xUnit tests against `Core` (run with `dotnet test`)
 - [scripts/build.py](scripts/build.py) / [scripts/run.py](scripts/run.py) — cross-platform build (and build+run) of the current OS's launcher; [build.cmd](build.cmd) / [run.cmd](run.cmd) are the older Windows-only equivalents
 - [launcher_settings.example.json](launcher_settings.example.json) — example user config (game folder, Workshop folder, managed Mod folder)
@@ -68,9 +63,8 @@ build.cmd
 run.cmd
 ```
 
-Both wrap `dotnet build DW2ModLauncher.sln -c Release`. Requires the .NET 10 SDK. The WinForms app targets
-`net10.0-windows` (running it needs Windows); on Linux use `python3 scripts/validate.py` to check everything and
-`dotnet run --project src/DW2ModLauncher.Avalonia` to run the Avalonia launcher. `build.cmd` (and `run.cmd`, which calls it) also validates formatting and runs the
+Both wrap `dotnet build DW2ModLauncher.sln -c Release`. Requires the .NET 10 SDK. On Linux use `python3 scripts/validate.py` to check everything; `dotnet run --project src/DW2ModLauncher.Avalonia`
+runs the launcher on either OS. `build.cmd` (and `run.cmd`, which calls it) also validates formatting and runs the
 test suite before building, the same gates CI uses, and fails fast with a message if either would fail CI; pass
 `--no-validate` to skip straight to `dotnet build` for a fast local iteration loop. When adding new logic, prefer
 putting anything that doesn't need a `Form`/`Control` in `DW2ModLauncher.Core` so it can be unit tested — this is

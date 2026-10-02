@@ -53,7 +53,7 @@ jobs:
       # MinVer reads the tag created above (or, for a manual run, produces a pre-release version).
       - name: Publish (self-contained, single-file)
         run: >
-          dotnet publish src/DW2ModLauncher.App -c Release -r win-x64 --self-contained
+          dotnet publish src/DW2ModLauncher.Avalonia -c Release -r win-x64 --self-contained
           -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=false -p:DebugType=none
           -o publish

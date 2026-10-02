@@ -1,6 +1,6 @@
 # Linux support
 
-Status: in progress (steps 1-2 done, see Progress). Release pipeline is done (see AGENTS.md "CI & Releases").
+Status: WinForms removed 2026-10-02 (Windows and Linux both ship the Avalonia launcher); references to the WinForms app below are historical. In progress (steps 1-2 done, see Progress). Release pipeline is done (see AGENTS.md "CI & Releases").
 
 ## Constraints
 - Distant Worlds 2 has no native Linux build; the game always runs under Proton.
@@ -90,7 +90,10 @@ then it is deleted. Phases, each runnable/testable on Linux:
 - Publish visibility: both publishers hardcode Public today. Add `Visibility` (Public/FriendsOnly/Private/Unlisted)
   to `ModPublishRequest`, default Private for new items, "unchanged" (skip `SetItemVisibility`) for updates, and a
   dropdown in the publish dialog that remembers the mod's last choice. Behavior change on Windows too.
+- Add a "Delete" option (with are you sure) for any local mods
+- Add a "Create" option to create a new local mod (takes a name & autosanitize for a folder name to place it in)
 
 ## Open questions
 - Full Avalonia port vs. option A as a stopgap first.
 - Loader manifest paths: confirm the in-game loader resolves `Z:\` paths under Proton.
+

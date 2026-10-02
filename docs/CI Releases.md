@@ -20,7 +20,7 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
 
 | Script | Purpose |
 |---|---|
-| [build.py](../scripts/build.py) / [run.py](../scripts/run.py) | Local: build (and run) the launcher for the current OS (Avalonia on Linux, WinForms on Windows). Applies `dotnet format`, runs the tests, builds; `--no-validate` skips the first two. Shared logic in `lib/launcher_build.py`. |
+| [build.py](../scripts/build.py) / [run.py](../scripts/run.py) | Local: build (and run) the launcher for the current OS (Avalonia). Applies `dotnet format`, runs the tests, builds; `--no-validate` skips the first two. Shared logic in `lib/launcher_build.py`. |
 | [validate.py](../scripts/validate.py) | The one validation suite; CI's entrypoint and `open-pr.py`'s pre-flight (`lib/dotnet_checks.py`). |
 | [new-branch.py](../scripts/new-branch.py) | Sync `main`, delete merged/gone local branches, create `<user>/vX.Y.Z` (waits for the release tag if `main`'s tip should have one). |
 | [open-pr.py](../scripts/open-pr.py) | Run the checks, commit, push, open the PR via `gh`, titled `Released as vX.Y.Z` with a commit-subject description. |
@@ -81,14 +81,14 @@ The Linux archive is the same idea as a folder (`DW2ModLauncher` executable, `Lo
 `libsteam_api.so` + `Steamworks.NET.dll`, `steam_appid.txt`, plus the self-contained runtime and Skia natives).
 
 The Loader DLL is added to the publish output by the `AddLoaderToPublish` target in
-[DW2ModLauncher.App.csproj](../src/DW2ModLauncher.App/DW2ModLauncher.App.csproj) and marked
+[DW2ModLauncher.Avalonia.csproj](../src/DW2ModLauncher.Avalonia/DW2ModLauncher.Avalonia.csproj) and marked
 `ExcludeFromSingleFile`; without it `dotnet publish` would bundle it into the exe or drop it.
 
-Trimming is not used: WinForms is not trim-compatible. Compression is the size lever.
+Trimming is not used (compiled bindings and the reflection-based mod loading make it risky). Compression is the size lever.
 
 ## Target frameworks
 
-Core, Avalonia and Tests target `net10.0`; the WinForms App targets `net10.0-windows`. The **Loader stays `net8.0`**: it is loaded into the
+Core, Avalonia and Tests target `net10.0`. The **Loader stays `net8.0`**: it is loaded into the
 game's own process, which runs on .NET 8, so it must not target a newer runtime. The launcher's runtime
 is independent of the game's because the launcher is a separate process.
 
