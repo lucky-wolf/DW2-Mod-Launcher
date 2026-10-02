@@ -10,7 +10,7 @@ using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
 using DW2ModLauncher.Core.Services.Publishing;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.App
 {
     public partial class MainForm
     {
@@ -23,8 +23,8 @@ namespace DW2ModLauncherBeta
         // One dialog that both edits the mod.json fields Steam Workshop publish itself reads
         // (title, description, preview image, version, bundles - see docs/workshop-publish.md) and
         // kicks off the actual publish, via Publish/Cancel buttons - not a separate "edit" step
-        // followed by a separate confirmation popup. Not a MOD's own settings.schema.json, which is
-        // a different, MOD-author-defined thing entirely (see MainForm.ModSettings).
+        // followed by a separate confirmation popup. Not a Mod's own settings.schema.json, which is
+        // a different, Mod-author-defined thing entirely (see MainForm.ModSettings).
         private void OpenPublishDialog(ModInfo mod)
         {
             if (mod == null) return;
@@ -182,7 +182,7 @@ namespace DW2ModLauncherBeta
                     !((modList.SelectedItems[0].Tag as ModInfo)?.IsWorkshop ?? true);
                 if (e.Error != null)
                 {
-                    Logger.LogException("Publish MOD to Workshop", e.Error);
+                    Logger.LogException("Publish Mod to Workshop", e.Error);
                     MessageBox.Show(T("PublishFailed", e.Error.Message), Text);
                     SetStatus(T("PublishFailedStatus"));
                     return;

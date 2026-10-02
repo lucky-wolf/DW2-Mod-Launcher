@@ -1,8 +1,10 @@
-namespace DW2ModLauncherBeta
+using DW2ModLauncher.Core.Services;
+
+namespace DW2ModLauncher.App
 {
     public partial class MainForm
     {
-        // Glyphs for the MOD State checkbox column - a UI affordance, not
+        // Glyphs for the Mod State checkbox column - a UI affordance, not
         // translatable content, so it's kept out of the language files.
         private const string CheckedGlyph = "☑";
         private const string UncheckedGlyph = "☐";

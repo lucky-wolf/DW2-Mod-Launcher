@@ -1,8 +1,8 @@
-# DW2 Mod Launcher BETA
+# DW2 Mod Launcher
 
-A community-oriented MOD launcher for **Distant Worlds 2**.
+A community-oriented Mod launcher for **Distant Worlds 2**.
 
-Steam Workshop MODs and MODs installed in the game folder can be managed from one launcher.
+Steam Workshop Mods and Mods installed in the game folder can be managed from one launcher.
 The project is developed as a hobby project, and contributions, improvements, forks, and continued development by the community are welcome.
 
 > This is an unofficial community project and is not affiliated with or endorsed by CodeForce, Slitherine, or Matrix Games.
@@ -12,32 +12,32 @@ The project is developed as a hobby project, and contributions, improvements, fo
 
 ### About
 
-**DW2 Mod Launcher BETA** is an unofficial MOD launcher for **Distant Worlds 2**.
+**DW2 Mod Launcher** is an unofficial Mod launcher for **Distant Worlds 2**.
 
-It provides a single interface for managing MODs installed through Steam Workshop and MODs installed in the game's local MOD folders.
+It provides a single interface for managing Mods installed through Steam Workshop and Mods installed in the game's local Mod folders.
 
 This is a hobby project. Community contributions, improvements, bug fixes, forks, alternate versions, and continued development are all welcome.
 
 ### Main Features
 
-- Scan and display MODs installed in the game MOD folder
-- Enable / disable MODs
-- Detect duplicate MOD installations
-- Check file conflicts between enabled MODs
-- Check Steam Workshop MOD update status
-- Display MOD information and descriptions
+- Scan and display Mods installed in the game Mod folder
+- Enable / disable Mods
+- Detect duplicate Mod installations
+- Check file conflicts between enabled Mods
+- Check Steam Workshop Mod update status
+- Display Mod information and descriptions
 - Detect and open included README/manual files
 - Detect included BAT/EXE tools
-- Open MOD folders directly
-- View and edit a MOD's settings through one schema-driven form from a MOD-provided `settings.schema.json`
-- Support per-MOD launch arguments
-- Load code MODs via a bundled loader DLL, so a MOD's settings can be handed to it directly
-- Publish a local MOD to the Steam Workshop (or push an update to one already published), and save the new item's Workshop ID into its `mod.json`
+- Open Mod folders directly
+- View and edit a Mod's settings through one schema-driven form from a Mod-provided `settings.schema.json`
+- Support per-Mod launch arguments, plus environment variables for the game (Windows), with a one-click import of your Steam launch options
+- Load code Mods via a bundled loader DLL, so a Mod's settings can be handed to it directly
+- Publish a local Mod to the Steam Workshop (or push an update to one already published), and save the new item's Workshop ID into its `mod.json`
 - Japanese / English UI switching
 
 ### Requirements
 
-- Windows
+- Windows, or Linux (the game runs under Proton; see [Linux](#linux))
 - Distant Worlds 2
 - Steam version recommended
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) for building (the only SDK you need)
@@ -48,7 +48,17 @@ currently requires .NET 8. The .NET 10 SDK fully supports targeting 8, so you do
 
 ### Building
 
-Download or clone the repository, then run:
+On any OS (needs Python 3 and the .NET 10 SDK), `scripts/build.py` builds the launcher for the OS you are on —
+the Avalonia launcher on Linux, the WinForms launcher on Windows — after fixing formatting and running the unit
+tests; `scripts/run.py` does the same and then starts it:
+
+```text
+python3 scripts/run.py                # build + run (python scripts\run.py on Windows)
+python3 scripts/run.py --no-validate  # skip the format fix and tests for a faster loop
+python3 scripts/build.py              # build only
+```
+
+On Windows you can also use the batch files. Download or clone the repository, then run:
 
 ```text
 build.cmd
@@ -64,7 +74,7 @@ Both scripts call `dotnet build` on [`DW2ModLauncher.sln`](DW2ModLauncher.sln). 
 `DW2ModLauncher.Core` (mod scanning, Steam/Workshop lookups, JSON helpers — no UI dependency),
 `DW2ModLauncher.App` (the WinForms launcher), and `DW2ModLauncher.Tests` (unit tests for the Core logic);
 see [AGENTS.md](AGENTS.md) for details. The built executable is
-`src\DW2ModLauncher.App\bin\Release\net10.0-windows\DW2ModLauncherBeta.exe`.
+`src\DW2ModLauncher.App\bin\Release\net10.0-windows\DW2ModLauncher.exe`.
 
 By default, `build.cmd` (and `run.cmd`, which calls it) also fixes code formatting and runs the unit test suite —
 the same checks that run in CI — before building. Pass `--no-validate` to skip both and just build, for a faster
@@ -85,7 +95,7 @@ On first launch, configure the paths as needed:
 
 - Distant Worlds 2 game folder
 - Steam Workshop folder for DW2
-- Local/managed MOD folder
+- Local/managed Mod folder
 
 `launcher_settings.example.json` is provided as an example configuration file.
 
@@ -102,6 +112,26 @@ Steam\steamapps\common\Distant Worlds 2
 ```
 
 The actual drive and Steam Library location may be different on your system.
+
+### Linux
+
+Distant Worlds 2 has no native Linux build, so on Linux the game runs under Steam's Proton as usual; the
+launcher itself is a native Linux app. Download the `linux-x64` `.tar.gz` from the releases page, extract it
+anywhere, and run `./DW2ModLauncher`. No .NET install is needed.
+
+- Steam must be installed and running. **Play** starts the game through Steam (`steam -applaunch 1531540`),
+  so Proton, the right prefix and your Steam launch settings all apply.
+- Steam, the game and the Workshop folder are found automatically in the usual places (`~/.steam/steam`,
+  `~/.local/share/Steam`, Flatpak and Snap installs, and your other Steam library folders). Use the Settings
+  tab if yours are elsewhere.
+- Publishing to the Steam Workshop talks to your running, logged-in Linux Steam client directly.
+- The launcher keeps its settings (`launcher_settings.json`), profiles and snapshots next to the executable.
+
+To build and run from source on Linux (needs only the .NET 10 SDK):
+
+```text
+dotnet run --project src/DW2ModLauncher.Avalonia
+```
 
 ### Contributing
 

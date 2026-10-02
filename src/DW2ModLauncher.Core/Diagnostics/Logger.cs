@@ -8,7 +8,7 @@ namespace DW2ModLauncher.Core.Diagnostics
     {
         public static string CrashLogPath
         {
-            get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DW2ModLauncher_BETA.log"); }
+            get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DW2ModLauncher.log"); }
         }
 
         public static void LogException(string context, Exception ex)

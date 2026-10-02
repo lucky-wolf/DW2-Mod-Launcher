@@ -12,7 +12,7 @@ using DW2ModLauncher.Core.Diagnostics;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.App
 {
     public partial class MainForm
     {
@@ -22,10 +22,7 @@ namespace DW2ModLauncherBeta
         {
             EnsureSettingsState();
             LoadModOrder();
-            Dictionary<string, ModInfo> workshopState = (currentWorkshopMods ?? new List<ModInfo>())
-                .Where(m => m != null && !string.IsNullOrWhiteSpace(m.Id))
-                .GroupBy(m => m.Id, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, ModInfo> workshopState = ModLibrary.IndexWorkshopById(currentWorkshopMods);
             SafeStage("Refresh path labels", delegate
             {
                 UpdatePathLabels();
@@ -33,19 +30,20 @@ namespace DW2ModLauncherBeta
                 if (workshopRootBox != null) workshopRootBox.Text = settings.WorkshopRoot ?? "";
                 if (managedRootBox != null) managedRootBox.Text = settings.ManagedModsRoot ?? "";
                 if (launchArgsBox != null) launchArgsBox.Text = settings.GlobalLaunchArguments ?? "";
+                if (launchEnvBox != null) launchEnvBox.Text = GameLauncher.FormatEnvironment(settings.LaunchEnvironment);
             });
 
             SafeStage("Scan Metapo mods", delegate { currentManagedMods = ScanMods(settings.ManagedModsRoot, false) ?? new List<ModInfo>(); });
             SafeStage("Scan Workshop mods", delegate { currentWorkshopMods = ScanMods(settings.WorkshopRoot, true) ?? new List<ModInfo>(); });
             if (currentManagedMods == null) currentManagedMods = new List<ModInfo>();
             if (currentWorkshopMods == null) currentWorkshopMods = new List<ModInfo>();
-            RestoreWorkshopRuntimeState(currentWorkshopMods, workshopState);
+            ModLibrary.RestoreWorkshopRuntimeState(currentWorkshopMods, workshopState);
             currentManagedMods = OrderModsForDisplay(currentManagedMods);
             currentWorkshopMods = OrderModsForDisplay(currentWorkshopMods);
             if (currentCollisions == null) currentCollisions = new Dictionary<string, List<ModInfo>>(StringComparer.OrdinalIgnoreCase);
 
             List<ModInfo> combinedMods = OrderModsForDisplay(currentManagedMods.Concat(currentWorkshopMods).ToList());
-            SafeStage("Populate MOD list", delegate { PopulateList(modList, modImages, combinedMods); });
+            SafeStage("Populate Mod list", delegate { PopulateList(modList, modImages, combinedMods); });
             SafeStage("Conflict analysis", delegate { AnalyzeConflicts(); });
             SafeStage("Duplicate analysis", delegate { AnalyzeDuplicates(); });
             SafeStage("Refresh status columns", delegate { RefreshModStatusColumns(); });
@@ -53,37 +51,7 @@ namespace DW2ModLauncherBeta
             SafeStage("Overall status", delegate { UpdateOverallStatus(); });
         }
 
-        private void RestoreWorkshopRuntimeState(List<ModInfo> scanned, Dictionary<string, ModInfo> previous)
-        {
-            if (scanned == null || previous == null || previous.Count == 0) return;
-            foreach (ModInfo mod in scanned)
-            {
-                ModInfo old;
-                if (mod == null || string.IsNullOrWhiteSpace(mod.Id) || !previous.TryGetValue(mod.Id, out old) || old == null) continue;
-                mod.UpdateState = old.UpdateState;
-                mod.LocalWorkshopTimeUpdated = old.LocalWorkshopTimeUpdated;
-                mod.RemoteWorkshopTimeUpdated = old.RemoteWorkshopTimeUpdated;
-                mod.WorkshopDescription = old.WorkshopDescription;
-                mod.WorkshopTitle = old.WorkshopTitle;
-                mod.WorkshopPreviewUrl = old.WorkshopPreviewUrl;
-                mod.WorkshopCreator = old.WorkshopCreator;
-                mod.WorkshopFileSize = old.WorkshopFileSize;
-                mod.WorkshopTimeCreated = old.WorkshopTimeCreated;
-                mod.WorkshopTags = old.WorkshopTags;
-                if (!string.IsNullOrWhiteSpace(old.WorkshopTitle)) mod.DisplayName = old.DisplayName;
-                if (!string.IsNullOrWhiteSpace(old.WorkshopDescription)) mod.Description = old.Description;
-            }
-        }
-
-        private List<ModInfo> OrderModsForDisplay(List<ModInfo> mods)
-        {
-            return (mods ?? new List<ModInfo>()).OrderBy(m =>
-            {
-                int index = currentModOrder == null ? -1 : currentModOrder.FindIndex(x => string.Equals(x, m.ActiveToken, StringComparison.OrdinalIgnoreCase));
-                return index < 0 ? int.MaxValue : index;
-            }).ThenBy(m => m.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
-        }
-
+        private List<ModInfo> OrderModsForDisplay(List<ModInfo> mods) { return ModLibrary.OrderForDisplay(mods, modOrder); }
 
         private void PopulateList(ListView list, ImageList images, List<ModInfo> mods)
         {
@@ -112,9 +80,9 @@ namespace DW2ModLauncherBeta
                     item.Tag = mod;
                     if (thumb != null) item.ImageKey = imageKey;
                     item.SubItems.Add(mod.SourceName ?? "");
-                    item.SubItems.Add(""); // MOD State - filled in by RefreshModStatusColumns
+                    item.SubItems.Add(""); // Mod State - filled in by RefreshModStatusColumns
                     item.SubItems.Add(""); // Health - filled in by RefreshModStatusColumns
-                    int orderIndex = currentModOrder == null ? -1 : currentModOrder.FindIndex(x => string.Equals(x, mod.ActiveToken, StringComparison.OrdinalIgnoreCase));
+                    int orderIndex = modOrder.IndexOf(mod.ActiveToken);
                     item.SubItems.Add(orderIndex < 0 ? "—" : (orderIndex + 1).ToString(CultureInfo.InvariantCulture));
                     item.UseItemStyleForSubItems = false;
                     Color rowBack = (list.Items.Count % 2 == 0) ? Dw2Deep : Dw2Panel;
@@ -268,29 +236,9 @@ namespace DW2ModLauncherBeta
             panel.Visible = true;
         }
 
-        private bool IsModSelected(ModInfo mod)
-        {
-            if (mod == null) return false;
-            if (modOrderFileFound && !string.IsNullOrWhiteSpace(mod.ActiveToken))
-                return currentModOrder.Any(x => x.Equals(mod.ActiveToken, StringComparison.OrdinalIgnoreCase));
-            bool selected;
-            if (settings.SelectedMods != null && settings.SelectedMods.TryGetValue(mod.Key, out selected)) return selected;
-            return false;
-        }
+        private bool IsModSelected(ModInfo mod) { return modOrder.IsSelected(mod, settings); }
 
-        // Red conflicts are based only on the authoritative enabled set.
-        // Installed but disabled Workshop/local copies must not participate.
-        private bool IsModEnabledForConflict(ModInfo mod)
-        {
-            if (mod == null || string.IsNullOrWhiteSpace(mod.ActiveToken)) return false;
-            if (modOrderFileFound)
-                return currentModOrder != null && currentModOrder.Any(x =>
-                    string.Equals(x, mod.ActiveToken, StringComparison.OrdinalIgnoreCase));
-
-            bool enabled;
-            return settings.SelectedMods != null &&
-                   settings.SelectedMods.TryGetValue(mod.Key, out enabled) && enabled;
-        }
+        private bool IsModEnabledForConflict(ModInfo mod) { return modOrder.IsEnabledForConflict(mod, settings); }
 
         private void ToggleModStateAtLocation(ListView list, Point location)
         {
@@ -335,7 +283,7 @@ namespace DW2ModLauncherBeta
         {
             if (list == null || list.SelectedItems.Count == 0)
             {
-                MessageBox.Show(T("SelectAMODFromTheList"), Text);
+                MessageBox.Show(T("SelectAModFromTheList"), Text);
                 return;
             }
             ModInfo mod = list.SelectedItems[0].Tag as ModInfo;

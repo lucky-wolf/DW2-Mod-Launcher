@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.Core.Services
 {
     // Language packs live as plain JSON files (key -> translated text) in the
     // Languages folder next to the executable. "en.json" is the canonical,
@@ -15,31 +15,31 @@ namespace DW2ModLauncherBeta
     // missing is exposed as the raw key name rather than silently
     // falling back to English, so incomplete translations are obvious
     // instead of invisible.
-    internal static class Localization
+    public static class Localization
     {
         private static readonly object Gate = new object();
         private static Dictionary<string, Dictionary<string, string>> languages;
         private static Dictionary<string, string> displayNames;
 
-        internal static string LanguagesDirectory
+        public static string LanguagesDirectory
         {
             get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Languages"); }
         }
 
-        internal static IEnumerable<string> AvailableLanguageCodes()
+        public static IEnumerable<string> AvailableLanguageCodes()
         {
             EnsureLoaded();
             return languages.Keys.OrderBy(code => code == "en" ? "" : code, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
-        internal static string DisplayNameFor(string code)
+        public static string DisplayNameFor(string code)
         {
             EnsureLoaded();
             string name;
             return displayNames.TryGetValue(code ?? "", out name) ? name : code;
         }
 
-        internal static string Get(string languageCode, string key)
+        public static string Get(string languageCode, string key)
         {
             EnsureLoaded();
             Dictionary<string, string> pack;

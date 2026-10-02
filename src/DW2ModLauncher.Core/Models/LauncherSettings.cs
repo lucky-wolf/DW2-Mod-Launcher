@@ -10,6 +10,8 @@ namespace DW2ModLauncher.Core.Models
         public string WorkshopRoot { get; set; }
         public string ManagedModsRoot { get; set; }
         public string GlobalLaunchArguments { get; set; }
+        /// <summary>Environment variables set on the game process (e.g. imported from Steam's launch options).</summary>
+        public Dictionary<string, string> LaunchEnvironment { get; set; }
         public string LastWorkshopUpdateCheckUtc { get; set; }
         public Dictionary<string, bool> SelectedMods { get; set; }
         public string ActiveProfile { get; set; }
@@ -21,6 +23,7 @@ namespace DW2ModLauncher.Core.Models
             WorkshopRoot = "";
             ManagedModsRoot = "";
             GlobalLaunchArguments = "";
+            LaunchEnvironment = new Dictionary<string, string>();
             LastWorkshopUpdateCheckUtc = "";
             SelectedMods = new Dictionary<string, bool>();
             ActiveProfile = "";

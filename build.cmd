@@ -24,7 +24,7 @@ if "%VALIDATE%"=="1" (
   )
 )
 
-echo Building DW2 Mod Launcher BETA...
+echo Building DW2 Mod Launcher...
 dotnet build DW2ModLauncher.sln -c Release
 if errorlevel 1 (
   echo.
@@ -45,5 +45,5 @@ if "%VALIDATE%"=="1" (
   )
 )
 
-echo [OK] Build complete: src\DW2ModLauncher.App\bin\Release\net10.0-windows\DW2ModLauncherBeta.exe
+echo [OK] Build complete: src\DW2ModLauncher.App\bin\Release\net10.0-windows\DW2ModLauncher.exe
 pause

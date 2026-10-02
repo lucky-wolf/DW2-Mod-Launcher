@@ -15,4 +15,19 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
+  <!-- MinVer appends "-alpha.0.N" to builds past the latest tag. Drop it so every build, dev or
+       release, shows plain MAJOR.MINOR.PATCH: for a dev build that is the version the next release
+       will carry (the tag release.py will create), on a tagged build it is the tag itself. Untagged
+       builds get "-dev" in the InformationalVersion only, so they stay distinguishable. -->
+  <Target Name="StampPlainSemver" AfterTargets="MinVer">
+    <PropertyGroup>
+      <Version>$(MinVerMajor).$(MinVerMinor).$(MinVerPatch)</Version>
+      <PackageVersion>$(Version)</PackageVersion>
+      <AssemblyVersion>$(Version).0</AssemblyVersion>
+      <FileVersion>$(Version).0</FileVersion>
+      <InformationalVersion Condition="'$(MinVerPreRelease)' == ''">$(Version)</InformationalVersion>
+      <InformationalVersion Condition="'$(MinVerPreRelease)' != ''">$(Version)-dev</InformationalVersion>
+    </PropertyGroup>
+  </Target>
+
 </Project>

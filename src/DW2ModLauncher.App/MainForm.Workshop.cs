@@ -11,14 +11,10 @@ using DW2ModLauncher.Core.Diagnostics;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.App
 {
     public partial class MainForm
     {
-        private string FindWorkshopManifestPath() { return AcfManifest.FindManifestPath(settings.WorkshopRoot, SteamLocator.AppId); }
-
-        private Dictionary<string, long> ParseAcfSectionTimes(string text, string sectionName) { return AcfManifest.ParseSectionTimes(text, sectionName); }
-
         private void BeginWorkshopUpdateCheck(bool force)
         {
             if (updateCheckRunning || currentWorkshopMods == null || currentWorkshopMods.Count == 0) return;
@@ -27,31 +23,10 @@ namespace DW2ModLauncherBeta
             if (workshopUpdateButton != null) workshopUpdateButton.Enabled = false;
             SetStatus(T("CheckingSteamWorkshopUpdates"));
 
-            string manifestPath = FindWorkshopManifestPath();
-            List<string> ids = currentWorkshopMods.Where(m => m != null).Select(m => m.Id).Where(id => !string.IsNullOrWhiteSpace(id) && Regex.IsMatch(id, "^\\d+$")).Distinct().ToList();
+            List<ModInfo> workshopSnapshot = currentWorkshopMods.ToList();
+            string workshopRoot = settings.WorkshopRoot;
             BackgroundWorker worker = new BackgroundWorker();
-            worker.DoWork += delegate (object sender, DoWorkEventArgs e)
-            {
-                WorkshopUpdateCheckResult r = new WorkshopUpdateCheckResult();
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(manifestPath) && File.Exists(manifestPath))
-                    {
-                        string acf = File.ReadAllText(manifestPath, Encoding.UTF8);
-                        r.InstalledTimes = ParseAcfSectionTimes(acf, "WorkshopItemsInstalled");
-                        r.DetailTimes = ParseAcfSectionTimes(acf, "WorkshopItemDetails");
-                    }
-                    try
-                    {
-                        Dictionary<string, WorkshopRemoteDetail> details;
-                        r.RemoteTimes = WorkshopApiClient.FetchRemoteTimes(ids, out details);
-                        r.Details = details;
-                    }
-                    catch (Exception ex) { r.Error = ex.Message; }
-                }
-                catch (Exception ex) { r.Error = ex.Message; }
-                e.Result = r;
-            };
+            worker.DoWork += delegate (object sender, DoWorkEventArgs e) { e.Result = WorkshopUpdateService.Check(workshopRoot, workshopSnapshot); };
             worker.RunWorkerCompleted += delegate (object sender, RunWorkerCompletedEventArgs e)
             {
                 updateCheckRunning = false;
@@ -83,43 +58,7 @@ namespace DW2ModLauncherBeta
         {
             if (r == null) return;
             if (currentWorkshopMods == null) currentWorkshopMods = new List<ModInfo>();
-            int updates = 0;
-            foreach (ModInfo mod in currentWorkshopMods)
-            {
-                if (mod == null) continue;
-                long installed = 0;
-                long detail = 0;
-                long remote = 0;
-                if (r.InstalledTimes != null) r.InstalledTimes.TryGetValue(mod.Id ?? "", out installed);
-                if (r.DetailTimes != null) r.DetailTimes.TryGetValue(mod.Id ?? "", out detail);
-                if (r.RemoteTimes != null) r.RemoteTimes.TryGetValue(mod.Id ?? "", out remote);
-                WorkshopRemoteDetail remoteDetail = null;
-                if (r.Details != null) r.Details.TryGetValue(mod.Id ?? "", out remoteDetail);
-                if (remoteDetail != null)
-                {
-                    mod.WorkshopTitle = remoteDetail.Title;
-                    mod.WorkshopDescription = remoteDetail.Description;
-                    mod.WorkshopPreviewUrl = remoteDetail.PreviewUrl;
-                    mod.WorkshopCreator = remoteDetail.Creator;
-                    mod.WorkshopFileSize = remoteDetail.FileSize;
-                    mod.WorkshopTimeCreated = remoteDetail.TimeCreated;
-                    mod.WorkshopTags = remoteDetail.Tags;
-                    if (!string.IsNullOrWhiteSpace(remoteDetail.Title)) mod.DisplayName = remoteDetail.Title;
-                    if (!string.IsNullOrWhiteSpace(remoteDetail.Description)) mod.Description = remoteDetail.Description;
-                }
-                mod.LocalWorkshopTimeUpdated = installed;
-                mod.RemoteWorkshopTimeUpdated = remote > 0 ? remote : detail;
-                long latest = Math.Max(detail, remote);
-                if (installed > 0 && latest > installed + 2)
-                {
-                    mod.UpdateState = "update";
-                    updates++;
-                }
-                else if (installed > 0 && latest > 0)
-                    mod.UpdateState = "current";
-                else
-                    mod.UpdateState = "unknown";
-            }
+            int updates = WorkshopUpdateService.Apply(r, currentWorkshopMods);
             settings.LastWorkshopUpdateCheckUtc = DateTime.UtcNow.ToString("o");
             SaveSettings();
             AnalyzeDuplicates();
@@ -153,27 +92,12 @@ namespace DW2ModLauncherBeta
             string root = Path.Combine(appRoot, "WorkshopBackups", DateTime.Now.ToString("yyyyMMdd_HHmmss"));
             try
             {
-                int count = 0;
-                foreach (ModInfo mod in mods ?? Enumerable.Empty<ModInfo>())
-                {
-                    if (mod == null || string.IsNullOrWhiteSpace(mod.Folder) || !Directory.Exists(mod.Folder)) continue;
-                    CopyDirectory(mod.Folder, Path.Combine(root, SafeFileName(mod.Id + "_v" + (mod.Version ?? "unknown"))));
-                    count++;
-                }
+                int count = WorkshopUpdateService.Backup(root, mods);
                 MessageBox.Show(T("WorkshopBackupsSaved") + count + "\r\n" + root, Text);
             }
             catch (Exception ex) { Logger.LogException("Workshop backup", ex); MessageBox.Show(ex.Message, Text); }
         }
 
-        private string UnixTimeText(long unix)
-        {
-            try
-            {
-                DateTime dt = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(unix).ToLocalTime();
-                return dt.ToString("yyyy/MM/dd HH:mm");
-            }
-            catch { return unix.ToString(); }
-        }
-
+        private string UnixTimeText(long unix) { return WorkshopUpdateService.UnixTimeText(unix); }
     }
 }

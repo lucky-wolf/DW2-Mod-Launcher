@@ -4,8 +4,9 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using DW2ModLauncher.Core.Models;
+using DW2ModLauncher.Core.Services;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.App
 {
     public partial class MainForm
     {
@@ -30,7 +31,7 @@ namespace DW2ModLauncherBeta
             shell.Controls.Add(top, 0, 0);
 
             Label title = new Label();
-            title.Text = "DW2 MOD LAUNCHER  BETA";
+            title.Text = "DW2 MOD LAUNCHER";
             title.Font = new Font("Segoe UI Semibold", 16F, FontStyle.Bold);
             title.ForeColor = Dw2Gold;
             title.AutoSize = true;
@@ -117,7 +118,7 @@ namespace DW2ModLauncherBeta
             settingsNavigationButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             top.Controls.Add(settingsNavigationButton);
 
-            modsNavigationButton = MakeButton(T("MODs"), 0, buttonTop, 110, 30);
+            modsNavigationButton = MakeButton(T("Mods"), 0, buttonTop, 110, 30);
             modsNavigationButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             top.Controls.Add(modsNavigationButton);
 
@@ -156,7 +157,7 @@ namespace DW2ModLauncherBeta
             tabs.ItemSize = new Size(1, 1);
             shell.Controls.Add(tabs, 0, 1);
 
-            modsTab = new TabPage(T("MODs"));
+            modsTab = new TabPage(T("Mods"));
             settingsTab = new TabPage(T("Settings"));
             foreach (TabPage t in new TabPage[] { modsTab, settingsTab })
             {
@@ -277,12 +278,12 @@ namespace DW2ModLauncherBeta
             // undersized relative to the (now DPI-correct) text they hold.
             float columnDpiScale = DeviceDpi / 96f;
             Func<int, int> col = w => (int)Math.Round(w * columnDpiScale);
-            list.Columns.Add(T("MODName"), col(320));
+            list.Columns.Add(T("ModName"), col(320));
             list.Columns.Add(T("Source"), col(160));
-            list.Columns.Add(T("MODState"), col(110));
+            list.Columns.Add(T("ModState"), col(110));
             list.Columns.Add(T("Health"), col(95));
             list.Columns.Add(T("LoadOrder"), col(100));
-            // MOD Name absorbs whatever width the other (fixed) columns don't use,
+            // Mod Name absorbs whatever width the other (fixed) columns don't use,
             // so the header row's background always reaches the right edge instead
             // of leaving a plain white gap after the last column.
             list.Resize += delegate { FitModListColumns(list); };
@@ -337,7 +338,7 @@ namespace DW2ModLauncherBeta
             leftTop.Height = 44;
             leftTop.BackColor = Dw2Panel;
 
-            selectedFolderButton = MakeButton(T("SelectedMODFolder"), 8, 7, 150, 30);
+            selectedFolderButton = MakeButton(T("SelectedModFolder"), 8, 7, 150, 30);
             selectedFolderButton.Enabled = false;
             selectedFolderButton.Click += delegate { OpenSelectedModFolder(list); };
             leftTop.Controls.Add(selectedFolderButton);
@@ -484,7 +485,7 @@ namespace DW2ModLauncherBeta
 
             AddPathRow(p, "DW2 Game Root", 74, out gameRootBox, delegate { BrowseFolderInto(gameRootBox); });
             AddPathRow(p, "Workshop Root", 132, out workshopRootBox, delegate { BrowseFolderInto(workshopRootBox); });
-            AddPathRow(p, "DW2 MOD Root", 190, out managedRootBox, delegate { BrowseFolderInto(managedRootBox); });
+            AddPathRow(p, "DW2 Mod Root", 190, out managedRootBox, delegate { BrowseFolderInto(managedRootBox); });
 
             Label argLabel = new Label();
             argLabel.Name = "LaunchArgumentsLabel";
@@ -494,22 +495,49 @@ namespace DW2ModLauncherBeta
             p.Controls.Add(argLabel);
             launchArgsBox = new TextBox();
             launchArgsBox.Location = new Point(28, 284);
-            launchArgsBox.Size = new Size(870, 25);
+            launchArgsBox.Size = new Size(520, 25);
             launchArgsBox.BackColor = Dw2Void;
             launchArgsBox.ForeColor = Dw2Text;
             launchArgsBox.BorderStyle = BorderStyle.FixedSingle;
             launchArgsBox.TextChanged += delegate { UpdateCommandPreview(); };
             p.Controls.Add(launchArgsBox);
+            importSteamButton = MakeButton(T("ImportFromSteam"), 558, 281, 170, 30);
+            importSteamButton.Click += delegate { ImportSteamLaunchOptions(); };
+            p.Controls.Add(importSteamButton);
+            resetLaunchButton = MakeButton(T("ResetLaunchOptions"), 738, 281, 160, 30);
+            resetLaunchButton.Click += delegate
+            {
+                if (launchArgsBox != null) launchArgsBox.Text = "";
+                if (launchEnvBox != null) launchEnvBox.Text = "";
+            };
+            p.Controls.Add(resetLaunchButton);
+
+            Label envLabel = new Label();
+            envLabel.Name = "EnvironmentLabel";
+            envLabel.Text = T("EnvironmentVariables");
+            envLabel.Location = new Point(28, 318);
+            envLabel.AutoSize = true;
+            p.Controls.Add(envLabel);
+            launchEnvBox = new TextBox();
+            launchEnvBox.Location = new Point(28, 340);
+            launchEnvBox.Size = new Size(870, 50);
+            launchEnvBox.Multiline = true;
+            launchEnvBox.AcceptsReturn = true;
+            launchEnvBox.ScrollBars = ScrollBars.Vertical;
+            launchEnvBox.BackColor = Dw2Void;
+            launchEnvBox.ForeColor = Dw2Text;
+            launchEnvBox.BorderStyle = BorderStyle.FixedSingle;
+            p.Controls.Add(launchEnvBox);
 
             Label cmdLabel = new Label();
             cmdLabel.Name = "CommandPreviewLabel";
             cmdLabel.Text = T("EffectiveLaunchCommand");
-            cmdLabel.Location = new Point(28, 330);
+            cmdLabel.Location = new Point(28, 398);
             cmdLabel.AutoSize = true;
             p.Controls.Add(cmdLabel);
             commandPreviewBox = new TextBox();
-            commandPreviewBox.Location = new Point(28, 354);
-            commandPreviewBox.Size = new Size(870, 82);
+            commandPreviewBox.Location = new Point(28, 420);
+            commandPreviewBox.Size = new Size(870, 40);
             commandPreviewBox.Multiline = true;
             commandPreviewBox.ReadOnly = true;
             commandPreviewBox.BackColor = Dw2Void;
@@ -521,7 +549,7 @@ namespace DW2ModLauncherBeta
             saveSettingsButton = MakeButton(T("SaveSettings"), 172, 468, 130, 34);
             gameOpenButton = MakeButton(T("GameFolder"), 316, 468, 150, 34);
             workshopRootButton = MakeButton(T("WorkshopRoot"), 480, 468, 150, 34);
-            modRootButton = MakeButton(T("MODRoot"), 644, 468, 150, 34);
+            modRootButton = MakeButton(T("ModRoot"), 644, 468, 150, 34);
             detectButton.Click += delegate { DetectPaths(true); RefreshAll(); };
             saveSettingsButton.Click += delegate { SaveSettingsFromUi(); RefreshAll(); };
             gameOpenButton.Click += delegate { OpenFolder(settings.GameRoot); };
@@ -535,7 +563,7 @@ namespace DW2ModLauncherBeta
 
             Label profileLabel = new Label();
             profileLabel.Name = "ProfileLabel";
-            profileLabel.Text = T("MODProfiles");
+            profileLabel.Text = T("ModProfiles");
             profileLabel.Location = new Point(28, 522);
             profileLabel.AutoSize = true;
             profileLabel.ForeColor = Dw2Gold;
@@ -568,14 +596,6 @@ namespace DW2ModLauncherBeta
             p.Controls.Add(snapshot);
             p.Controls.Add(restoreSnapshot);
             RefreshProfileCombo();
-
-            Label beta = new Label();
-            beta.Name = "BetaNote";
-            beta.Location = new Point(28, 610);
-            beta.Size = new Size(900, 80);
-            beta.ForeColor = Dw2Muted;
-            beta.Text = T("BetaReleaseNote");
-            p.Controls.Add(beta);
         }
 
         private void AddPathRow(Control parent, string labelText, int y, out TextBox box, EventHandler browse)
@@ -639,32 +659,36 @@ namespace DW2ModLauncherBeta
         private void ApplyLanguage()
         {
             if (modsTab == null) return;
-            modsTab.Text = T("MODs");
+            modsTab.Text = T("Mods");
             settingsTab.Text = T("Settings");
             refreshButton.Text = T("Refresh");
             playButton.Text = T("PlayButton");
-            if (modsNavigationButton != null) modsNavigationButton.Text = T("MODs");
+            if (modsNavigationButton != null) modsNavigationButton.Text = T("Mods");
             if (settingsNavigationButton != null) settingsNavigationButton.Text = T("Settings");
             RefreshNavigationButtons();
-            if (modRootButton != null) modRootButton.Text = T("MODRoot");
+            if (modRootButton != null) modRootButton.Text = T("ModRoot");
             if (workshopRootButton != null) workshopRootButton.Text = T("WorkshopRoot");
-            if (selectedFolderButton != null) selectedFolderButton.Text = T("SelectedMODFolder");
+            if (selectedFolderButton != null) selectedFolderButton.Text = T("SelectedModFolder");
             if (modSettingsButton != null) modSettingsButton.Text = T("ModSettings");
             if (workshopUpdateButton != null) workshopUpdateButton.Text = T("CheckUpdates");
             if (publishButton != null) publishButton.Text = T("PublishToWorkshop");
             Control modDocumentsButton = FindControlRecursive(this, "ModDocumentsButton");
             if (modDocumentsButton != null) modDocumentsButton.Text = T("OpenDocs");
             if (detectButton != null) detectButton.Text = T("AutoDetect");
+            if (importSteamButton != null) importSteamButton.Text = T("ImportFromSteam");
+            if (resetLaunchButton != null) resetLaunchButton.Text = T("ResetLaunchOptions");
             if (saveSettingsButton != null) saveSettingsButton.Text = T("SaveSettings");
             if (gameOpenButton != null) gameOpenButton.Text = T("GameFolder");
             Control settingsHeader = FindControlRecursive(this, "SettingsHeader");
             if (settingsHeader != null) settingsHeader.Text = T("PathsAndLaunchSettings");
             Control launchArgumentsLabel = FindControlRecursive(this, "LaunchArgumentsLabel");
             if (launchArgumentsLabel != null) launchArgumentsLabel.Text = T("AdditionalLaunchArguments");
+            Control environmentLabel = FindControlRecursive(this, "EnvironmentLabel");
+            if (environmentLabel != null) environmentLabel.Text = T("EnvironmentVariables");
             Control commandPreviewLabel = FindControlRecursive(this, "CommandPreviewLabel");
             if (commandPreviewLabel != null) commandPreviewLabel.Text = T("EffectiveLaunchCommand");
             Control profileLabel = FindControlRecursive(this, "ProfileLabel");
-            if (profileLabel != null) profileLabel.Text = T("MODProfiles");
+            if (profileLabel != null) profileLabel.Text = T("ModProfiles");
             Control saveProfileButton = FindControlRecursive(this, "SaveProfileButton");
             if (saveProfileButton != null) saveProfileButton.Text = T("SaveCurrent");
             Control applyProfileButton = FindControlRecursive(this, "ApplyProfileButton");
@@ -679,22 +703,19 @@ namespace DW2ModLauncherBeta
             if (modListHint != null) modListHint.Text = T("DragRowsToChangeLoadOrder");
 
             if (currentManagedMods != null)
-                foreach (ModInfo mod in currentManagedMods) if (mod != null) mod.SourceName = T("GameMODFolder");
+                foreach (ModInfo mod in currentManagedMods) if (mod != null) mod.SourceName = T("GameModFolder");
             if (currentWorkshopMods != null)
                 foreach (ModInfo mod in currentWorkshopMods) if (mod != null) mod.SourceName = "Steam Workshop";
             if (modList != null && modList.Columns.Count > ColumnLoadOrder)
             {
-                modList.Columns[0].Text = T("MODName");
+                modList.Columns[0].Text = T("ModName");
                 modList.Columns[1].Text = T("Source");
-                modList.Columns[ColumnModState].Text = T("MODState");
+                modList.Columns[ColumnModState].Text = T("ModState");
                 modList.Columns[ColumnHealth].Text = T("Health");
                 modList.Columns[ColumnLoadOrder].Text = T("LoadOrder");
             }
 
             RefreshListSourceText(modList);
-
-            Control beta = FindControlRecursive(this, "BetaNote");
-            if (beta != null) beta.Text = T("BetaReleaseNote");
         }
 
         private void RefreshListSourceText(ListView list)

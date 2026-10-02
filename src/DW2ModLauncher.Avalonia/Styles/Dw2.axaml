@@ -1,0 +1,57 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- DW2 palette (ported from the WinForms launcher's Dw2* colors). -->
+  <Color x:Key="Dw2VoidColor">#070D15</Color>
+  <Color x:Key="Dw2DeepColor">#0B141F</Color>
+  <Color x:Key="Dw2PanelColor">#111F2E</Color>
+  <Color x:Key="Dw2PanelAltColor">#152739</Color>
+  <Color x:Key="Dw2SteelColor">#2C445B</Color>
+  <Color x:Key="Dw2BlueColor">#3E7EAE</Color>
+  <Color x:Key="Dw2BlueGlowColor">#66B9E8</Color>
+  <Color x:Key="Dw2GoldColor">#CDB169</Color>
+  <Color x:Key="Dw2TextColor">#DCE8F1</Color>
+  <Color x:Key="Dw2MutedColor">#8BA0B1</Color>
+  <Color x:Key="Dw2GreenColor">#6BD797</Color>
+  <Color x:Key="Dw2RedColor">#EB6767</Color>
+
+  <SolidColorBrush x:Key="Dw2Void" Color="{StaticResource Dw2VoidColor}" />
+  <SolidColorBrush x:Key="Dw2Deep" Color="{StaticResource Dw2DeepColor}" />
+  <SolidColorBrush x:Key="Dw2Panel" Color="{StaticResource Dw2PanelColor}" />
+  <SolidColorBrush x:Key="Dw2PanelAlt" Color="{StaticResource Dw2PanelAltColor}" />
+  <SolidColorBrush x:Key="Dw2Steel" Color="{StaticResource Dw2SteelColor}" />
+  <SolidColorBrush x:Key="Dw2Blue" Color="{StaticResource Dw2BlueColor}" />
+  <SolidColorBrush x:Key="Dw2BlueGlow" Color="{StaticResource Dw2BlueGlowColor}" />
+  <SolidColorBrush x:Key="Dw2Gold" Color="{StaticResource Dw2GoldColor}" />
+  <SolidColorBrush x:Key="Dw2Text" Color="{StaticResource Dw2TextColor}" />
+  <SolidColorBrush x:Key="Dw2Muted" Color="{StaticResource Dw2MutedColor}" />
+  <SolidColorBrush x:Key="Dw2Green" Color="{StaticResource Dw2GreenColor}" />
+  <SolidColorBrush x:Key="Dw2Red" Color="{StaticResource Dw2RedColor}" />
+
+  <!-- Overrides of the Fluent theme's own resource keys, so its templates pick up the palette. -->
+  <SolidColorBrush x:Key="ButtonBackground" Color="{StaticResource Dw2SteelColor}" />
+  <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{StaticResource Dw2BlueColor}" />
+  <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{StaticResource Dw2BlueColor}" />
+  <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="{StaticResource Dw2PanelAltColor}" />
+  <SolidColorBrush x:Key="ButtonForeground" Color="{StaticResource Dw2TextColor}" />
+  <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{StaticResource Dw2TextColor}" />
+  <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{StaticResource Dw2TextColor}" />
+  <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="{StaticResource Dw2MutedColor}" />
+  <SolidColorBrush x:Key="ButtonBorderBrush" Color="{StaticResource Dw2BlueColor}" />
+  <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{StaticResource Dw2BlueGlowColor}" />
+  <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{StaticResource Dw2BlueGlowColor}" />
+
+  <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource Dw2VoidColor}" />
+  <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource Dw2VoidColor}" />
+  <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource Dw2VoidColor}" />
+  <SolidColorBrush x:Key="TextControlForeground" Color="{StaticResource Dw2TextColor}" />
+  <SolidColorBrush x:Key="TextControlBorderBrush" Color="{StaticResource Dw2SteelColor}" />
+  <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="{StaticResource Dw2BlueColor}" />
+  <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="{StaticResource Dw2BlueGlowColor}" />
+
+  <SolidColorBrush x:Key="ComboBoxBackground" Color="{StaticResource Dw2VoidColor}" />
+  <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="{StaticResource Dw2VoidColor}" />
+  <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="{StaticResource Dw2VoidColor}" />
+  <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="{StaticResource Dw2SteelColor}" />
+  <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="{StaticResource Dw2BlueColor}" />
+  <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="{StaticResource Dw2PanelColor}" />
+</ResourceDictionary>

@@ -36,7 +36,7 @@ namespace DW2ModLauncher.Core.Services
                 req.ContentLength = body.Length;
                 req.Timeout = 8000;
                 req.ReadWriteTimeout = 8000;
-                req.UserAgent = "DW2ModLauncherBeta/0.4.0";
+                req.UserAgent = "DW2ModLauncher/" + AppVersion.Current;
                 using (Stream stream = req.GetRequestStream()) stream.Write(body, 0, body.Length);
                 string responseText;
                 using (HttpWebResponse response = (HttpWebResponse)req.GetResponse())

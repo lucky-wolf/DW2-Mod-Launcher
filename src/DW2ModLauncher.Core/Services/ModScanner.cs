@@ -10,7 +10,7 @@ using DW2ModLauncher.Core.Models;
 namespace DW2ModLauncher.Core.Services
 {
     /// <summary>
-    /// Scans a MOD folder (managed or Workshop) and reads each MOD's mod.json into a ModInfo.
+    /// Scans a Mod folder (managed or Workshop) and reads each Mod's mod.json into a ModInfo.
     /// </summary>
     public static class ModScanner
     {
@@ -32,7 +32,7 @@ namespace DW2ModLauncher.Core.Services
                     ModInfo mod = ReadModInfo(dir, modJson, workshop, t);
                     result.Add(mod);
                 }
-                catch (Exception ex) { Logger.LogException("Read MOD: " + dir, ex); }
+                catch (Exception ex) { Logger.LogException("Read Mod: " + dir, ex); }
             }
             return result.OrderBy(m => m.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
         }
@@ -78,7 +78,7 @@ namespace DW2ModLauncher.Core.Services
             m.Version = "";
             m.Folder = dir;
             m.IsWorkshop = workshop;
-            m.SourceName = workshop ? "Steam Workshop" : t("GameMODFolder");
+            m.SourceName = workshop ? "Steam Workshop" : t("GameModFolder");
             m.ActiveToken = workshop ? "steam/" + m.Id : "mods/" + Path.GetFileName(dir);
             m.ContentRoot = dir;
             m.UpdateState = workshop ? "unknown" : "na";

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace DW2ModLauncher.Core.Models
 {
@@ -13,7 +14,11 @@ namespace DW2ModLauncher.Core.Models
 
     public class LoaderManifestEntry
     {
+        /// <summary>The path as the game process sees it (Z:\... under Proton); this is what the loader reads.</summary>
         public string DllPath { get; set; }
+        /// <summary>The same file as the launcher itself sees it; not written to the manifest.</summary>
+        [JsonIgnore]
+        public string HostDllPath { get; set; }
         public string EntryType { get; set; }
         public string SettingsJson { get; set; }
         public string DisplayName { get; set; }
