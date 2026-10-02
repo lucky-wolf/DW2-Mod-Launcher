@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
+             x:Class="DW2ModLauncher.Avalonia.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="26" Spacing="14" MaxWidth="1100" HorizontalAlignment="Left">
+      <TextBlock Classes="heading" Text="{Binding L[PathsAndLaunchSettings]}" />
+
+      <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="DW2 Game Root" />
+        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GameRoot}" />
+        <Button Grid.Row="0" Grid.Column="2" Content="…" Command="{Binding BrowseGameCommand}" MinWidth="50" />
+        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Workshop Root" />
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WorkshopRoot}" />
+        <Button Grid.Row="1" Grid.Column="2" Content="…" Command="{Binding BrowseWorkshopCommand}" MinWidth="50" />
+        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="DW2 Mod Root" />
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ManagedRoot}" />
+        <Button Grid.Row="2" Grid.Column="2" Content="…" Command="{Binding BrowseManagedCommand}" MinWidth="50" />
+      </Grid>
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="{Binding L[AdditionalLaunchArguments]}" />
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+          <TextBox Grid.Column="0" Text="{Binding LaunchArguments}" />
+          <Button Grid.Column="1" Content="{Binding L[ImportFromSteam]}" Command="{Binding ImportSteamLaunchOptionsCommand}" MinWidth="160" />
+          <Button Grid.Column="2" Content="{Binding L[ResetLaunchOptions]}" Command="{Binding ResetLaunchOptionsCommand}" MinWidth="100" />
+        </Grid>
+      </StackPanel>
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="{Binding L[EnvironmentVariables]}" />
+        <TextBox Text="{Binding LaunchEnvironment}" AcceptsReturn="True" MinHeight="70" IsEnabled="{Binding EnvironmentApplies}" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding EnvironmentIgnored}" Text="{Binding L[EnvironmentSteamNote]}" />
+      </StackPanel>
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="{Binding L[EffectiveLaunchCommand]}" />
+        <TextBox Text="{Binding CommandPreview, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                 MinHeight="70" Foreground="{StaticResource Dw2BlueGlow}" />
+      </StackPanel>
+
+      <WrapPanel Orientation="Horizontal">
+        <Button Content="{Binding L[AutoDetect]}" Command="{Binding AutoDetectCommand}" Margin="0,0,12,12" MinWidth="130" />
+        <Button Content="{Binding L[SaveSettings]}" Command="{Binding SaveCommand}" Margin="0,0,12,12" MinWidth="130" />
+        <Button Content="{Binding L[GameFolder]}" Command="{Binding OpenGameCommand}" Margin="0,0,12,12" MinWidth="150" />
+        <Button Content="{Binding L[WorkshopRoot]}" Command="{Binding OpenWorkshopCommand}" Margin="0,0,12,12" MinWidth="150" />
+        <Button Content="{Binding L[ModRoot]}" Command="{Binding OpenManagedCommand}" Margin="0,0,12,12" MinWidth="150" />
+      </WrapPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Classes="subheading" Text="{Binding L[ModProfiles]}" />
+        <WrapPanel Orientation="Horizontal">
+          <ComboBox ItemsSource="{Binding ProfileNames}" Text="{Binding ProfileName}" IsEditable="True" Width="250" Margin="0,0,12,12" />
+          <Button Content="{Binding L[SaveCurrent]}" Command="{Binding SaveProfileCommand}" Margin="0,0,12,12" MinWidth="145" />
+          <Button Content="{Binding L[ApplyProfile]}" Command="{Binding ApplyProfileCommand}" Margin="0,0,12,12" MinWidth="120" />
+          <Button Content="{Binding L[Delete]}" Command="{Binding DeleteProfileCommand}" Margin="0,0,12,12" MinWidth="80" />
+          <Button Content="{Binding L[Snapshot]}" Command="{Binding SnapshotCommand}" Margin="0,0,12,12" MinWidth="145" />
+          <Button Content="{Binding L[RestoreLatest]}" Command="{Binding RestoreSnapshotCommand}" Margin="0,0,12,12" MinWidth="115" />
+        </WrapPanel>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -13,7 +13,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
     /// Reads/writes just the mod.json fields Steam Workshop publish itself cares about
     /// (displayName, description, previewImage, version, bundles - see
     /// docs/workshop-publish.md), preserving every other field already in the file (workshopId,
-    /// launcher.*, a MOD's own custom fields such as GalCivMusic's "disableDefaultMusic", etc.)
+    /// launcher.*, a Mod's own custom fields such as GalCivMusic's "disableDefaultMusic", etc.)
     /// exactly like ModJsonWorkshopIdWriter does for just the one field it owns.
     /// </summary>
     public static class ModPublishMetadataEditor

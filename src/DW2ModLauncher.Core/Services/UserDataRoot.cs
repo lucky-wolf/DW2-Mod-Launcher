@@ -13,7 +13,10 @@ namespace DW2ModLauncher.Core.Services
     {
         public static string Get()
         {
-            string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DW2ModLauncher");
+            // SpecialFolderOption.Create: on Unix the default returns "" when ~/.config (or $XDG_CONFIG_HOME) doesn't
+            // exist yet, which would turn this into a relative path in the working directory.
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create);
+            string root = Path.Combine(appData, "DW2ModLauncher");
             Directory.CreateDirectory(root);
             return root;
         }

@@ -34,7 +34,45 @@ Status: in progress (steps 1-2 done, see Progress). Release pipeline is done (se
   `PlatformShell` (xdg-open), `GameLauncher` (`steam -applaunch`) added.
 - Step 2 DONE (verified 2026-10-02): `SteamworksNetModPublisher` created and updated a real Workshop item
   from Linux against the native Steam client. Windows still uses the Facepunch publisher (`ModPublisherFactory`).
-- Step 3 (Avalonia UI) and step 4 (CI job) not started.
+- Step 3 phase A DONE. Non-UI logic now lives in Core (tested): settings/profiles/snapshots/path detection
+  (`LauncherSettingsStore`, `ProfileStore`, `SnapshotStore`, `PathDetector`, `FileNames`); mod order and
+  conflicts (`ModOrderState`/`ModOrderStore`, `ConflictAnalyzer`, `LaunchDiagnostics`, `ModHealth`, `GameProcess`);
+  Workshop updates and enabling (`WorkshopUpdateService`, `ModLibrary`); launch (`GameLauncher`).
+  The WinForms `MainForm.*` partials are now thin glue over these. The WinForms app was not run after the refactor
+  (Linux-only session) - it is being replaced, so that is accepted.
+  Linux fixes made on the way: conflict file hashing was case-sensitive-broken (lowercased paths), game-process
+  detection now matches Wine's truncated name, diagnostics check the host path of injected DLLs (not `Z:\`).
+- Step 3 phase B DONE (2026-10-02): `src/DW2ModLauncher.Avalonia` (Avalonia 12.1.3, MVVM-lite, runs on Linux):
+  DW2 theme, header/nav/status bar, language switcher (bindings via `L[Key]`), read-only mod list, full Settings
+  tab (paths, launch args, profiles, snapshots), Play (diagnostics + conflict prompts, `steam -applaunch` on
+  Linux). Run: `dotnet run --project src/DW2ModLauncher.Avalonia`.
+- Step 3 phase C DONE (2026-10-02): Mods tab - sortable list with thumbnails, enable toggle, health colours, drag-reorder
+  (writes `mods.json`), details panel with problems callout, open folder/docs, Workshop update check (also on startup).
+- Step 3 phase D DONE (2026-10-02): mod settings editor (all field kinds), publish dialog with a Visibility dropdown
+  (Private by default for new items, "Unchanged" for updates), success dialog.
+  Verified end-to-end on Linux in a sandbox (fake game folder, own config dir): toggle, drag-reorder, sort,
+  settings save, and a real private Workshop publish through the dialog (item deleted afterwards).
+- Step 3 phase E (Linux part) DONE: native libs + Loader copied into the Avalonia output; self-contained
+  `linux-x64` publish works and starts; CI runs on ubuntu too; `release.yml` has a `release-linux` job (tar.gz).
+- Step 4 DONE in the workflows (untested until the first run on GitHub).
+
+## Step 3 breakdown (Avalonia)
+Findings from reading `MainForm.*.cs`: logic, state and widgets are entangled (scan/order/conflict/profile/
+workshop code reads and writes `ListView`/`TextBox` directly), the mod list is owner-drawn, dialogs are built in
+code with pixel coordinates, and there is a manual DPI-scaling pass (Avalonia does this natively). So this is a
+rewrite of the view layer plus extracting the logic, not a control-for-control translation. Dialog count is small
+(mod settings editor, publish + success, a few message boxes); `BackgroundWorker` is used twice.
+
+Approach: new `DW2ModLauncher.Avalonia` project beside the WinForms App; WinForms stays shippable until parity,
+then it is deleted. Phases, each runnable/testable on Linux:
+- A. Extract non-UI logic from `MainForm` into Core (settings load/save, profiles + snapshots, mod order
+  read/write, conflict analysis + launch diagnostics, workshop update check, mod scan/refresh, selection state),
+  behavior-preserving, unit tested. WinForms calls the extracted code. Windows regression risk: verify on Windows
+  before merging.
+- B. Avalonia shell: theme (DW2 palette), header, nav, status bar, language switcher, Settings tab.
+- C. Mods tab: DataGrid (sort, enable toggle, health, load order), details panel, drag-reorder.
+- D. Dialogs: mod settings editor, publish (+ native folder/file pickers), conflict/diagnostic prompts.
+- E. Launch + packaging, then remove WinForms and add the CI `linux-x64` job (step 4).
 
 ## Steam library findings
 - Facepunch.Steamworks 2.3.3 is Windows-only (`Facepunch.Steamworks.Win64.dll`).
@@ -45,6 +83,11 @@ Status: in progress (steps 1-2 done, see Progress). Release pipeline is done (se
 - `steam_appid.txt` next to the binary is required; the `SteamAppId` env var alone is not enough.
 - Still to do: Windows config of the wrapper + `steam_api64.dll` from the same revision, then drop Facepunch
   and the extern alias in `DW2ModLauncher.Core.csproj`.
+
+## Follow-ups
+- Publish visibility: both publishers hardcode Public today. Add `Visibility` (Public/FriendsOnly/Private/Unlisted)
+  to `ModPublishRequest`, default Private for new items, "unchanged" (skip `SetItemVisibility`) for updates, and a
+  dropdown in the publish dialog that remembers the mod's last choice. Behavior change on Windows too.
 
 ## Open questions
 - Full Avalonia port vs. option A as a stopgap first.

@@ -2,45 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.Json;
 using System.Windows.Forms;
 using DW2ModLauncher.Core.Diagnostics;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.App
 {
     public partial class MainForm
     {
-        private LauncherSettings LoadSettings()
-        {
-            try
-            {
-                if (File.Exists(settingsPath))
-                {
-                    LauncherSettings s = JsonSerializer.Deserialize<LauncherSettings>(File.ReadAllText(settingsPath, Encoding.UTF8));
-                    if (s != null)
-                    {
-                        if (s.SelectedMods == null) s.SelectedMods = new Dictionary<string, bool>();
-                        return s;
-                    }
-                }
-            }
-            catch { }
-            return new LauncherSettings();
-        }
+        private LauncherSettings LoadSettings() { return settingsStore.Load(); }
 
         private void SaveSettings()
         {
-            try
-            {
-                File.WriteAllText(settingsPath, JsonSerializer.Serialize(settings), new UTF8Encoding(true));
-            }
-            catch (Exception ex)
-            {
-                SetStatus("Settings save error: " + ex.Message);
-            }
+            try { settingsStore.Save(settings); }
+            catch (Exception ex) { SetStatus("Settings save error: " + ex.Message); }
         }
 
         private void SaveSettingsFromUi()
@@ -49,50 +25,30 @@ namespace DW2ModLauncherBeta
             string game = gameRootBox == null ? settings.GameRoot : (gameRootBox.Text ?? "").Trim();
             string workshop = workshopRootBox == null ? settings.WorkshopRoot : (workshopRootBox.Text ?? "").Trim();
             string managed = managedRootBox == null ? settings.ManagedModsRoot : (managedRootBox.Text ?? "").Trim();
-            if (!string.IsNullOrWhiteSpace(game) && !IsGameRoot(game))
+            switch (LauncherSettingsStore.Validate(game, workshop, managed))
             {
-                MessageBox.Show(T("SelectGameFolderHint"), Text);
-                return;
-            }
-            if (!string.IsNullOrWhiteSpace(workshop) && !Directory.Exists(workshop))
-            {
-                MessageBox.Show(T("WorkshopFolderMissing"), Text);
-                return;
-            }
-            if (!string.IsNullOrWhiteSpace(managed) && !Directory.Exists(managed))
-            {
-                MessageBox.Show(T("TheDW2MODFolderDoesNotExist"), Text);
-                return;
+                case SettingsProblem.GameFolderInvalid: MessageBox.Show(T("SelectGameFolderHint"), Text); return;
+                case SettingsProblem.WorkshopFolderMissing: MessageBox.Show(T("WorkshopFolderMissing"), Text); return;
+                case SettingsProblem.ManagedFolderMissing: MessageBox.Show(T("TheDW2ModFolderDoesNotExist"), Text); return;
             }
             settings.GameRoot = game;
             settings.WorkshopRoot = workshop;
             settings.ManagedModsRoot = managed;
             if (launchArgsBox != null) settings.GlobalLaunchArguments = (launchArgsBox.Text ?? "").Trim();
+            if (launchEnvBox != null) settings.LaunchEnvironment = GameLauncher.ParseEnvironment(launchEnvBox.Text);
             SaveSettings();
             UpdatePathLabels();
             UpdateCommandPreview();
         }
 
-        private string ProfilesRoot() { return Path.Combine(appRoot, "Profiles"); }
-        private string SafeFileName(string value)
-        {
-            string result = value ?? "Profile";
-            foreach (char c in Path.GetInvalidFileNameChars()) result = result.Replace(c, '_');
-            return string.IsNullOrWhiteSpace(result) ? "Profile" : result.Trim();
-        }
+        private string SafeFileName(string value) { return FileNames.Safe(value); }
 
         private void RefreshProfileCombo()
         {
             if (profileCombo == null) return;
             string selected = settings == null ? "" : settings.ActiveProfile ?? "";
             profileCombo.Items.Clear();
-            try
-            {
-                Directory.CreateDirectory(ProfilesRoot());
-                foreach (string path in Directory.GetFiles(ProfilesRoot(), "*.json", SearchOption.TopDirectoryOnly))
-                    profileCombo.Items.Add(Path.GetFileNameWithoutExtension(path));
-            }
-            catch { }
+            foreach (string name in profileStore.ListNames()) profileCombo.Items.Add(name);
             if (!string.IsNullOrWhiteSpace(selected)) profileCombo.Text = selected;
         }
 
@@ -104,23 +60,19 @@ namespace DW2ModLauncherBeta
                 MessageBox.Show(T("EnterAProfileName"), Text);
                 return;
             }
-            ModProfile profile = new ModProfile();
-            profile.Name = name;
-            profile.Order = new List<string>(currentModOrder ?? new List<string>());
-            profile.ManualLaunchArguments = launchArgsBox == null ? settings.GlobalLaunchArguments : launchArgsBox.Text.Trim();
-            foreach (ModInfo mod in (currentManagedMods ?? new List<ModInfo>()).Concat(currentWorkshopMods ?? new List<ModInfo>()))
-            {
-                profile.Versions[mod.ActiveToken ?? mod.Key] = mod.Version ?? "";
-            }
+            ModProfile profile = ProfileStore.Capture(
+                name,
+                modOrder.Order,
+                launchArgsBox == null ? settings.GlobalLaunchArguments : launchArgsBox.Text.Trim(),
+                (currentManagedMods ?? new List<ModInfo>()).Concat(currentWorkshopMods ?? new List<ModInfo>()));
             try
             {
-                Directory.CreateDirectory(ProfilesRoot());
-                File.WriteAllText(Path.Combine(ProfilesRoot(), SafeFileName(name) + ".json"), JsonSerializer.Serialize(profile), new UTF8Encoding(false));
+                profileStore.Save(profile);
                 settings.ActiveProfile = name;
                 settings.GlobalLaunchArguments = profile.ManualLaunchArguments ?? "";
                 SaveSettings();
                 RefreshProfileCombo();
-                SetStatus(T("MODProfileSaved") + name);
+                SetStatus(T("ModProfileSaved") + name);
             }
             catch (Exception ex) { MessageBox.Show(ex.Message, Text); }
         }
@@ -128,21 +80,17 @@ namespace DW2ModLauncherBeta
         private void ApplySelectedProfile()
         {
             string name = profileCombo == null ? "" : (profileCombo.Text ?? "").Trim();
-            string path = Path.Combine(ProfilesRoot(), SafeFileName(name) + ".json");
-            if (!File.Exists(path)) { MessageBox.Show(T("ProfileNotFound"), Text); return; }
+            if (!profileStore.Exists(name)) { MessageBox.Show(T("ProfileNotFound"), Text); return; }
             if (IsGameRunning()) { MessageBox.Show(T("CloseGameBeforeProfileSwitch"), Text); return; }
             try
             {
-                ModProfile profile = JsonSerializer.Deserialize<ModProfile>(File.ReadAllText(path, Encoding.UTF8));
+                ModProfile profile = profileStore.Load(name);
                 if (profile == null) return;
-                List<ModInfo> all = (currentManagedMods ?? new List<ModInfo>()).Concat(currentWorkshopMods ?? new List<ModInfo>()).ToList();
                 List<string> versionChanges = new List<string>();
-                foreach (KeyValuePair<string, string> savedVersion in profile.Versions ?? new Dictionary<string, string>())
+                foreach (ProfileVersionChange change in ProfileStore.CompareVersions(profile, (currentManagedMods ?? new List<ModInfo>()).Concat(currentWorkshopMods ?? new List<ModInfo>())))
                 {
-                    ModInfo installed = all.FirstOrDefault(m => string.Equals(m.ActiveToken, savedVersion.Key, StringComparison.OrdinalIgnoreCase) || string.Equals(m.Key, savedVersion.Key, StringComparison.OrdinalIgnoreCase));
-                    if (installed == null) versionChanges.Add(T("NotInstalled") + savedVersion.Key);
-                    else if (!string.Equals(installed.Version ?? "", savedVersion.Value ?? "", StringComparison.OrdinalIgnoreCase))
-                        versionChanges.Add((installed.DisplayName ?? installed.Id) + ": " + savedVersion.Value + " → " + (installed.Version ?? "?"));
+                    if (change.Installed == null) versionChanges.Add(T("NotInstalled") + change.Token);
+                    else versionChanges.Add((change.Installed.DisplayName ?? change.Installed.Id) + ": " + change.SavedVersion + " → " + (change.Installed.Version ?? "?"));
                 }
                 if (versionChanges.Count > 0 && MessageBox.Show(
                     T("ProfileVersionMismatch") + string.Join("\r\n", versionChanges.Take(20).ToArray()) +
@@ -154,7 +102,7 @@ namespace DW2ModLauncherBeta
                 if (launchArgsBox != null) launchArgsBox.Text = settings.GlobalLaunchArguments;
                 SaveSettings();
                 RefreshAll();
-                SetStatus(T("SwitchedMODProfile") + settings.ActiveProfile);
+                SetStatus(T("SwitchedModProfile") + settings.ActiveProfile);
             }
             catch (Exception ex) { Logger.LogException("Apply profile", ex); MessageBox.Show(ex.Message, Text); }
         }
@@ -162,29 +110,18 @@ namespace DW2ModLauncherBeta
         private void DeleteSelectedProfile()
         {
             string name = profileCombo == null ? "" : (profileCombo.Text ?? "").Trim();
-            string path = Path.Combine(ProfilesRoot(), SafeFileName(name) + ".json");
-            try { if (File.Exists(path)) File.Delete(path); if (settings.ActiveProfile == name) settings.ActiveProfile = ""; SaveSettings(); RefreshProfileCombo(); }
+            try { profileStore.Delete(name); if (settings.ActiveProfile == name) settings.ActiveProfile = ""; SaveSettings(); RefreshProfileCombo(); }
             catch (Exception ex) { MessageBox.Show(ex.Message, Text); }
         }
 
+        private string SnapshotsRoot() { return Path.Combine(appRoot, "Snapshots"); }
+
         private void CreateEnvironmentSnapshot()
         {
-            string root = Path.Combine(appRoot, "Snapshots", DateTime.Now.ToString("yyyyMMdd_HHmmss"));
             try
             {
-                Directory.CreateDirectory(root);
-                string modsJson = ModsJsonPath();
-                if (!string.IsNullOrWhiteSpace(modsJson) && File.Exists(modsJson)) File.Copy(modsJson, Path.Combine(root, "mods.json"), true);
-                if (File.Exists(settingsPath)) File.Copy(settingsPath, Path.Combine(root, "launcher_settings.json"), true);
-                List<ModInfo> enabled = (currentManagedMods ?? new List<ModInfo>()).Concat(currentWorkshopMods ?? new List<ModInfo>()).Where(IsModSelected).ToList();
-                Dictionary<string, string> manifest = new Dictionary<string, string>();
-                foreach (ModInfo mod in enabled)
-                {
-                    string destination = Path.Combine(root, "MODs", SafeFileName(mod.ActiveToken));
-                    CopyDirectory(mod.Folder, destination);
-                    manifest[mod.ActiveToken] = mod.Folder;
-                }
-                File.WriteAllText(Path.Combine(root, "snapshot_manifest.json"), JsonSerializer.Serialize(manifest), new UTF8Encoding(false));
+                string root = SnapshotStore.Create(SnapshotsRoot(), ModsJsonPath(), settingsPath,
+                    (currentManagedMods ?? new List<ModInfo>()).Concat(currentWorkshopMods ?? new List<ModInfo>()).Where(IsModSelected).ToList());
                 MessageBox.Show(T("SnapshotSaved") + root, Text);
             }
             catch (Exception ex) { Logger.LogException("Create snapshot", ex); MessageBox.Show(ex.Message, Text); }
@@ -192,25 +129,14 @@ namespace DW2ModLauncherBeta
 
         private void RestoreLatestSnapshot()
         {
-            string snapshots = Path.Combine(appRoot, "Snapshots");
-            string root = Directory.Exists(snapshots) ? Directory.GetDirectories(snapshots).OrderByDescending(x => x).FirstOrDefault() : null;
+            string root = SnapshotStore.FindLatest(SnapshotsRoot());
             if (string.IsNullOrWhiteSpace(root)) { MessageBox.Show(T("NoSnapshotIsAvailable"), Text); return; }
             if (IsGameRunning()) { MessageBox.Show(T("CloseDW2BeforeRestoring"), Text); return; }
             if (MessageBox.Show(T("RestoreTheLatestSnapshot") + root,
                 T("RestoreSnapshot"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
             try
             {
-                string manifestPath = Path.Combine(root, "snapshot_manifest.json");
-                Dictionary<string, string> manifest = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(manifestPath, Encoding.UTF8));
-                foreach (KeyValuePair<string, string> kv in manifest)
-                {
-                    string source = Path.Combine(root, "MODs", SafeFileName(kv.Key));
-                    if (Directory.Exists(source) && Directory.Exists(Path.GetDirectoryName(kv.Value))) CopyDirectory(source, kv.Value);
-                }
-                string savedOrder = Path.Combine(root, "mods.json");
-                if (File.Exists(savedOrder) && !string.IsNullOrWhiteSpace(ModsJsonPath())) File.Copy(savedOrder, ModsJsonPath(), true);
-                string savedSettings = Path.Combine(root, "launcher_settings.json");
-                if (File.Exists(savedSettings)) File.Copy(savedSettings, settingsPath, true);
+                SnapshotStore.Restore(root, ModsJsonPath(), settingsPath);
                 settings = LoadSettings();
                 EnsureSettingsState();
                 RefreshAll();
@@ -219,29 +145,11 @@ namespace DW2ModLauncherBeta
             catch (Exception ex) { Logger.LogException("Restore snapshot", ex); MessageBox.Show(ex.Message, Text); }
         }
 
-        private void CopyDirectory(string source, string destination)
-        {
-            Directory.CreateDirectory(destination);
-            foreach (string file in Directory.GetFiles(source, "*", SearchOption.TopDirectoryOnly)) File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), true);
-            foreach (string dir in Directory.GetDirectories(source, "*", SearchOption.TopDirectoryOnly)) CopyDirectory(dir, Path.Combine(destination, Path.GetFileName(dir)));
-        }
+        private void CopyDirectory(string source, string destination) { FileNames.CopyDirectory(source, destination); }
 
         private void DetectPaths(bool overwrite)
         {
-            string game = FindGameRoot();
-            if (!string.IsNullOrEmpty(game) && (overwrite || string.IsNullOrEmpty(settings.GameRoot) || !Directory.Exists(settings.GameRoot)))
-                settings.GameRoot = game;
-
-            string workshop = FindWorkshopRoot(settings.GameRoot);
-            if (!string.IsNullOrEmpty(workshop) && (overwrite || string.IsNullOrEmpty(settings.WorkshopRoot) || !Directory.Exists(settings.WorkshopRoot)))
-                settings.WorkshopRoot = workshop;
-
-            if (IsGameRoot(settings.GameRoot))
-            {
-                string dw2Mods = Path.Combine(settings.GameRoot, "mods");
-                if (overwrite || string.IsNullOrEmpty(settings.ManagedModsRoot) || !Directory.Exists(settings.ManagedModsRoot))
-                    settings.ManagedModsRoot = dw2Mods;
-            }
+            PathDetector.Detect(settings, overwrite);
 
             SaveSettings();
             UpdatePathLabels();
@@ -249,6 +157,7 @@ namespace DW2ModLauncherBeta
             if (workshopRootBox != null) workshopRootBox.Text = settings.WorkshopRoot;
             if (managedRootBox != null) managedRootBox.Text = settings.ManagedModsRoot;
             if (launchArgsBox != null) launchArgsBox.Text = settings.GlobalLaunchArguments ?? "";
+            if (launchEnvBox != null) launchEnvBox.Text = GameLauncher.FormatEnvironment(settings.LaunchEnvironment);
         }
 
         private void UpdatePathLabels()
@@ -257,8 +166,5 @@ namespace DW2ModLauncherBeta
             if (workshopPathLabel != null) workshopPathLabel.Text = "Workshop: " + (string.IsNullOrEmpty(settings.WorkshopRoot) ? "Not found" : settings.WorkshopRoot);
         }
 
-        private bool IsGameRoot(string p) { return SteamLocator.IsGameRoot(p); }
-        private string FindGameRoot() { return SteamLocator.FindGameRoot(settings.GameRoot); }
-        private string FindWorkshopRoot(string gameRoot) { return SteamLocator.FindWorkshopRoot(gameRoot, settings.WorkshopRoot); }
     }
 }

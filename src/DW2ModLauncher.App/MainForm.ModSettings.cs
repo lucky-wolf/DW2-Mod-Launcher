@@ -8,11 +8,11 @@ using DW2ModLauncher.Core.Diagnostics;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.App
 {
     public partial class MainForm
     {
-        // Whether OpenModConfigEditor has anything to show for this MOD - a MOD-authored
+        // Whether OpenModConfigEditor has anything to show for this Mod - a Mod-authored
         // settings.schema.json.
         private bool ModHasConfigurableSettings(ModInfo mod)
         {
@@ -20,7 +20,7 @@ namespace DW2ModLauncherBeta
             return ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder) != null;
         }
 
-        // Dispatcher used by every "configure this MOD" entry point.
+        // Dispatcher used by every "configure this Mod" entry point.
         private void OpenModConfigEditor(ModInfo mod)
         {
             if (mod == null) return;

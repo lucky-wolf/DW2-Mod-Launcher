@@ -1,7 +1,7 @@
 namespace DW2ModLauncher.Core.Services.Publishing
 {
     /// <summary>
-    /// Publishes a local MOD to the Steam Workshop and reports back the Workshop item id, however
+    /// Publishes a local Mod to the Steam Workshop and reports back the Workshop item id, however
     /// that actually happens under the hood. <see cref="SteamworksModPublisher"/> (embedding the
     /// Steamworks API directly, the same way DW2 itself does) is the only implementation today, but
     /// this stays an interface on purpose - the previous implementation shelled out to DW2's own

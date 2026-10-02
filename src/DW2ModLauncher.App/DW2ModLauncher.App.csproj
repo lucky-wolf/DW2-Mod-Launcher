@@ -6,8 +6,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <RootNamespace>DW2ModLauncherBeta</RootNamespace>
-    <AssemblyName>DW2ModLauncherBeta</AssemblyName>
+    <RootNamespace>DW2ModLauncher.App</RootNamespace>
+    <AssemblyName>DW2ModLauncher</AssemblyName>
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
@@ -15,7 +15,7 @@
     <ProjectReference Include="..\DW2ModLauncher.Core\DW2ModLauncher.Core.csproj" />
     <!-- Not linked in: this ships as the standalone DLL the launcher injects via the game's
          low level inject flag (see MainForm.Launch.LoaderDllPath). ReferenceOutputAssembly=false
-         keeps it out of DW2ModLauncherBeta's own dependency closure; the Target below copies its
+         keeps it out of DW2ModLauncher's own dependency closure; the Target below copies its
          build output into our own output folder's Loader\ subfolder. -->
     <ProjectReference Include="..\DW2ModLauncher.Loader\DW2ModLauncher.Loader.csproj" ReferenceOutputAssembly="false" />
     <!-- Referenced directly (not just transitively via Core) so GeneratePathProperty gives us

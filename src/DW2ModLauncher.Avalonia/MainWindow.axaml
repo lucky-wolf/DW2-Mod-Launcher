@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
+        xmlns:views="using:DW2ModLauncher.Avalonia.Views"
+        x:Class="DW2ModLauncher.Avalonia.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Width="1280" Height="800" MinWidth="1000" MinHeight="650"
+        WindowStartupLocation="CenterScreen">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <!-- Header -->
+    <Border Grid.Row="0" Background="{StaticResource Dw2Void}" BorderBrush="{StaticResource Dw2BlueGlow}" BorderThickness="0,0,0,2" Padding="16,12">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+          <TextBlock Classes="heading" Text="DW2 MOD LAUNCHER" />
+          <TextBlock Classes="eyebrow" Text="MOD MANAGEMENT SYSTEM  //  METAPO" />
+          <TextBlock Classes="muted" Margin="0,8,0,0" Text="{Binding GamePathText}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Classes="muted" Text="{Binding WorkshopPathText}" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Top">
+          <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}" Width="86" VerticalAlignment="Top">
+            <ComboBox.SelectionBoxItemTemplate>
+              <DataTemplate x:DataType="vm:LanguageOption">
+                <TextBlock Text="{Binding ShortCode}" />
+              </DataTemplate>
+            </ComboBox.SelectionBoxItemTemplate>
+          </ComboBox>
+          <Button Classes="nav" Classes.active="{Binding ShowingMods}" Command="{Binding ShowModsCommand}" Content="{Binding L[Mods]}" MinWidth="110" />
+          <Button Classes="nav" Classes.active="{Binding ShowingSettings}" Command="{Binding ShowSettingsCommand}" Content="{Binding L[Settings]}" MinWidth="110" />
+          <Button Command="{Binding RefreshCommand}" Content="{Binding L[Refresh]}" MinWidth="100" />
+          <Button Classes="play" Command="{Binding PlayCommand}" Content="{Binding L[PlayButton]}" Width="260" Height="46" Margin="0,-4,0,0" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Pages -->
+    <Panel Grid.Row="1" Background="{StaticResource Dw2Panel}">
+      <views:ModsView IsVisible="{Binding ShowingMods}" />
+      <Panel IsVisible="{Binding ShowingSettings}">
+        <views:SettingsView DataContext="{Binding Settings}" />
+      </Panel>
+    </Panel>
+
+    <!-- Status bar -->
+    <Border Grid.Row="2" Background="{StaticResource Dw2Void}" Padding="10,6">
+      <TextBlock Classes="muted" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" />
+    </Border>
+  </Grid>
+</Window>

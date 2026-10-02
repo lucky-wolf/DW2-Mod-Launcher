@@ -7,12 +7,13 @@ using System.Linq;
 using System.Windows.Forms;
 using DW2ModLauncher.Core.Diagnostics;
 using DW2ModLauncher.Core.Models;
+using DW2ModLauncher.Core.Services;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.App
 {
     public partial class MainForm : Form
     {
-        // The mod list has 5 columns: MOD Name, Source, MOD State (checkbox),
+        // The mod list has 5 columns: Mod Name, Source, Mod State (checkbox),
         // Health (collapsed conflict/duplicate/update status) and Load Order.
         // Everything else that used to be its own column now lives in the
         // details panel only.
@@ -89,6 +90,8 @@ namespace DW2ModLauncherBeta
         private static readonly Color Dw2Red = Color.FromArgb(235, 103, 103);
         private readonly string appRoot;
         private readonly string settingsPath;
+        private readonly LauncherSettingsStore settingsStore;
+        private readonly ProfileStore profileStore;
         private LauncherSettings settings;
         private bool populating;
         private bool updateCheckRunning;
@@ -96,9 +99,7 @@ namespace DW2ModLauncherBeta
         private bool publishRunning;
         private List<ModInfo> currentManagedMods = new List<ModInfo>();
         private List<ModInfo> currentWorkshopMods = new List<ModInfo>();
-        private List<string> currentModOrder = new List<string>();
-        private bool modOrderFileFound;
-        private bool modOrderReadFailed;
+        private ModOrderState modOrder = new ModOrderState();
         private Dictionary<string, List<ModInfo>> currentCollisions = new Dictionary<string, List<ModInfo>>(StringComparer.OrdinalIgnoreCase);
 
         private ComboBox languageCombo;
@@ -135,6 +136,9 @@ namespace DW2ModLauncherBeta
         private Button workshopRootButton;
         private Button gameOpenButton;
         private Button detectButton;
+        private Button importSteamButton;
+        private Button resetLaunchButton;
+        private TextBox launchEnvBox;
         private Button saveSettingsButton;
         private Button workshopUpdateButton;
         private Button publishButton;
@@ -146,12 +150,14 @@ namespace DW2ModLauncherBeta
         {
             appRoot = AppDomain.CurrentDomain.BaseDirectory;
             settingsPath = Path.Combine(appRoot, "launcher_settings.json");
+            settingsStore = new LauncherSettingsStore(settingsPath);
+            profileStore = new ProfileStore(Path.Combine(appRoot, "Profiles"));
             settings = LoadSettings();
             EnsureSettingsState();
             if (string.IsNullOrWhiteSpace(settings.ManagedModsRoot))
                 settings.ManagedModsRoot = string.IsNullOrWhiteSpace(settings.GameRoot) ? "" : Path.Combine(settings.GameRoot, "mods");
 
-            Text = "DW2 Mod Launcher BETA v0.4.6 CONFLICT FILTER FIX";
+            Text = "DW2 Mod Launcher v" + DW2ModLauncher.Core.AppVersion.Display;
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.None;
             MinimumSize = new Size(1000, 650);
@@ -201,15 +207,8 @@ namespace DW2ModLauncherBeta
         private void EnsureSettingsState()
         {
             if (settings == null) settings = new LauncherSettings();
-            if (settings.SelectedMods == null) settings.SelectedMods = new Dictionary<string, bool>();
-            if (string.IsNullOrWhiteSpace(settings.Language)) settings.Language = "en";
+            LauncherSettingsStore.Normalize(settings);
             if (!Localization.AvailableLanguageCodes().Contains(settings.Language)) settings.Language = "en";
-            if (settings.GameRoot == null) settings.GameRoot = "";
-            if (settings.WorkshopRoot == null) settings.WorkshopRoot = "";
-            if (settings.ManagedModsRoot == null) settings.ManagedModsRoot = "";
-            if (settings.GlobalLaunchArguments == null) settings.GlobalLaunchArguments = "";
-            if (settings.LastWorkshopUpdateCheckUtc == null) settings.LastWorkshopUpdateCheckUtc = "";
-            if (settings.ActiveProfile == null) settings.ActiveProfile = "";
         }
 
         private void SafeStage(string name, MethodInvoker action)

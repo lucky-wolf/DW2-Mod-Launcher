@@ -4,7 +4,7 @@ using System.Threading;
 using System.Windows.Forms;
 using DW2ModLauncher.Core.Diagnostics;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.App
 {
     internal static class Program
     {
@@ -49,7 +49,7 @@ namespace DW2ModLauncherBeta
             {
                 string detail = ex == null ? "" : ("\r\n\r\n" + ex.GetType().Name + ": " + ex.Message);
                 MessageBox.Show(message + detail + "\r\n\r\nLog: " + Logger.CrashLogPath,
-                    "DW2 Mod Launcher BETA", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    "DW2 Mod Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             catch { }
         }

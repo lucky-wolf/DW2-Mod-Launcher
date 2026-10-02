@@ -2,7 +2,7 @@ name: Release
 
 # Every merge to main that touches launcher code gets the next vMAJOR.MINOR.PATCH tag
 # (MAJOR.MINOR from .version, PATCH auto-incremented by scripts/release.py) and a GitHub Release
-# with a self-contained win-x64 zip. Pull requests touching the same paths (and manual
+# with a self-contained win-x64 zip and a linux-x64 tar.gz. Pull requests touching the same paths (and manual
 # workflow_dispatch runs) build the zip as a workflow artifact without tagging or publishing
 # anything, so packaging problems show up before merge. Mirrors critical-mass-client's flow.
 on:
@@ -27,6 +27,8 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,7 +62,7 @@ jobs:
         id: package
         shell: pwsh
         run: |
-          $exe = Get-Item publish/DW2ModLauncherBeta.exe
+          $exe = Get-Item publish/DW2ModLauncher.exe
           $version = $exe.VersionInfo.ProductVersion -replace '\+.*$', ''
           $name = "DW2ModLauncher-v$version-win-x64"
           $stage = Join-Path $PWD "stage/$name"
@@ -83,3 +85,49 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "${{ steps.release.outputs.tag }}" "${{ steps.package.outputs.zip }}" --title "${{ steps.release.outputs.tag }}" --generate-notes
+
+  # The Linux build: the Avalonia launcher, self-contained, as a tar.gz (keeps the executable bit). It runs
+  # after the Windows job so that job's tag exists; it attaches to the same GitHub Release.
+  release-linux:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The Windows job pushed the tag after this checkout was cut, so fetch it before MinVer reads tags.
+      - name: Fetch tags
+        run: git fetch --tags --force
+
+      - name: Publish (self-contained)
+        run: >
+          dotnet publish src/DW2ModLauncher.Avalonia -c Release -r linux-x64 --self-contained
+          -p:DebugType=none -o publish
+
+      - name: Package
+        id: package
+        run: |
+          version=$(dotnet msbuild src/DW2ModLauncher.Avalonia -t:MinVer -getProperty:MinVerVersion -v:q | tail -1)
+          name="DW2ModLauncher-v${version}-linux-x64"
+          mkdir -p "stage/${name}"
+          cp -a publish/. "stage/${name}/"
+          cp launcher_settings.example.json LICENSE README.md "stage/${name}/"
+          tar -czf "${name}.tar.gz" -C stage "${name}"
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "archive=${name}.tar.gz" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: stage/${{ steps.package.outputs.name }}
+
+      - name: Attach to GitHub Release
+        if: needs.release.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.release.outputs.tag }}" "${{ steps.package.outputs.archive }}"

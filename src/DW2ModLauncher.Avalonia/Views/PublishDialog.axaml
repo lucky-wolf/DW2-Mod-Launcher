@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
+        x:Class="DW2ModLauncher.Avalonia.Views.PublishDialog"
+        x:DataType="vm:PublishDialogViewModel"
+        Title="{Binding WindowTitle}" Width="720" Height="900" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Margin="24" Spacing="14">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding L[PublishInfoTitle]}" />
+          <TextBox Text="{Binding Title}" />
+        </StackPanel>
+        <Grid ColumnDefinitions="200,24,*">
+          <StackPanel Grid.Column="0" Spacing="6">
+            <TextBlock Text="{Binding L[Version]}" />
+            <TextBox Text="{Binding Version}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="6">
+            <TextBlock Text="{Binding L[PublishVisibility]}" />
+            <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+        </Grid>
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding L[PublishInfoPreviewImage]}" />
+          <Grid ColumnDefinitions="*,10,Auto">
+            <TextBox Grid.Column="0" Text="{Binding PreviewImage}" />
+            <Button Grid.Column="2" Content="…" Command="{Binding BrowsePreviewCommand}" MinWidth="60" />
+          </Grid>
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding L[Description]}" />
+          <TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" Height="280" />
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding L[PublishInfoBundles]}" />
+          <TextBox Text="{Binding Bundles}" AcceptsReturn="True" Height="90" />
+        </StackPanel>
+        <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding Note}" />
+      </StackPanel>
+    </ScrollViewer>
+    <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+        <Button Name="PublishButton" Classes="play" Content="{Binding L[PublishToWorkshop]}" MinWidth="170" FontSize="14" />
+        <Button Name="CancelButton" Content="{Binding L[Cancel]}" MinWidth="125" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

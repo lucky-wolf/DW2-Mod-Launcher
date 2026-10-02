@@ -9,51 +9,29 @@ using System.Windows.Forms;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
 
-namespace DW2ModLauncherBeta
+namespace DW2ModLauncher.App
 {
     public partial class MainForm
     {
         private List<ModInfo> OrderedEnabledMods()
         {
-            List<ModInfo> launchMods = (currentManagedMods ?? new List<ModInfo>())
-                .Concat(currentWorkshopMods ?? new List<ModInfo>()).Where(IsModSelected).ToList();
-            return launchMods.OrderBy(m =>
-            {
-                int index = currentModOrder == null ? -1 : currentModOrder.FindIndex(x => x.Equals(m.ActiveToken, StringComparison.OrdinalIgnoreCase));
-                return index < 0 ? int.MaxValue : index;
-            }).ToList();
+            return GameLauncher.OrderedEnabled((currentManagedMods ?? new List<ModInfo>()).Concat(currentWorkshopMods ?? new List<ModInfo>()), modOrder, settings);
         }
 
         // The launcher ships a single fixed loader DLL (see DW2ModLauncher.Loader) next to its
         // own executable; that loader is the ONLY --low-level-inject target ever used. It reads
-        // manifest.json (written by WriteLoaderManifest below) and loads every enabled mod itself,
+        // manifest.json (written by GameLauncher.WriteLoaderManifest) and loads every enabled mod itself,
         // in order, via reflection - see docs/DLL Injection.md. This replaced composing every
         // mod's own dll!entryPoint into one CLI flag directly, since the game only honors the
         // last --low-level-inject occurrence and invokes entry points with zero arguments.
-        private string LoaderDllPath()
-        {
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Loader", "DW2ModLauncher.Loader.dll");
-        }
+        private string LoaderDllPath() { return GameLauncher.LoaderDllPath(); }
 
-        private void WriteLoaderManifest()
-        {
-            LoaderManifest manifest = LoaderManifestBuilder.Build(OrderedEnabledMods());
-            string loaderDir = Path.GetDirectoryName(LoaderDllPath());
-            Directory.CreateDirectory(loaderDir);
-            File.WriteAllText(Path.Combine(loaderDir, "manifest.json"), JsonSerializer.Serialize(manifest), new UTF8Encoding(false));
-        }
+        private void WriteLoaderManifest() { GameLauncher.WriteLoaderManifest(OrderedEnabledMods()); }
 
         private string BuildLaunchArguments()
         {
             EnsureSettingsState();
-            List<string> args = new List<string>();
-            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            string loaderDll = GamePaths.ToGameVisiblePath(LoaderDllPath());
-            string token = (loaderDll.IndexOf(' ') >= 0 ? "\"" + loaderDll + "\"" : loaderDll) + "!DW2ModLauncher.Loader.Entry.Init";
-            args.Add("--low-level-inject " + token);
-            string global = launchArgsBox == null ? settings.GlobalLaunchArguments : launchArgsBox.Text.Trim();
-            if (!string.IsNullOrWhiteSpace(global) && seen.Add(global)) args.Add(global);
-            return string.Join(" ", args.Where(a => !string.IsNullOrWhiteSpace(a)).ToArray()).Trim();
+            return GameLauncher.BuildArguments(launchArgsBox == null ? settings.GlobalLaunchArguments : launchArgsBox.Text.Trim());
         }
 
         private void UpdateCommandPreview()
@@ -61,6 +39,24 @@ namespace DW2ModLauncherBeta
             if (commandPreviewBox == null) return;
             string exe = string.IsNullOrEmpty(settings.GameRoot) ? "DistantWorlds2.exe" : Path.Combine(settings.GameRoot, "DistantWorlds2.exe");
             commandPreviewBox.Text = "\"" + exe + "\"" + (string.IsNullOrWhiteSpace(BuildLaunchArguments()) ? "" : " " + BuildLaunchArguments());
+        }
+
+        private void ImportSteamLaunchOptions()
+        {
+            SteamLaunchOptions options = SteamLaunchOptions.ReadForApp(SteamLocator.AppId);
+            if (options == null)
+            {
+                MessageBox.Show(T("SteamLaunchOptionsNone"), Text);
+                return;
+            }
+            EnsureSettingsState();
+            if (launchEnvBox != null) launchEnvBox.Text = GameLauncher.FormatEnvironment(options.Environment);
+            if (launchArgsBox != null) launchArgsBox.Text = options.Arguments;
+            string env = options.Environment.Count == 0 ? "-" : string.Join(" ", options.Environment.Keys);
+            string note = string.Format(T("SteamLaunchOptionsImported"), string.IsNullOrEmpty(options.Arguments) ? "-" : options.Arguments, env);
+            if (!string.IsNullOrEmpty(options.Wrapper)) note += " | " + string.Format(T("SteamLaunchOptionsWrapperIgnored"), options.Wrapper);
+            SetStatus(note);
+            UpdateCommandPreview();
         }
 
         private void LaunchGame()
@@ -81,7 +77,7 @@ namespace DW2ModLauncherBeta
             if (currentCollisions.Count > 0)
             {
                 string warning = BuildConflictWarning();
-                DialogResult answer = MessageBox.Show(warning, T("MODConflictWarning"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                DialogResult answer = MessageBox.Show(warning, T("ModConflictWarning"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                 if (answer != DialogResult.Yes) return;
             }
             string exe = Path.Combine(settings.GameRoot ?? "", "DistantWorlds2.exe");
@@ -93,7 +89,7 @@ namespace DW2ModLauncherBeta
             try
             {
                 WriteLoaderManifest();
-                Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, BuildLaunchArguments()));
+                Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, BuildLaunchArguments(), settings.LaunchEnvironment));
                 SetStatus(T("DistantWorlds2Launched"));
             }
             catch (Exception ex)

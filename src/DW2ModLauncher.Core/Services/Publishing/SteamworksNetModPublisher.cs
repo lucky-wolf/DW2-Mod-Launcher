@@ -65,7 +65,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 SteamUGC.SetItemTitle(update, request.Title ?? "");
                 SteamUGC.SetItemDescription(update, request.Description ?? "");
                 SteamUGC.SetItemContent(update, request.ContentFolder);
-                SteamUGC.SetItemVisibility(update, ERemoteStoragePublishedFileVisibility.k_ERemoteStoragePublishedFileVisibilityPublic);
+                if (request.Visibility.HasValue) SteamUGC.SetItemVisibility(update, ToSteam(request.Visibility.Value));
                 if (!string.IsNullOrWhiteSpace(request.PreviewImagePath)) SteamUGC.SetItemPreview(update, request.PreviewImagePath);
 
                 SubmitItemUpdateResult_t submitted;
@@ -86,6 +86,17 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 if (initialized) { try { SteamAPI.Shutdown(); } catch { } }
             }
             return result;
+        }
+
+        private static ERemoteStoragePublishedFileVisibility ToSteam(ModVisibility visibility)
+        {
+            switch (visibility)
+            {
+                case ModVisibility.Public: return ERemoteStoragePublishedFileVisibility.k_ERemoteStoragePublishedFileVisibilityPublic;
+                case ModVisibility.FriendsOnly: return ERemoteStoragePublishedFileVisibility.k_ERemoteStoragePublishedFileVisibilityFriendsOnly;
+                case ModVisibility.Unlisted: return ERemoteStoragePublishedFileVisibility.k_ERemoteStoragePublishedFileVisibilityUnlisted;
+                default: return ERemoteStoragePublishedFileVisibility.k_ERemoteStoragePublishedFileVisibilityPrivate;
+            }
         }
 
         // Steamworks.NET results only arrive while SteamAPI.RunCallbacks() is being pumped.

@@ -6,9 +6,9 @@ using System.Text.Json.Nodes;
 namespace DW2ModLauncher.Core.Services
 {
     /// <summary>
-    /// Writes the "workshopId" field back into a MOD's own mod.json after a first-time publish
+    /// Writes the "workshopId" field back into a Mod's own mod.json after a first-time publish
     /// (see ModPublishCommandBuilder/docs/DLL Injection.md's publish workflow). DW2's own
-    /// --ugc-publish tool never writes this back itself - the official guide has the MOD author
+    /// --ugc-publish tool never writes this back itself - the official guide has the Mod author
     /// copy the id out of the new Workshop item's URL and hand-edit it into mod.json - so this is
     /// the one piece of that workflow the launcher can genuinely automate. The field name is
     /// exactly "workshopId" (case-sensitive, per the guide), and everything else already in

@@ -7,7 +7,7 @@ How the launcher is validated, versioned, and shipped. Modeled on critical-mass-
 
 | Workflow                                        | Runs on                                                                                                                     | Does                                                                                           |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [ci.yml](../.github/workflows/ci.yml)           | every PR, push to `main`                                                                                                    | `scripts/validate.py`: restore, `dotnet format --verify-no-changes`, build (Release), unit tests. `windows-latest` (WinForms). |
+| [ci.yml](../.github/workflows/ci.yml)           | every PR, push to `main`                                                                                                    | `scripts/validate.py`: restore, `dotnet format --verify-no-changes`, build (Release), unit tests. `windows-latest` and `ubuntu-latest`. |
 | [release.yml](../.github/workflows/release.yml) | push to `main` touching `src/`, `Directory.Build.props`, `.version`, or the workflow itself; same-path PRs; manual dispatch | tests → tag → publish → package → GitHub Release (tag and release only on push to `main`)      |
 
 Run `build.cmd` or `python scripts/validate.py` locally; both run the same checks as `ci.yml`.
@@ -20,6 +20,7 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
 
 | Script | Purpose |
 |---|---|
+| [build.py](../scripts/build.py) / [run.py](../scripts/run.py) | Local: build (and run) the launcher for the current OS (Avalonia on Linux, WinForms on Windows). Applies `dotnet format`, runs the tests, builds; `--no-validate` skips the first two. Shared logic in `lib/launcher_build.py`. |
 | [validate.py](../scripts/validate.py) | The one validation suite; CI's entrypoint and `open-pr.py`'s pre-flight (`lib/dotnet_checks.py`). |
 | [new-branch.py](../scripts/new-branch.py) | Sync `main`, delete merged/gone local branches, create `<user>/vX.Y.Z` (waits for the release tag if `main`'s tip should have one). |
 | [open-pr.py](../scripts/open-pr.py) | Run the checks, commit, push, open the PR via `gh`, titled `Released as vX.Y.Z` with a commit-subject description. |
@@ -35,8 +36,12 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
   tag and pushes the next one (`v0.1.0` if none exist).
 - [MinVer](https://github.com/adamralph/minver) (configured in [Directory.Build.props](../Directory.Build.props))
   reads the nearest `v*` tag and stamps `Version`/`AssemblyVersion`/`FileVersion`/`InformationalVersion`
-  into every project. **Never hand-set a version in a `.csproj`.** Untagged (local/dev) builds get a
-  pre-release version like `0.0.0-alpha.0.6`, so they can never be mistaken for a release.
+  into every project. **Never hand-set a version in a `.csproj`.**
+- Directory.Build.props then strips MinVer's pre-release suffix (`StampPlainSemver`), so every build is plain
+  `MAJOR.MINOR.PATCH`: a dev build shows the version the next release will carry (MinVer's next patch, which
+  matches `release.py` while `.version` is unchanged). Untagged builds keep `-dev` in the InformationalVersion
+  only (`0.1.1-dev`); the window title shows it as `v0.1.1 dev` (`AppVersion.Display`). Tagged release builds
+  have no suffix.
 - `release.py` is CI-only: it refuses to run for real outside GitHub Actions, never writes git config,
   and supports `--dry-run` (`python scripts/release.py --dry-run` prints the next tag, changes nothing).
 
@@ -47,6 +52,9 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
 3. `release.py` tags and pushes `vX.Y.Z` (push to `main` only).
 4. `dotnet publish` the App for `win-x64`: self-contained, single-file, compressed.
 5. Package `DW2ModLauncher-vX.Y.Z-win-x64.zip` and upload it as a workflow artifact.
+   A second job (`release-linux`, on `ubuntu-latest`, after the first so the tag exists) publishes the Avalonia
+   launcher for `linux-x64` (self-contained, not single-file: Skia and the Steam library are native `.so`s), packages
+   `DW2ModLauncher-vX.Y.Z-linux-x64.tar.gz`, and attaches it to the same release.
 6. `gh release create` attaches the zip to a GitHub Release with generated notes (push to `main` only).
 
 **PR runs and manual dispatch** build and upload the zip as a workflow artifact only: no tag, no release. Use
@@ -62,12 +70,15 @@ only files that something else loads **by path** stay loose:
 
 ```
 DW2ModLauncher-vX.Y.Z-win-x64/
-  DW2ModLauncherBeta.exe
+  DW2ModLauncher.exe
   Loader/DW2ModLauncher.Loader.dll   injected into the game via --low-level-inject (docs/DLL Injection.md)
   Languages/en.json, ja.json         UI strings
   steam_api64.dll, steam_appid.txt   Steamworks (Workshop publish), loaded by the Steam API by name/CWD
   launcher_settings.example.json, LICENSE, README.md
 ```
+
+The Linux archive is the same idea as a folder (`DW2ModLauncher` executable, `Loader/`, `Languages/`,
+`libsteam_api.so` + `Steamworks.NET.dll`, `steam_appid.txt`, plus the self-contained runtime and Skia natives).
 
 The Loader DLL is added to the publish output by the `AddLoaderToPublish` target in
 [DW2ModLauncher.App.csproj](../src/DW2ModLauncher.App/DW2ModLauncher.App.csproj) and marked
@@ -77,7 +88,7 @@ Trimming is not used: WinForms is not trim-compatible. Compression is the size l
 
 ## Target frameworks
 
-Core, App, and Tests target `net10.0-windows`. The **Loader stays `net8.0`**: it is loaded into the
+Core, Avalonia and Tests target `net10.0`; the WinForms App targets `net10.0-windows`. The **Loader stays `net8.0`**: it is loaded into the
 game's own process, which runs on .NET 8, so it must not target a newer runtime. The launcher's runtime
 is independent of the game's because the launcher is a separate process.
 

@@ -6,7 +6,7 @@ using facepunch::Steamworks.Ugc;
 namespace DW2ModLauncher.Core.Services.Publishing
 {
     /// <summary>
-    /// Publishes a local MOD by embedding the Steamworks API directly into the launcher (via
+    /// Publishes a local Mod by embedding the Steamworks API directly into the launcher (via
     /// Facepunch.Steamworks - MIT licensed, the same wrapper DW2 itself uses for its own
     /// "--ugc-publish", per the "source=Facepunch.Steamworks" query parameter on the URL it prints)
     /// instead of shelling out to any external tool. Because the launcher's own process talks to the
@@ -55,8 +55,17 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 editor = editor
                     .WithTitle(request.Title ?? "")
                     .WithDescription(request.Description ?? "")
-                    .WithContent(request.ContentFolder)
-                    .WithPublicVisibility();
+                    .WithContent(request.ContentFolder);
+                if (request.Visibility.HasValue)
+                {
+                    switch (request.Visibility.Value)
+                    {
+                        case ModVisibility.Public: editor = editor.WithPublicVisibility(); break;
+                        case ModVisibility.FriendsOnly: editor = editor.WithFriendsOnlyVisibility(); break;
+                        case ModVisibility.Unlisted: throw new NotSupportedException("This publisher does not support unlisted items.");
+                        default: editor = editor.WithPrivateVisibility(); break;
+                    }
+                }
                 if (!string.IsNullOrWhiteSpace(request.PreviewImagePath)) editor = editor.WithPreviewFile(request.PreviewImagePath);
 
                 PublishResult publishResult = editor.SubmitAsync(null).GetAwaiter().GetResult();

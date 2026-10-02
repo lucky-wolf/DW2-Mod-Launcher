@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -12,6 +12,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DW2ModLauncher.Tests", "src\DW2ModLauncher.Tests\DW2ModLauncher.Tests.csproj", "{EE74FB7A-3AF8-471A-83B2-B139D59BA042}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DW2ModLauncher.Loader", "src\DW2ModLauncher.Loader\DW2ModLauncher.Loader.csproj", "{5F3F6B2A-7B6F-4B60-95C0-3B3A9E5B2C41}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DW2ModLauncher.Avalonia", "src\DW2ModLauncher.Avalonia\DW2ModLauncher.Avalonia.csproj", "{C008373D-44EA-46ED-94A2-C188333398C8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -71,6 +73,18 @@ Global
 		{5F3F6B2A-7B6F-4B60-95C0-3B3A9E5B2C41}.Release|x64.Build.0 = Release|Any CPU
 		{5F3F6B2A-7B6F-4B60-95C0-3B3A9E5B2C41}.Release|x86.ActiveCfg = Release|Any CPU
 		{5F3F6B2A-7B6F-4B60-95C0-3B3A9E5B2C41}.Release|x86.Build.0 = Release|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Debug|x64.Build.0 = Debug|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Debug|x86.Build.0 = Debug|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Release|x64.ActiveCfg = Release|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Release|x64.Build.0 = Release|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Release|x86.ActiveCfg = Release|Any CPU
+		{C008373D-44EA-46ED-94A2-C188333398C8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -80,5 +94,6 @@ Global
 		{36603979-6D62-4CBD-9C97-814F41EFFD2D} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{EE74FB7A-3AF8-471A-83B2-B139D59BA042} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{5F3F6B2A-7B6F-4B60-95C0-3B3A9E5B2C41} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{C008373D-44EA-46ED-94A2-C188333398C8} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,118 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{StaticResource Dw2Deep}" />
+    <Setter Property="Foreground" Value="{StaticResource Dw2Text}" />
+  </Style>
+
+  <Style Selector="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Padding" Value="14,6" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.nav.active">
+    <Setter Property="Background" Value="{StaticResource Dw2Blue}" />
+    <Setter Property="Foreground" Value="{StaticResource Dw2Gold}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Dw2BlueGlow}" />
+  </Style>
+  <Style Selector="Button.nav.active:pointerover /template/ ContentPresenter">
+    <Setter Property="Foreground" Value="{StaticResource Dw2Gold}" />
+  </Style>
+  <Style Selector="Button.play">
+    <Setter Property="Background" Value="{StaticResource Dw2Blue}" />
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.play:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Dw2BlueGlow}" />
+  </Style>
+
+  <Style Selector="TextBox">
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="MinHeight" Value="30" />
+  </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+
+  <Style Selector="TextBlock.heading">
+    <Setter Property="FontSize" Value="22" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Dw2Gold}" />
+  </Style>
+  <Style Selector="TextBlock.subheading">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Dw2Gold}" />
+  </Style>
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{StaticResource Dw2Muted}" />
+  </Style>
+  <Style Selector="TextBlock.eyebrow">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{StaticResource Dw2BlueGlow}" />
+  </Style>
+
+  <Style Selector="ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="30" />
+  </Style>
+  <Style Selector="ListBoxItem:nth-child(2n)">
+    <Setter Property="Background" Value="{StaticResource Dw2Panel}" />
+  </Style>
+  <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Dw2Steel}" />
+  </Style>
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Dw2PanelAlt}" />
+  </Style>
+
+  <!-- List header: flat, gold, sortable. -->
+  <Style Selector="Button.header">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource Dw2Gold}" />
+    <Setter Property="Padding" Value="6,6" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.header:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Dw2Blue}" />
+    <Setter Property="Foreground" Value="{StaticResource Dw2Gold}" />
+  </Style>
+
+  <!-- Enable/disable glyph in the list. -->
+  <Style Selector="Button.glyph">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource Dw2Muted}" />
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="Padding" Value="8,2" />
+  </Style>
+  <Style Selector="Button.glyph.on">
+    <Setter Property="Foreground" Value="{StaticResource Dw2Green}" />
+  </Style>
+  <Style Selector="Button.glyph:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource Dw2Steel}" />
+  </Style>
+
+  <!-- Health text colours. -->
+  <Style Selector="TextBlock.health"><Setter Property="Foreground" Value="{StaticResource Dw2Muted}" /></Style>
+  <Style Selector="TextBlock.health.ok"><Setter Property="Foreground" Value="{StaticResource Dw2Green}" /></Style>
+  <Style Selector="TextBlock.health.caution"><Setter Property="Foreground" Value="{StaticResource Dw2Gold}" /></Style>
+  <Style Selector="TextBlock.health.conflict"><Setter Property="Foreground" Value="{StaticResource Dw2Red}" /></Style>
+
+  <!-- The coloured problems callout in the details panel: gold normally, red for conflicts. -->
+  <Style Selector="Border.problems">
+    <Setter Property="Background" Value="{StaticResource Dw2Gold}" />
+    <Setter Property="Tag" Value="Black" />
+  </Style>
+  <Style Selector="Border.problems.conflict">
+    <Setter Property="Background" Value="{StaticResource Dw2Red}" />
+    <Setter Property="Tag" Value="White" />
+  </Style>
+</Styles>

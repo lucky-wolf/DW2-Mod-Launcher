@@ -43,6 +43,7 @@ namespace DW2ModLauncher.Core.Services
             manifest.Entries.Add(new LoaderManifestEntry
             {
                 DllPath = GamePaths.ToGameVisiblePath(full),
+                HostDllPath = full,
                 EntryType = entryPoint,
                 SettingsJson = settingsJson,
                 DisplayName = mod.DisplayName ?? mod.Id

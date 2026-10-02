@@ -3,7 +3,7 @@ using System.IO;
 namespace DW2ModLauncher.Core.Services
 {
     /// <summary>
-    /// Decides which relative file paths inside a MOD folder are excluded from file-conflict detection
+    /// Decides which relative file paths inside a Mod folder are excluded from file-conflict detection
     /// (launcher metadata, docs/previews, installer tools, source/archive artifacts).
     /// </summary>
     public static class ConflictRules
@@ -19,8 +19,8 @@ namespace DW2ModLauncher.Core.Services
             // Launcher metadata is not loaded as game content.
             if (file == "mod.json" || file == "mods.json" || file == "launcher.json") return true;
 
-            // Documentation and preview assets may legitimately use the same names in every MOD.
-            // Check every subfolder, not only the MOD root.
+            // Documentation and preview assets may legitimately use the same names in every Mod.
+            // Check every subfolder, not only the Mod root.
             if (file.StartsWith("readme") || file.StartsWith("license") || file.StartsWith("licence") ||
                 file.StartsWith("manual") || file.StartsWith("changelog") || file.StartsWith("changes") ||
                 file.StartsWith("preview.") || file.StartsWith("thumbnail.") || file.StartsWith("thumb.")) return true;
