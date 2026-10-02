@@ -6,7 +6,7 @@ Collective directives for anyone (human or AI) working in this repo. This file i
 
 DW2 Mod Launcher is an unofficial, open-source (MIT) community launcher/mod manager for **Distant Worlds 2**. It is a hobby project developed cooperatively; contributions, forks, and continued community development are explicitly welcomed (see [README.md](README.md)).
 
-Current features (implemented): scanning/enabling/disabling Mods from Steam Workshop and the local Mod folder, duplicate detection, file-conflict checks between enabled Mods, Workshop update checks, Mod info/README/tool discovery, schema-driven JSON settings editing, per-Mod launch args, code-mod loading via an injected loader DLL (see [docs/DLL Injection.md](docs/DLL%20Injection.md)), publishing a local Mod to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI. Runs on Windows and Linux (Avalonia; on Linux the game runs under Proton) — see [docs/plans/linux-support.md](docs/plans/linux-support.md).
+Current features (implemented): scanning/enabling/disabling Mods from Steam Workshop and the local Mod folder, creating and deleting local Mods, duplicate detection, file-conflict checks between enabled Mods, Workshop update checks, Mod info/README/tool discovery, schema-driven JSON settings editing, per-Mod launch args, code-mod loading via an injected loader DLL (see [docs/DLL Injection.md](docs/DLL%20Injection.md)), publishing a local Mod to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI. Runs on Windows and Linux (Avalonia; on Linux the game runs under Proton) — see [docs/plans/linux-support.md](docs/plans/linux-support.md).
 
 Planned/target scope (in progress or aspirational — confirm current state before assuming these exist):
 - Load order selection for enabled Mods
@@ -26,7 +26,7 @@ Planned/target scope (in progress or aspirational — confirm current state befo
     `LauncherMetaReader` (launcher.json reader), `LoaderManifestBuilder` (builds the manifest the loader DLL
     reads — see [docs/DLL Injection.md](docs/DLL%20Injection.md)), `ModSettingsSchemaReader`/`ModSettingsStore`
     (mod-authored `settings.schema.json` + per-user stored values), `UserDataRoot` (`%AppData%\DW2ModLauncher`, or `~/.config/DW2ModLauncher` on Linux),
-    `ModJsonWorkshopIdWriter`. Everything that is logic rather than presentation lives here so both UIs
+    `ModJsonWorkshopIdWriter`, `LocalModManager` (create/delete a local Mod folder, folder-name sanitizing). Everything that is logic rather than presentation lives here so both UIs
     share it and it is unit tested: `LauncherSettingsStore`/`ProfileStore`/`SnapshotStore`/`PathDetector`
     (settings, profiles, snapshots), `ModOrderState`/`ModOrderStore` (DW2's `mods.json` + the "is this mod
     enabled" rules), `ConflictAnalyzer`/`ModHealth`/`LaunchDiagnostics`, `WorkshopUpdateService`, `ModLibrary`,

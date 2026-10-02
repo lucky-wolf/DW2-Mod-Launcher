@@ -177,5 +177,21 @@
   "VisibilityPrivate": "Private (only you)",
   "VisibilityFriendsOnly": "Friends only",
   "VisibilityUnlisted": "Unlisted (link only)",
-  "VisibilityPublic": "Public"
+  "VisibilityPublic": "Public",
+  "RefreshModsTooltip": "Refresh the mods list",
+  "PublishWorkshopId": "Workshop ID",
+  "PublishWorkshopIdUnpublished": "Unpublished",
+  "CreateMod": "New Mod...",
+  "CreateModTitle": "Create a new Mod",
+  "CreateModPrompt": "Mod name",
+  "CreateModFolderPreview": "Folder: {0}",
+  "CreateModNoFolder": "The DW2 Mod folder is not set or does not exist. Set it in Settings first.",
+  "CreateModFailed": "Could not create the Mod.\r\n{0}",
+  "ModCreatedStatus": "Created Mod: {0}",
+  "DeleteMod": "Delete Mod...",
+  "DeleteModTitle": "Delete Mod",
+  "ConfirmDeleteMod": "Delete \"{0}\" and everything in its folder?\r\n\r\n{1}\r\n\r\nThis cannot be undone.",
+  "ConfirmDeleteModPublished": "This Mod was published to the Steam Workshop (item {0}). Deleting it here does not remove the Workshop item.",
+  "DeleteModFailed": "Could not delete the Mod.\r\n{0}",
+  "ModDeletedStatus": "Deleted Mod: {0}"
 }

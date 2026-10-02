@@ -11,11 +11,26 @@ namespace DW2ModLauncher.Avalonia.Services
 {
     public class DialogService : IDialogService
     {
-        private readonly Func<Window> owner;
+        private readonly Func<Window> mainWindow;
+        private SettingsDialog settingsDialog;
 
         public DialogService(Func<Window> owner)
         {
-            this.owner = owner;
+            mainWindow = owner;
+        }
+
+        // While the settings window is open it is the window that is not blocked, so dialogs opened from it must belong to it.
+        private Window owner()
+        {
+            return settingsDialog ?? mainWindow();
+        }
+
+        public async Task ShowSettingsAsync(SettingsViewModel settings)
+        {
+            if (settingsDialog != null) return;
+            settingsDialog = new SettingsDialog(settings);
+            try { await settingsDialog.ShowDialog(mainWindow()); }
+            finally { settingsDialog = null; }
         }
 
         public string OkText { get; set; } = "OK";
@@ -33,6 +48,11 @@ namespace DW2ModLauncher.Avalonia.Services
         public Task<string> PickFromListAsync(string title, string note, IList<string> items)
         {
             return new ListPickerDialog(title, note, items).ShowDialog<string>(owner());
+        }
+
+        public Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint)
+        {
+            return new InputDialog(title, label, initial, okText, cancelText, hint).ShowDialog<string>(owner());
         }
 
         public async Task<string> PickFolderAsync(string title, string startFolder)
