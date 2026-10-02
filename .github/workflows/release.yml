@@ -1,0 +1,82 @@
+name: Release
+
+# Every merge to main that touches launcher code gets the next vMAJOR.MINOR.PATCH tag
+# (MAJOR.MINOR from .version, PATCH auto-incremented by scripts/release.py) and a GitHub Release
+# with a self-contained win-x64 zip. Pull requests touching the same paths (and manual
+# workflow_dispatch runs) build the zip as a workflow artifact without tagging or publishing
+# anything, so packaging problems show up before merge. Mirrors critical-mass-client's flow.
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'Directory.Build.props'
+      - '.version'
+      - '.github/workflows/release.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'Directory.Build.props'
+      - '.version'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # MinVer and release.py need the full tag history
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore DW2ModLauncher.sln
+
+      # Same gates as ci.yml: never release something that wouldn't pass CI.
+      - name: Test
+        run: dotnet test src/DW2ModLauncher.Tests -c Release
+
+      - name: Tag release
+        id: release
+        if: github.event_name == 'push'
+        run: python scripts/release.py
+
+      # MinVer reads the tag created above (or, for a manual run, produces a pre-release version).
+      - name: Publish (self-contained, single-file)
+        run: >
+          dotnet publish src/DW2ModLauncher.App -c Release -r win-x64 --self-contained
+          -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=false -p:DebugType=none
+          -o publish
+
+      - name: Package
+        id: package
+        shell: pwsh
+        run: |
+          $exe = Get-Item publish/DW2ModLauncherBeta.exe
+          $version = $exe.VersionInfo.ProductVersion -replace '\+.*$', ''
+          $name = "DW2ModLauncher-v$version-win-x64"
+          $stage = Join-Path $PWD "stage/$name"
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item publish/* $stage -Recurse
+          Copy-Item launcher_settings.example.json, LICENSE, README.md $stage
+          Compress-Archive -Path "stage/$name" -DestinationPath "$name.zip"
+          "zip=$name.zip" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.zip }}
+          path: ${{ steps.package.outputs.zip }}
+
+      - name: Create GitHub Release
+        if: steps.release.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ steps.release.outputs.tag }}" "${{ steps.package.outputs.zip }}" --title "${{ steps.release.outputs.tag }}" --generate-notes

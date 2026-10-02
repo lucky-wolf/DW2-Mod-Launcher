@@ -10,7 +10,7 @@ namespace DW2ModLauncher.Loader
     // mod target the launcher ever injects: --low-level-inject
     //   "<path>\DW2ModLauncher.Loader.dll"!DW2ModLauncher.Loader.Entry.Init
     // Every enabled mod is then loaded from here, in manifest order, via reflection - see
-    // docs/dll-injection.md.
+    // docs/DLL Injection.md.
     public static class Entry
     {
         private static bool _started;

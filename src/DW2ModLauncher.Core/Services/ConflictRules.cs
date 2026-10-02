@@ -11,8 +11,10 @@ namespace DW2ModLauncher.Core.Services
         public static bool IsIgnored(string relativePath)
         {
             if (string.IsNullOrWhiteSpace(relativePath)) return true;
-            string rel = relativePath.Replace('/', '\\').TrimStart('\\');
-            string file = Path.GetFileName(rel).ToLowerInvariant();
+            // Normalize to '/' (valid on every platform) and split on it ourselves: Path.GetFileName only
+            // honors the current platform's separator, so Windows-style input would not split on Linux.
+            string rel = relativePath.Replace('\\', '/');
+            string file = rel.Substring(rel.LastIndexOf('/') + 1).ToLowerInvariant();
 
             // Launcher metadata is not loaded as game content.
             if (file == "mod.json" || file == "mods.json" || file == "launcher.json") return true;

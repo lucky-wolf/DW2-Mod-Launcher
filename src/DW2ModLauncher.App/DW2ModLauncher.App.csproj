@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -50,6 +50,19 @@
       <LoaderFiles Include="..\DW2ModLauncher.Loader\bin\$(Configuration)\net8.0\DW2ModLauncher.Loader.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(LoaderFiles)" DestinationFolder="$(OutDir)Loader" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- dotnet publish only ships Content/None-with-CopyToPublishDirectory items, so the Loader DLL that
+       CopyLoaderOutput drops into the build output must be added to the publish list explicitly. -->
+  <Target Name="AddLoaderToPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="..\DW2ModLauncher.Loader\bin\$(Configuration)\net8.0\DW2ModLauncher.Loader.dll">
+        <RelativePath>Loader\DW2ModLauncher.Loader.dll</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <!-- The game loads this by path, so it must stay a loose file, not get bundled into the exe. -->
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
   </Target>
 
 </Project>

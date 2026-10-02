@@ -27,7 +27,7 @@ namespace DW2ModLauncherBeta
         // The launcher ships a single fixed loader DLL (see DW2ModLauncher.Loader) next to its
         // own executable; that loader is the ONLY --low-level-inject target ever used. It reads
         // manifest.json (written by WriteLoaderManifest below) and loads every enabled mod itself,
-        // in order, via reflection - see docs/dll-injection.md. This replaced composing every
+        // in order, via reflection - see docs/DLL Injection.md. This replaced composing every
         // mod's own dll!entryPoint into one CLI flag directly, since the game only honors the
         // last --low-level-inject occurrence and invokes entry points with zero arguments.
         private string LoaderDllPath()

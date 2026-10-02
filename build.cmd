@@ -8,7 +8,7 @@ for %%A in (%*) do if /I "%%A"=="--no-validate" set "VALIDATE=0"
 where dotnet >nul 2>nul
 if errorlevel 1 (
   echo [ERROR] .NET SDK was not found on PATH.
-  echo Install the .NET 8 SDK from https://dotnet.microsoft.com/download
+  echo Install the .NET 10 SDK from https://dotnet.microsoft.com/download
   pause
   exit /b 1
 )
@@ -45,5 +45,5 @@ if "%VALIDATE%"=="1" (
   )
 )
 
-echo [OK] Build complete: src\DW2ModLauncher.App\bin\Release\net8.0-windows\DW2ModLauncherBeta.exe
+echo [OK] Build complete: src\DW2ModLauncher.App\bin\Release\net10.0-windows\DW2ModLauncherBeta.exe
 pause

@@ -40,7 +40,11 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
 - Windows
 - Distant Worlds 2
 - Steam version recommended
-- [.NET 8 SDK](https://dotnet.microsoft.com/download) for building
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) for building (the only SDK you need)
+
+The launcher itself targets .NET 10 and is released self-contained, so players need no .NET install. The
+injected loader DLL (`DW2ModLauncher.Loader`) targets .NET 8, because it runs inside Distant Worlds 2, which
+currently requires .NET 8. The .NET 10 SDK fully supports targeting 8, so you don't need the .NET 8 SDK as well.
 
 ### Building
 
@@ -60,7 +64,7 @@ Both scripts call `dotnet build` on [`DW2ModLauncher.sln`](DW2ModLauncher.sln). 
 `DW2ModLauncher.Core` (mod scanning, Steam/Workshop lookups, JSON helpers — no UI dependency),
 `DW2ModLauncher.App` (the WinForms launcher), and `DW2ModLauncher.Tests` (unit tests for the Core logic);
 see [AGENTS.md](AGENTS.md) for details. The built executable is
-`src\DW2ModLauncher.App\bin\Release\net8.0-windows\DW2ModLauncherBeta.exe`.
+`src\DW2ModLauncher.App\bin\Release\net10.0-windows\DW2ModLauncherBeta.exe`.
 
 By default, `build.cmd` (and `run.cmd`, which calls it) also fixes code formatting and runs the unit test suite —
 the same checks that run in CI — before building. Pass `--no-validate` to skip both and just build, for a faster
