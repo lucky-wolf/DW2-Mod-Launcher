@@ -59,7 +59,12 @@ def release_tag_at_head(repo_root: Path) -> str | None:
 
 
 def head_triggers_release(repo_root: Path) -> bool:
-    """Whether HEAD (a merge/squash commit on main) changed any RELEASE_PATHS, i.e. whether the
-    release workflow will tag it. Compares against the first parent, as the push event does."""
-    changed = _git(repo_root, "diff", "--name-only", "HEAD~1", "HEAD").splitlines()
+    """Whether HEAD (main's tip after a merge) has release-path changes that no release tag covers
+    yet, i.e. whether the release workflow will tag it. Compares against the latest release tag
+    rather than HEAD~1: a rebase-merge lands a multi-commit PR as several commits, and the last
+    one alone may not touch a release path. No tag yet at all means the first release is pending."""
+    last_tag = _git(repo_root, "describe", "--tags", "--abbrev=0", "--match", f"{TAG_PREFIX}[0-9]*").strip()
+    if not last_tag:
+        return True
+    changed = _git(repo_root, "diff", "--name-only", last_tag, "HEAD").splitlines()
     return any(f == p or (p.endswith("/") and f.startswith(p)) for f in changed for p in RELEASE_PATHS)

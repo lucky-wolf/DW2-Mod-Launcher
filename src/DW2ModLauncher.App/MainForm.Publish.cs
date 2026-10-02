@@ -163,7 +163,7 @@ namespace DW2ModLauncherBeta
             if (publishButton != null) publishButton.Enabled = false;
             SetStatus(T("PublishRunning"));
 
-            IModPublisher publisher = new SteamworksModPublisher(uint.Parse(SteamLocator.AppId));
+            IModPublisher publisher = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
             ModPublishRequest request = new ModPublishRequest
             {
                 ContentFolder = mod.ContentRoot ?? mod.Folder,
@@ -252,7 +252,7 @@ namespace DW2ModLauncherBeta
 
                 openBrowser.Click += delegate
                 {
-                    try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+                    try { PlatformShell.Create().OpenUrl(url); }
                     catch (Exception ex) { MessageBox.Show(ex.Message, Text); }
                     dialog.Close();
                 };

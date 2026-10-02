@@ -132,6 +132,12 @@ This project is released under the **MIT License**.
 
 See [`LICENSE`](LICENSE) for details.
 
+**Steamworks native libraries.** Workshop publishing needs Valve's Steam API native library
+(`steam_api64.dll` on Windows, `libsteam_api.so` on Linux). These are not covered by the MIT License.
+They are Valve's redistributable binaries, taken unmodified from the official Steamworks SDK and
+bundled so the launcher can talk to the user's own Steam client. They remain subject to the
+Steamworks SDK terms.
+
 ---
 
 ## Disclaimer

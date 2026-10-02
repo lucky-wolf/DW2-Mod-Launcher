@@ -326,14 +326,7 @@ namespace DW2ModLauncherBeta
                     MessageBox.Show(T("FolderNotFound"), Text);
                     return;
                 }
-                // explorer.exe's own argument parsing silently falls back to its default folder
-                // (observed: opens Documents) on a path with a mix of '/' and '\' separators -
-                // e.g. GameRoot-derived paths like "c:/program files (x86)/steam\steamapps\..."
-                // (settings.GameRoot itself can be stored that way; ManagedModsRoot inherits it).
-                // .NET's own Directory.Exists/Process.Start tolerate the mix fine, so this went
-                // unnoticed until explorer.exe itself had to parse it. Path.GetFullPath
-                // canonicalizes to all-backslash on Windows, which explorer.exe parses correctly.
-                Process.Start("explorer.exe", "\"" + Path.GetFullPath(path) + "\"");
+                PlatformShell.Create().OpenFolder(path);
             }
             catch (Exception ex) { MessageBox.Show(ex.Message, Text); }
         }
@@ -422,11 +415,7 @@ namespace DW2ModLauncherBeta
                     MessageBox.Show(T("DocumentMissingWarning"), Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
-                ProcessStartInfo start = new ProcessStartInfo();
-                start.FileName = fullPath;
-                start.WorkingDirectory = Path.GetDirectoryName(fullPath);
-                start.UseShellExecute = true;
-                Process.Start(start);
+                PlatformShell.Create().OpenFile(fullPath);
             }
             catch (Exception ex)
             {

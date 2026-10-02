@@ -36,7 +36,7 @@ namespace DW2ModLauncher.Tests
                 LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { mod });
 
                 Assert.Single(manifest.Entries);
-                Assert.Equal(Path.Combine(dir, "SomeMod.dll"), manifest.Entries[0].DllPath);
+                Assert.Equal(GamePaths.ToGameVisiblePath(Path.Combine(dir, "SomeMod.dll")), manifest.Entries[0].DllPath);
                 Assert.Equal("SomeMod.Bootstrap.Init", manifest.Entries[0].EntryType);
                 Assert.Null(manifest.Entries[0].SettingsJson);
             }
