@@ -153,7 +153,7 @@ namespace DW2ModLauncher.App
 
         // Only this method (and ApplyPublishSuccess below) know IModPublisher exists - everything
         // about how a publish actually happens is that implementation's own business, not this
-        // class's. SteamworksModPublisher talks to the Steamworks API in-process (see
+        // class's. SteamworksNetModPublisher talks to the Steamworks API in-process (see
         // docs/workshop-publish.md), so - unlike the old DW2.exe-shelling approach - the result is
         // always known synchronously: either a real WorkshopId or a real ErrorMessage, never "maybe."
         private void RunPublishProcess(ModInfo mod, ModPublishMetadata metadata)

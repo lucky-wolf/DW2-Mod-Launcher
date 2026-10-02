@@ -6,9 +6,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
 {
     /// <summary>
     /// Workshop publisher on Steamworks.NET + Valve's native Steam API library
-    /// (libsteam_api.so on Linux), talking to the user's already-running, already-logged-in Steam
-    /// client the same way SteamworksModPublisher does with Facepunch.Steamworks (which is
-    /// Windows-only). Needs "steam_appid.txt" and the native library next to the executable; the
+    /// (steam_api64.dll on Windows, libsteam_api.so on Linux), talking to the user's already-running,
+    /// already-logged-in Steam client. Needs "steam_appid.txt" and the native library next to the executable; the
     /// native library's SDK version must match the Steamworks.NET version (see README "License").
     /// </summary>
     public class SteamworksNetModPublisher : IModPublisher
@@ -48,7 +47,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 else
                 {
                     CreateItemResult_t created;
-                    if (!Await(SteamUGC.CreateItem((AppId_t)appId, EWorkshopFileType.k_EWorkshopFileTypeCommunity), out created, result)) return result;
+                    if (!Await(SteamUGC.CreateItem((AppId_t)appId, EWorkshopFileType.k_EWorkshopFileTypeCommunity), out created, result, request.Cancel)) return result;
                     if (created.m_eResult != EResult.k_EResultOK)
                     {
                         result.ErrorMessage = "Steam reported an error: " + created.m_eResult;
@@ -69,7 +68,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 if (!string.IsNullOrWhiteSpace(request.PreviewImagePath)) SteamUGC.SetItemPreview(update, request.PreviewImagePath);
 
                 SubmitItemUpdateResult_t submitted;
-                if (!Await(SteamUGC.SubmitItemUpdate(update, ""), out submitted, result)) return result;
+                if (!Await(SteamUGC.SubmitItemUpdate(update, ""), out submitted, result, request.Cancel)) return result;
                 if (submitted.m_eResult != EResult.k_EResultOK)
                 {
                     result.ErrorMessage = "Steam reported an error: " + submitted.m_eResult;
@@ -100,7 +99,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
         }
 
         // Steamworks.NET results only arrive while SteamAPI.RunCallbacks() is being pumped.
-        private static bool Await<T>(SteamAPICall_t call, out T value, ModPublishResult result) where T : struct
+        private static bool Await<T>(SteamAPICall_t call, out T value, ModPublishResult result, CancellationToken cancel) where T : struct
         {
             T received = default(T);
             bool done = false;
@@ -109,14 +108,15 @@ namespace DW2ModLauncher.Core.Services.Publishing
             callResult.Set(call);
 
             DateTime deadline = DateTime.UtcNow + CallTimeout;
-            while (!done && DateTime.UtcNow < deadline)
+            while (!done && !cancel.IsCancellationRequested && DateTime.UtcNow < deadline)
             {
                 SteamAPI.RunCallbacks();
                 Thread.Sleep(50);
             }
             callResult.Dispose();
             value = received;
-            if (!done) result.ErrorMessage = "Timed out waiting for Steam.";
+            if (!done && cancel.IsCancellationRequested) result.ErrorMessage = "Cancelled.";
+            else if (!done) result.ErrorMessage = "Timed out waiting for Steam.";
             else if (ioFailure) result.ErrorMessage = "Lost contact with the Steam client.";
             return done && !ioFailure;
         }

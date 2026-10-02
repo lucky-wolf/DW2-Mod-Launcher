@@ -30,6 +30,21 @@
     <Setter Property="Background" Value="{StaticResource Dw2BlueGlow}" />
   </Style>
 
+  <Style Selector="Button.play.stop">
+    <Setter Property="Background" Value="#8B2A2A" />
+  </Style>
+  <Style Selector="Button.play.stop:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#B03A3A" />
+  </Style>
+  <Style Selector="Arc.spinner">
+    <Style.Animations>
+      <Animation Duration="0:0:1" IterationCount="INFINITE">
+        <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
   <Style Selector="TextBox">
     <Setter Property="CornerRadius" Value="0" />
     <Setter Property="MinHeight" Value="30" />

@@ -10,8 +10,10 @@ using System.Text.Json.Nodes;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services.Publishing;
 using DW2ModLauncher.Core.Services;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 
 namespace DW2ModLauncher.Avalonia.ViewModels
 {
@@ -71,9 +73,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ShowModsCommand = new RelayCommand(delegate { ShowingSettings = false; });
             ShowSettingsCommand = new RelayCommand(delegate { ShowingSettings = true; });
             RefreshCommand = new RelayCommand(Refresh);
-            PlayCommand = new RelayCommand(PlayAsync);
+            PlayCommand = new RelayCommand(PlayOrStopAsync, () => gameState != GameState.Launching);
+            gameWatchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            gameWatchTimer.Tick += delegate { var _ = WatchGameAsync(); };
+            gameWatchTimer.Start();
+            var first = WatchGameAsync();
             SortCommand = RelayCommand.WithParameter(column => SortBy(int.Parse((string)column, System.Globalization.CultureInfo.InvariantCulture)));
             OpenSelectedFolderCommand = new RelayCommand(OpenModFolder, () => selectedRow != null);
+            OpenSteamPageCommand = new RelayCommand(OpenSteamPage, () => SteamPageId(selectedRow) != null);
             OpenDocsCommand = new RelayCommand(OpenDocsAsync, () => selectedRow != null && selectedRow.Mod.IncludedDocuments != null && selectedRow.Mod.IncludedDocuments.Count > 0);
             ModSettingsCommand = new RelayCommand(OpenModSettingsAsync, () => HasModSettings(selectedRow));
             PublishCommand = new RelayCommand(PublishAsync, () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !publishRunning);
@@ -94,8 +101,73 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand ShowSettingsCommand { get; }
         public RelayCommand RefreshCommand { get; }
         public RelayCommand PlayCommand { get; }
+
+        // ---- game state: Play -> Launching (spinner, locked) -> Running (Stop) -> Idle
+
+        private enum GameState { Idle, Launching, Running }
+
+        // DW2 can take a long time to show up, so give a launch plenty of time before concluding it never started.
+        private static readonly TimeSpan LaunchTimeout = TimeSpan.FromMinutes(3);
+        // The process exists long before the game window does, so keep the spinner up for a while before offering Stop.
+        private static readonly TimeSpan LaunchMinimum = TimeSpan.FromSeconds(10);
+        private readonly DispatcherTimer gameWatchTimer;
+        private GameState gameState = GameState.Idle;
+        private DateTime launchStartedUtc;
+        private bool watching;
+
+        public bool IsLaunching { get { return gameState == GameState.Launching; } }
+        public bool IsGameRunning { get { return gameState == GameState.Running; } }
+        public string PlayLabel
+        {
+            get { return T(gameState == GameState.Launching ? "LaunchingButton" : gameState == GameState.Running ? "StopButton" : "PlayButton"); }
+        }
+
+        private void SetGameState(GameState state)
+        {
+            if (gameState == state) return;
+            gameState = state;
+            Raise(nameof(IsLaunching));
+            Raise(nameof(IsGameRunning));
+            Raise(nameof(PlayLabel));
+            PlayCommand.RaiseCanExecuteChanged();
+        }
+
+        /// <summary>Polls for the game process (off the UI thread) and moves the Play button between its states.</summary>
+        private async Task WatchGameAsync()
+        {
+            if (watching) return;
+            watching = true;
+            try
+            {
+                bool running = await Task.Run(() => GameProcess.IsRunning());
+                if (running && gameState == GameState.Launching && DateTime.UtcNow - launchStartedUtc < LaunchMinimum) return;
+                if (running) SetGameState(GameState.Running);
+                else if (gameState == GameState.Running) SetGameState(GameState.Idle);
+                else if (gameState == GameState.Launching && DateTime.UtcNow - launchStartedUtc > LaunchTimeout)
+                {
+                    SetGameState(GameState.Idle);
+                    SetStatus(T("GameLaunchTimedOut"));
+                }
+            }
+            finally { watching = false; }
+        }
+
+        private async Task PlayOrStopAsync()
+        {
+            if (gameState == GameState.Running) await StopGameAsync();
+            else await PlayAsync();
+        }
+
+        private async Task StopGameAsync()
+        {
+            if (!await Dialogs.ConfirmAsync(T("ConfirmStopGame"), "DW2 Mod Launcher", T("Yes"), T("No"))) return;
+            await Task.Run(() => GameProcess.Kill());
+            SetGameState(GameState.Idle);
+            SetStatus(T("GameStopped"));
+        }
         public RelayCommand SortCommand { get; }
         public RelayCommand OpenSelectedFolderCommand { get; }
+        public RelayCommand OpenSteamPageCommand { get; }
         public RelayCommand OpenDocsCommand { get; }
         public RelayCommand CheckUpdatesCommand { get; }
         public RelayCommand ModSettingsCommand { get; }
@@ -109,6 +181,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (!Set(ref selectedRow, value)) return;
                 ShowDetails();
                 OpenSelectedFolderCommand.RaiseCanExecuteChanged();
+                OpenSteamPageCommand.RaiseCanExecuteChanged();
                 OpenDocsCommand.RaiseCanExecuteChanged();
                 ModSettingsCommand.RaiseCanExecuteChanged();
                 PublishCommand.RaiseCanExecuteChanged();
@@ -153,6 +226,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 settings.Language = value.Code;
                 L.SetLanguage(value.Code);
                 Dialogs.OkText = T("OK");
+                Raise(nameof(PlayLabel));
                 SaveSettings();
                 ApplySourceNames();
                 RebuildRows();
@@ -389,6 +463,26 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Preview = ImageLoader.Load(mod.PreviewImage, 0);
         }
 
+        /// <summary>The Workshop item id behind a row: the folder name for a Workshop copy, or the id written into mod.json by a publish.</summary>
+        private static string SteamPageId(ModRowViewModel row)
+        {
+            if (row == null) return null;
+            string id = row.Mod.IsWorkshop ? row.Mod.Id : row.Mod.WorkshopId;
+            return long.TryParse(id, out long _) ? id : null;
+        }
+
+        private void OpenSteamPage()
+        {
+            string id = SteamPageId(selectedRow);
+            if (id == null) return;
+            try { PlatformShell.Create().OpenUrl("steam://url/CommunityFilePage/" + id); }
+            catch
+            {
+                try { PlatformShell.Create().OpenUrl("https://steamcommunity.com/sharedfiles/filedetails/?id=" + id); }
+                catch (Exception ex) { var _ = Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher"); }
+            }
+        }
+
         private void OpenModFolder()
         {
             if (selectedRow == null) return;
@@ -487,10 +581,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 ExistingWorkshopId = long.TryParse(mod.WorkshopId, out long existingId) ? existingId : (long?)null,
                 Visibility = editor.SelectedVisibility
             };
+            CancellationTokenSource cancel = new CancellationTokenSource();
+            request.Cancel = cancel.Token;
             try
             {
                 IModPublisher publisher = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
-                ModPublishResult result = await Task.Run(() => publisher.Publish(request));
+                ModPublishResult result;
+                // Stay modal until Steam answers; Cancel only appears if that takes a while.
+                using (Dialogs.ShowBusy(T("PublishRunning"), T("PublishToWorkshop"), T("Cancel"), TimeSpan.FromSeconds(15), cancel))
+                    result = await Task.Run(() => publisher.Publish(request));
+                if (cancel.IsCancellationRequested)
+                {
+                    if (result.WorkshopId.HasValue) ModJsonWorkshopIdWriter.Write(mod.ModJsonPath, result.WorkshopId.Value);
+                    SetStatus(T("PublishCancelledStatus"));
+                    return;
+                }
                 if (!result.WorkshopId.HasValue || !string.IsNullOrEmpty(result.ErrorMessage))
                 {
                     // A created-but-failed upload still has an id: keep it so a retry updates instead of duplicating.
@@ -610,6 +715,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 T("PreLaunchDiagnostics"), T("Yes"), T("No"))) return;
             if (collisions.Count > 0 && !await Dialogs.ConfirmAsync(
                 LaunchDiagnostics.BuildConflictWarning(collisions, key => T(key)), T("ModConflictWarning"), T("Yes"), T("No"))) return;
+            if (GameProcess.IsRunning()) { SetGameState(GameState.Running); return; }
             if (!SteamLocator.IsGameRoot(settings.GameRoot))
             {
                 await Dialogs.ShowMessageAsync(T("GameExeNotFound"), "DW2 Mod Launcher");
@@ -620,6 +726,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 GameLauncher.WriteLoaderManifest(OrderedEnabledMods());
                 Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(settings.GlobalLaunchArguments), settings.LaunchEnvironment));
                 SetStatus(T("DistantWorlds2Launched"));
+                launchStartedUtc = DateTime.UtcNow;
+                SetGameState(GameState.Launching);
             }
             catch (Exception ex)
             {

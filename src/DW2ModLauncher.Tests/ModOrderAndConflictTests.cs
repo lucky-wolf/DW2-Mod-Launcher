@@ -50,7 +50,11 @@ namespace DW2ModLauncher.Tests
             string path = Path.Combine(dir, "mods.json");
             ModOrderStore.Write(path, new[] { "one" });
             ModOrderStore.Write(path, new[] { "two" });
-            Assert.Contains("one", File.ReadAllText(path + ".launcher_backup"));
+            ModOrderStore.Write(path, new[] { "three" });
+            string[] backups = Directory.GetFiles(dir, "mods.json.*.launcher_backup");
+            Assert.Equal(2, backups.Length);
+            Assert.Contains(backups, b => File.ReadAllText(b).Contains("one"));
+            Assert.Contains(backups, b => File.ReadAllText(b).Contains("two"));
             Assert.False(File.Exists(path + ".launcher_tmp"));
         }
 

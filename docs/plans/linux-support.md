@@ -33,7 +33,7 @@ Status: in progress (steps 1-2 done, see Progress). Release pipeline is done (se
 - Step 1 DONE: Core/Tests are plain `net10.0`; `SteamLocator` is cross-platform; `GamePaths` (`Z:\` mapping),
   `PlatformShell` (xdg-open), `GameLauncher` (`steam -applaunch`) added.
 - Step 2 DONE (verified 2026-10-02): `SteamworksNetModPublisher` created and updated a real Workshop item
-  from Linux against the native Steam client. Windows still uses the Facepunch publisher (`ModPublisherFactory`).
+  from Linux against the native Steam client. Windows moved to the same publisher on 2026-10-02 (see below).
 - Step 3 phase A DONE. Non-UI logic now lives in Core (tested): settings/profiles/snapshots/path detection
   (`LauncherSettingsStore`, `ProfileStore`, `SnapshotStore`, `PathDetector`, `FileNames`); mod order and
   conflicts (`ModOrderState`/`ModOrderStore`, `ConflictAnalyzer`, `LaunchDiagnostics`, `ModHealth`, `GameProcess`);
@@ -81,8 +81,10 @@ then it is deleted. Phases, each runnable/testable on Linux:
   matched pair is vendored in `third_party/steamworks/` (see its README). Wrapper must be built with the
   `OSX-Linux` configuration for Linux struct packing.
 - `steam_appid.txt` next to the binary is required; the `SteamAppId` env var alone is not enough.
-- Still to do: Windows config of the wrapper + `steam_api64.dll` from the same revision, then drop Facepunch
-  and the extern alias in `DW2ModLauncher.Core.csproj`.
+- Windows DONE (2026-10-02): `win-x64` wrapper + `steam_api64.dll` vendored from the same revision; a private throwaway
+  item was created and deleted on Windows through the Steamworks.NET publisher. Facepunch, its extern alias and
+  `SteamworksModPublisher` are removed. Core references the win-x64 wrapper at compile time only; each executable
+  copies the matching OS build.
 
 ## Follow-ups
 - Publish visibility: both publishers hardcode Public today. Add `Visibility` (Public/FriendsOnly/Private/Unlisted)

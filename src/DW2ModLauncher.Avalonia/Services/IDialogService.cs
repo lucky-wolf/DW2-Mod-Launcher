@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using DW2ModLauncher.Avalonia.ViewModels;
 
@@ -19,6 +21,11 @@ namespace DW2ModLauncher.Avalonia.Services
         Task<string> PickFileAsync(string title, string startFolder, string filterName, params string[] patterns);
         /// <summary>True if the user saved.</summary>
         Task<bool> EditModSettingsAsync(ModSettingsEditorViewModel editor);
+        /// <summary>
+        /// Shows a modal spinner box that the user can't dismiss; dispose the result to close it. A Cancel button appears
+        /// after <paramref name="cancelAfter"/> and, when clicked, cancels <paramref name="cancel"/>.
+        /// </summary>
+        IDisposable ShowBusy(string message, string title, string cancelText, TimeSpan cancelAfter, CancellationTokenSource cancel);
         /// <summary>True if the user chose to publish.</summary>
         Task<bool> EditPublishAsync(PublishDialogViewModel editor);
     }

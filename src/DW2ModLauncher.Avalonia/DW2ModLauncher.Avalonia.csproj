@@ -24,9 +24,6 @@
          keeps it out of this project's own dependency closure; the targets below copy its build
          output into our own output folder's Loader\ subfolder. -->
     <ProjectReference Include="..\DW2ModLauncher.Loader\DW2ModLauncher.Loader.csproj" ReferenceOutputAssembly="false" />
-    <!-- Referenced directly so GeneratePathProperty gives us $(PkgFacepunch_Steamworks), to copy the
-         Windows native steam_api64.dll (Windows still publishes through Facepunch.Steamworks). -->
-    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" GeneratePathProperty="true" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -39,13 +36,21 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <!-- Native Steam API library, per OS. Linux: Valve's libsteam_api.so, vendored as a matched pair with
-         Steamworks.NET.dll (see third_party/steamworks/README.md). Windows: the one Facepunch ships. -->
+         Steamworks.NET.dll (see third_party/steamworks/README.md). Windows: the matching steam_api64.dll from the same revision. -->
     <None Condition="'$(IsLinuxTarget)' == 'true'" Include="..\..\third_party\steamworks\linux-x64\libsteam_api.so">
       <Link>libsteam_api.so</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Condition="'$(IsLinuxTarget)' != 'true'" Include="$(PkgFacepunch_Steamworks)\content\steam_api64.dll">
+    <None Condition="'$(IsLinuxTarget)' == 'true'" Include="..\..\third_party\steamworks\linux-x64\Steamworks.NET.dll">
+      <Link>Steamworks.NET.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Condition="'$(IsLinuxTarget)' != 'true'" Include="..\..\third_party\steamworks\win-x64\steam_api64.dll">
       <Link>steam_api64.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Condition="'$(IsLinuxTarget)' != 'true'" Include="..\..\third_party\steamworks\win-x64\Steamworks.NET.dll">
+      <Link>Steamworks.NET.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

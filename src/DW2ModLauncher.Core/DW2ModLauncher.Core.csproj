@@ -9,22 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" />
     <!-- Vendored, not NuGet: the NuGet package (SDK 1.60) doesn't match the 1.65 native library - see third_party/steamworks/README.md. -->
+    <!-- Compile-time only: there is one wrapper build per OS (struct packing differs, see the README), and the
+         executable projects copy the matching one next to themselves. -->
     <Reference Include="Steamworks.NET">
-      <HintPath>..\..\third_party\steamworks\linux-x64\Steamworks.NET.dll</HintPath>
+      <HintPath>..\..\third_party\steamworks\win-x64\Steamworks.NET.dll</HintPath>
+      <Private>false</Private>
     </Reference>
   </ItemGroup>
-
-  <!-- Facepunch.Steamworks (Windows publisher) and Steamworks.NET (Linux publisher) both declare a
-       Steamworks.SteamClient type, so Facepunch is reached through the "facepunch" extern alias.
-       Temporary: drops out once Windows publishing moves to Steamworks.NET too. -->
-  <Target Name="AliasFacepunchSteamworks" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
-    <ItemGroup>
-      <ReferencePath Condition="'%(Filename)' == 'Facepunch.Steamworks.Win64'">
-        <Aliases>facepunch</Aliases>
-      </ReferencePath>
-    </ItemGroup>
-  </Target>
 
 </Project>

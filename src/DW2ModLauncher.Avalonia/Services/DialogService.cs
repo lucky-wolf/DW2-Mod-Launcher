@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
@@ -60,6 +61,20 @@ namespace DW2ModLauncher.Avalonia.Services
         public Task<bool> EditModSettingsAsync(ModSettingsEditorViewModel editor)
         {
             return new ModSettingsDialog(editor).ShowDialog<bool>(owner());
+        }
+
+        public IDisposable ShowBusy(string message, string title, string cancelText, TimeSpan cancelAfter, CancellationTokenSource cancel)
+        {
+            BusyDialog dialog = new BusyDialog(message, title, cancelText, cancelAfter, cancel);
+            var shown = dialog.ShowDialog(owner());
+            return new BusyHandle(dialog);
+        }
+
+        private sealed class BusyHandle : IDisposable
+        {
+            private readonly BusyDialog dialog;
+            public BusyHandle(BusyDialog dialog) { this.dialog = dialog; }
+            public void Dispose() { dialog.Finish(); }
         }
 
         public Task<bool> EditPublishAsync(PublishDialogViewModel editor)
