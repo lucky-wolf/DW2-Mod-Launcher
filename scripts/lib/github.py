@@ -32,12 +32,15 @@ def create_or_update_pr(repo_root: Path, branch: str, target: str, title: str, b
 
     if existing:
         url = existing[0]["url"]
+        # REST, not `gh pr edit`: that goes through GraphQL and fails on the deprecated "Projects
+        # (classic)" field (repository.pullRequest.projectCards). gh substitutes {owner}/{repo}.
         edit = subprocess.run(
-            ["gh", "pr", "edit", str(existing[0]["number"]), "--title", title, "--body", body],
+            ["gh", "api", "--method", "PATCH", f"repos/{{owner}}/{{repo}}/pulls/{existing[0]['number']}",
+             "-f", f"title={title}", "-f", f"body={body}"],
             cwd=repo_root, capture_output=True, text=True,
         )
         if edit.returncode != 0:
-            raise RuntimeError(edit.stderr.strip())
+            raise RuntimeError(edit.stderr.strip() or edit.stdout.strip())
         return url, False
 
     cmd = ["gh", "pr", "create", "--base", target, "--head", branch, "--title", title, "--body", body]
