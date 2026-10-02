@@ -68,12 +68,15 @@ jobs:
           Copy-Item publish/* $stage -Recurse
           Copy-Item launcher_settings.example.json, LICENSE, README.md $stage
           Compress-Archive -Path "stage/$name" -DestinationPath "$name.zip"
+          "name=$name" >> $env:GITHUB_OUTPUT
           "zip=$name.zip" >> $env:GITHUB_OUTPUT
 
+      # Upload the staged folder, not the zip: the artifact download is itself a zip, so uploading the
+      # zip would nest it. (The GitHub Release below still gets the real zip.)
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.package.outputs.zip }}
-          path: ${{ steps.package.outputs.zip }}
+          name: ${{ steps.package.outputs.name }}
+          path: stage/${{ steps.package.outputs.name }}
 
       - name: Create GitHub Release
         if: steps.release.outputs.tag != ''
