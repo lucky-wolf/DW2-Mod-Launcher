@@ -6,7 +6,7 @@ Suggested contents as the project grows:
 - Mod conflict-detection rules and edge cases
 - Load-order and merge-output semantics (how the merged mod folder is built/curated)
 - AI-assisted conflict resolution design (inputs, prompts/heuristics, human-in-the-loop expectations)
-- [DLL-injection launch mechanism](dll-injection.md) (CLI args, manifest schema)
+- [DLL-injection launch mechanism](DLL%20Injection.md) (CLI args, manifest schema)
 - [Steam Workshop publish](workshop-publish.md) (`--ugc-publish`, capturing a new item's id)
 
 See [../AGENTS.md](../AGENTS.md) for collective contributor/agent directives.

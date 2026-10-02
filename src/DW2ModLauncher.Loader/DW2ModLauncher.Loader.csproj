@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Stays net8.0 on purpose: this DLL is loaded into the game's own process, which runs on .NET 8, so it
+         must not target a newer runtime than the game. Everything else in the repo targets net10.0. -->
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>

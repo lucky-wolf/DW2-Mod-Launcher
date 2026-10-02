@@ -6,7 +6,7 @@ Collective directives for anyone (human or AI) working in this repo. This file i
 
 DW2 Mod Launcher is an unofficial, open-source (MIT) community launcher/mod manager for **Distant Worlds 2**. It is a hobby project developed cooperatively; contributions, forks, and continued community development are explicitly welcomed (see [README.md](README.md)).
 
-Current features (implemented): scanning/enabling/disabling MODs from Steam Workshop and the local MOD folder, duplicate detection, file-conflict checks between enabled MODs, Workshop update checks, MOD info/README/tool discovery, schema-driven JSON settings editing, per-MOD launch args, code-mod loading via an injected loader DLL (see [docs/dll-injection.md](docs/dll-injection.md)), publishing a local MOD to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI.
+Current features (implemented): scanning/enabling/disabling MODs from Steam Workshop and the local MOD folder, duplicate detection, file-conflict checks between enabled MODs, Workshop update checks, MOD info/README/tool discovery, schema-driven JSON settings editing, per-MOD launch args, code-mod loading via an injected loader DLL (see [docs/DLL Injection.md](docs/DLL%20Injection.md)), publishing a local MOD to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI.
 
 Planned/target scope (in progress or aspirational — confirm current state before assuming these exist):
 - Load order selection for enabled MODs
@@ -23,7 +23,7 @@ Planned/target scope (in progress or aspirational — confirm current state befo
     `ConflictRules` (which files are excluded from conflict checks), `AcfManifest` (Steam manifest
     parsing), `LooseJson` (loose JSON parsing), `WorkshopApiClient` (Steam Workshop API),
     `LauncherMetaReader` (launcher.json reader), `LoaderManifestBuilder` (builds the manifest the loader DLL
-    reads — see [docs/dll-injection.md](docs/dll-injection.md)), `ModSettingsSchemaReader`/`ModSettingsStore`
+    reads — see [docs/DLL Injection.md](docs/DLL%20Injection.md)), `ModSettingsSchemaReader`/`ModSettingsStore`
     (mod-authored `settings.schema.json` + per-user stored values), `UserDataRoot` (`%AppData%\DW2ModLauncher`),
     `ModJsonWorkshopIdWriter`
   - `Services/Publishing/` — Steam Workshop publish (see [docs/workshop-publish.md](docs/workshop-publish.md)).
@@ -35,7 +35,7 @@ Planned/target scope (in progress or aspirational — confirm current state befo
     future alternative implementation only means adding a new class here.
   - `Diagnostics/Logger.cs` — crash log writer
 - [src/DW2ModLauncher.Loader/](src/DW2ModLauncher.Loader/) — the standalone DLL the launcher injects via
-  `--low-level-inject` (see [docs/dll-injection.md](docs/dll-injection.md)). Deliberately has no project
+  `--low-level-inject` (see [docs/DLL Injection.md](docs/DLL%20Injection.md)). Deliberately has no project
   reference to `Core`/`App` — it runs inside the game process, so it stays minimal (BCL +
   `System.Text.Json` only). Loads every enabled mod itself, via reflection, from a manifest the launcher
   writes before launch.
@@ -56,8 +56,8 @@ build.cmd
 run.cmd
 ```
 
-Both wrap `dotnet build DW2ModLauncher.sln -c Release`. Requires the .NET 8 SDK and Windows (the app targets
-`net8.0-windows` / WinForms). `build.cmd` (and `run.cmd`, which calls it) also validates formatting and runs the
+Both wrap `dotnet build DW2ModLauncher.sln -c Release`. Requires the .NET 10 SDK and Windows (the app targets
+`net10.0-windows` / WinForms). `build.cmd` (and `run.cmd`, which calls it) also validates formatting and runs the
 test suite before building, the same gates CI uses, and fails fast with a message if either would fail CI; pass
 `--no-validate` to skip straight to `dotnet build` for a fast local iteration loop. When adding new logic, prefer
 putting anything that doesn't need a `Form`/`Control` in `DW2ModLauncher.Core` so it can be unit tested — this is
@@ -66,10 +66,17 @@ where load-order/merge logic and DLL-injection argument building should live as 
 ## CI
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push to `main` and every pull request
-(including from forks), on `windows-latest` since the app targets `net8.0-windows`/WinForms. It gates on, in order:
+(including from forks), on `windows-latest` since the app targets `net10.0-windows`/WinForms. It gates on, in order:
 `dotnet format --verify-no-changes` (formatting), `dotnet build -c Release` (build), then `dotnet test` (unit
 tests) — the same checks `build.cmd` runs locally by default. Run `dotnet format DW2ModLauncher.sln` locally
 before pushing to fix formatting issues the check would otherwise catch.
+
+## CI & Releases
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) gates PRs by running `scripts/validate.py`; `scripts/new-branch.py` and `scripts/open-pr.py` start and open PRs; [.github/workflows/release.yml](.github/workflows/release.yml)
+tags and publishes a release on every merge to `main` that touches `src/`. Versions come from MinVer + [.version](.version);
+never hand-set a version in a `.csproj`. Full writeup: [docs/CI Releases.md](docs/CI%20Releases.md). Linux plans:
+[docs/plans/linux-support.md](docs/plans/linux-support.md).
 
 ## Conventions
 

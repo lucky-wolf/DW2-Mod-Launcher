@@ -1,0 +1,18 @@
+<Project>
+
+  <!-- MinVer derives <Version> (and AssemblyVersion/FileVersion/InformationalVersion) from the
+       nearest reachable "vMAJOR.MINOR.PATCH" git tag - the tags scripts/release.py creates on merge
+       to main. Never hand-set a version in a .csproj. Untagged/dev builds get a pre-release
+       version (e.g. 0.1.4-alpha.0.7), so they're always distinguishable from a release. -->
+  <ItemGroup>
+    <PackageReference Include="MinVer" Version="6.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <!-- Lets non-Windows machines restore/build/format the net10.0-windows projects (no-op on Windows).
+         Running the WinForms app still needs Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+</Project>

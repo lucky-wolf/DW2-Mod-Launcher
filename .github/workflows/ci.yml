@@ -13,16 +13,9 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
-      - name: Restore
-        run: dotnet restore DW2ModLauncher.sln
-
-      - name: Format check
-        run: dotnet format DW2ModLauncher.sln --verify-no-changes --no-restore
-
-      - name: Build
-        run: dotnet build DW2ModLauncher.sln -c Release --no-restore
-
-      - name: Test
-        run: dotnet test src/DW2ModLauncher.Tests -c Release --no-build
+      # The single canonical validation suite (restore, format check, build, test) - the same verbs
+      # scripts/open-pr.py runs locally. See docs/CI Releases.md.
+      - name: Validate
+        run: python scripts/validate.py
