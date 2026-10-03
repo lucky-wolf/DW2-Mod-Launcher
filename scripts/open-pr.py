@@ -67,10 +67,7 @@ def main() -> int:
     if current_branch == target:
         output.fail(f"already on '{target}' - switch to a feature branch first")
 
-    output.step("launcher not running")
-    if launcher_build.launcher_is_running():
-        output.fail("DW2 Mod Launcher is running - close it first (it locks its own exe and breaks the build), then re-run")
-    output.ok("launcher is closed")
+    launcher_build.require_launcher_closed()
 
     output.step("gh readiness")
     github.require_gh_auth()

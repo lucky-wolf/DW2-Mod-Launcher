@@ -11,6 +11,17 @@ namespace DW2ModLauncher.Core.Diagnostics
             get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DW2ModLauncher.log"); }
         }
 
+        public static void Log(string context, string message)
+        {
+            try
+            {
+                File.AppendAllText(CrashLogPath,
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + (context ?? "Info") + Environment.NewLine + message + Environment.NewLine,
+                    new UTF8Encoding(true));
+            }
+            catch { }
+        }
+
         public static void LogException(string context, Exception ex)
         {
             try

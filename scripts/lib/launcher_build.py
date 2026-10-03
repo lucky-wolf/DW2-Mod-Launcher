@@ -41,6 +41,15 @@ def launcher_is_running() -> bool:
         return False  # no tasklist/pgrep to ask: don't block the PR on a check we can't make
 
 
+def require_launcher_closed() -> None:
+    """Fail immediately if the launcher is running: it locks its own exe, and MSBuild would otherwise retry the copy
+    for many seconds before failing with a less obvious error."""
+    output.step("launcher not running")
+    if launcher_is_running():
+        output.fail("DW2 Mod Launcher is running - close it first (it locks its own exe and breaks the build), then re-run")
+    output.ok("launcher is closed")
+
+
 def default_ui() -> Ui:
     return AVALONIA
 
@@ -76,6 +85,8 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
     if dry_run:
         output.notice(f"dry run - would build the {ui.name} launcher: " + " -> ".join(plan))
         return repo_root / Path(ui.project).parent / "bin" / config
+
+    require_launcher_closed()
 
     output.step("restore")
     dotnet_checks.run_dotnet_restore(repo_root)

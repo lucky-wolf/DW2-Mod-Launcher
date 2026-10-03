@@ -2,16 +2,10 @@ name: Release
 
 # Every merge to main that touches launcher code gets the next vMAJOR.MINOR.PATCH tag
 # (MAJOR.MINOR from .version, PATCH auto-incremented by scripts/release.py) and a GitHub Release
-# with a self-contained win-x64 zip and a linux-x64 tar.gz. Pull requests touching the same paths (and manual
-# workflow_dispatch runs) build the zip as a workflow artifact without tagging or publishing
-# anything, so packaging problems show up before merge. Mirrors critical-mass-client's flow.
+# with a self-contained win-x64 zip and a linux-x64 tar.gz. Pull requests do not build packages (ci.yml
+# validates them); a manual workflow_dispatch run builds the packages as workflow artifacts without tagging
+# or publishing anything. Mirrors critical-mass-client's flow.
 on:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'Directory.Build.props'
-      - '.version'
-      - '.github/workflows/release.yml'
   push:
     branches: [main]
     paths:
