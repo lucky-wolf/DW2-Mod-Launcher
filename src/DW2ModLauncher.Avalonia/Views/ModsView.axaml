@@ -31,14 +31,14 @@
                  Background="{StaticResource Dw2Deep}">
           <ListBox.ContextMenu>
             <ContextMenu>
-              <MenuItem Header="{Binding L[SteamPage]}" Command="{Binding OpenSteamPageCommand}" />
+              <MenuItem Header="{Binding L[SteamPage]}" Command="{Binding OpenSteamPageCommand}" IsVisible="{Binding SelectedHasSteamPage}" />
               <MenuItem Header="{Binding L[ModSettings]}" Command="{Binding ModSettingsCommand}" />
               <MenuItem Header="{Binding L[SelectedModFolder]}" Command="{Binding OpenSelectedFolderCommand}" />
               <MenuItem Header="{Binding L[OpenDocs]}" Command="{Binding OpenDocsCommand}" />
               <MenuItem Header="{Binding L[PublishToWorkshop]}" Command="{Binding PublishCommand}" />
               <MenuItem Header="{Binding L[DeleteMod]}" Command="{Binding DeleteModCommand}" />
-              <Separator />
-              <MenuItem Header="{Binding L[CheckUpdates]}" Command="{Binding CheckUpdatesCommand}" />
+              <Separator IsVisible="{Binding SelectedIsWorkshop}" />
+              <MenuItem Header="{Binding L[CheckUpdates]}" Command="{Binding CheckUpdatesCommand}" IsVisible="{Binding SelectedIsWorkshop}" />
             </ContextMenu>
           </ListBox.ContextMenu>
           <ListBox.ItemTemplate>
@@ -51,7 +51,10 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Health}" />
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="4,0">
                   <Image Source="{Binding Thumbnail}" Width="72" Height="48" Stretch="Uniform" />
-                  <TextBlock VerticalAlignment="Center" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="muted" FontSize="11" Text="{Binding FolderPath}" IsVisible="{Binding HasFolderPath}" TextTrimming="PathSegmentEllipsis" />
+                  </StackPanel>
                 </StackPanel>
                 <TextBlock Grid.Column="4" Margin="6,0" VerticalAlignment="Center" Text="{Binding Source}" TextTrimming="CharacterEllipsis" />
               </Grid>

@@ -21,6 +21,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public ICommand ToggleCommand { get; }
 
         public string Name { get { return Mod.DisplayName ?? Mod.Id ?? "Unknown"; } }
+        /// <summary>Where the mod lives on disk; the row subtitle (local mods only), so same-named copies (XL, XL.bak) can be told apart.</summary>
+        public string FolderPath { get { return Mod.IsWorkshop ? "" : Mod.Folder ?? ""; } }
+        public bool HasFolderPath { get { return FolderPath.Length > 0; } }
         public string Source { get { return Mod.SourceName ?? ""; } }
 
         /// <summary>Re-reads fields the Workshop check or a language change can alter on the underlying mod.</summary>
