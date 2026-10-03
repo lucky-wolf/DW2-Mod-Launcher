@@ -78,7 +78,10 @@ namespace DW2ModLauncher.Core.Services
             {
                 if (File.ReadAllText(path, Encoding.UTF8) == newContent) return;
                 string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture);
-                File.Copy(path, path + "." + stamp + ".launcher_backup", true);
+                // Two writes inside the same millisecond must not share a name, or the second would overwrite the first backup.
+                string backup = path + "." + stamp + ".launcher_backup";
+                for (int n = 2; File.Exists(backup); n++) backup = path + "." + stamp + "-" + n + ".launcher_backup";
+                File.Copy(path, backup, false);
                 string folder = System.IO.Path.GetDirectoryName(path);
                 string[] old = Directory.GetFiles(folder, System.IO.Path.GetFileName(path) + ".*.launcher_backup");
                 Array.Sort(old, StringComparer.Ordinal);
