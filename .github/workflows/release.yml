@@ -1,5 +1,8 @@
 name: Release
 
+# The default run title is the head commit message (a rebase merge has no PR title), which says nothing about the run.
+run-name: Creating Release Artifacts
+
 # Every merge to main that touches launcher code gets the next vMAJOR.MINOR.PATCH tag
 # (MAJOR.MINOR from .version, PATCH auto-incremented by scripts/release.py) and a GitHub Release
 # with a self-contained win-x64 zip and a linux-x64 tar.gz. Pull requests do not build packages (ci.yml
@@ -20,6 +23,7 @@ permissions:
 
 jobs:
   release:
+    name: Creating Windows Release Artifacts
     runs-on: windows-latest
     outputs:
       tag: ${{ steps.release.outputs.tag }}
@@ -83,6 +87,7 @@ jobs:
   # The Linux build: the Avalonia launcher, self-contained, as a tar.gz (keeps the executable bit). It runs
   # after the Windows job so that job's tag exists; it attaches to the same GitHub Release.
   release-linux:
+    name: Creating Linux Release Artifacts
     needs: release
     runs-on: ubuntu-latest
     steps:
