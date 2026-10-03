@@ -196,6 +196,8 @@
   "PublishDescriptionFile": "Description file (path inside the mod folder)",
   "PublishBrowseDescriptionFileTooltip": "Choose a description file",
   "PublishEditDescriptionFileTooltip": "Edit the description file (or choose one if it does not exist yet)",
+  "PublishImageTooLarge": "The preview image {0} is {1} MiB. Steam may reject images larger than 1 MiB, so the publish may fail.\r\n\r\nPublish anyway?",
+  "PublishFilesTooLarge": "These files are larger than 5 MiB, so the publish may fail:\r\n\r\n{0}\r\n\r\nPublish anyway?",
   "PublishImportFileConfirm": "{0} is outside the mod folder.\r\n\r\nCopy it into the mod folder? A mod can only refer to files inside its own folder.",
   "PublishShortDescriptionHint": "What is shown in DW2's Modifications list.",
   "PublishDescriptionFileHint": "Its text is uploaded as your full Steam description.",
