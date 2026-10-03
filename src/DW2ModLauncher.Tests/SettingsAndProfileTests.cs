@@ -117,32 +117,5 @@ namespace DW2ModLauncher.Tests
             Assert.Contains(changes, c => c.Token == "changed" && c.Installed != null && c.SavedVersion == "1");
             Assert.Contains(changes, c => c.Token == "gone" && c.Installed == null);
         }
-
-        [Fact]
-        public void Snapshot_CreateThenRestore_PutsFilesBack()
-        {
-            string modDir = Path.Combine(dir, "mods", "m");
-            Directory.CreateDirectory(Path.Combine(modDir, "sub"));
-            File.WriteAllText(Path.Combine(modDir, "a.txt"), "orig");
-            File.WriteAllText(Path.Combine(modDir, "sub", "b.txt"), "orig-b");
-            string modsJson = Path.Combine(dir, "mods.json");
-            string settingsPath = Path.Combine(dir, "launcher_settings.json");
-            File.WriteAllText(modsJson, "[\"m\"]");
-            File.WriteAllText(settingsPath, "{\"Language\":\"en\"}");
-            ModInfo mod = new ModInfo { Id = "m", ActiveToken = "m", Folder = modDir };
-
-            string snapshots = Path.Combine(dir, "Snapshots");
-            Assert.Null(SnapshotStore.FindLatest(snapshots));
-            string root = SnapshotStore.Create(snapshots, modsJson, settingsPath, new List<ModInfo> { mod });
-            Assert.Equal(root, SnapshotStore.FindLatest(snapshots));
-
-            File.WriteAllText(Path.Combine(modDir, "a.txt"), "changed");
-            File.WriteAllText(modsJson, "[]");
-            SnapshotStore.Restore(root, modsJson, settingsPath);
-
-            Assert.Equal("orig", File.ReadAllText(Path.Combine(modDir, "a.txt")));
-            Assert.Equal("orig-b", File.ReadAllText(Path.Combine(modDir, "sub", "b.txt")));
-            Assert.Equal("[\"m\"]", File.ReadAllText(modsJson));
-        }
     }
 }

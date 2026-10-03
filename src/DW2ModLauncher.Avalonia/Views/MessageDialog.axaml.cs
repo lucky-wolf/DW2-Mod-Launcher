@@ -16,7 +16,7 @@ namespace DW2ModLauncher.Avalonia.Views
             MessageText.Text = message;
             YesButton.Content = yesText;
             YesButton.Click += delegate { Close(true); };
-            if (noText == null) NoButton.IsVisible = false;
+            if (noText == null) { NoButton.IsVisible = false; YesButton.IsCancel = true; }
             else
             {
                 NoButton.Content = noText;

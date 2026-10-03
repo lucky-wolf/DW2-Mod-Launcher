@@ -125,7 +125,7 @@ anywhere, and run `./DW2ModLauncher`. No .NET install is needed.
   `~/.local/share/Steam`, Flatpak and Snap installs, and your other Steam library folders). Use the Settings
   tab if yours are elsewhere.
 - Publishing to the Steam Workshop talks to your running, logged-in Linux Steam client directly.
-- The launcher keeps its settings (`launcher_settings.json`), profiles and snapshots next to the executable.
+- The launcher keeps its settings (`launcher_settings.json`) next to the executable.
 
 To build and run from source on Linux (needs only the .NET 10 SDK):
 

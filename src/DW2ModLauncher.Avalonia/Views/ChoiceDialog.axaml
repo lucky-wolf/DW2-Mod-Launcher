@@ -1,0 +1,10 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DW2ModLauncher.Avalonia.Views.ChoiceDialog"
+        SizeToContent="Height" Width="480"
+        WindowStartupLocation="CenterOwner" CanResize="False" ShowInTaskbar="False">
+  <Grid RowDefinitions="*,Auto" Margin="20">
+    <SelectableTextBlock Name="MessageText" Grid.Row="0" TextWrapping="Wrap" />
+    <StackPanel Name="ButtonRow" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,18,0,0" />
+  </Grid>
+</Window>

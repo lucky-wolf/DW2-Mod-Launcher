@@ -71,6 +71,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Settings = new SettingsViewModel(this);
             OpenSettingsCommand = new RelayCommand(() => Dialogs.ShowSettingsAsync(Settings));
             RefreshCommand = new RelayCommand(Refresh);
+            ClearCommand = new RelayCommand(ClearAsync);
+            EnableAllCommand = new RelayCommand(EnableAllAsync);
             PlayCommand = new RelayCommand(PlayOrStopAsync, () => gameState != GameState.Launching);
             gameWatchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             gameWatchTimer.Tick += delegate { var _ = WatchGameAsync(); };
@@ -99,6 +101,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public RelayCommand OpenSettingsCommand { get; }
         public RelayCommand RefreshCommand { get; }
+        public RelayCommand ClearCommand { get; }
+        public RelayCommand EnableAllCommand { get; }
         public RelayCommand PlayCommand { get; }
 
         // ---- game state: Play -> Launching (spinner, locked) -> Running (Stop) -> Idle
@@ -116,6 +120,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public bool IsLaunching { get { return gameState == GameState.Launching; } }
         public bool IsGameRunning { get { return gameState == GameState.Running; } }
+        public bool IsGameIdle { get { return gameState == GameState.Idle; } }
+        public string PlayTooltip
+        {
+            get { return T(gameState == GameState.Launching ? "LaunchingButton" : gameState == GameState.Running ? "StopTooltip" : "PlayTooltip"); }
+        }
         public string PlayLabel
         {
             get { return T(gameState == GameState.Launching ? "LaunchingButton" : gameState == GameState.Running ? "StopButton" : "PlayButton"); }
@@ -127,7 +136,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             gameState = state;
             Raise(nameof(IsLaunching));
             Raise(nameof(IsGameRunning));
+            Raise(nameof(IsGameIdle));
             Raise(nameof(PlayLabel));
+            Raise(nameof(PlayTooltip));
             PlayCommand.RaiseCanExecuteChanged();
         }
 
@@ -201,15 +212,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public LauncherSettings LauncherSettings { get { return settings; } }
         public LauncherSettingsStore SettingsStore { get { return settingsStore; } }
         public ProfileStore Profiles { get { return profileStore; } }
+        /// <summary>DW2's own named profiles, next to mods.json.</summary>
+        public GameProfileStore GameProfiles { get { return new GameProfileStore(Path.GetDirectoryName(ModsJsonPath() ?? "")); } }
         public ModOrderState ModOrder { get { return modOrder; } }
         public string AppRoot { get { return appRoot; } }
 
         public IEnumerable<ModInfo> AllMods { get { return managedMods.Concat(workshopMods); } }
 
         public string StatusText { get { return statusText; } set { Set(ref statusText, value); } }
-
-        public string GamePathText { get { return "Game: " + (string.IsNullOrEmpty(settings.GameRoot) ? "Not found" : settings.GameRoot); } }
-        public string WorkshopPathText { get { return "Workshop: " + (string.IsNullOrEmpty(settings.WorkshopRoot) ? "Not found" : settings.WorkshopRoot); } }
 
         public LanguageOption SelectedLanguage
         {
@@ -221,6 +231,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 L.SetLanguage(value.Code);
                 Dialogs.OkText = T("OK");
                 Raise(nameof(PlayLabel));
+                Raise(nameof(PlayTooltip));
                 SaveSettings();
                 ApplySourceNames();
                 RebuildRows();
@@ -246,24 +257,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex) { SetStatus("Settings save error: " + ex.Message); }
         }
 
-        /// <summary>Replaces the settings object wholesale (after restoring a snapshot) and rescans.</summary>
-        public void ReloadSettings()
-        {
-            settings = settingsStore.Load();
-            NormalizeSettings();
-            L.SetLanguage(settings.Language);
-            Dialogs.OkText = T("OK");
-            selectedLanguage = Languages.FirstOrDefault(l => l.Code == settings.Language) ?? Languages[0];
-            Raise(nameof(SelectedLanguage));
-            Refresh();
-        }
-
-        public void RaisePathsChanged()
-        {
-            Raise(nameof(GamePathText));
-            Raise(nameof(WorkshopPathText));
-        }
-
         public string ModsJsonPath() { return ModOrderStore.PathFor(settings.ManagedModsRoot, settings.GameRoot); }
 
         public bool IsSelected(ModInfo mod) { return modOrder.IsSelected(mod, settings); }
@@ -283,7 +276,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
             Analyze();
             RebuildRows();
-            RaisePathsChanged();
             Settings.LoadFromSettings();
             UpdateStatus();
         }
@@ -316,6 +308,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Recomputes enabled / health / load-order for the existing rows without rebuilding the list (keeps scroll position).</summary>
         private void RefreshRowStates()
         {
+            // mods.json can list mods that aren't installed (or aren't shown); the game skips those, so number only the ones we have.
+            HashSet<string> shown = new HashSet<string>(Mods.Select(r => r.Mod.ActiveToken).Where(t => !string.IsNullOrEmpty(t)), StringComparer.OrdinalIgnoreCase);
+            List<string> present = (modOrder.Order ?? new List<string>()).Where(shown.Contains).ToList();
             foreach (ModRowViewModel row in Mods)
             {
                 bool enabled = IsSelected(row.Mod);
@@ -323,9 +318,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 int severity = ModHealth.Severity(row.Mod, enabled);
                 row.HealthSeverity = severity;
                 row.Health = severity == 3 ? T("HealthConflict") : severity == 2 ? T("HealthCaution") : severity == 1 ? T("HealthOk") : T("ModDisabled");
-                row.LoadOrderIndex = modOrder.IndexOf(row.Mod.ActiveToken);
+                row.LoadOrderIndex = present.FindIndex(t => string.Equals(t, row.Mod.ActiveToken, StringComparison.OrdinalIgnoreCase));
                 row.RefreshFromMod();
             }
+            Settings?.RaiseDirty();
             ShowDetails();
         }
 
@@ -512,6 +508,71 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         // ---- creating and deleting local mods
 
+        /// <summary>Disables every mod by writing an empty load order to mods.json (refused while the game runs).</summary>
+        private async Task ClearAsync()
+        {
+            if (modOrder.Order == null || modOrder.Order.Count == 0) return;
+            if (GameProcess.IsRunning()) { await Dialogs.ShowMessageAsync(T("GameRunningWarning"), "DW2 Mod Launcher"); return; }
+            try
+            {
+                ModOrderStore.Write(ModsJsonPath(), new List<string>());
+                Refresh();
+                SetStatus(T("DW2ModSettingsSaved"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Clear mods.json", ex);
+                await Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+            }
+        }
+
+        /// <summary>Enables every listed mod by appending the ones not yet in mods.json to the load order (existing order kept).</summary>
+        private async Task EnableAllAsync()
+        {
+            if (modOrder.ReadFailed) { await Dialogs.ShowMessageAsync(T("ModsJsonInvalidWarning"), "DW2 Mod Launcher"); return; }
+            if (GameProcess.IsRunning()) { await Dialogs.ShowMessageAsync(T("GameRunningWarning"), "DW2 Mod Launcher"); return; }
+            List<string> order = new List<string>(modOrder.Order ?? new List<string>());
+            foreach (ModInfo mod in Mods.Select(r => r.Mod))
+                if (!string.IsNullOrWhiteSpace(mod.ActiveToken) && !order.Contains(mod.ActiveToken, StringComparer.OrdinalIgnoreCase)) order.Add(mod.ActiveToken);
+            if (order.Count == (modOrder.Order?.Count ?? 0)) return;
+            try
+            {
+                List<string> written = ModOrderStore.Write(ModsJsonPath(), order);
+                if (written == null) return;
+                modOrder.Order = written;
+                modOrder.FileFound = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Enable all mods", ex);
+                await Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+                return;
+            }
+            // Everything is enabled at once; the conflict analysis that follows is slow, so it runs behind the busy overlay.
+            RefreshRowStates();
+            SetStatus(T("DW2ModSettingsSaved"));
+            Settings.UpdateCommandPreview();
+            await AnalyzeInBackgroundAsync();
+        }
+
+        private bool isBusy;
+        private string busyText = "";
+        /// <summary>True while a long job runs: the window shows a darkened, non-dismissable overlay with <see cref="BusyText"/>.</summary>
+        public bool IsBusy { get { return isBusy; } private set { Set(ref isBusy, value); } }
+        public string BusyText { get { return busyText; } private set { Set(ref busyText, value); } }
+
+        /// <summary>Runs the conflict analysis off the UI thread behind the busy overlay, then refreshes the rows' health.</summary>
+        private async Task AnalyzeInBackgroundAsync()
+        {
+            BusyText = T("AnalyzingConflicts");
+            IsBusy = true;
+            try { await Task.Run(() => Analyze()); }
+            catch (Exception ex) { Logger.LogException("Analyze conflicts", ex); }
+            finally { IsBusy = false; }
+            RefreshRowStates();
+            UpdateStatus();
+        }
+
         private async Task CreateModAsync()
         {
             if (string.IsNullOrWhiteSpace(settings.ManagedModsRoot))
@@ -520,7 +581,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return;
             }
             string name = await Dialogs.PromptTextAsync(T("CreateModTitle"), T("CreateModPrompt"), "", T("OK"), T("Cancel"),
-                text => T("CreateModFolderPreview", LocalModManager.FolderNameFor(text)));
+                text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", LocalModManager.FolderNameFor(text)));
             if (name == null) return;
             try
             {
@@ -784,6 +845,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await Dialogs.ShowMessageAsync(T("GameExeNotFound"), "DW2 Mod Launcher");
                 return;
             }
+            if (!await Settings.ConfirmSaveForLaunchAsync()) return;
             try
             {
                 GameLauncher.WriteLoaderManifest(OrderedEnabledMods());

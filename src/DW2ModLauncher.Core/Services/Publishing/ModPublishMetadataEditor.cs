@@ -39,7 +39,10 @@ namespace DW2ModLauncher.Core.Services.Publishing
             if (root == null) throw new InvalidDataException("mod.json is not a JSON object.");
 
             SetString(root, "displayName", metadata.DisplayName);
-            SetString(root, "description", metadata.Description);
+            // "description" is what gets pushed to the Steam page. A mod that doesn't have one (e.g. it uses descriptionFile and
+            // keeps its Steam text by hand) must not gain an empty key, so a blank value removes the key instead.
+            if (string.IsNullOrWhiteSpace(metadata.Description)) RemoveKey(root, "description");
+            else SetString(root, "description", metadata.Description);
             SetString(root, "previewImage", metadata.PreviewImage);
             SetString(root, "version", metadata.Version);
 
@@ -77,6 +80,12 @@ namespace DW2ModLauncher.Core.Services.Publishing
         private static void SetString(JsonObject root, string canonicalKey, string value)
         {
             SetNode(root, canonicalKey, JsonValue.Create(value ?? ""));
+        }
+
+        private static void RemoveKey(JsonObject root, string key)
+        {
+            string existingKey = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(key, StringComparison.OrdinalIgnoreCase));
+            if (existingKey != null) root.Remove(existingKey);
         }
 
         private static void SetNode(JsonObject root, string canonicalKey, JsonNode value)

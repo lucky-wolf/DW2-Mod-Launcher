@@ -74,6 +74,30 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Write_BlankDescription_RemovesTheKeyInsteadOfWritingAnEmptyOne()
+        {
+            string path = MakeModJson("{ \"displayName\": \"XL\", \"shortDescription\": \"short\", \"descriptionFile\": \"description.txt\" }");
+            try
+            {
+                ModPublishMetadata metadata = ModPublishMetadataEditor.Read(path);
+                metadata.Description = "  ";
+                ModPublishMetadataEditor.Write(path, metadata);
+                string text = File.ReadAllText(path);
+                Assert.DoesNotContain("\"description\"", text);
+                Assert.Contains("\"descriptionFile\": \"description.txt\"", text);
+                Assert.Contains("\"shortDescription\": \"short\"", text);
+
+                metadata.Description = "Now set";
+                ModPublishMetadataEditor.Write(path, metadata);
+                Assert.Contains("\"description\": \"Now set\"", File.ReadAllText(path));
+                metadata.Description = "";
+                ModPublishMetadataEditor.Write(path, metadata);
+                Assert.DoesNotContain("\"description\":", File.ReadAllText(path));
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Fact]
         public void Read_ReturnsEmptyMetadata_WhenFileMissing()
         {
             ModPublishMetadata metadata = ModPublishMetadataEditor.Read(Path.Combine(Path.GetTempPath(), "does-not-exist-" + Guid.NewGuid().ToString("N") + ".json"));

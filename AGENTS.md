@@ -6,7 +6,7 @@ Collective directives for anyone (human or AI) working in this repo. This file i
 
 DW2 Mod Launcher is an unofficial, open-source (MIT) community launcher/mod manager for **Distant Worlds 2**. It is a hobby project developed cooperatively; contributions, forks, and continued community development are explicitly welcomed (see [README.md](README.md)).
 
-Current features (implemented): scanning/enabling/disabling Mods from Steam Workshop and the local Mod folder, creating and deleting local Mods, duplicate detection, file-conflict checks between enabled Mods, Workshop update checks, Mod info/README/tool discovery, schema-driven JSON settings editing, per-Mod launch args, code-mod loading via an injected loader DLL (see [docs/DLL Injection.md](docs/DLL%20Injection.md)), publishing a local Mod to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI. Runs on Windows and Linux (Avalonia; on Linux the game runs under Proton) — see [docs/plans/linux-support.md](docs/plans/linux-support.md).
+Current features (implemented): scanning/enabling/disabling Mods from Steam Workshop and the local Mod folder, creating and deleting local Mods, duplicate detection, file-conflict checks between enabled Mods, Workshop update checks, Mod info/README/tool discovery, schema-driven JSON settings editing, per-Mod launch args, code-mod loading via an injected loader DLL (see [docs/DLL Injection.md](docs/DLL%20Injection.md)), publishing a local Mod to the Steam Workshop by embedding the Steamworks API directly (see [docs/workshop-publish.md](docs/workshop-publish.md)), EN/JP UI. Runs on Windows and Linux (Avalonia; on Linux the game runs under Proton) — see [docs/archived/linux-support.md](docs/archived/linux-support.md).
 
 Planned/target scope (in progress or aspirational — confirm current state before assuming these exist):
 - Load order selection for enabled Mods
@@ -27,7 +27,7 @@ Planned/target scope (in progress or aspirational — confirm current state befo
     reads — see [docs/DLL Injection.md](docs/DLL%20Injection.md)), `ModSettingsSchemaReader`/`ModSettingsStore`
     (mod-authored `settings.schema.json` + per-user stored values), `UserDataRoot` (`%AppData%\DW2ModLauncher`, or `~/.config/DW2ModLauncher` on Linux),
     `ModJsonWorkshopIdWriter`, `LocalModManager` (create/delete a local Mod folder, folder-name sanitizing). Everything that is logic rather than presentation lives here so both UIs
-    share it and it is unit tested: `LauncherSettingsStore`/`ProfileStore`/`SnapshotStore`/`PathDetector`
+    share it and it is unit tested: `LauncherSettingsStore`/`ProfileStore`/`PathDetector`
     (settings, profiles, snapshots), `ModOrderState`/`ModOrderStore` (DW2's `mods.json` + the "is this mod
     enabled" rules), `ConflictAnalyzer`/`ModHealth`/`LaunchDiagnostics`, `WorkshopUpdateService`, `ModLibrary`,
     `ModDetails`, `ModSettingsValues`, `GameLauncher` (launch command: the exe on Windows, `steam -applaunch`
@@ -83,7 +83,7 @@ before pushing to fix formatting issues the check would otherwise catch.
 [.github/workflows/ci.yml](.github/workflows/ci.yml) gates PRs by running `scripts/validate.py`; `scripts/new-branch.py` and `scripts/open-pr.py` start and open PRs; [.github/workflows/release.yml](.github/workflows/release.yml)
 tags and publishes a release on every merge to `main` that touches `src/`. Versions come from MinVer + [.version](.version);
 never hand-set a version in a `.csproj`. Full writeup: [docs/CI Releases.md](docs/CI%20Releases.md). Linux plans:
-[docs/plans/linux-support.md](docs/plans/linux-support.md).
+[docs/archived/linux-support.md](docs/archived/linux-support.md).
 
 ## Conventions
 
@@ -93,6 +93,10 @@ never hand-set a version in a `.csproj`. Full writeup: [docs/CI Releases.md](doc
 - Steam's native API library (`steam_api64.dll` / `libsteam_api.so`) is Valve's redistributable, not MIT. It is vendored unmodified under [third_party/steamworks/](third_party/steamworks/README.md) as a matched pair with the Steamworks.NET wrapper (same Steamworks.NET revision / SDK version); update both together. See README "License".
 - Favor open, cross-platform-friendly tooling where practical, since C# Dev Kit's free-use license (relied on by contributors in VS Code) is conditioned on this project staying open-source/non-commercial.
 - Document non-obvious decisions (mod conflict-detection rules, merge/load-order semantics, DLL-injection launch flags) in [docs/](docs/) rather than only in commit messages, since this shapes contributor and AI-agent understanding going forward.
+
+## Keeping docs/focus.md current
+
+[docs/focus.md](docs/focus.md) is the running list of what the current branch has accomplished; `scripts/open-pr.py` uses it as the PR description and `scripts/new-branch.py` empties it for new work. When you finish a user-visible change (human or AI), add a one-line `- ` entry below the `---` in the same change; fold small related entries together once a theme is done.
 
 ## Updating this file
 

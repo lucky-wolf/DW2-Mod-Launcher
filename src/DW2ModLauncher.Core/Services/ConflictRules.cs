@@ -22,7 +22,7 @@ namespace DW2ModLauncher.Core.Services
             // Documentation and preview assets may legitimately use the same names in every Mod.
             // Check every subfolder, not only the Mod root.
             if (file.StartsWith("readme") || file.StartsWith("license") || file.StartsWith("licence") ||
-                file.StartsWith("manual") || file.StartsWith("changelog") || file.StartsWith("changes") ||
+                file.StartsWith("manual") || file.StartsWith("description.") || file.StartsWith("changelog") || file.StartsWith("changes") ||
                 file.StartsWith("preview.") || file.StartsWith("thumbnail.") || file.StartsWith("thumb.")) return true;
 
             if (file.EndsWith(".log") || file.EndsWith(".bak") || file.EndsWith(".tmp") || file.EndsWith(".launcher_backup")) return true;

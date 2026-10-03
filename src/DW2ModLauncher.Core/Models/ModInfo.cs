@@ -7,6 +7,8 @@ namespace DW2ModLauncher.Core.Models
         public string Id { get; set; }
         public string DisplayName { get; set; }
         public string Description { get; set; }
+        /// <summary>Text of the file named by mod.json's "descriptionFile". When present it wins over the short description (and Steam's).</summary>
+        public string DescriptionOverride { get; set; }
         public string Version { get; set; }
         public string PreviewImage { get; set; }
         public string Folder { get; set; }

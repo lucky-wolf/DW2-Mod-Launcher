@@ -95,6 +95,7 @@ namespace DW2ModLauncher.Core.Services
             m.ModJsonPath = modJson;
 
             string preview = null;
+            string descriptionFile = "";
             if (!string.IsNullOrEmpty(modJson) && File.Exists(modJson))
             {
                 string text = File.ReadAllText(modJson, Encoding.UTF8);
@@ -105,7 +106,8 @@ namespace DW2ModLauncher.Core.Services
                     if (d != null)
                     {
                         m.DisplayName = LooseJson.GetString(d, new string[] { "displayName", "name", "title" }, m.DisplayName);
-                        m.Description = LooseJson.GetString(d, new string[] { "description", "summary" }, "");
+                        m.Description = LooseJson.GetString(d, new string[] { "description", "shortDescription", "summary" }, "");
+                        descriptionFile = LooseJson.GetString(d, new string[] { "descriptionFile" }, "");
                         m.Version = LooseJson.GetString(d, new string[] { "version", "modVersion" }, "");
                         preview = LooseJson.GetString(d, new string[] { "previewImage", "preview", "thumbnail", "icon" }, "");
                         string wid = LooseJson.GetString(d, new string[] { "workshopId", "workshopID" }, "");
@@ -131,7 +133,8 @@ namespace DW2ModLauncher.Core.Services
                 catch
                 {
                     m.DisplayName = LooseJson.ReadJsonStringLoose(text, "displayName", m.DisplayName);
-                    m.Description = LooseJson.ReadJsonStringLoose(text, "description", "");
+                    m.Description = LooseJson.ReadJsonStringLoose(text, "description", LooseJson.ReadJsonStringLoose(text, "shortDescription", ""));
+                    descriptionFile = LooseJson.ReadJsonStringLoose(text, "descriptionFile", "");
                     m.Version = LooseJson.ReadJsonStringLoose(text, "version", "");
                     preview = LooseJson.ReadJsonStringLoose(text, "previewImage", "");
                 }
@@ -149,9 +152,29 @@ namespace DW2ModLauncher.Core.Services
             }
             if (workshop) m.ActiveToken = "steam/" + m.Id;
             if (string.IsNullOrEmpty(m.PreviewImage)) m.PreviewImage = FindFallbackImage(m.ContentRoot);
+            m.DescriptionOverride = ReadDescriptionFile(m.ContentRoot, descriptionFile);
             m.IncludedTools = FindIncludedTools(m.ContentRoot);
             m.IncludedDocuments = FindIncludedDocuments(m.ContentRoot);
             return m;
+        }
+
+        /// <summary>
+        /// The trimmed text of the file mod.json names in "descriptionFile" (a path inside the mod folder), or null when the field is
+        /// empty, the file is missing, blank, or would resolve outside the mod folder.
+        /// </summary>
+        public static string ReadDescriptionFile(string root, string descriptionFile)
+        {
+            if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(descriptionFile) || !Directory.Exists(root)) return null;
+            try
+            {
+                string fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                string file = Path.GetFullPath(Path.Combine(root, descriptionFile.Trim().Replace('/', Path.DirectorySeparatorChar)));
+                StringComparison comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+                if (!file.StartsWith(fullRoot, comparison) || !File.Exists(file)) return null;
+                string text = File.ReadAllText(file, Encoding.UTF8).Trim();
+                return text.Length == 0 ? null : text;
+            }
+            catch { return null; }
         }
 
         public static List<string> FindIncludedDocuments(string root)

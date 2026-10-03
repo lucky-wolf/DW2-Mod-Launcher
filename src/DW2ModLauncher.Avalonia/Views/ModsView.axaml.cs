@@ -145,8 +145,10 @@ namespace DW2ModLauncher.Avalonia.Views
 
         private void OnReleased(object sender, PointerReleasedEventArgs e)
         {
-            EndDrag(dragging);
-            e.Pointer.Capture(null);
+            // Only release the capture after a real drag: doing it on a plain click cancels the enable button's own click.
+            bool wasDragging = dragging;
+            EndDrag(wasDragging);
+            if (wasDragging) e.Pointer.Capture(null);
         }
 
         private void OnKeyDown(object sender, KeyEventArgs e)

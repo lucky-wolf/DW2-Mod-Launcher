@@ -14,12 +14,13 @@ namespace DW2ModLauncher.Core.Services
         public static string BuildText(ModInfo mod, bool isSelected, Func<string, string> t)
         {
             StringBuilder b = new StringBuilder();
-            string description = !string.IsNullOrWhiteSpace(mod.WorkshopDescription) ? mod.WorkshopDescription : mod.Description;
+            // The long descriptionFile overrides the short mod.json description; Steam's text only fills in when neither is local.
+            string description = !string.IsNullOrWhiteSpace(mod.DescriptionOverride) ? mod.DescriptionOverride
+                : !string.IsNullOrWhiteSpace(mod.WorkshopDescription) ? mod.WorkshopDescription : mod.Description;
             if (!string.IsNullOrWhiteSpace(description)) b.AppendLine(Regex.Replace(description.Trim(), "\\[/?[^\\]]+\\]", ""));
             b.AppendLine();
             b.AppendLine(t("Source") + ": " + (mod.SourceName ?? ""));
             b.AppendLine(t("State") + (isSelected ? "ON" : "OFF"));
-            b.AppendLine(mod.Folder ?? "");
             if (mod.IncludedTools != null && mod.IncludedTools.Count > 0)
             {
                 b.AppendLine();
@@ -37,17 +38,6 @@ namespace DW2ModLauncher.Core.Services
             if (mod.IncompatibleMods != null && mod.IncompatibleMods.Count > 0) b.AppendLine("Incompatible: " + string.Join(", ", mod.IncompatibleMods.ToArray()));
             if (mod.LoadBefore != null && mod.LoadBefore.Count > 0) b.AppendLine("LoadBefore: " + string.Join(", ", mod.LoadBefore.ToArray()));
             if (mod.LoadAfter != null && mod.LoadAfter.Count > 0) b.AppendLine("LoadAfter: " + string.Join(", ", mod.LoadAfter.ToArray()));
-
-            if (!isSelected)
-            {
-                b.AppendLine();
-                b.AppendLine(t("ModDisabledNote"));
-            }
-            else if (mod.ConflictCount == 0 && mod.IdenticalFileCount == 0)
-            {
-                b.AppendLine();
-                b.AppendLine(t("NoFileConflicts"));
-            }
 
             if (isSelected && mod.ConflictFiles != null && mod.ConflictFiles.Count > 0)
             {
@@ -67,11 +57,8 @@ namespace DW2ModLauncher.Core.Services
             if (mod.IsWorkshop)
             {
                 b.AppendLine();
-                if (mod.UpdateState == "update")
-                    b.AppendLine(t("SteamWorkshopUpdateAvailable"));
-                else if (mod.UpdateState == "current")
-                    b.AppendLine(t("SteamWorkshopUpToDate"));
-                else
+                // "Update available" is in the problems callout and "up to date" is the healthy default, so only the unknown case is worth a line.
+                if (mod.UpdateState != "update" && mod.UpdateState != "current")
                     b.AppendLine(t("WorkshopStateUnknown"));
 
                 if (mod.LocalWorkshopTimeUpdated > 0)

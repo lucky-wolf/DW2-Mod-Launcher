@@ -36,6 +36,7 @@
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[Description]}" />
           <TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" Height="280" />
+          <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding L[PublishDescriptionHint]}" />
         </StackPanel>
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[PublishInfoBundles]}" />
@@ -47,7 +48,7 @@
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
         <Button Name="PublishButton" Classes="play" Content="{Binding L[PublishToWorkshop]}" MinWidth="170" FontSize="14" />
-        <Button Name="CancelButton" Content="{Binding L[Cancel]}" MinWidth="125" />
+        <Button Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />
       </StackPanel>
     </Border>
   </Grid>

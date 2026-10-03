@@ -23,7 +23,7 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
 | [build.py](../scripts/build.py) / [run.py](../scripts/run.py) | Local: build (and run) the launcher for the current OS (Avalonia). Applies `dotnet format`, runs the tests, builds; `--no-validate` skips the first two. Shared logic in `lib/launcher_build.py`. |
 | [validate.py](../scripts/validate.py) | The one validation suite; CI's entrypoint and `open-pr.py`'s pre-flight (`lib/dotnet_checks.py`). |
 | [new-branch.py](../scripts/new-branch.py) | Sync `main`, delete merged/gone local branches, create `<user>/vX.Y.Z` (waits for the release tag if `main`'s tip should have one). |
-| [open-pr.py](../scripts/open-pr.py) | Run the checks, commit, push, open the PR via `gh`, titled `Released as vX.Y.Z` with a commit-subject description. |
+| [open-pr.py](../scripts/open-pr.py) | Run the checks, commit, push, open the PR via `gh`, titled `Released as vX.Y.Z`; the description is the list in [focus.md](focus.md), or the commit subjects when that is empty. `new-branch.py` empties `focus.md` for the new branch. |
 | [release.py](../scripts/release.py) | CI-only: tags the next version (see Versioning). |
 
 `open-pr.py` needs the GitHub CLI (`gh auth login`); it never handles tokens.
@@ -59,6 +59,9 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
 
 **PR runs and manual dispatch** build and upload the zip as a workflow artifact only: no tag, no release. Use
 it to inspect package contents; a PR run shows packaging problems before merge.
+
+**Unverified:** the `release-linux` job has never run on GitHub (it was written and tested locally only). Check the
+first real release after it lands and fix anything it turns up.
 
 If a run is retried after the tag exists, `release.py` sees it and exits without output, so no
 duplicate release is created.

@@ -19,6 +19,7 @@ namespace DW2ModLauncher.Avalonia.Views
             Items.ItemsSource = items;
             Items.DoubleTapped += delegate { Choose(); };
             Items.KeyDown += (s, e) => { if (e.Key == Key.Enter) Choose(); };
+            KeyDown += (s, e) => { if (e.Key == Key.Escape) Close(null); };
         }
 
         private void Choose()

@@ -6,10 +6,11 @@
   <StackPanel Margin="20" Spacing="8">
     <TextBlock Name="LabelText" />
     <TextBox Name="InputBox" />
+    <ComboBox Name="ChoiceBox" IsEditable="True" IsVisible="False" HorizontalAlignment="Stretch" />
     <TextBlock Name="HintText" Classes="muted" TextWrapping="Wrap" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,10,0,0">
       <Button Name="OkButton" MinWidth="90" />
-      <Button Name="CancelButton" MinWidth="90" />
+      <Button Name="CancelButton" IsCancel="True" MinWidth="90" />
     </StackPanel>
   </StackPanel>
 </Window>

@@ -58,9 +58,34 @@ namespace DW2ModLauncher.Tests
 
             Assert.Contains("Hello bold world", on);
             Assert.Contains("ON", on);
-            Assert.Contains("<NoFileConflicts>", on);
+            Assert.DoesNotContain("<NoFileConflicts>", on);
             Assert.Contains("OFF", off);
-            Assert.Contains("<ModDisabledNote>", off);
+            Assert.DoesNotContain("<ModDisabledNote>", off);
+        }
+
+        [Fact]
+        public void DescriptionFile_OverridesShortDescription_OnlyWhenNamedInModJson()
+        {
+            string modDir = Path.Combine(dir, "desc");
+            Directory.CreateDirectory(modDir);
+            string modJson = Path.Combine(modDir, "mod.json");
+            File.WriteAllText(modJson, "{\"displayName\":\"M\",\"shortDescription\":\"short\"}");
+            File.WriteAllText(Path.Combine(modDir, "description.txt"), "  the long text" + Environment.NewLine + "over lines  ");
+
+            // Not named in mod.json: a stray description.txt is not used.
+            Assert.Contains("short", ModDetails.BuildText(ModScanner.ReadModInfo(modDir, modJson, false, T), true, T));
+
+            File.WriteAllText(modJson, "{\"displayName\":\"M\",\"shortDescription\":\"short\",\"descriptionFile\":\"description.txt\"}");
+            string text = ModDetails.BuildText(ModScanner.ReadModInfo(modDir, modJson, false, T), true, T);
+            Assert.Contains("the long text", text);
+            Assert.DoesNotContain("short", text);
+
+            // Missing, blank, or outside-the-folder files fall back to the short description.
+            File.WriteAllText(modJson, "{\"shortDescription\":\"short\",\"descriptionFile\":\"nope.txt\"}");
+            Assert.Contains("short", ModDetails.BuildText(ModScanner.ReadModInfo(modDir, modJson, false, T), true, T));
+            File.WriteAllText(modJson, "{\"shortDescription\":\"short\",\"descriptionFile\":\"../outside.txt\"}");
+            File.WriteAllText(Path.Combine(dir, "outside.txt"), "secret");
+            Assert.DoesNotContain("secret", ModDetails.BuildText(ModScanner.ReadModInfo(modDir, modJson, false, T), true, T));
         }
 
         // ---- mod settings values
