@@ -7,7 +7,7 @@ How the launcher is validated, versioned, and shipped. Modeled on critical-mass-
 
 | Workflow                                        | Runs on                                                                                                                     | Does                                                                                           |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [ci.yml](../.github/workflows/ci.yml)           | every PR, push to `main`                                                                                                    | `scripts/validate.py`: restore, `dotnet format --verify-no-changes`, build (Release), unit tests. `windows-latest` and `ubuntu-latest`. |
+| [ci.yml](../.github/workflows/ci.yml)           | every PR                                                                                                                    | `scripts/validate.py`: restore, `dotnet format --verify-no-changes`, build (Release), unit tests. `windows-latest` and `ubuntu-latest`. |
 | [release.yml](../.github/workflows/release.yml) | push to `main` touching `src/`, `Directory.Build.props`, `.version`, or the workflow itself; same-path PRs; manual dispatch | tests → tag → publish → package → GitHub Release (tag and release only on push to `main`)      |
 
 Run `build.cmd` or `python scripts/validate.py` locally; both run the same checks as `ci.yml`.

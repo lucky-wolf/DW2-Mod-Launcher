@@ -10,4 +10,4 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` empties the list when it creates a new branch.
 
 ---
-- Release workflow runs and jobs are titled "Creating [Windows|Linux] Release Artifacts" instead of the head commit message.
+- CI now runs on pull requests only, not again on every push to main (merges are rebases of an already-validated branch).
