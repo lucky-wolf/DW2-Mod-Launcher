@@ -196,6 +196,8 @@
   "PublishDescriptionFile": "説明ファイル（Modフォルダー内のパス）",
   "PublishBrowseDescriptionFileTooltip": "説明ファイルを選択",
   "PublishEditDescriptionFileTooltip": "説明ファイルを編集（まだない場合は選択）",
+  "PublishImageTooLarge": "プレビュー画像「{0}」のサイズは {1} MiB です。Steamは1 MiBを超える画像を拒否する場合があり、公開に失敗する可能性があります。\r\n\r\nそれでも公開しますか？",
+  "PublishFilesTooLarge": "次のファイルは5 MiBを超えているため、公開に失敗する可能性があります:\r\n\r\n{0}\r\n\r\nそれでも公開しますか？",
   "PublishImportFileConfirm": "「{0}」はModフォルダーの外にあります。\r\n\r\nModフォルダーにコピーしますか？ Modは自身のフォルダー内のファイルのみ参照できます。",
   "PublishShortDescriptionHint": "DW2のModリストに表示されます。",
   "PublishDescriptionFileHint": "ファイルの内容がSteamの説明文としてアップロードされます。",

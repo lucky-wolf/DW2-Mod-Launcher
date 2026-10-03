@@ -10,5 +10,3 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` empties the list when it creates a new branch.
 
 ---
-- new-branch.py re-prompts when the branch name is invalid or taken, accepts "main" to stay on main, and deletes local branches that were rebase- or squash-merged (verified via git cherry or a merged GitHub PR) instead of keeping them.
-- Settings, profiles, Workshop backups and the log now live in the per-user config folder (`%AppData%\DW2ModLauncher` / `~/.config/DW2ModLauncher`) instead of next to the binary; existing settings/profiles are moved over on first run.

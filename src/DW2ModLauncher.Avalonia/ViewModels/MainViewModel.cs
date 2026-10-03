@@ -796,6 +796,39 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility);
             if (!await Dialogs.EditPublishAsync(editor)) return;
 
+            // Steam can reject a preview image over 1 MiB; warn, but let the author try anyway.
+            const long MaxPreviewBytes = 1024 * 1024;
+            if (!string.IsNullOrWhiteSpace(metadata.PreviewImage))
+            {
+                FileInfo preview = new FileInfo(Path.Combine(mod.ContentRoot ?? mod.Folder, metadata.PreviewImage));
+                if (preview.Exists && preview.Length > MaxPreviewBytes
+                    && !await Dialogs.ConfirmAsync(T("PublishImageTooLarge", metadata.PreviewImage, (preview.Length / 1048576.0).ToString("0.##")), "DW2 Mod Launcher", T("Yes"), T("No")))
+                    return;
+            }
+
+            // Other content files over 5 MiB get the same warn-and-ask treatment.
+            const long MaxFileBytes = 5L * 1024 * 1024;
+            string contentRoot = mod.ContentRoot ?? mod.Folder;
+            string previewFull = string.IsNullOrWhiteSpace(metadata.PreviewImage) ? null : Path.GetFullPath(Path.Combine(contentRoot, metadata.PreviewImage));
+            List<string> bigFiles = new List<string>();
+            try
+            {
+                foreach (string file in Directory.EnumerateFiles(contentRoot, "*", SearchOption.AllDirectories))
+                {
+                    if (previewFull != null && string.Equals(Path.GetFullPath(file), previewFull, StringComparison.OrdinalIgnoreCase)) continue;
+                    long length = new FileInfo(file).Length;
+                    if (length > MaxFileBytes)
+                        bigFiles.Add(file.Substring(contentRoot.Length).TrimStart('\\', '/') + " (" + (length / 1048576.0).ToString("0.##") + " MiB)");
+                }
+            }
+            catch (Exception ex) { Logger.LogException("Scan mod for large files", ex); }
+            if (bigFiles.Count > 0)
+            {
+                string list = string.Join("\n", bigFiles.Take(10)) + (bigFiles.Count > 10 ? "\n..." : "");
+                if (!await Dialogs.ConfirmAsync(T("PublishFilesTooLarge", list), "DW2 Mod Launcher", T("Yes"), T("No")))
+                    return;
+            }
+
             publishRunning = true;
             PublishCommand.RaiseCanExecuteChanged();
             SetStatus(T("PublishRunning"));
