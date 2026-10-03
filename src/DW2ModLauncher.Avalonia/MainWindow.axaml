@@ -4,6 +4,7 @@
         xmlns:views="using:DW2ModLauncher.Avalonia.Views"
         x:Class="DW2ModLauncher.Avalonia.MainWindow"
         x:DataType="vm:MainViewModel"
+        Icon="/Assets/icon.png"
         Width="1280" Height="800" MinWidth="1000" MinHeight="650"
         WindowStartupLocation="CenterScreen">
   <Grid RowDefinitions="Auto,*,Auto">
