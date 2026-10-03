@@ -18,4 +18,5 @@ reconstruct it right before opening the PR. Fold several small related lines int
 - Mod descriptions follow mod.json's `descriptionFile` (long text) > `description` > `shortDescription`
 - Conflict detection no longer flags `description.*` files
 - Workshop publish no longer overwrites the Steam description when mod.json has no `description` (and no longer writes an empty one into mod.json)
+- Launcher icon (embedded in the Windows exe and used as the window icon; rebuild with scripts/make-icon.py)
 - Settings dialog sizes itself to its contents; subtitle credits Serge and Mordachai

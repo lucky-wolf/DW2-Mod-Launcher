@@ -18,7 +18,7 @@ import sys
 import webbrowser
 from pathlib import Path
 
-from lib import dotnet_checks, focus, github, output, proc, release_version
+from lib import dotnet_checks, focus, github, launcher_build, output, proc, release_version
 
 
 def compute_pr_title(repo_root: Path, fallback: str) -> str:
@@ -66,6 +66,11 @@ def main() -> int:
     current_branch = proc.git(repo_root, "branch", "--show-current").stdout.strip()
     if current_branch == target:
         output.fail(f"already on '{target}' - switch to a feature branch first")
+
+    output.step("launcher not running")
+    if launcher_build.launcher_is_running():
+        output.fail("DW2 Mod Launcher is running - close it first (it locks its own exe and breaks the build), then re-run")
+    output.ok("launcher is closed")
 
     output.step("gh readiness")
     github.require_gh_auth()

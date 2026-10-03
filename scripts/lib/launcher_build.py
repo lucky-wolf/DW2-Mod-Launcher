@@ -28,6 +28,19 @@ AVALONIA = Ui("avalonia", "src/DW2ModLauncher.Avalonia/DW2ModLauncher.Avalonia.c
 UIS = {ui.name: ui for ui in (AVALONIA,)}
 
 
+def launcher_is_running() -> bool:
+    """True while a DW2ModLauncher process is alive. A running launcher locks its own exe, which breaks the release build."""
+    try:
+        if sys.platform == "win32":
+            result = subprocess.run(
+                ["tasklist", "/FI", "IMAGENAME eq DW2ModLauncher.exe", "/FO", "CSV", "/NH"], capture_output=True, text=True
+            )
+            return "DW2ModLauncher.exe" in result.stdout
+        return subprocess.run(["pgrep", "-x", "DW2ModLauncher"], capture_output=True).returncode == 0
+    except OSError:
+        return False  # no tasklist/pgrep to ask: don't block the PR on a check we can't make
+
+
 def default_ui() -> Ui:
     return AVALONIA
 

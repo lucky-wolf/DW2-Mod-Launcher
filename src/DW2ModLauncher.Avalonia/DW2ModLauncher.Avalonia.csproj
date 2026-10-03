@@ -8,6 +8,8 @@
     <RootNamespace>DW2ModLauncher.Avalonia</RootNamespace>
     <AssemblyName>DW2ModLauncher</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Embedded in the Windows exe (Explorer, taskbar, shortcuts). Built by scripts/make-icon.py. -->
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
@@ -53,6 +55,11 @@
       <Link>Steamworks.NET.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The window icon (Windows and Linux); referenced as /Assets/icon.png. -->
+    <AvaloniaResource Include="Assets\icon.png" />
   </ItemGroup>
 
   <ItemGroup>

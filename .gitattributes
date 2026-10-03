@@ -8,3 +8,5 @@
 *.json eol=lf
 *.py eol=lf
 *.md eol=lf
+*.png binary
+*.ico binary
