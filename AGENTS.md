@@ -72,7 +72,7 @@ where load-order/merge logic and DLL-injection argument building should live as 
 
 ## CI
 
-[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every push to `main` and every pull request
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every pull request (not on pushes to `main`: merges are rebases of already-validated branches)
 (including from forks), on both `windows-latest` and `ubuntu-latest`. It gates on, in order:
 `dotnet format --verify-no-changes` (formatting), `dotnet build -c Release` (build), then `dotnet test` (unit
 tests) — the same checks `build.cmd` runs locally by default. Run `dotnet format DW2ModLauncher.sln` locally

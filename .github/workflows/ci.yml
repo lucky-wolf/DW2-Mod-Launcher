@@ -1,8 +1,7 @@
 name: CI
 
+# PRs only: merges are rebases of an already-validated branch, so a run on main would repeat the same checks.
 on:
-  push:
-    branches: [main]
   pull_request:
 
 jobs:
