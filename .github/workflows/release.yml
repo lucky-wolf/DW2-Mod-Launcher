@@ -112,7 +112,9 @@ jobs:
       - name: Package
         id: package
         run: |
-          version=$(dotnet msbuild src/DW2ModLauncher.Avalonia -t:MinVer -getProperty:MinVerVersion -v:q | tail -1)
+          # InformationalVersion (set in Directory.Build.props) is what the Windows job reads from the exe: the plain tag
+          # on a release, "X.Y.Z-dev" on a PR build. Not MinVerVersion, which carries MinVer's "-alpha.0.N" suffix.
+          version=$(dotnet msbuild src/DW2ModLauncher.Avalonia -t:MinVer -getProperty:InformationalVersion -v:q | tail -1)
           name="DW2ModLauncher-v${version}-linux-x64"
           mkdir -p "stage/${name}"
           cp -a publish/. "stage/${name}/"

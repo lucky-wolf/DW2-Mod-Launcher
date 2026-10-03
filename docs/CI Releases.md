@@ -57,11 +57,14 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
    `DW2ModLauncher-vX.Y.Z-linux-x64.tar.gz`, and attaches it to the same release.
 6. `gh release create` attaches the zip to a GitHub Release with generated notes (push to `main` only).
 
-**PR runs and manual dispatch** build and upload the zip as a workflow artifact only: no tag, no release. Use
-it to inspect package contents; a PR run shows packaging problems before merge.
+**PR runs and manual dispatch** build and upload both packages as workflow artifacts only: no tag, no release. Use
+them to inspect package contents; a PR run shows packaging problems before merge. Artifacts are named from the exe's
+`InformationalVersion` (Directory.Build.props): `DW2ModLauncher-vX.Y.Z-dev-win-x64` / `-linux-x64` on a PR run (the
+version the next release will carry), and the plain tag on a release. Both jobs must read `InformationalVersion`, not
+MinVer's raw `MinVerVersion` (which adds `-alpha.0.N`).
 
-**Unverified:** the `release-linux` job has never run on GitHub (it was written and tested locally only). Check the
-first real release after it lands and fix anything it turns up.
+**Partly verified:** the `release-linux` job has run on a PR build (its artifact name was wrong, now fixed). It has not
+yet attached a tar.gz to a real release; check the first real release after it lands and fix anything it turns up.
 
 If a run is retried after the tag exists, `release.py` sees it and exits without output, so no
 duplicate release is created.
