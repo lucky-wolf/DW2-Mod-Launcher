@@ -3,13 +3,18 @@
   <!-- MinVer derives <Version> (and AssemblyVersion/FileVersion/InformationalVersion) from the
        nearest reachable "vMAJOR.MINOR.PATCH" git tag - the tags scripts/release.py creates on merge
        to main. Never hand-set a version in a .csproj. Untagged/dev builds get a pre-release
-       version (e.g. 0.1.4-alpha.0.7), so they're always distinguishable from a release. -->
+       version (e.g. 0.5.0-alpha.0.7), so they're always distinguishable from a release. -->
   <ItemGroup>
     <PackageReference Include="MinVer" Version="6.0.0" PrivateAssets="All" />
   </ItemGroup>
 
   <PropertyGroup>
     <MinVerTagPrefix>v</MinVerTagPrefix>
+    <!-- .version holds the hand-bumped MAJOR.MINOR that scripts/release.py tags with. Feed it to MinVer as the floor so a
+         dev build already shows the version the next release will carry (0.5 -> 0.5.0-dev) instead of lagging at the
+         last tag's patch+1 until the first tag of the new MAJOR.MINOR exists. -->
+    <DW2VersionFile>$(MSBuildThisFileDirectory).version</DW2VersionFile>
+    <MinVerMinimumMajorMinor Condition="Exists('$(DW2VersionFile)')">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(DW2VersionFile)')), '^\s*(\d+\.\d+)').Groups[1].Value)</MinVerMinimumMajorMinor>
     <!-- Lets non-Windows machines restore/build/format the net10.0-windows projects (no-op on Windows).
          Running the WinForms app still needs Windows. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
