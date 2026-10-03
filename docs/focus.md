@@ -10,6 +10,5 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` empties the list when it creates a new branch.
 
 ---
-- README is now bilingual as separate files (README.md English, README.ja.md Japanese, linked to each other), restoring the Japanese README and bringing it up to date; validation now fails if a *.ja.md drifts from its English original.
-- new-branch.py re-prompts when the branch name is invalid or already taken instead of aborting.
-- new-branch.py recognises stashes left by an earlier run, offers to restore them onto the new branch (also when branch creation is skipped), and carries over only the docs/focus.md entries you added instead of conflicting on that file.
+- new-branch.py re-prompts when the branch name is invalid or taken, accepts "main" to stay on main, and deletes local branches that were rebase- or squash-merged (verified via git cherry or a merged GitHub PR) instead of keeping them.
+- Settings, profiles, Workshop backups and the log now live in the per-user config folder (`%AppData%\DW2ModLauncher` / `~/.config/DW2ModLauncher`) instead of next to the binary; existing settings/profiles are moved over on first run.

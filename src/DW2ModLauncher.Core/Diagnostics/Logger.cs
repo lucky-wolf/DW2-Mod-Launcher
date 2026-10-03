@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using DW2ModLauncher.Core.Services;
 
 namespace DW2ModLauncher.Core.Diagnostics
 {
@@ -8,7 +9,7 @@ namespace DW2ModLauncher.Core.Diagnostics
     {
         public static string CrashLogPath
         {
-            get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DW2ModLauncher.log"); }
+            get { return Path.Combine(UserDataRoot.GetLauncherDataRoot(AppDomain.CurrentDomain.BaseDirectory), "DW2ModLauncher.log"); }
         }
 
         public static void Log(string context, string message)

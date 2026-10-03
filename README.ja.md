@@ -141,7 +141,7 @@ Distant Worlds 2にはLinuxネイティブ版がないため、Linuxではこれ
   FlatpakやSnapでのインストール、その他のSteamライブラリフォルダー）から自動的に検出されます。
   別の場所にある場合は設定タブで指定してください。
 - Steam Workshopへの公開は、起動中でログイン済みのLinux版Steamクライアントと直接やり取りします。
-- ランチャーの設定（`launcher_settings.json`）は実行ファイルと同じ場所に保存されます。
+- ランチャーの設定（`launcher_settings.json`）、プロファイル、ログは `~/.config/DW2ModLauncher`（Windows では `%AppData%\DW2ModLauncher`）に保存されます。
 
 Linuxでソースからビルドして実行する場合（.NET 10 SDKのみ必要）：
 

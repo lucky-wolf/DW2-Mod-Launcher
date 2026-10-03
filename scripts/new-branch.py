@@ -85,6 +85,23 @@ def restore_stashes(repo_root: Path, shas: list[str], reset_focus: bool = False)
     focus.append(repo_root, carried_all)
 
 
+def landed_in_main(repo_root: Path, branch: str) -> bool:
+    """Whether everything on the branch is already in main even though git can't see it as merged, which
+    is what rebase and squash merges look like. True when every commit has a patch-equivalent in main
+    (`git cherry`: no '+' lines), or GitHub reports a merged PR for the branch (covers squash merges)."""
+    cherry = proc.git(repo_root, "cherry", "main", branch)
+    if cherry.returncode == 0 and not any(line.startswith("+") for line in cherry.stdout.splitlines()):
+        return True
+    try:
+        prs = subprocess.run(
+            ["gh", "pr", "list", "--head", branch, "--state", "merged", "--json", "number", "--limit", "1"],
+            cwd=repo_root, capture_output=True, text=True,
+        )
+    except FileNotFoundError:
+        return False
+    return prs.returncode == 0 and prs.stdout.strip() not in ("", "[]")
+
+
 def get_branch_user(repo_root: Path) -> str:
     username = ""
     for config_args in (("config", "--get", "user.username"), ("config", "--get", "user.name")):
@@ -181,12 +198,16 @@ def main() -> int:
         else:
             deleted, kept = [], []
             for branch in sorted(candidates):
+                # -d first (plain merges); a rebase or squash merge rewrites the commits so -d refuses,
+                # in which case -D is used only once the work is verified to be in main
                 result = subprocess.run(["git", "branch", "-d", branch], cwd=repo_root, capture_output=True)
+                if result.returncode != 0 and landed_in_main(repo_root, branch):
+                    result = subprocess.run(["git", "branch", "-D", branch], cwd=repo_root, capture_output=True)
                 (deleted if result.returncode == 0 else kept).append(branch)
             if deleted:
                 output.ok("deleted: " + ", ".join(deleted))
             if kept:
-                print(f"  Kept (not deletable with -d): {', '.join(kept)}")
+                print(f"  Kept (not verifiably merged into main): {', '.join(kept)}")
 
     output.step("new branch")
     if not wait_for_release_tag(repo_root) and release_version.head_triggers_release(repo_root):
@@ -201,16 +222,16 @@ def main() -> int:
     suggested = f"{branch_user}/{next_tag}" if branch_user and next_tag else ""
     if suggested:
         print(f"  Suggested: {suggested}")
-        prompt = "  New branch name (Enter to accept suggestion; type 'skip' to skip): "
+        prompt = "  New branch name (Enter to accept suggestion; type 'main' to stay on main): "
     else:
-        prompt = "  New branch name (leave blank to skip): "
+        prompt = "  New branch name (blank or 'main' to stay on main): "
 
     # a bad or taken name re-prompts instead of aborting the whole run (which has already synced main
     # and stashed the user's changes)
     while True:
         new_branch = input(prompt).strip() or suggested
-        if not new_branch or new_branch.lower() == "skip":
-            output.ok("skipped branch creation")
+        if not new_branch or new_branch.lower() in ("main", "skip"):
+            output.ok("staying on main (no new branch)")
             if to_restore and not args.dry_run:
                 restore_stashes(repo_root, to_restore)
             return 0
