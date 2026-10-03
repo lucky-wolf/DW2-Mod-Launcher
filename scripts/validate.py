@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from lib import dotnet_checks, output
+from lib import dotnet_checks, launcher_build, output
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -19,6 +19,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.parse_args()
+
+    launcher_build.require_launcher_closed()
 
     output.step("restore")
     dotnet_checks.run_dotnet_restore(REPO_ROOT)

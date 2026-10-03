@@ -22,16 +22,41 @@
 
   <!-- MinVer appends "-alpha.0.N" to builds past the latest tag. Drop it so every build, dev or
        release, shows plain MAJOR.MINOR.PATCH: for a dev build that is the version the next release
-       will carry (the tag release.py will create), on a tagged build it is the tag itself. Untagged
-       builds get "-dev" in the InformationalVersion only, so they stay distinguishable. -->
+       will carry (the tag release.py will create), on a tagged build it is the tag itself. Untagged or
+       locally-modified builds get "-dev" in the InformationalVersion only, so they stay distinguishable. -->
   <Target Name="StampPlainSemver" AfterTargets="MinVer">
+    <!-- A build with uncommitted changes to tracked files is not the tagged release even when HEAD sits exactly on its tag
+         (MinVer ignores the working tree), so it counts as a dev build too. -->
+    <Exec Condition="'$(MinVerPreRelease)' == ''" Command="git status --porcelain --untracked-files=no" ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" IgnoreExitCode="true" WorkingDirectory="$(MSBuildThisFileDirectory)">
+      <Output TaskParameter="ConsoleOutput" ItemName="_DW2DirtyLine" />
+    </Exec>
+    <PropertyGroup>
+      <_DW2IsDev Condition="'$(MinVerPreRelease)' != '' Or '@(_DW2DirtyLine)' != ''">true</_DW2IsDev>
+    </PropertyGroup>
+    <!-- MinVer only counts tags reachable from HEAD, but scripts/release.py picks "one past the highest v{MAJOR.MINOR}.* tag
+         that exists" (a branch cut before the last release can't see its tag). For an untagged (dev) build, ask git for all
+         of them so the patch shown is the one the next release will really carry; a new MAJOR.MINOR series has none, so
+         it stays at MinVer's .0. Falls back to MinVer's own patch if git is missing or lists nothing. -->
+    <Exec Condition="'$(_DW2IsDev)' == 'true'" Command="git tag --list &quot;v$(MinVerMajor).$(MinVerMinor).*&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" IgnoreExitCode="true" WorkingDirectory="$(MSBuildThisFileDirectory)">
+      <Output TaskParameter="ConsoleOutput" ItemName="_DW2SeriesTag" />
+    </Exec>
+    <ItemGroup>
+      <_DW2SeriesPatch Include="$([System.Text.RegularExpressions.Regex]::Match('%(_DW2SeriesTag.Identity)', '^v\d+\.\d+\.(\d+)$').Groups[1].Value)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(_DW2SeriesTag.Identity)', '^v\d+\.\d+\.\d+$'))" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_DW2MaxPatch>-1</_DW2MaxPatch>
+      <_DW2MaxPatch Condition="'%(_DW2SeriesPatch.Identity)' != '' And %(_DW2SeriesPatch.Identity) &gt; $(_DW2MaxPatch)">%(_DW2SeriesPatch.Identity)</_DW2MaxPatch>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(_DW2IsDev)' == 'true' And $(_DW2MaxPatch) &gt;= 0">
+      <MinVerPatch>$([MSBuild]::Add($(_DW2MaxPatch), 1))</MinVerPatch>
+    </PropertyGroup>
     <PropertyGroup>
       <Version>$(MinVerMajor).$(MinVerMinor).$(MinVerPatch)</Version>
       <PackageVersion>$(Version)</PackageVersion>
       <AssemblyVersion>$(Version).0</AssemblyVersion>
       <FileVersion>$(Version).0</FileVersion>
-      <InformationalVersion Condition="'$(MinVerPreRelease)' == ''">$(Version)</InformationalVersion>
-      <InformationalVersion Condition="'$(MinVerPreRelease)' != ''">$(Version)-dev</InformationalVersion>
+      <InformationalVersion Condition="'$(_DW2IsDev)' != 'true'">$(Version)</InformationalVersion>
+      <InformationalVersion Condition="'$(_DW2IsDev)' == 'true'">$(Version)-dev</InformationalVersion>
     </PropertyGroup>
   </Target>
 

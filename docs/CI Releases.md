@@ -39,7 +39,7 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
   into every project. **Never hand-set a version in a `.csproj`.**
 - Directory.Build.props then strips MinVer's pre-release suffix (`StampPlainSemver`), so every build is plain
   `MAJOR.MINOR.PATCH`: a dev build shows the version the next release will carry (MinVer's next patch, which
-  matches `release.py` while `.version` is unchanged). Untagged builds keep `-dev` in the InformationalVersion
+  matches `release.py` while `.version` is unchanged: for an untagged build `Directory.Build.props` asks git for *all* `vMAJOR.MINOR.*` tags, not just those reachable from HEAD as MinVer does, so a branch cut before the last release still shows the right patch; a new MAJOR.MINOR starts at `.0`). Tags must be fetched locally (`git fetch --tags`) for this to see a release CI just made. Untagged builds keep `-dev` in the InformationalVersion
   only (`0.1.1-dev`); the window title shows it as `v0.1.1 dev` (`AppVersion.Display`). Tagged release builds
   have no suffix.
 - `release.py` is CI-only: it refuses to run for real outside GitHub Actions, never writes git config,
@@ -57,9 +57,10 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
    `DW2ModLauncher-vX.Y.Z-linux-x64.tar.gz`, and attaches it to the same release.
 6. `gh release create` attaches the zip to a GitHub Release with generated notes (push to `main` only).
 
-**PR runs and manual dispatch** build and upload both packages as workflow artifacts only: no tag, no release. Use
-them to inspect package contents; a PR run shows packaging problems before merge. Artifacts are named from the exe's
-`InformationalVersion` (Directory.Build.props): `DW2ModLauncher-vX.Y.Z-dev-win-x64` / `-linux-x64` on a PR run (the
+**Pull requests do not run this workflow** (`ci.yml` validates them; packaging is only exercised on merge to `main`,
+since both distributions are known to work). A **manual dispatch** builds and uploads both packages as workflow
+artifacts only: no tag, no release. Use it to inspect package contents. Artifacts are named from the exe's
+`InformationalVersion` (Directory.Build.props): `DW2ModLauncher-vX.Y.Z-dev-win-x64` / `-linux-x64` on a manual run (the
 version the next release will carry), and the plain tag on a release. Both jobs must read `InformationalVersion`, not
 MinVer's raw `MinVerVersion` (which adds `-alpha.0.N`).
 
