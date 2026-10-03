@@ -28,6 +28,63 @@ from lib import focus, output, proc, release_version
 _GONE_BRANCH_PATTERN = re.compile(r"^\s*(\*?)\s*(\S+)\s+[0-9a-f]+\s+\[[^\]]*:\s*gone\]")
 
 
+# stashes made by this script carry this prefix so a later run can recognise them as its own
+STASH_PREFIX = "new-branch auto-stash"
+
+
+def own_stashes(repo_root: Path) -> list[tuple[str, str, str]]:
+    """(commit sha, ref, subject) of every stash this script made, oldest first. The sha is the stable handle:
+    a ref like stash@{0} shifts whenever another stash is pushed or dropped."""
+    out = proc.git(repo_root, "stash", "list", "--format=%H%x09%gd%x09%gs").stdout
+    found = []
+    for line in out.splitlines():
+        parts = line.split("\t", 2)
+        if len(parts) == 3 and STASH_PREFIX in parts[2]:
+            found.append((parts[0], parts[1], parts[2]))
+    return list(reversed(found))
+
+
+def restore_stash(repo_root: Path, sha: str) -> bool:
+    """Applies the stash with this commit sha, then drops it. A stash that doesn't apply cleanly is kept
+    (and reported) rather than lost.
+
+    docs/focus.md is the one file that always conflicts: the stash holds "old list + my new lines" but
+    the new branch's copy has just been emptied. Its entries are carried over separately (see
+    restore_stashes), so a conflict confined to that file is resolved by taking the branch's version."""
+    # git refuses to apply over local edits to a file the stash touches; focus.md is rewritten from the
+    # carried entries afterwards anyway
+    subprocess.run(["git", "checkout", "HEAD", "--", str(focus.FOCUS_PATH)], cwd=repo_root, capture_output=True)
+    applied = subprocess.run(["git", "stash", "apply", sha], cwd=repo_root, capture_output=True)
+    if applied.returncode != 0:
+        unmerged = proc.git(repo_root, "diff", "--name-only", "--diff-filter=U").stdout.split()
+        if unmerged != [str(focus.FOCUS_PATH.as_posix())]:
+            return False
+        subprocess.run(["git", "checkout", "HEAD", "--", str(focus.FOCUS_PATH)], cwd=repo_root, capture_output=True)
+        subprocess.run(["git", "reset", "-q"], cwd=repo_root, capture_output=True)
+    for _, ref, _ in own_stashes(repo_root):
+        if proc.git(repo_root, "rev-parse", ref).stdout.strip() == sha:
+            proc.git(repo_root, "stash", "drop", ref)
+    return True
+
+
+def restore_stashes(repo_root: Path, shas: list[str], reset_focus: bool = False) -> None:
+    """Restores each stash, carrying the focus.md entries it added. With reset_focus (a new branch),
+    focus.md is emptied once all stashes are applied and only those carried entries are put back, so the
+    previous branch's already-merged entries don't leak into the new one."""
+    carried_all: list[str] = []
+    for sha in shas:
+        subject = proc.git(repo_root, "log", "-1", "--format=%s", sha).stdout.strip()
+        carried = focus.stash_entries(repo_root, sha)  # read before the stash is dropped
+        if restore_stash(repo_root, sha):
+            carried_all.extend(carried)
+            output.ok(f"restored stash: {subject}" + (f" (+{len(carried)} focus.md entries)" if carried else ""))
+        else:
+            print(f"  could not restore stash cleanly ({subject}); it is still in 'git stash list' - resolve by hand")
+    if reset_focus:
+        focus.reset(repo_root)
+    focus.append(repo_root, carried_all)
+
+
 def get_branch_user(repo_root: Path) -> str:
     username = ""
     for config_args in (("config", "--get", "user.username"), ("config", "--get", "user.name")):
@@ -73,17 +130,27 @@ def main() -> int:
     args = parser.parse_args()
 
     repo_root = proc.repo_root()
-    did_auto_stash = False
 
     output.step("working tree")
+    to_restore: list[str] = []
+    leftovers = own_stashes(repo_root)
+    if leftovers:
+        print("\n  Stashes left behind by an earlier run of this script:")
+        for _, ref, subject in leftovers:
+            print(f"    - {ref}: {subject}")
+        if output.confirm("\n  Restore them onto the new branch once it is created?", default=True):
+            to_restore = [sha for sha, _, _ in leftovers]
+    elif proc.git(repo_root, "stash", "list").stdout.strip():
+        print("  (note: there are stashes that this script didn't make; leaving them alone)")
+
     if proc.git(repo_root, "status", "--porcelain").stdout.strip():
         print("\n  Uncommitted changes:")
         subprocess.run(["git", "status", "--short"], cwd=repo_root)
         if not output.confirm("\n  Stash all changes (including untracked) and continue?", default=True):
             output.fail("working tree is not clean; aborted")
-        stash_msg = f"new-branch auto-stash {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        stash_msg = f"{STASH_PREFIX} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         proc.run(repo_root, "git stash", ["git", "stash", "push", "-u", "-m", stash_msg])
-        did_auto_stash = True
+        to_restore.append(proc.git(repo_root, "rev-parse", "stash@{0}").stdout.strip())
         output.ok("stashed changes")
     else:
         output.ok("working tree clean")
@@ -131,37 +198,44 @@ def main() -> int:
     if next_tag and release_version.tag_exists(repo_root, next_tag):
         output.fail(f"computed next version {next_tag} already exists as a tag; re-run in a moment")
 
-    if branch_user and next_tag:
-        suggested = f"{branch_user}/{next_tag}"
+    suggested = f"{branch_user}/{next_tag}" if branch_user and next_tag else ""
+    if suggested:
         print(f"  Suggested: {suggested}")
-        new_branch = input("  New branch name (Enter to accept suggestion; type 'skip' to skip): ").strip() or suggested
+        prompt = "  New branch name (Enter to accept suggestion; type 'skip' to skip): "
     else:
-        new_branch = input("  New branch name (leave blank to skip): ").strip()
+        prompt = "  New branch name (leave blank to skip): "
 
-    if not new_branch or new_branch.lower() == "skip":
-        output.ok("skipped branch creation")
-        return 0
-
-    exists = subprocess.run(["git", "show-ref", "--verify", "--quiet", f"refs/heads/{new_branch}"], cwd=repo_root)
-    if exists.returncode == 0:
-        output.fail(f"branch '{new_branch}' already exists locally")
+    # a bad or taken name re-prompts instead of aborting the whole run (which has already synced main
+    # and stashed the user's changes)
+    while True:
+        new_branch = input(prompt).strip() or suggested
+        if not new_branch or new_branch.lower() == "skip":
+            output.ok("skipped branch creation")
+            if to_restore and not args.dry_run:
+                restore_stashes(repo_root, to_restore)
+            return 0
+        if proc.git(repo_root, "check-ref-format", "--branch", new_branch).returncode != 0:
+            output.warn(f"'{new_branch}' is not a valid git branch name (no spaces or ~ ^ : ? * [); try again")
+            continue
+        exists = subprocess.run(["git", "show-ref", "--verify", "--quiet", f"refs/heads/{new_branch}"], cwd=repo_root)
+        if exists.returncode == 0:
+            output.warn(f"branch '{new_branch}' already exists locally; try again")
+            continue
+        break
 
     if args.dry_run:
         print(f"  [dry-run] would create and check out branch '{new_branch}' and reset docs/focus.md")
-        if did_auto_stash:
-            print("  [dry-run] stashed changes left in place; 'git stash pop' to restore them")
+        if to_restore:
+            print("  [dry-run] stashes left in place; run again (without --dry-run) to restore them")
         return 0
 
     proc.run(repo_root, f"create branch {new_branch}", ["git", "checkout", "-b", new_branch])
-    focus.reset(repo_root)
-    output.ok("docs/focus.md reset for the new branch")
-    if did_auto_stash:
+    if to_restore:
         print("  » restore stashed changes")
-        pop = subprocess.run(["git", "stash", "pop"], cwd=repo_root, capture_output=True)
-        if pop.returncode != 0:
-            print("  stash pop reported conflicts or a partial apply; resolve and run 'git stash list'")
-        else:
-            output.ok("restored stashed changes")
+    # resets focus.md for the new branch *after* the stashes are applied (see restore_stash), then
+    # re-adds only the entries the stashes added
+    restore_stashes(repo_root, to_restore, reset_focus=True)
+    output.ok("docs/focus.md reset for the new branch")
 
     output.ok(f"ready on branch '{new_branch}'")
     return 0
