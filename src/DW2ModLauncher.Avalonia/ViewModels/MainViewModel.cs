@@ -170,7 +170,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private async Task StopGameAsync()
         {
-            if (!await Dialogs.ConfirmAsync(T("ConfirmStopGame"), "DW2 Mod Launcher", T("Yes"), T("No"))) return;
             await Task.Run(() => GameProcess.Kill());
             SetGameState(GameState.Idle);
             SetStatus(T("GameStopped"));
@@ -191,6 +190,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             set
             {
                 if (!Set(ref selectedRow, value)) return;
+                Raise(nameof(SelectedIsWorkshop));
+                Raise(nameof(SelectedHasSteamPage));
                 ShowDetails();
                 OpenSelectedFolderCommand.RaiseCanExecuteChanged();
                 OpenSteamPageCommand.RaiseCanExecuteChanged();
@@ -208,6 +209,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool ProblemsIsConflict { get { return problemsIsConflict; } private set { Set(ref problemsIsConflict, value); } }
         public Bitmap Preview { get { return preview; } private set { Set(ref preview, value); } }
         public bool HasSelection { get { return selectedRow != null; } }
+        /// <summary>Update checks only apply to Steam Workshop items, so the context menu offers them for those alone.</summary>
+        public bool SelectedHasSteamPage { get { return SteamPageId(selectedRow) != null; } }
+        public bool SelectedIsWorkshop { get { return selectedRow != null && selectedRow.Mod.IsWorkshop; } }
 
         public LauncherSettings LauncherSettings { get { return settings; } }
         public LauncherSettingsStore SettingsStore { get { return settingsStore; } }

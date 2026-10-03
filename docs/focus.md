@@ -10,13 +10,3 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` empties the list when it creates a new branch.
 
 ---
-- Linux support (Avalonia launcher, game under Proton, Workshop publish via Steamworks.NET): done, plan archived
-- Mod profiles now use DW2's own named profiles; the blank/detached state is shown as "(default profile)", as the game calls it
-- Removed the Snapshot feature (profiles cover the mod order, and snapshots copied whole mod folders)
-- Main window: ▶ Play button with tooltips, an "All" button (enables everything, with an "Analyzing Conflicts..." overlay while it works), Clear no longer asks to confirm, "Create Mod..." dialog cleanup, health shown as a coloured word
-- Details panel: dropped the folder path and redundant "no conflicts / up to date" lines, and a "Select a mod" placeholder replaces the empty black box
-- Mod descriptions follow mod.json's `descriptionFile` (long text) > `description` > `shortDescription`
-- Conflict detection no longer flags `description.*` files
-- Workshop publish no longer overwrites the Steam description when mod.json has no `description` (and no longer writes an empty one into mod.json)
-- Launcher icon (embedded in the Windows exe and used as the window icon; rebuild with scripts/make-icon.py)
-- Settings dialog sizes itself to its contents; subtitle credits Serge and Mordachai
