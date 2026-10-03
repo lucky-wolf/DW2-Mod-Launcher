@@ -1,6 +1,6 @@
 # Linux support
 
-Status: effectively DONE (all steps complete; only follow-ups remain). WinForms removed 2026-10-02 (Windows and Linux both ship the Avalonia launcher); references to the WinForms app below are historical. Release pipeline is done (see AGENTS.md "CI & Releases").
+Status: DONE and ARCHIVED 2026-10-02. The one remaining item (first real run of the `release-linux` job) moved to [CI Releases](../CI%20Releases.md). WinForms removed 2026-10-02 (Windows and Linux both ship the Avalonia launcher); references to the WinForms app below are historical. Release pipeline is done (see AGENTS.md "CI & Releases").
 
 ## Constraints
 - Distant Worlds 2 has no native Linux build; the game always runs under Proton.
@@ -106,7 +106,7 @@ then it is deleted. Phases, each runnable/testable on Linux:
 - The publish dialog shows the Workshop ID read-only, or "Unpublished" when mod.json has none.
 
 ## Follow-ups
-- Confirm the `release-linux` job in `release.yml` on its first real run on GitHub.
+- Moved to docs/CI Releases.md: confirm the `release-linux` job on its first real run on GitHub.
 
 ## Open questions
 - None currently.

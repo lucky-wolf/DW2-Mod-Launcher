@@ -11,6 +11,8 @@ namespace DW2ModLauncher.Tests
         [InlineData("launcher.json")]
         [InlineData("README.txt")]
         [InlineData("sub\\folder\\README.md")]
+        [InlineData("description.txt")]
+        [InlineData("sub\\Description.txt")]
         [InlineData("install.bat")]
         [InlineData("tool.exe")]
         [InlineData("notes.pdf")]

@@ -13,10 +13,12 @@ namespace DW2ModLauncher.Avalonia.Services
         string OkText { get; set; }
         Task ShowMessageAsync(string message, string title);
         Task<bool> ConfirmAsync(string message, string title, string yesText, string noText);
+        /// <summary>Shows one button per entry; returns the clicked index, or -1 if dismissed. The last button is the cancel button (Esc).</summary>
+        Task<int> ChooseAsync(string message, string title, IList<string> buttons);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFromListAsync(string title, string note, IList<string> items);
         /// <summary>The entered text (never blank), or null if the user cancelled. <paramref name="hint"/> turns the text typed so far into a note shown under the box.</summary>
-        Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint);
+        Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint, IList<string> choices = null, Func<string, bool> isInvalid = null);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFolderAsync(string title, string startFolder);
         /// <summary>Null if the user cancelled.</summary>

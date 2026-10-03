@@ -18,6 +18,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
     {
         public string ContentFolder { get; set; }
         public string Title { get; set; }
+        /// <summary>Null or blank leaves the Steam page's description untouched; anything else replaces it on every publish.</summary>
         public string Description { get; set; }
         public string PreviewImagePath { get; set; }
         public long? ExistingWorkshopId { get; set; }

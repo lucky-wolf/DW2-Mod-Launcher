@@ -9,4 +9,8 @@ Suggested contents as the project grows:
 - [DLL-injection launch mechanism](DLL%20Injection.md) (CLI args, manifest schema)
 - [Steam Workshop publish](workshop-publish.md) (`--ugc-publish`, capturing a new item's id)
 
+- [focus.md](focus.md): the running list of what the current branch has accomplished; becomes the PR description (reset by `scripts/new-branch.py`)
+
+[archived/](archived/) holds finished plans kept for history (e.g. the [Linux support plan](archived/linux-support.md)).
+
 See [../AGENTS.md](../AGENTS.md) for collective contributor/agent directives.

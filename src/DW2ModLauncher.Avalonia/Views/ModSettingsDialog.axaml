@@ -35,7 +35,7 @@
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
         <Button Name="SaveButton" Content="{Binding L[Save]}" MinWidth="125" />
-        <Button Name="CancelButton" Content="{Binding L[Cancel]}" MinWidth="125" />
+        <Button Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />
       </StackPanel>
     </Border>
   </Grid>

@@ -16,6 +16,16 @@ namespace DW2ModLauncher.Avalonia
             DataContext = main;
             // The online Workshop check waits until the window is up so a Steam or network problem can't break startup.
             Opened += async delegate { await main.BeginWorkshopUpdateCheck(false); };
+            // Closing can't await, so cancel it, ask, and close again once the user has decided.
+            bool exitConfirmed = false;
+            Closing += async (sender, e) =>
+            {
+                if (exitConfirmed) return;
+                e.Cancel = true;
+                if (!await main.Settings.ConfirmSaveForExitAsync()) return;
+                exitConfirmed = true;
+                Close();
+            };
         }
     }
 }

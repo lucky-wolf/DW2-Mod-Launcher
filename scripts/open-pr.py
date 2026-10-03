@@ -2,7 +2,8 @@
 """Run the same checks CI runs, commit any uncommitted changes, push, and open a GitHub PR.
 
 The PR is titled "Released as vX.Y.Z" (the version release.py will tag when it merges; see
-docs/CI Releases.md) and its description lists this branch's commit subjects.
+docs/CI Releases.md) and its description is the list in docs/focus.md
+(falling back to this branch's commit subjects when that is empty).
 
 Usage:
   scripts/open-pr.py
@@ -17,7 +18,7 @@ import sys
 import webbrowser
 from pathlib import Path
 
-from lib import dotnet_checks, github, output, proc, release_version
+from lib import dotnet_checks, focus, github, output, proc, release_version
 
 
 def compute_pr_title(repo_root: Path, fallback: str) -> str:
@@ -28,7 +29,11 @@ def compute_pr_title(repo_root: Path, fallback: str) -> str:
 
 
 def compute_pr_description(repo_root: Path, target: str) -> str:
-    """One bullet per commit on this branch that isn't on origin/<target>, oldest first."""
+    """The entries in docs/focus.md (see lib/focus.py), one bullet each; when there are none, one bullet per
+    commit on this branch that isn't on origin/<target>, oldest first."""
+    entries = focus.read_entries(repo_root)
+    if entries:
+        return "\n".join(f"- {entry}" for entry in entries)
     log = proc.git(repo_root, "log", f"origin/{target}..HEAD", "--reverse", "--format=%s").stdout
     return "\n".join(f"- {line}" for line in log.splitlines() if line.strip())
 
@@ -98,6 +103,8 @@ def main() -> int:
     pr_title = compute_pr_title(repo_root, current_branch)
     pr_description = compute_pr_description(repo_root, target)
 
+    if not focus.read_entries(repo_root):
+        print("  note: docs/focus.md has no entries, so the description falls back to commit subjects")
     print(f"  Branch: {current_branch} -> {target}")
     print(f"  PR title: {pr_title}")
     print(f"  PR description:\n{pr_description}" if pr_description else "  PR description: (none)")

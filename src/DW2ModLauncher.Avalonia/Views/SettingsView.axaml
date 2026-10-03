@@ -4,7 +4,7 @@
              x:Class="DW2ModLauncher.Avalonia.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
   <ScrollViewer>
-    <StackPanel Margin="26" Spacing="14" MaxWidth="1100" HorizontalAlignment="Left">
+    <StackPanel Margin="26" Spacing="14" Width="720" HorizontalAlignment="Left">
       <TextBlock Classes="heading" Text="{Binding L[PathsAndLaunchSettings]}" />
 
       <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
@@ -47,18 +47,6 @@
         <Button Content="{Binding L[WorkshopRoot]}" Command="{Binding OpenWorkshopCommand}" Margin="0,0,12,12" MinWidth="150" />
         <Button Content="{Binding L[ModRoot]}" Command="{Binding OpenManagedCommand}" Margin="0,0,12,12" MinWidth="150" />
       </WrapPanel>
-
-      <StackPanel Spacing="8">
-        <TextBlock Classes="subheading" Text="{Binding L[ModProfiles]}" />
-        <WrapPanel Orientation="Horizontal">
-          <ComboBox ItemsSource="{Binding ProfileNames}" Text="{Binding ProfileName}" IsEditable="True" Width="250" Margin="0,0,12,12" />
-          <Button Content="{Binding L[SaveCurrent]}" Command="{Binding SaveProfileCommand}" Margin="0,0,12,12" MinWidth="145" />
-          <Button Content="{Binding L[ApplyProfile]}" Command="{Binding ApplyProfileCommand}" Margin="0,0,12,12" MinWidth="120" />
-          <Button Content="{Binding L[Delete]}" Command="{Binding DeleteProfileCommand}" Margin="0,0,12,12" MinWidth="80" />
-          <Button Content="{Binding L[Snapshot]}" Command="{Binding SnapshotCommand}" Margin="0,0,12,12" MinWidth="145" />
-          <Button Content="{Binding L[RestoreLatest]}" Command="{Binding RestoreSnapshotCommand}" Margin="0,0,12,12" MinWidth="115" />
-        </WrapPanel>
-      </StackPanel>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

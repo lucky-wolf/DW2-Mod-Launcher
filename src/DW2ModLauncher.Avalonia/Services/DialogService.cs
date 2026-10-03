@@ -45,14 +45,20 @@ namespace DW2ModLauncher.Avalonia.Services
             return new MessageDialog(message, title, yesText, noText).ShowDialog<bool>(owner());
         }
 
+        public async Task<int> ChooseAsync(string message, string title, IList<string> buttons)
+        {
+            int? choice = await new ChoiceDialog(message, title, buttons).ShowDialog<int?>(owner());
+            return choice ?? -1;
+        }
+
         public Task<string> PickFromListAsync(string title, string note, IList<string> items)
         {
             return new ListPickerDialog(title, note, items).ShowDialog<string>(owner());
         }
 
-        public Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint)
+        public Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint, IList<string> choices = null, Func<string, bool> isInvalid = null)
         {
-            return new InputDialog(title, label, initial, okText, cancelText, hint).ShowDialog<string>(owner());
+            return new InputDialog(title, label, initial, okText, cancelText, hint, choices, isInvalid).ShowDialog<string>(owner());
         }
 
         public async Task<string> PickFolderAsync(string title, string startFolder)

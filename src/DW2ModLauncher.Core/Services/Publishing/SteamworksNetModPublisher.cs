@@ -62,7 +62,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
 
                 UGCUpdateHandle_t update = SteamUGC.StartItemUpdate((AppId_t)appId, fileId);
                 SteamUGC.SetItemTitle(update, request.Title ?? "");
-                SteamUGC.SetItemDescription(update, request.Description ?? "");
+                // Only send a description the author supplied: leaving it out keeps whatever the Steam page already has (an empty one would wipe it).
+                if (!string.IsNullOrWhiteSpace(request.Description)) SteamUGC.SetItemDescription(update, request.Description);
                 SteamUGC.SetItemContent(update, request.ContentFolder);
                 if (request.Visibility.HasValue) SteamUGC.SetItemVisibility(update, ToSteam(request.Visibility.Value));
                 if (!string.IsNullOrWhiteSpace(request.PreviewImagePath)) SteamUGC.SetItemPreview(update, request.PreviewImagePath);

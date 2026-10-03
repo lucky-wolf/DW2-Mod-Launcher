@@ -6,7 +6,7 @@ Flow:
   2) switch to main, pull, fetch -p
   3) if main's tip should have been released, wait for its release tag
   4) delete local branches that are merged or whose remote is gone (git branch -d only)
-  5) optionally create a new branch, suggested as <user>/v<next version>
+  5) optionally create a new branch, suggested as <user>/v<next version>, and empty docs/focus.md for it
 
 Usage:
   scripts/new-branch.py
@@ -22,7 +22,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from lib import output, proc, release_version
+from lib import focus, output, proc, release_version
 
 # a "gone" tracking annotation like "[origin/branch: gone]"
 _GONE_BRANCH_PATTERN = re.compile(r"^\s*(\*?)\s*(\S+)\s+[0-9a-f]+\s+\[[^\]]*:\s*gone\]")
@@ -147,12 +147,14 @@ def main() -> int:
         output.fail(f"branch '{new_branch}' already exists locally")
 
     if args.dry_run:
-        print(f"  [dry-run] would create and check out branch '{new_branch}'")
+        print(f"  [dry-run] would create and check out branch '{new_branch}' and reset docs/focus.md")
         if did_auto_stash:
             print("  [dry-run] stashed changes left in place; 'git stash pop' to restore them")
         return 0
 
     proc.run(repo_root, f"create branch {new_branch}", ["git", "checkout", "-b", new_branch])
+    focus.reset(repo_root)
+    output.ok("docs/focus.md reset for the new branch")
     if did_auto_stash:
         print("  » restore stashed changes")
         pop = subprocess.run(["git", "stash", "pop"], cwd=repo_root, capture_output=True)
