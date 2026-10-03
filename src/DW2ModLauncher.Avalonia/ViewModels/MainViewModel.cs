@@ -46,6 +46,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private bool populating;
         private string detailTitle = "";
         private string detailText = "";
+        private string detailSource = "";
+        private string detailWorkshopId = "";
+        private bool verifyingPublishedIds;
         private string problemsText = "";
         private bool problemsIsConflict;
         private Bitmap preview;
@@ -64,13 +67,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
             L.SetLanguage(settings.Language);
             Dialogs.OkText = T("OK");
+            Dialogs.CopyText = T("CopyToClipboard");
+            Dialogs.OpenLogText = T("OpenLog");
             foreach (string code in Localization.AvailableLanguageCodes())
                 Languages.Add(new LanguageOption { Code = code, DisplayName = Localization.DisplayNameFor(code) });
             selectedLanguage = Languages.FirstOrDefault(l => l.Code == settings.Language) ?? Languages[0];
 
             Settings = new SettingsViewModel(this);
             OpenSettingsCommand = new RelayCommand(() => Dialogs.ShowSettingsAsync(Settings));
-            RefreshCommand = new RelayCommand(Refresh);
+            RefreshCommand = new RelayCommand(() => { Refresh(); var _ = VerifyPublishedIdsAsync(); });
             ClearCommand = new RelayCommand(ClearAsync);
             EnableAllCommand = new RelayCommand(EnableAllAsync);
             PlayCommand = new RelayCommand(PlayOrStopAsync, () => gameState != GameState.Launching);
@@ -84,6 +89,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             OpenDocsCommand = new RelayCommand(OpenDocsAsync, () => selectedRow != null && selectedRow.Mod.IncludedDocuments != null && selectedRow.Mod.IncludedDocuments.Count > 0);
             ModSettingsCommand = new RelayCommand(OpenModSettingsAsync, () => HasModSettings(selectedRow));
             PublishCommand = new RelayCommand(PublishAsync, () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !publishRunning);
+            EditPropertiesCommand = new RelayCommand(() => EditPropertiesAsync(selectedRow.Mod), () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !string.IsNullOrWhiteSpace(selectedRow.Mod.ModJsonPath));
             CheckUpdatesCommand = new RelayCommand(() => BeginWorkshopUpdateCheck(true), () => !updateCheckRunning && workshopMods.Count > 0);
             CreateModCommand = new RelayCommand(CreateModAsync);
             DeleteModCommand = new RelayCommand(DeleteModAsync, () => selectedRow != null && LocalModManager.CanDelete(selectedRow.Mod, settings.ManagedModsRoot));
@@ -91,6 +97,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             PathDetector.Detect(settings, false);
             SaveSettings();
             Refresh();
+            var verify = VerifyPublishedIdsAsync();
         }
 
         public IDialogService Dialogs { get; }
@@ -181,6 +188,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand CheckUpdatesCommand { get; }
         public RelayCommand ModSettingsCommand { get; }
         public RelayCommand PublishCommand { get; }
+        public RelayCommand EditPropertiesCommand { get; }
         public RelayCommand CreateModCommand { get; }
         public RelayCommand DeleteModCommand { get; }
 
@@ -198,12 +206,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 OpenDocsCommand.RaiseCanExecuteChanged();
                 ModSettingsCommand.RaiseCanExecuteChanged();
                 PublishCommand.RaiseCanExecuteChanged();
+                EditPropertiesCommand.RaiseCanExecuteChanged();
                 DeleteModCommand.RaiseCanExecuteChanged();
             }
         }
 
         public string DetailTitle { get { return detailTitle; } private set { Set(ref detailTitle, value); } }
         public string DetailText { get { return detailText; } private set { Set(ref detailText, value); } }
+        public string DetailSource { get { return detailSource; } private set { Set(ref detailSource, value); } }
+        public string DetailWorkshopId { get { return detailWorkshopId; } private set { Set(ref detailWorkshopId, value); } }
         public string ProblemsText { get { return problemsText; } private set { Set(ref problemsText, value); Raise(nameof(HasProblems)); } }
         public bool HasProblems { get { return !string.IsNullOrEmpty(problemsText); } }
         public bool ProblemsIsConflict { get { return problemsIsConflict; } private set { Set(ref problemsIsConflict, value); } }
@@ -234,6 +245,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 settings.Language = value.Code;
                 L.SetLanguage(value.Code);
                 Dialogs.OkText = T("OK");
+                Dialogs.CopyText = T("CopyToClipboard");
+                Dialogs.OpenLogText = T("OpenLog");
                 Raise(nameof(PlayLabel));
                 Raise(nameof(PlayTooltip));
                 SaveSettings();
@@ -443,6 +456,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 DetailTitle = "";
                 DetailText = "";
+                DetailSource = "";
+                DetailWorkshopId = "";
                 ProblemsText = "";
                 Preview = null;
                 return;
@@ -451,6 +466,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             int severity = ModHealth.Severity(mod, selected);
             DetailTitle = (mod.DisplayName ?? "") + (string.IsNullOrWhiteSpace(mod.Version) ? "" : "  v" + mod.Version);
             DetailText = ModDetails.BuildText(mod, selected, key => T(key));
+            DetailSource = T("Source") + ": " + ModDetails.SourceText(mod, settings.ManagedModsRoot);
+            DetailWorkshopId = T("PublishWorkshopId") + ": " + (ModDetails.WorkshopId(mod) ?? T("PublishWorkshopIdUnpublished"));
             List<string> problems = ModDetails.BuildProblems(mod, severity, key => T(key));
             ProblemsIsConflict = severity == 3;
             ProblemsText = problems.Count == 0 ? "" : (severity == 3 ? T("HealthConflict") : T("HealthCaution")) + "\n" + string.Join("\n", problems);
@@ -468,7 +485,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void OpenSteamPage()
         {
             string id = SteamPageId(selectedRow);
-            if (id == null) return;
+            if (id != null) OpenSteamPage(id);
+        }
+
+        /// <summary>Opens the item in the Steam client, falling back to the default browser if the steam:// link can't be handled.</summary>
+        private void OpenSteamPage(string id)
+        {
             try { PlatformShell.Create().OpenUrl("steam://url/CommunityFilePage/" + id); }
             catch
             {
@@ -593,6 +615,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 Refresh();
                 SelectedRow = Mods.FirstOrDefault(r => !r.Mod.IsWorkshop && string.Equals(r.Mod.Folder, folder, StringComparison.OrdinalIgnoreCase));
                 SetStatus(T("ModCreatedStatus", name));
+                // Straight into the properties dialog so the author can fill in the rest of mod.json.
+                if (SelectedRow != null) await EditPropertiesAsync(SelectedRow.Mod);
             }
             catch (Exception ex)
             {
@@ -675,6 +699,74 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         // ---- Workshop publishing
 
+        /// <summary>
+        /// Asks Steam whether each local Mod's Workshop item still exists and erases the id of any that were
+        /// deleted there, so the list shows the truth and the Mod can be published as new. Silent if Steam can't be asked.
+        /// </summary>
+        private async Task VerifyPublishedIdsAsync()
+        {
+            if (publishRunning || verifyingPublishedIds) return;
+            List<ModInfo> published = managedMods.Where(m => !string.IsNullOrWhiteSpace(m.WorkshopId) && !string.IsNullOrWhiteSpace(m.ModJsonPath)).ToList();
+            List<long> ids = published.Select(m => long.TryParse(m.WorkshopId, out long id) ? id : 0).Where(id => id != 0).Distinct().ToList();
+            if (ids.Count == 0) return;
+            verifyingPublishedIds = true;
+            try
+            {
+                IModPublisher publisher = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
+                List<long> deleted = await Task.Run(() => publisher.FindDeletedItems(ids));
+                if (deleted.Count == 0 || publishRunning) return;
+                int cleared = 0;
+                foreach (ModInfo mod in published)
+                {
+                    if (!long.TryParse(mod.WorkshopId, out long id) || !deleted.Contains(id)) continue;
+                    try
+                    {
+                        Logger.Log("Workshop item deleted on Steam", "Erasing workshopId " + id + " from " + mod.ModJsonPath);
+                        ModJsonWorkshopIdWriter.Clear(mod.ModJsonPath);
+                        cleared++;
+                    }
+                    catch (Exception ex) { Logger.LogException("Clear deleted Workshop id for " + mod.Folder, ex); }
+                }
+                if (cleared == 0) return;
+                Refresh();
+                SetStatus(T("WorkshopItemsDeletedStatus", cleared));
+            }
+            catch (Exception ex) { Logger.LogException("Verify published Workshop ids", ex); }
+            finally { verifyingPublishedIds = false; }
+        }
+
+        /// <summary>The item's visibility on Steam, or null when it isn't published or Steam can't be asked.</summary>
+        private async Task<ModVisibility?> ReadVisibilityAsync(ModInfo mod)
+        {
+            if (!long.TryParse(mod.WorkshopId, out long publishedId)) return null;
+            SetStatus(T("PublishReadingVisibility"));
+            IModPublisher reader = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
+            return await Task.Run(() => reader.GetVisibility(publishedId));
+        }
+
+        /// <summary>The publish dialog without the publishing: edits the Mod's mod.json fields and saves them. Visibility is shown read-only.</summary>
+        private async Task EditPropertiesAsync(ModInfo mod)
+        {
+            if (mod == null || mod.IsWorkshop || string.IsNullOrWhiteSpace(mod.ModJsonPath)) return;
+            ModPublishMetadata metadata;
+            try { metadata = ModPublishMetadataEditor.Read(mod.ModJsonPath); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Read mod.json for properties", ex);
+                await Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+                return;
+            }
+            bool isPublished = !string.IsNullOrWhiteSpace(mod.WorkshopId);
+            ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
+            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true);
+            if (!await Dialogs.EditPublishAsync(editor)) { UpdateStatus(); return; }
+
+            string folder = mod.Folder;
+            Refresh();
+            SelectedRow = Mods.FirstOrDefault(r => !r.Mod.IsWorkshop && string.Equals(r.Mod.Folder, folder, StringComparison.OrdinalIgnoreCase));
+            SetStatus(T("PropertiesSavedStatus", mod.DisplayName ?? mod.Id));
+        }
+
         private async Task PublishAsync()
         {
             if (selectedRow == null || publishRunning) return;
@@ -692,8 +784,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
                 return;
             }
+            if (!string.IsNullOrWhiteSpace(mod.WorkshopId))
+            {
+                // The item may have been deleted on Steam since the last check; if so the id is erased and this becomes a new publish.
+                string folder = mod.Folder;
+                await VerifyPublishedIdsAsync();
+                mod = managedMods.FirstOrDefault(m => string.Equals(m.Folder, folder, StringComparison.OrdinalIgnoreCase)) ?? mod;
+            }
             bool isUpdate = !string.IsNullOrWhiteSpace(mod.WorkshopId);
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate);
+            ModVisibility? currentVisibility = isUpdate ? await ReadVisibilityAsync(mod) : null;
+            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility);
             if (!await Dialogs.EditPublishAsync(editor)) return;
 
             publishRunning = true;
@@ -704,7 +804,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 ContentFolder = contentFolder,
                 Title = metadata.DisplayName,
-                Description = metadata.Description,
+                // Null leaves the Steam page's description untouched.
+                Description = editor.ReplaceDescription ? ModPublishMetadataEditor.ResolveSteamDescription(contentFolder, metadata) : null,
                 PreviewImagePath = string.IsNullOrWhiteSpace(metadata.PreviewImage) ? null : Path.Combine(contentFolder, metadata.PreviewImage),
                 ExistingWorkshopId = long.TryParse(mod.WorkshopId, out long existingId) ? existingId : (long?)null,
                 Visibility = editor.SelectedVisibility
@@ -737,8 +838,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 string message = T("PublishCapturedIdMessage", result.WorkshopId.Value, url);
                 if (result.NeedsWorkshopAgreement) message += "\n\n" + T("PublishNeedsWorkshopAgreement");
                 SetStatus(T("WorkshopIdSaved"));
-                if (await Dialogs.ConfirmAsync(message, T("PublishToWorkshop"), T("OpenInBrowser"), T("Close")))
-                    PlatformShell.Create().OpenUrl(url);
+                if (await Dialogs.ConfirmAsync(message, T("PublishToWorkshop"), T("SteamPage"), T("Close")))
+                    OpenSteamPage(result.WorkshopId.Value.ToString());
                 Refresh();
             }
             catch (Exception ex)

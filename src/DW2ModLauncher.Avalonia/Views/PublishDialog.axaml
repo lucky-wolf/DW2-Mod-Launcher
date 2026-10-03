@@ -23,7 +23,7 @@
           </StackPanel>
           <StackPanel Grid.Column="2" Spacing="6">
             <TextBlock Text="{Binding L[PublishVisibility]}" />
-            <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" HorizontalAlignment="Stretch" />
+            <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" IsEnabled="{Binding CanEditVisibility}" HorizontalAlignment="Stretch" />
           </StackPanel>
         </Grid>
         <StackPanel Spacing="6">
@@ -33,21 +33,38 @@
             <Button Grid.Column="2" Content="…" Command="{Binding BrowsePreviewCommand}" MinWidth="60" />
           </Grid>
         </StackPanel>
-        <StackPanel Spacing="6">
-          <TextBlock Text="{Binding L[Description]}" />
-          <TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" Height="280" />
-          <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding L[PublishDescriptionHint]}" />
+        <StackPanel Spacing="2">
+          <TextBlock Text="{Binding L[PublishShortDescription]}" />
+          <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishShortDescriptionHint]}" />
+          <TextBox Text="{Binding ShortDescription}" Margin="0,4,0,0" />
+        </StackPanel>
+        <StackPanel Spacing="2">
+          <RadioButton GroupName="DescriptionSource" IsChecked="{Binding UseDescriptionFile}" Content="{Binding L[PublishDescriptionFile]}" />
+          <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="28,0,0,0" Text="{Binding L[PublishDescriptionFileHint]}" />
+          <Grid Margin="0,4,0,0" IsEnabled="{Binding UseDescriptionFile}" ColumnDefinitions="*,10,Auto,6,Auto">
+            <TextBox Grid.Column="0" Text="{Binding DescriptionFile}" />
+            <Button Grid.Column="2" Content="…" Command="{Binding BrowseDescriptionFileCommand}" MinWidth="60" ToolTip.Tip="{Binding L[PublishBrowseDescriptionFileTooltip]}" />
+            <Button Grid.Column="4" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
+              <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
+              <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
+            </Button>
+          </Grid>
+        </StackPanel>
+        <StackPanel Spacing="2">
+          <RadioButton GroupName="DescriptionSource" IsChecked="{Binding UseDescriptionText}" Content="{Binding L[Description]}" />
+          <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="28,0,0,0" Text="{Binding L[PublishDescriptionHint]}" />
+          <TextBox Text="{Binding Description}" IsEnabled="{Binding UseDescriptionText}" AcceptsReturn="True" TextWrapping="Wrap" Height="140" Margin="0,4,0,0" />
         </StackPanel>
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[PublishInfoBundles]}" />
           <TextBox Text="{Binding Bundles}" AcceptsReturn="True" Height="90" />
         </StackPanel>
-        <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding Note}" />
       </StackPanel>
     </ScrollViewer>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-        <Button Name="PublishButton" Classes="play" Content="{Binding L[PublishToWorkshop]}" MinWidth="170" FontSize="14" />
+        <CheckBox IsChecked="{Binding ReplaceDescription}" IsVisible="{Binding ShowReplaceDescription}" Content="{Binding L[PublishReplaceDescription]}" VerticalAlignment="Center" Margin="0,0,12,0" />
+        <Button Name="PublishButton" Classes="play" Content="{Binding PrimaryButtonText}" MinWidth="170" FontSize="14" ToolTip.Tip="{Binding Note}" />
         <Button Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />
       </StackPanel>
     </Border>

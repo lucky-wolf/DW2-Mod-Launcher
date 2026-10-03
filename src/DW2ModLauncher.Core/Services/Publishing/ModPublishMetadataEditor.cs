@@ -11,7 +11,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
 {
     /// <summary>
     /// Reads/writes just the mod.json fields Steam Workshop publish itself cares about
-    /// (displayName, description, previewImage, version, bundles - see
+    /// (displayName, shortDescription, descriptionFile, description, previewImage, version, bundles - see
     /// docs/workshop-publish.md), preserving every other field already in the file (workshopId,
     /// launcher.*, a Mod's own custom fields such as GalCivMusic's "disableDefaultMusic", etc.)
     /// exactly like ModJsonWorkshopIdWriter does for just the one field it owns.
@@ -26,11 +26,23 @@ namespace DW2ModLauncher.Core.Services.Publishing
             if (root == null) return metadata;
 
             metadata.DisplayName = GetString(root, "displayName");
+            metadata.ShortDescription = GetString(root, "shortDescription");
+            metadata.DescriptionFile = GetString(root, "descriptionFile");
             metadata.Description = GetString(root, "description");
             metadata.PreviewImage = GetString(root, "previewImage");
             metadata.Version = GetString(root, "version");
             metadata.Bundles = GetStringArray(root, "bundles");
             return metadata;
+        }
+
+        /// <summary>
+        /// The text to push to the Steam page: the "description" if there is one, otherwise the contents of the
+        /// "descriptionFile" (a path inside the mod folder). Null when neither yields any text.
+        /// </summary>
+        public static string ResolveSteamDescription(string contentRoot, ModPublishMetadata metadata)
+        {
+            if (!string.IsNullOrWhiteSpace(metadata.Description)) return metadata.Description;
+            return ModScanner.ReadDescriptionFile(contentRoot, metadata.DescriptionFile);
         }
 
         public static void Write(string modJsonPath, ModPublishMetadata metadata)
@@ -43,6 +55,11 @@ namespace DW2ModLauncher.Core.Services.Publishing
             // keeps its Steam text by hand) must not gain an empty key, so a blank value removes the key instead.
             if (string.IsNullOrWhiteSpace(metadata.Description)) RemoveKey(root, "description");
             else SetString(root, "description", metadata.Description);
+            // Same rule for the other optional description fields: blank means "not used", not an empty key.
+            if (string.IsNullOrWhiteSpace(metadata.ShortDescription)) RemoveKey(root, "shortDescription");
+            else SetString(root, "shortDescription", metadata.ShortDescription.Trim());
+            if (string.IsNullOrWhiteSpace(metadata.DescriptionFile)) RemoveKey(root, "descriptionFile");
+            else SetString(root, "descriptionFile", metadata.DescriptionFile.Trim());
             SetString(root, "previewImage", metadata.PreviewImage);
             SetString(root, "version", metadata.Version);
 

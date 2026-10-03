@@ -12,5 +12,14 @@ namespace DW2ModLauncher.Core.Services.Publishing
     public interface IModPublisher
     {
         ModPublishResult Publish(ModPublishRequest request);
+
+        /// <summary>The item's current visibility on Steam, or null if it can't be determined (Steam not running, item not found, timed out).</summary>
+        ModVisibility? GetVisibility(long workshopId);
+
+        /// <summary>
+        /// The subset of <paramref name="workshopIds"/> that Steam positively reports as no longer existing
+        /// (deleted on Steam). Empty when Steam can't be asked, so a failure never looks like a deletion.
+        /// </summary>
+        System.Collections.Generic.List<long> FindDeletedItems(System.Collections.Generic.IReadOnlyList<long> workshopIds);
     }
 }

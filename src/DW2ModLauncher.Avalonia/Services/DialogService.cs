@@ -35,14 +35,18 @@ namespace DW2ModLauncher.Avalonia.Services
 
         public string OkText { get; set; } = "OK";
 
+        public string CopyText { get; set; } = "Copy to clipboard";
+
+        public string OpenLogText { get; set; } = "Open log";
+
         public Task ShowMessageAsync(string message, string title)
         {
-            return new MessageDialog(message, title, OkText, null).ShowDialog<bool>(owner());
+            return new MessageDialog(message, title, OkText, null, CopyText, OpenLogText).ShowDialog<bool>(owner());
         }
 
         public Task<bool> ConfirmAsync(string message, string title, string yesText, string noText)
         {
-            return new MessageDialog(message, title, yesText, noText).ShowDialog<bool>(owner());
+            return new MessageDialog(message, title, yesText, noText, CopyText, OpenLogText).ShowDialog<bool>(owner());
         }
 
         public async Task<int> ChooseAsync(string message, string title, IList<string> buttons)

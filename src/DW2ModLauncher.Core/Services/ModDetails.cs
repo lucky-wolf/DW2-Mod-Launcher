@@ -17,10 +17,12 @@ namespace DW2ModLauncher.Core.Services
             // The long descriptionFile overrides the short mod.json description; Steam's text only fills in when neither is local.
             string description = !string.IsNullOrWhiteSpace(mod.DescriptionOverride) ? mod.DescriptionOverride
                 : !string.IsNullOrWhiteSpace(mod.WorkshopDescription) ? mod.WorkshopDescription : mod.Description;
-            if (!string.IsNullOrWhiteSpace(description)) b.AppendLine(Regex.Replace(description.Trim(), "\\[/?[^\\]]+\\]", ""));
-            b.AppendLine();
-            b.AppendLine(t("Source") + ": " + (mod.SourceName ?? ""));
-            b.AppendLine(t("State") + (isSelected ? "ON" : "OFF"));
+            // Source and enabled state are not repeated here: the list already shows the state, and SourceText sits above this text.
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                b.AppendLine(Regex.Replace(description.Trim(), "\\[/?[^\\]]+\\]", ""));
+                b.AppendLine();
+            }
             if (mod.IncludedTools != null && mod.IncludedTools.Count > 0)
             {
                 b.AppendLine();
@@ -73,6 +75,27 @@ namespace DW2ModLauncher.Core.Services
                 if (!string.IsNullOrWhiteSpace(mod.WorkshopTags)) b.AppendLine(t("Tags") + mod.WorkshopTags);
             }
             return b.ToString();
+        }
+
+        /// <summary>
+        /// Where the mod comes from, with its folder: "Local\MyMod" (the path under the managed Mod folder, so nested folders show),
+        /// "Steam Workshop\1234567". Just the source name when the folder is unknown.
+        /// </summary>
+        public static string SourceText(ModInfo mod, string managedModsRoot)
+        {
+            string source = mod.SourceName ?? "";
+            if (string.IsNullOrWhiteSpace(mod.Folder)) return source;
+            string folder = Path.GetFileName(mod.Folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!mod.IsWorkshop && !string.IsNullOrWhiteSpace(managedModsRoot) && ModFileImporter.IsInside(managedModsRoot, mod.Folder))
+                folder = Path.GetRelativePath(managedModsRoot, mod.Folder);
+            return folder.Length == 0 ? source : source + Path.DirectorySeparatorChar + folder;
+        }
+
+        /// <summary>The Workshop item id: the folder name of a Workshop copy, or the id a publish wrote into mod.json. Null for an unpublished local mod.</summary>
+        public static string WorkshopId(ModInfo mod)
+        {
+            string id = mod.IsWorkshop ? mod.Id : mod.WorkshopId;
+            return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
         }
 
         /// <summary>

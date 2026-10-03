@@ -98,6 +98,54 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void ShortDescriptionAndDescriptionFile_RoundTrip_AndBlankRemovesTheKeys()
+        {
+            string path = MakeModJson("{ \"displayName\": \"M\", \"workshopId\": 7 }");
+            try
+            {
+                ModPublishMetadata metadata = ModPublishMetadataEditor.Read(path);
+                Assert.Equal("", metadata.ShortDescription);
+                Assert.Equal("", metadata.DescriptionFile);
+
+                metadata.ShortDescription = " A short one ";
+                metadata.DescriptionFile = " docs/description.md ";
+                ModPublishMetadataEditor.Write(path, metadata);
+                ModPublishMetadata reread = ModPublishMetadataEditor.Read(path);
+                Assert.Equal("A short one", reread.ShortDescription);
+                Assert.Equal("docs/description.md", reread.DescriptionFile);
+                Assert.Contains("\"workshopId\": 7", File.ReadAllText(path));
+
+                reread.ShortDescription = "";
+                reread.DescriptionFile = "  ";
+                ModPublishMetadataEditor.Write(path, reread);
+                string text = File.ReadAllText(path);
+                Assert.DoesNotContain("shortDescription", text);
+                Assert.DoesNotContain("descriptionFile", text);
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Fact]
+        public void ResolveSteamDescription_PrefersDescription_ThenFallsBackToTheDescriptionFile()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "dw2-resolvedesc-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                File.WriteAllText(Path.Combine(dir, "description.txt"), "  From the file  ");
+                ModPublishMetadata metadata = new ModPublishMetadata { Description = "Typed text", DescriptionFile = "description.txt" };
+                Assert.Equal("Typed text", ModPublishMetadataEditor.ResolveSteamDescription(dir, metadata));
+
+                metadata.Description = "  ";
+                Assert.Equal("From the file", ModPublishMetadataEditor.ResolveSteamDescription(dir, metadata));
+
+                metadata.DescriptionFile = "missing.txt";
+                Assert.Null(ModPublishMetadataEditor.ResolveSteamDescription(dir, metadata));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
         public void Read_ReturnsEmptyMetadata_WhenFileMissing()
         {
             ModPublishMetadata metadata = ModPublishMetadataEditor.Read(Path.Combine(Path.GetTempPath(), "does-not-exist-" + Guid.NewGuid().ToString("N") + ".json"));
