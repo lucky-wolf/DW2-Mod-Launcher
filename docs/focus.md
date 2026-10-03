@@ -10,4 +10,6 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` empties the list when it creates a new branch.
 
 ---
-- CI now runs on pull requests only, not again on every push to main (merges are rebases of an already-validated branch).
+- README is now bilingual as separate files (README.md English, README.ja.md Japanese, linked to each other), restoring the Japanese README and bringing it up to date; validation now fails if a *.ja.md drifts from its English original.
+- new-branch.py re-prompts when the branch name is invalid or already taken instead of aborting.
+- new-branch.py recognises stashes left by an earlier run, offers to restore them onto the new branch (also when branch creation is skipped), and carries over only the docs/focus.md entries you added instead of conflicting on that file.

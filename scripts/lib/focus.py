@@ -4,6 +4,7 @@ Everything below the first line that is exactly '---' is the list; each '- ' lin
 new-branch.py resets the file (header kept, entries dropped) when it starts fresh work.
 """
 
+import subprocess
 from pathlib import Path
 
 FOCUS_PATH = Path("docs") / "focus.md"
@@ -23,17 +24,53 @@ reconstruct it right before opening the PR. Fold several small related lines int
 """
 
 
-def read_entries(repo_root: Path) -> list[str]:
-    """The '- ' lines below the '---', with the bullet marker stripped. Empty if the file is missing or has none."""
-    path = repo_root / FOCUS_PATH
-    if not path.exists():
-        return []
-    lines = path.read_text(encoding="utf-8").splitlines()
+def parse_entries(text: str) -> list[str]:
+    """The '- ' lines below the '---' of a focus.md's text, with the bullet marker stripped."""
+    lines = text.splitlines()
     try:
         start = next(i for i, line in enumerate(lines) if line.strip() == "---") + 1
     except StopIteration:
         return []
     return [line.strip()[2:].strip() for line in lines[start:] if line.strip().startswith("- ") and line.strip()[2:].strip()]
+
+
+def read_entries(repo_root: Path) -> list[str]:
+    """The entries of the working-tree focus.md. Empty if the file is missing or has none."""
+    path = repo_root / FOCUS_PATH
+    if not path.exists():
+        return []
+    return parse_entries(path.read_text(encoding="utf-8"))
+
+
+def _entries_at(repo_root: Path, rev: str) -> list[str]:
+    shown = subprocess.run(
+        ["git", "show", f"{rev}:{FOCUS_PATH.as_posix()}"], cwd=repo_root, capture_output=True, encoding="utf-8"
+    )
+    return parse_entries(shown.stdout) if shown.returncode == 0 else []
+
+
+def stash_entries(repo_root: Path, stash_sha: str) -> list[str]:
+    """The entries a stash added to focus.md: those in the stashed file but not in the commit it was
+    made on. Everything already at that base belongs to earlier, merged work, so what's left is new.
+    Lets new-branch carry them onto a fresh branch without ever merging the file itself."""
+    base = set(_entries_at(repo_root, f"{stash_sha}^1"))
+    return [entry for entry in _entries_at(repo_root, stash_sha) if entry not in base]
+
+
+def append(repo_root: Path, entries: list[str]) -> None:
+    """Adds each entry not already listed, after the existing ones."""
+    path = repo_root / FOCUS_PATH
+    if not path.exists():
+        reset(repo_root)
+    present = set(read_entries(repo_root))
+    missing = [entry for entry in entries if entry not in present]
+    if not missing:
+        return
+    text = path.read_text(encoding="utf-8")
+    if not text.endswith("\n"):
+        text += "\n"
+    text += "".join(f"- {entry}\n" for entry in missing)
+    path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def reset(repo_root: Path) -> None:

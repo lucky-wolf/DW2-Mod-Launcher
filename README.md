@@ -1,5 +1,7 @@
 # DW2 Mod Launcher
 
+**English** | [日本語](README.ja.md)
+
 A community-oriented Mod launcher for **Distant Worlds 2**.
 
 Steam Workshop Mods and Mods installed in the game folder can be managed from one launcher.
@@ -7,10 +9,20 @@ The project is developed as a hobby project, and contributions, improvements, fo
 
 > This is an unofficial community project and is not affiliated with or endorsed by CodeForce, Slitherine, or Matrix Games.
 
----
-## English
+- [DW2 Mod Launcher](#dw2-mod-launcher)
+  - [About](#about)
+  - [Main Features](#main-features)
+  - [Requirements](#requirements)
+  - [Building](#building)
+  - [Initial Setup](#initial-setup)
+  - [Linux](#linux)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [Disclaimer](#disclaimer)
 
-### About
+---
+
+## About
 
 **DW2 Mod Launcher** is an unofficial Mod launcher for **Distant Worlds 2**.
 
@@ -18,7 +30,7 @@ It provides a single interface for managing Mods installed through Steam Worksho
 
 This is a hobby project. Community contributions, improvements, bug fixes, forks, alternate versions, and continued development are all welcome.
 
-### Main Features
+## Main Features
 
 - Scan and display Mods installed in the game Mod folder
 - Enable / disable Mods
@@ -35,7 +47,7 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
 - Publish a local Mod to the Steam Workshop (or push an update to one already published), and save the new item's Workshop ID into its `mod.json`
 - Japanese / English UI switching
 
-### Requirements
+## Requirements
 
 - Windows, or Linux (the game runs under Proton; see [Linux](#linux))
 - Distant Worlds 2
@@ -46,7 +58,7 @@ The launcher itself targets .NET 10 and is released self-contained, so players n
 injected loader DLL (`DW2ModLauncher.Loader`) targets .NET 8, because it runs inside Distant Worlds 2, which
 currently requires .NET 8. The .NET 10 SDK fully supports targeting 8, so you don't need the .NET 8 SDK as well.
 
-### Building
+## Building
 
 On any OS (needs Python 3 and the .NET 10 SDK), `scripts/build.py` builds the launcher for the OS you are on —
 the Avalonia launcher — after fixing formatting and running the unit
@@ -89,7 +101,7 @@ run.cmd --no-validate
 formatting check, build, and unit tests on every PR, including from forks — if it doesn't pass locally, it won't
 pass there either, and you'll wait on a red build for nothing.
 
-### Initial Setup
+## Initial Setup
 
 On first launch, configure the paths as needed:
 
@@ -113,7 +125,7 @@ Steam\steamapps\common\Distant Worlds 2
 
 The actual drive and Steam Library location may be different on your system.
 
-### Linux
+## Linux
 
 Distant Worlds 2 has no native Linux build, so on Linux the game runs under Steam's Proton as usual; the
 launcher itself is a native Linux app. Download the `linux-x64` `.tar.gz` from the releases page, extract it
@@ -133,7 +145,7 @@ To build and run from source on Linux (needs only the .NET 10 SDK):
 dotnet run --project src/DW2ModLauncher.Avalonia
 ```
 
-### Contributing
+## Contributing
 
 Community development is welcome.
 
@@ -156,7 +168,7 @@ and tests are checked locally first, the same way CI checks them.
 There is no guarantee that the original developer will maintain this project indefinitely.
 If maintenance stops, the community is welcome to continue development under the terms of the MIT License.
 
-### License
+## License
 
 This project is released under the **MIT License**.
 

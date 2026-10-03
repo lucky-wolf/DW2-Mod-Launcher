@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from lib import dotnet_checks, launcher_build, output
+from lib import dotnet_checks, launcher_build, output, translation_checks
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -21,6 +21,13 @@ def main() -> int:
     parser.parse_args()
 
     launcher_build.require_launcher_closed()
+
+    output.step("translations")
+    problems = translation_checks.check_all(REPO_ROOT)
+    if problems:
+        for problem in problems:
+            output.warn(problem)
+        output.fail("translated docs have drifted from their English originals - update the *.ja.md to match")
 
     output.step("restore")
     dotnet_checks.run_dotnet_restore(REPO_ROOT)

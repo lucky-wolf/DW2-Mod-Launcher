@@ -87,7 +87,7 @@ never hand-set a version in a `.csproj`. Full writeup: [docs/CI Releases.md](doc
 
 ## Conventions
 
-- Keep the README's English and Japanese sections in sync when user-facing behavior changes.
+- English is the primary language; Japanese is a first-class translation. [README.md](README.md) is the English README and [README.ja.md](README.ja.md) the Japanese one (each links to the other at the top). Any user-facing change to README.md must be mirrored in README.ja.md in the same change. `scripts/validate.py` (so CI) fails if a `*.ja.md` drifts from its English original's heading structure, code blocks or relative links (`scripts/lib/translation_checks.py`), so commands and paths stay identical and only prose is translated. If you can't write the Japanese yourself, still add the section (English text is acceptable as a placeholder) and say so in the PR so a Japanese speaker can fix it. Only the README and other user-facing docs are translated; design/plan docs under `docs/` and this file stay English-only. Add a translation of another doc as `Foo.ja.md` beside `Foo.md`.
 - This is community-maintained: prefer clear, approachable code and PRs over clever ones — contributors will span a range of experience levels.
 - License is MIT; don't introduce dependencies with incompatible or unclear licensing. (Steamworks.NET, used for Workshop publish, is MIT; the native Steam API library it needs is Valve's, see below.)
 - Steam's native API library (`steam_api64.dll` / `libsteam_api.so`) is Valve's redistributable, not MIT. It is vendored unmodified under [third_party/steamworks/](third_party/steamworks/README.md) as a matched pair with the Steamworks.NET wrapper (same Steamworks.NET revision / SDK version); update both together. See README "License".
