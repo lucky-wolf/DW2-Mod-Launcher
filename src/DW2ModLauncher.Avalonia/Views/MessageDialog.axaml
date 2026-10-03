@@ -1,15 +1,27 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="DW2ModLauncher.Avalonia.Views.MessageDialog"
-        SizeToContent="Height" Width="560" MaxHeight="640"
+        SizeToContent="Height" Width="644" MaxHeight="640"
         WindowStartupLocation="CenterOwner" CanResize="False" ShowInTaskbar="False">
   <Grid RowDefinitions="*,Auto" Margin="20">
     <ScrollViewer Grid.Row="0" MaxHeight="480">
       <SelectableTextBlock Name="MessageText" TextWrapping="Wrap" />
     </ScrollViewer>
-    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,18,0,0">
-      <Button Name="YesButton" MinWidth="90" />
-      <Button Name="NoButton" IsCancel="True" MinWidth="90" />
-    </StackPanel>
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,18,0,0">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+      <Button Name="CopyButton" VerticalAlignment="Center" Padding="8,6">
+        <!-- "content-copy" icon, Material Design Icons, Apache-2.0 -->
+        <PathIcon Name="CopyIcon" Width="16" Height="16" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+      </Button>
+      <Button Name="OpenLogButton" VerticalAlignment="Center" Padding="8,6">
+        <!-- "notebook" icon, Material Design Icons, Apache-2.0 -->
+        <PathIcon Width="16" Height="16" Data="M18 22a2 2 0 0 0 2-2V4c0-1.11-.9-2-2-2h-6v7L9.5 7.5 7 9V2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12z" />
+      </Button>
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+        <Button Name="YesButton" MinWidth="90" />
+        <Button Name="NoButton" IsCancel="True" MinWidth="90" />
+      </StackPanel>
+    </Grid>
   </Grid>
 </Window>

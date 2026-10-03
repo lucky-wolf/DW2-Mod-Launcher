@@ -7,7 +7,7 @@
 
     <!-- List -->
     <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*">
-      <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,0,0,10">
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto" Margin="0,0,0,10">
         <Button Grid.Column="0" Command="{Binding RefreshCommand}" Margin="0,0,10,0" ToolTip.Tip="{Binding L[RefreshModsTooltip]}">
           <!-- "sync" icon (two circular arrows), Material Design Icons, Apache-2.0 -->
           <PathIcon Width="16" Height="16" Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
@@ -15,7 +15,12 @@
         <Button Grid.Column="1" Command="{Binding EnableAllCommand}" Content="{Binding L[EnableAllMods]}" Margin="0,0,10,0" ToolTip.Tip="{Binding L[EnableAllModsTooltip]}" />
         <Button Grid.Column="2" Command="{Binding ClearCommand}" Content="{Binding L[ClearModList]}" ToolTip.Tip="{Binding L[ClearModListTooltip]}" />
         <TextBlock Grid.Column="3" Classes="subheading" HorizontalAlignment="Center" TextAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding L[DragRowsToChangeLoadOrder]}" />
-        <Button Grid.Column="4" Command="{Binding CreateModCommand}" Content="{Binding L[CreateMod]}" Margin="10,0,0,0" />
+        <Button Grid.Column="4" Command="{Binding CreateModCommand}" Content="{Binding L[CreateMod]}" Margin="10,0,0,0" ToolTip.Tip="{Binding L[CreateModTooltip]}" />
+        <Button Grid.Column="5" Command="{Binding EditPropertiesCommand}" Margin="10,0,0,0" Padding="10,6" ToolTip.Tip="{Binding L[EditPropertiesTooltip]}">
+          <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
+          <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
+        </Button>
+        <Button Grid.Column="6" Command="{Binding PublishCommand}" Content="{Binding L[Publish]}" Margin="10,0,0,0" ToolTip.Tip="{Binding L[PublishTooltip]}" />
       </Grid>
 
       <Grid Grid.Row="1" ColumnDefinitions="44,100,125,*,150" Background="{StaticResource Dw2Steel}">
@@ -35,6 +40,7 @@
               <MenuItem Header="{Binding L[ModSettings]}" Command="{Binding ModSettingsCommand}" />
               <MenuItem Header="{Binding L[SelectedModFolder]}" Command="{Binding OpenSelectedFolderCommand}" />
               <MenuItem Header="{Binding L[OpenDocs]}" Command="{Binding OpenDocsCommand}" />
+              <MenuItem Header="{Binding L[EditProperties]}" Command="{Binding EditPropertiesCommand}" />
               <MenuItem Header="{Binding L[PublishToWorkshop]}" Command="{Binding PublishCommand}" />
               <MenuItem Header="{Binding L[DeleteMod]}" Command="{Binding DeleteModCommand}" />
               <Separator IsVisible="{Binding SelectedIsWorkshop}" />
@@ -79,15 +85,20 @@
       <Panel>
       <TextBlock IsVisible="{Binding !HasSelection}" Text="{Binding L[SelectModForDetails]}" Foreground="{StaticResource Dw2Gold}"
                  FontSize="18" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" />
-      <Grid IsVisible="{Binding HasSelection}" RowDefinitions="Auto,Auto,Auto,*">
+      <Grid IsVisible="{Binding HasSelection}" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
         <Border Name="PreviewBorder" Grid.Row="0" Background="{StaticResource Dw2Void}" Height="240">
           <Image Source="{Binding Preview}" Stretch="Uniform" Cursor="Hand" />
         </Border>
         <TextBlock Grid.Row="1" Classes="subheading" Margin="0,14,0,8" TextTrimming="CharacterEllipsis" Text="{Binding DetailTitle}" />
-        <Border Grid.Row="2" IsVisible="{Binding HasProblems}" Classes="problems" Classes.conflict="{Binding ProblemsIsConflict}" Padding="10,8" Margin="0,0,0,8">
+        <StackPanel Grid.Row="2" Spacing="2" Margin="0,0,0,10">
+          <SelectableTextBlock Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailSource}" />
+          <SelectableTextBlock Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailWorkshopId}" />
+        </StackPanel>
+        <Border Grid.Row="3" IsVisible="{Binding HasProblems}" Classes="problems" Classes.conflict="{Binding ProblemsIsConflict}" Padding="10,8" Margin="0,0,0,8">
           <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding ProblemsText}" Foreground="{Binding $parent[Border].Tag}" />
         </Border>
-        <ScrollViewer Grid.Row="3">
+        <Border Grid.Row="4" Height="1" Background="{StaticResource Dw2Blue}" Margin="0,0,0,10" />
+        <ScrollViewer Grid.Row="5">
           <SelectableTextBlock TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Text="{Binding DetailText}" />
         </ScrollViewer>
       </Grid>

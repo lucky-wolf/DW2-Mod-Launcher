@@ -11,6 +11,8 @@ namespace DW2ModLauncher.Avalonia.Services
     {
         /// <summary>Label of the single button on message boxes; the main view model keeps it in the current language.</summary>
         string OkText { get; set; }
+        string CopyText { get; set; }
+        string OpenLogText { get; set; }
         Task ShowMessageAsync(string message, string title);
         Task<bool> ConfirmAsync(string message, string title, string yesText, string noText);
         /// <summary>Shows one button per entry; returns the clicked index, or -1 if dismissed. The last button is the cancel button (Esc).</summary>

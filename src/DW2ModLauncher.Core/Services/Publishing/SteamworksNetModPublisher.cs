@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -17,6 +19,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
     public class SteamworksNetModPublisher : IModPublisher
     {
         private static readonly TimeSpan CallTimeout = TimeSpan.FromMinutes(30);
+        private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(10);
 
         private readonly uint appId;
 
@@ -118,6 +121,104 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return result;
         }
 
+        public ModVisibility? GetVisibility(long workshopId)
+        {
+            bool initialized = false;
+            try
+            {
+                if (!SteamAPI.Init()) return null;
+                initialized = true;
+                if (!SteamUser.BLoggedOn()) return null;
+
+                // A details query by id returns the logged-in user's own private items too, which the anonymous Web API does not.
+                UGCQueryHandle_t query = SteamUGC.CreateQueryUGCDetailsRequest(new[] { new PublishedFileId_t((ulong)workshopId) }, 1);
+                try
+                {
+                    SteamUGCQueryCompleted_t completed;
+                    if (!Await(SteamUGC.SendQueryUGCRequest(query), out completed, new ModPublishResult(), System.Threading.CancellationToken.None, QueryTimeout)) return null;
+                    if (completed.m_eResult != EResult.k_EResultOK || completed.m_unNumResultsReturned < 1) return null;
+                    SteamUGCDetails_t details;
+                    if (!SteamUGC.GetQueryUGCResult(query, 0, out details) || details.m_eResult != EResult.k_EResultOK) return null;
+                    return FromSteam(details.m_eVisibility);
+                }
+                finally { SteamUGC.ReleaseQueryUGCRequest(query); }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Read Workshop item visibility", ex);
+                return null;
+            }
+            finally
+            {
+                if (initialized) { try { SteamAPI.Shutdown(); } catch { } }
+            }
+        }
+
+        public List<long> FindDeletedItems(IReadOnlyList<long> workshopIds)
+        {
+            List<long> deleted = new List<long>();
+            if (workshopIds == null || workshopIds.Count == 0) return deleted;
+            bool initialized = false;
+            try
+            {
+                if (!SteamAPI.Init()) return deleted;
+                initialized = true;
+                if (!SteamUser.BLoggedOn()) return deleted;
+
+                const int PageSize = 50; // Steam's cap on ids per details query
+                for (int start = 0; start < workshopIds.Count; start += PageSize)
+                {
+                    PublishedFileId_t[] page = workshopIds.Skip(start).Take(PageSize).Select(id => new PublishedFileId_t((ulong)id)).ToArray();
+                    UGCQueryHandle_t query = SteamUGC.CreateQueryUGCDetailsRequest(page, (uint)page.Length);
+                    try
+                    {
+                        SteamUGCQueryCompleted_t completed;
+                        if (!Await(SteamUGC.SendQueryUGCRequest(query), out completed, new ModPublishResult(), CancellationToken.None, QueryTimeout)) continue;
+                        // Only a live, successful answer counts; cached or failed queries must never read as "deleted".
+                        if (completed.m_eResult != EResult.k_EResultOK || completed.m_bCachedData) continue;
+                        // Results come back in request order; a deleted item has a per-item k_EResultFileNotFound.
+                        List<long> pageDeleted = new List<long>();
+                        for (uint i = 0; i < completed.m_unNumResultsReturned && i < page.Length; i++)
+                        {
+                            SteamUGCDetails_t details;
+                            if (SteamUGC.GetQueryUGCResult(query, i, out details) && details.m_eResult == EResult.k_EResultFileNotFound)
+                                pageDeleted.Add((long)page[i].m_PublishedFileId);
+                        }
+                        // Every item "missing" at once looks like Steam being unwell rather than a mass deletion
+                        // (a single item can't tell, so that one is trusted).
+                        if (page.Length > 1 && pageDeleted.Count == page.Length)
+                        {
+                            Logger.Log("Workshop existence check", "Steam reported all " + page.Length + " items missing; ignoring as unreliable.");
+                            continue;
+                        }
+                        deleted.AddRange(pageDeleted);
+                    }
+                    finally { SteamUGC.ReleaseQueryUGCRequest(query); }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Check Workshop items still exist", ex);
+                return new List<long>();
+            }
+            finally
+            {
+                if (initialized) { try { SteamAPI.Shutdown(); } catch { } }
+            }
+            return deleted;
+        }
+
+        private static ModVisibility FromSteam(ERemoteStoragePublishedFileVisibility visibility)
+        {
+            switch (visibility)
+            {
+                case ERemoteStoragePublishedFileVisibility.k_ERemoteStoragePublishedFileVisibilityPublic: return ModVisibility.Public;
+                case ERemoteStoragePublishedFileVisibility.k_ERemoteStoragePublishedFileVisibilityFriendsOnly: return ModVisibility.FriendsOnly;
+                case ERemoteStoragePublishedFileVisibility.k_ERemoteStoragePublishedFileVisibilityUnlisted: return ModVisibility.Unlisted;
+                default: return ModVisibility.Private;
+            }
+        }
+
         private static string Quote(string s)
         {
             return "\"" + s + "\"";
@@ -216,7 +317,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
         }
 
         // Steamworks.NET results only arrive while SteamAPI.RunCallbacks() is being pumped.
-        private static bool Await<T>(SteamAPICall_t call, out T value, ModPublishResult result, CancellationToken cancel) where T : struct
+        private static bool Await<T>(SteamAPICall_t call, out T value, ModPublishResult result, CancellationToken cancel, TimeSpan? timeout = null) where T : struct
         {
             T received = default(T);
             bool done = false;
@@ -224,7 +325,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
             CallResult<T> callResult = CallResult<T>.Create(delegate (T r, bool failed) { received = r; ioFailure = failed; done = true; });
             callResult.Set(call);
 
-            DateTime deadline = DateTime.UtcNow + CallTimeout;
+            DateTime deadline = DateTime.UtcNow + (timeout ?? CallTimeout);
             while (!done && !cancel.IsCancellationRequested && DateTime.UtcNow < deadline)
             {
                 SteamAPI.RunCallbacks();

@@ -49,6 +49,26 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void SourceText_ShowsThePathUnderTheManagedFolder_AndWorkshopIdComesFromEitherSource()
+        {
+            string root = Path.Combine(dir, "mods");
+            ModInfo local = new ModInfo { SourceName = "Local", Folder = Path.Combine(root, "junk") };
+            ModInfo nested = new ModInfo { SourceName = "Local", Folder = Path.Combine(root, "pack", "inner") };
+            ModInfo workshop = new ModInfo { SourceName = "Steam Workshop", Folder = Path.Combine(dir, "workshop", "123"), IsWorkshop = true, Id = "123" };
+            char sep = Path.DirectorySeparatorChar;
+
+            Assert.Equal("Local" + sep + "junk", ModDetails.SourceText(local, root));
+            Assert.Equal("Local" + sep + "pack" + sep + "inner", ModDetails.SourceText(nested, root));
+            Assert.Equal("Steam Workshop" + sep + "123", ModDetails.SourceText(workshop, root));
+            Assert.Equal("Local", ModDetails.SourceText(new ModInfo { SourceName = "Local" }, root));
+
+            Assert.Equal("123", ModDetails.WorkshopId(workshop));
+            Assert.Null(ModDetails.WorkshopId(local));
+            local.WorkshopId = " 456 ";
+            Assert.Equal("456", ModDetails.WorkshopId(local));
+        }
+
+        [Fact]
         public void BuildText_ReflectsEnabledState_AndStripsBbCode()
         {
             ModInfo mod = new ModInfo { Description = "Hello [b]bold[/b] world", SourceName = "Src", Folder = "/f", ConflictFiles = new List<string>() };
@@ -57,9 +77,12 @@ namespace DW2ModLauncher.Tests
             string off = ModDetails.BuildText(mod, false, T);
 
             Assert.Contains("Hello bold world", on);
-            Assert.Contains("ON", on);
+            Assert.Contains("Hello bold world", off);
+            // Source and state are shown elsewhere (above the text, and in the list), not repeated in it.
+            Assert.DoesNotContain("<Source>", on);
+            Assert.DoesNotContain("<State>", on);
+            Assert.DoesNotContain("Src", on);
             Assert.DoesNotContain("<NoFileConflicts>", on);
-            Assert.Contains("OFF", off);
             Assert.DoesNotContain("<ModDisabledNote>", off);
         }
 
