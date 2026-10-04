@@ -23,3 +23,6 @@ desktop.ini
 
 # Vendored Steamworks.NET wrapper (matched pair with libsteam_api.so): see third_party/steamworks/README.md
 !third_party/**/*.dll
+
+# Local direnv environment
+.envrc

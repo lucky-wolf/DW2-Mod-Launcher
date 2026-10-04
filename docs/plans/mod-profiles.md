@@ -98,14 +98,14 @@ the first two overlap with the game's file; the other two are the launcher-speci
   saved profile". Dropped for now; a companion file is where it could come back.
 - It did **not** store which DLLs to load. That is not profile data at all: code mods are already self-describing
   (see [DLL Injection.md](../DLL%20Injection.md)). Each mod declares `dll` + `entryPoint` under `injection` in its own
-  `launcher.json` (or `mod.json`; both are read by `ModScanner.ReadModInfo`), and `LoaderManifestBuilder` builds the
+  `dw2modlauncher.json` (or `mod.json`; both are read by `ModScanner.ReadModInfo`), and `LoaderManifestBuilder` builds the
   loader manifest from whichever mods are enabled. So the profile's order decides which DLLs load, and nothing
   DLL-related needs saving per profile.
 
 On inferring DLLs without any declaration (scan for `*.dll` in the mod folder): it would avoid a file, but a mod can
 ship helper or dependency DLLs that are not loader entry points, and the loader needs the entry-point name anyway, so
-a small explicit `launcher.json` stays safer. If we want less ceremony, the fallback could be: no `injection` block and
-exactly one DLL with a conventional entry point -> offer to generate the `launcher.json`, not to guess silently.
+a small explicit `dw2modlauncher.json` stays safer. If we want less ceremony, the fallback could be: no `injection` block and
+exactly one DLL with a conventional entry point -> offer to generate the `dw2modlauncher.json`, not to guess silently.
 
 Open: decide whether a companion file is worth it before building any of it. If `ManualLaunchArguments` per profile is
 not wanted, there may be nothing left to put in it.

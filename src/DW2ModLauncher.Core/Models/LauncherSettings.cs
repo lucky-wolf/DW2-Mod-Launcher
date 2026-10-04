@@ -15,9 +15,20 @@ namespace DW2ModLauncher.Core.Models
         public string LastWorkshopUpdateCheckUtc { get; set; }
         public Dictionary<string, bool> SelectedMods { get; set; }
         public string ActiveProfile { get; set; }
+        /// <summary>Mod list sort column (0 name, 1 source, 2 state, 3 health, 4 load order); -1 = manual load order.</summary>
+        public int SortColumn { get; set; }
+        public bool SortAscending { get; set; }
+        /// <summary>Main window's top-left corner when it last closed; null until first saved.</summary>
+        public int? WindowX { get; set; }
+        public int? WindowY { get; set; }
+        /// <summary>Main window's client size in device-independent pixels when it last closed.</summary>
+        public double? WindowWidth { get; set; }
+        public double? WindowHeight { get; set; }
 
         public LauncherSettings()
         {
+            SortColumn = -1;
+            SortAscending = true;
             Language = "en";
             GameRoot = "";
             WorkshopRoot = "";

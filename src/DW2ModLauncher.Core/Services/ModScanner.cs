@@ -113,16 +113,6 @@ namespace DW2ModLauncher.Core.Services
                         string wid = LooseJson.GetString(d, new string[] { "workshopId", "workshopID" }, "");
                         if (!string.IsNullOrWhiteSpace(wid)) m.WorkshopId = wid;
                         if (workshop && !Regex.IsMatch(m.Id ?? "", "^\\d+$") && !string.IsNullOrWhiteSpace(wid)) m.Id = wid;
-                        Dictionary<string, object> launcher = LooseJson.GetDictionary(d, "launcher");
-                        if (launcher != null)
-                        {
-                            Dictionary<string, object> injection = LooseJson.GetDictionary(launcher, "injection");
-                            if (injection != null)
-                            {
-                                m.InjectionDll = LooseJson.GetString(injection, new string[] { "dll" }, "");
-                                m.InjectionEntryPoint = LooseJson.GetString(injection, new string[] { "entryPoint" }, "");
-                            }
-                        }
                         m.RequiredMods = LooseJson.GetStringList(d, new string[] { "Required", "required", "requires" });
                         m.OptionalMods = LooseJson.GetStringList(d, new string[] { "Optional", "optional" });
                         m.IncompatibleMods = LooseJson.GetStringList(d, new string[] { "Incompatible", "incompatible", "conflicts" });

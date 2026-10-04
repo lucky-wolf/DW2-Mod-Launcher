@@ -37,31 +37,35 @@ Core or App**: it runs injected into the game process, so it stays minimal (BCL 
 `System.Text.Json` only), matching how mods like `NoStarField`/`BetterMusicTransitions` keep
 their own dependencies self-contained.
 
-## Manifest schema
+## Declaring and discovering injection DLLs
 
-A mod declares its injection target declaratively, in either `mod.json` (`launcher.injection`)
-or `launcher.json` (`injection`) - both are read, see `ModScanner.ReadModInfo` and
-`DW2ModLauncher.Core.Services.LauncherMetaReader.Read`:
+Nothing needs declaring: injection DLLs are **inferred**. `InjectionScanner` looks at every `*.dll`
+below the mod's content folder (`ModInfo.ContentRoot`, falling back to `ModInfo.Folder`) and treats a
+DLL as an injection DLL if it contains a **public static class named `Entry`** with a public static
+`InitWithOptions(string)` or `Init()` method (see the convention below). The DLLs are read through
+their metadata only - never loaded - so dependencies (Harmony, etc.) and native DLLs are skipped
+automatically. The entry point becomes `<namespace>.Entry.Init`.
+
+- Several DLLs in one mod are loaded in ordinal path order; across mods, in load order. Don't rely
+  on ordering beyond that - ship one injection DLL per mod.
+- This works identically for a local "managed" mod and a Steam Workshop mod, since the DLL is
+  resolved in place.
+- **`mod.json` is DW2's own file and is not read for injection.** Don't put a `launcher` block in it.
+
+Manual override (rare): a `dw2modlauncher.json` next to the mod's `mod.json` replaces inference for that mod
+(`LauncherMetaReader`):
 
 ```json
 {
-  "launcher": {
-    "injection": {
-      "dll": "MyMod.dll",
-      "entryPoint": "MyMod.Bootstrap.Init"
-    }
+  "injection": {
+    "dll": "MyMod.dll",
+    "entryPoint": "MyMod.Bootstrap.Init"
   }
 }
 ```
 
-- `dll` is a path **relative to the mod's own content folder** (`ModInfo.ContentRoot`, falling
-  back to `ModInfo.Folder`). The launcher resolves it to an absolute path at launch time, so
-  this works identically for a local "managed" mod and a Steam Workshop mod - nothing needs to
-  be copied into a shared folder for the loader to find it.
-- `entryPoint` is the `Namespace.Type.Method` the loader invokes on that DLL.
-
-This is the same manifest schema mods have always declared - nothing here is new for mod
-authors. `LoaderManifestBuilder.Build` gathers every enabled mod's target, in load order,
+`dll` is relative to the mod's content folder; `entryPoint` is the `Namespace.Type.Method` the loader
+invokes. `LoaderManifestBuilder.Build` gathers every enabled mod's targets, in load order,
 de-duplicated by `dll!entryPoint`, into a `DW2ModLauncher.Core.Models.LoaderManifest`.
 
 ## `InitWithOptions(string)` / `Init()` convention

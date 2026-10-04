@@ -6,11 +6,10 @@ using DW2ModLauncher.Core.Models;
 namespace DW2ModLauncher.Core.Services
 {
     /// <summary>
-    /// Builds the manifest DW2ModLauncher.Loader.Entry.Init() reads at --low-level-inject time,
-    /// from every enabled mod's declarative injection target (ModInfo.InjectionDll/
-    /// InjectionEntryPoint, or launcher.json's injection block) - the same source data
-    /// MainForm.Launch.CollectInjectionTargets used to compose directly into a
-    /// --low-level-inject CLI string, before the loader existed.
+    /// Builds the manifest DW2ModLauncher.Loader.Entry.Init() reads at --low-level-inject time.
+    /// A mod's injection DLLs are inferred (InjectionScanner: a public static "Entry" class with Init()/
+    /// InitWithOptions(string)); a dw2modlauncher.json "injection" block in the mod folder overrides that.
+    /// mod.json is DW2's own file and is not consulted.
     /// </summary>
     public static class LoaderManifestBuilder
     {
@@ -21,10 +20,8 @@ namespace DW2ModLauncher.Core.Services
             foreach (ModInfo mod in orderedEnabledMods ?? new List<ModInfo>())
             {
                 string modRoot = mod.ContentRoot ?? mod.Folder;
-                AddEntry(manifest, seen, mod, modRoot, mod.InjectionDll, mod.InjectionEntryPoint);
-                LauncherMeta meta = LauncherMetaReader.Read(mod);
-                if (meta?.injection != null)
-                    AddEntry(manifest, seen, mod, modRoot, meta.injection.dll, meta.injection.entryPoint);
+                foreach (InjectionTarget target in InjectionScanner.TargetsFor(mod))
+                    AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint);
             }
             return manifest;
         }

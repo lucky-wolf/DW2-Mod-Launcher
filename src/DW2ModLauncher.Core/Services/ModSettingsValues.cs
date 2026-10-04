@@ -11,7 +11,9 @@ namespace DW2ModLauncher.Core.Services
         Bool,
         Choice,
         Integer,
-        Number
+        Number,
+        Folder,
+        File
     }
 
     /// <summary>Maps a mod's settings.schema.json field to an editor control kind and converts values to and from JSON. No UI.</summary>
@@ -24,7 +26,25 @@ namespace DW2ModLauncher.Core.Services
             if (type == "enum" && field.Options != null && field.Options.Count > 0) return ModSettingKind.Choice;
             if (type == "int") return ModSettingKind.Integer;
             if (type == "float") return ModSettingKind.Number;
+            if (type == "folder") return ModSettingKind.Folder;
+            if (type == "filename" || type == "file") return ModSettingKind.File;
             return ModSettingKind.Text;
+        }
+
+        /// <summary>
+        /// Whether the text is acceptable for the kind. Blank is always fine (the mod falls back to its default);
+        /// a folder must be an existing directory and a filename an existing file. Other kinds are never invalid.
+        /// </summary>
+        public static bool IsValidPath(ModSettingKind kind, string text)
+        {
+            if (kind != ModSettingKind.Folder && kind != ModSettingKind.File) return true;
+            if (string.IsNullOrWhiteSpace(text)) return true;
+            try
+            {
+                string path = text.Trim();
+                return kind == ModSettingKind.Folder ? System.IO.Directory.Exists(path) : System.IO.File.Exists(path);
+            }
+            catch { return false; }
         }
 
         public static bool ToBool(JsonNode current)
@@ -56,6 +76,7 @@ namespace DW2ModLauncher.Core.Services
         public static JsonNode FromBool(bool value) { return JsonValue.Create(value); }
         public static JsonNode FromChoice(string value) { return JsonValue.Create(value ?? ""); }
         public static JsonNode FromText(string value) { return JsonValue.Create(value ?? ""); }
+        public static JsonNode FromPath(string value) { return JsonValue.Create((value ?? "").Trim()); }
 
         public static JsonNode FromNumber(ModSettingsField field, decimal value)
         {

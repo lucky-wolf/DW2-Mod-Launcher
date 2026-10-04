@@ -37,14 +37,6 @@ namespace DW2ModLauncher.Core.Models
         // ModPublishCommandBuilder/ModJsonWorkshopIdWriter) - distinct from IsWorkshop, which means
         // "this copy came from a Steam Workshop subscription," not "this Mod has ever been published."
         public string WorkshopId { get; set; }
-        // Declarative low-level-inject target: a DLL path relative to this
-        // mod's own content folder, plus its entry point. The launcher
-        // composes every enabled mod's injection into a single well-formed
-        // --low-level-inject argument (the game engine accepts multiple
-        // injection targets in one such argument, but only one occurrence of
-        // the flag actually takes effect).
-        public string InjectionDll { get; set; }
-        public string InjectionEntryPoint { get; set; }
         public List<string> IncludedTools { get; set; }
         public List<string> IncludedDocuments { get; set; }
         public List<string> RequiredMods { get; set; }

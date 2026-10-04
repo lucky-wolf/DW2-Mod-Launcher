@@ -1,6 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
+        xmlns:svc="using:DW2ModLauncher.Core.Services"
         x:Class="DW2ModLauncher.Avalonia.Views.PublishDialog"
         x:DataType="vm:PublishDialogViewModel"
         Title="{Binding WindowTitle}" Width="720" Height="900" CanResize="False"
@@ -12,16 +13,16 @@
           <TextBlock Text="{Binding L[PublishInfoTitle]}" />
           <TextBox Text="{Binding Title}" />
         </StackPanel>
-        <StackPanel Spacing="6">
-          <TextBlock Text="{Binding L[PublishWorkshopId]}" />
-          <TextBox Text="{Binding WorkshopIdText, Mode=OneWay}" IsReadOnly="True" />
-        </StackPanel>
-        <Grid ColumnDefinitions="200,24,*">
+        <Grid ColumnDefinitions="120,16,170,16,*">
           <StackPanel Grid.Column="0" Spacing="6">
             <TextBlock Text="{Binding L[Version]}" />
             <TextBox Text="{Binding Version}" />
           </StackPanel>
           <StackPanel Grid.Column="2" Spacing="6">
+            <TextBlock Text="{Binding L[PublishWorkshopId]}" />
+            <TextBox Text="{Binding WorkshopIdText, Mode=OneWay}" IsReadOnly="True" />
+          </StackPanel>
+          <StackPanel Grid.Column="4" Spacing="6">
             <TextBlock Text="{Binding L[PublishVisibility]}" />
             <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" IsEnabled="{Binding CanEditVisibility}" HorizontalAlignment="Stretch" />
           </StackPanel>
@@ -38,26 +39,54 @@
           <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishShortDescriptionHint]}" />
           <TextBox Text="{Binding ShortDescription}" Margin="0,4,0,0" />
         </StackPanel>
-        <StackPanel Spacing="2">
-          <RadioButton GroupName="DescriptionSource" IsChecked="{Binding UseDescriptionFile}" Content="{Binding L[PublishDescriptionFile]}" />
-          <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="28,0,0,0" Text="{Binding L[PublishDescriptionFileHint]}" />
-          <Grid Margin="0,4,0,0" IsEnabled="{Binding UseDescriptionFile}" ColumnDefinitions="*,10,Auto,6,Auto">
-            <TextBox Grid.Column="0" Text="{Binding DescriptionFile}" />
-            <Button Grid.Column="2" Content="…" Command="{Binding BrowseDescriptionFileCommand}" MinWidth="60" ToolTip.Tip="{Binding L[PublishBrowseDescriptionFileTooltip]}" />
-            <Button Grid.Column="4" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
-              <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
-              <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
-            </Button>
-          </Grid>
-        </StackPanel>
-        <StackPanel Spacing="2">
-          <RadioButton GroupName="DescriptionSource" IsChecked="{Binding UseDescriptionText}" Content="{Binding L[Description]}" />
-          <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="28,0,0,0" Text="{Binding L[PublishDescriptionHint]}" />
-          <TextBox Text="{Binding Description}" IsEnabled="{Binding UseDescriptionText}" AcceptsReturn="True" TextWrapping="Wrap" Height="140" Margin="0,4,0,0" />
+        <StackPanel Spacing="6">
+          <StackPanel Orientation="Horizontal" Spacing="28">
+            <RadioButton GroupName="DescriptionSource" IsChecked="{Binding UseDescriptionFile}" Content="{Binding L[PublishDescriptionFile]}" />
+            <RadioButton GroupName="DescriptionSource" IsChecked="{Binding UseDescriptionText}" Content="{Binding L[Description]}" />
+          </StackPanel>
+          <StackPanel Spacing="2" IsVisible="{Binding UseDescriptionFile}">
+            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishDescriptionFileHint]}" />
+            <Grid Margin="0,4,0,0" ColumnDefinitions="*,10,Auto,6,Auto">
+              <TextBox Grid.Column="0" Text="{Binding DescriptionFile}" />
+              <Button Grid.Column="2" Content="&#8230;" Command="{Binding BrowseDescriptionFileCommand}" MinWidth="60" ToolTip.Tip="{Binding L[PublishBrowseDescriptionFileTooltip]}" />
+              <Button Grid.Column="4" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
+                <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
+                <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
+              </Button>
+            </Grid>
+          </StackPanel>
+          <StackPanel Spacing="2" IsVisible="{Binding UseDescriptionText}">
+            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishDescriptionHint]}" />
+            <TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" Height="140" Margin="0,4,0,0" />
+          </StackPanel>
         </StackPanel>
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[PublishInfoBundles]}" />
           <TextBox Text="{Binding Bundles}" AcceptsReturn="True" Height="90" />
+        </StackPanel>
+        <StackPanel Spacing="6" ToolTip.Tip="{Binding L[PublishInjectedDllsTooltip]}">
+          <TextBlock Text="{Binding L[PublishInjectedDlls]}" />
+          <Border Background="{StaticResource Dw2Void}" BorderBrush="{StaticResource Dw2Steel}" BorderThickness="1" Padding="10,8">
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="260,12,*">
+                <TextBlock Grid.Column="0" Classes="eyebrow" Text="{Binding L[PublishInjectedDllsColumnDll]}" />
+                <TextBlock Grid.Column="2" Classes="eyebrow" Text="{Binding L[PublishInjectedDllsColumnEntry]}" />
+              </Grid>
+              <TextBlock Classes="muted" MinHeight="64" IsVisible="{Binding NoInjectedDlls}" Text="{Binding L[PublishInjectedDllsNone]}" />
+              <ScrollViewer MinHeight="64" MaxHeight="130" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasInjectedDlls}">
+                <ItemsControl ItemsSource="{Binding InjectedDlls}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="svc:InjectionTarget">
+                      <Grid ColumnDefinitions="260,12,*">
+                        <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Text="{Binding Dll}" />
+                        <TextBlock Grid.Column="2" TextWrapping="Wrap" Text="{Binding EntryPoint}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </StackPanel>
+          </Border>
         </StackPanel>
       </StackPanel>
     </ScrollViewer>

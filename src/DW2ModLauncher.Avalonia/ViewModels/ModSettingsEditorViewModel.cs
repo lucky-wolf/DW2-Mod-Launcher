@@ -1,4 +1,7 @@
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using DW2ModLauncher.Avalonia.Services;
 using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 using DW2ModLauncher.Core.Models;
@@ -11,9 +14,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
     {
         private readonly ModSettingsField schemaField;
 
-        public SettingFieldViewModel(ModSettingsField field, JsonNode current)
+        private readonly IDialogService dialogs;
+
+        public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs)
         {
             schemaField = field;
+            this.dialogs = dialogs;
             Kind = ModSettingsValues.KindOf(field);
             Label = string.IsNullOrWhiteSpace(field.Label) ? field.Key : field.Label;
             Description = field.Description ?? "";
@@ -28,12 +34,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 case ModSettingKind.Number: numberValue = ModSettingsValues.ToNumber(field, current); break;
                 default: textValue = current?.ToString() ?? ""; break;
             }
+            BrowseCommand = new RelayCommand(BrowseAsync);
         }
 
         public string Key { get { return schemaField.Key; } }
         public ModSettingKind Kind { get; }
         public string Label { get; }
         public string Description { get; }
+        /// <summary>Row tooltip: the description, or null (no tooltip) when the schema gives none.</summary>
+        public string Tooltip { get { return string.IsNullOrWhiteSpace(Description) ? null : Description; } }
         public List<string> Options { get; }
         public decimal MinValue { get; }
         public decimal MaxValue { get; }
@@ -44,12 +53,33 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool IsChoice { get { return Kind == ModSettingKind.Choice; } }
         public bool IsNumber { get { return Kind == ModSettingKind.Integer || Kind == ModSettingKind.Number; } }
         public bool IsText { get { return Kind == ModSettingKind.Text; } }
+        public bool IsPath { get { return Kind == ModSettingKind.Folder || Kind == ModSettingKind.File; } }
+        /// <summary>Plain strings and paths share the text box; paths add a browse button and validation.</summary>
+        public bool IsTextBox { get { return IsText || IsPath; } }
+        public bool IsInvalid { get { return IsPath && !ModSettingsValues.IsValidPath(Kind, textValue); } }
+        public RelayCommand BrowseCommand { get; }
+
+        private async System.Threading.Tasks.Task BrowseAsync()
+        {
+            string current = (textValue ?? "").Trim();
+            string start = null;
+            try
+            {
+                if (current.Length > 0) start = Kind == ModSettingKind.Folder ? current : Path.GetDirectoryName(current);
+                if (!string.IsNullOrEmpty(start) && !Directory.Exists(start)) start = null;
+            }
+            catch { start = null; }
+            string picked = Kind == ModSettingKind.Folder
+                ? await dialogs.PickFolderAsync(Label, start)
+                : await dialogs.PickFileAsync(Label, start, "All files", "*");
+            if (picked != null) TextValue = picked;
+        }
 
         private bool boolValue;
         public bool BoolValue { get { return boolValue; } set { Set(ref boolValue, value); } }
 
         private string textValue = "";
-        public string TextValue { get { return textValue; } set { Set(ref textValue, value); } }
+        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) Raise(nameof(IsInvalid)); } }
 
         private decimal? numberValue = 0;
         public decimal? NumberValue { get { return numberValue; } set { Set(ref numberValue, value); } }
@@ -62,6 +92,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 case ModSettingKind.Choice: return ModSettingsValues.FromChoice(textValue);
                 case ModSettingKind.Integer:
                 case ModSettingKind.Number: return ModSettingsValues.FromNumber(schemaField, numberValue ?? 0);
+                case ModSettingKind.Folder:
+                case ModSettingKind.File: return ModSettingsValues.FromPath(textValue);
                 default: return ModSettingsValues.FromText(textValue);
             }
         }
@@ -71,7 +103,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
     {
         private readonly JsonObject values;
 
-        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, JsonObject values, LocalizedStrings l)
+        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, JsonObject values, LocalizedStrings l, IDialogService dialogs)
         {
             Title = title;
             L = l;
@@ -79,9 +111,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach (ModSettingsField field in schema.Fields)
             {
                 if (string.IsNullOrWhiteSpace(field.Key)) continue;
-                Fields.Add(new SettingFieldViewModel(field, values[field.Key]));
+                SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs);
+                row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.IsInvalid)) Raise(nameof(AllValid)); };
+                Fields.Add(row);
             }
         }
+
+        /// <summary>False while any folder/filename field holds a path that does not exist (Save is disabled).</summary>
+        public bool AllValid { get { return !Fields.Any(f => f.IsInvalid); } }
 
         public string Title { get; }
         public LocalizedStrings L { get; }

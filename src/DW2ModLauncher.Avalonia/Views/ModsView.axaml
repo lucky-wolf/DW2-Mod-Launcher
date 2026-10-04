@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
              x:Class="DW2ModLauncher.Avalonia.Views.ModsView"
@@ -7,20 +7,41 @@
 
     <!-- List -->
     <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*">
-      <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto" Margin="0,0,0,10">
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
         <Button Grid.Column="0" Command="{Binding RefreshCommand}" Margin="0,0,10,0" ToolTip.Tip="{Binding L[RefreshModsTooltip]}">
           <!-- "sync" icon (two circular arrows), Material Design Icons, Apache-2.0 -->
           <PathIcon Width="16" Height="16" Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
         </Button>
-        <Button Grid.Column="1" Command="{Binding EnableAllCommand}" Content="{Binding L[EnableAllMods]}" Margin="0,0,10,0" ToolTip.Tip="{Binding L[EnableAllModsTooltip]}" />
-        <Button Grid.Column="2" Command="{Binding ClearCommand}" Content="{Binding L[ClearModList]}" ToolTip.Tip="{Binding L[ClearModListTooltip]}" />
+        <Button Grid.Column="1" Command="{Binding EnableAllCommand}" Margin="0,0,10,0" Padding="10,6" ToolTip.Tip="{Binding L[EnableAllModsTooltip]}">
+          <!-- "playlist add check" icon, Material Design Icons, Apache-2.0 -->
+          <PathIcon Width="16" Height="16" Data="M14 10H2v2h12v-2zm0-4H2v2h12V6zM2 16h8v-2H2v2zm19.5-4.5L23 13l-6.99 7-4.51-4.5L13 14l3.01 3 5.49-5.5z" />
+        </Button>
+        <Button Grid.Column="2" Command="{Binding ClearCommand}" Padding="10,6" ToolTip.Tip="{Binding L[ClearModListTooltip]}">
+          <!-- "playlist remove" icon, Material Design Icons, Apache-2.0 -->
+          <PathIcon Width="16" Height="16" Data="M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm11.41 6L17 19.41 19.59 22 21 20.59 18.41 18 21 15.41 19.59 14 17 16.59 14.41 14 13 15.41 15.59 18 13 20.59 14.41 22z" />
+        </Button>
         <TextBlock Grid.Column="3" Classes="subheading" HorizontalAlignment="Center" TextAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding L[DragRowsToChangeLoadOrder]}" />
-        <Button Grid.Column="4" Command="{Binding CreateModCommand}" Content="{Binding L[CreateMod]}" Margin="10,0,0,0" ToolTip.Tip="{Binding L[CreateModTooltip]}" />
-        <Button Grid.Column="5" Command="{Binding EditPropertiesCommand}" Margin="10,0,0,0" Padding="10,6" ToolTip.Tip="{Binding L[EditPropertiesTooltip]}">
+        <Button Grid.Column="4" Command="{Binding ModSettingsCommand}" Margin="10,0,0,0" Padding="10,6" ToolTip.Tip="{Binding L[ModSettingsTooltip]}">
+          <!-- "cog" icon, Material Design Icons, Apache-2.0 -->
+          <PathIcon Width="16" Height="16" Data="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.08-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1 0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.29.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66z" />
+        </Button>
+        <Border Grid.Column="5" Width="1" Margin="10,2,0,2" Background="{StaticResource Dw2Muted}" />
+        <Button Grid.Column="6" Command="{Binding CreateModCommand}" Margin="10,0,0,0" Padding="10,6" ToolTip.Tip="{Binding L[CreateModTooltip]}">
+          <!-- "plus" icon, Material Design Icons, Apache-2.0 -->
+          <PathIcon Width="16" Height="16" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+        </Button>
+        <Button Grid.Column="7" Command="{Binding EditPropertiesCommand}" Margin="10,0,0,0" Padding="10,6" ToolTip.Tip="{Binding L[EditPropertiesTooltip]}">
           <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
           <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
         </Button>
-        <Button Grid.Column="6" Command="{Binding PublishCommand}" Content="{Binding L[Publish]}" Margin="10,0,0,0" ToolTip.Tip="{Binding L[PublishTooltip]}" />
+        <Button Grid.Column="8" Command="{Binding DeleteModCommand}" Margin="10,0,0,0" Padding="10,6" ToolTip.Tip="{Binding L[DeleteModTooltip]}">
+          <!-- "trash" icon, Material Design Icons, Apache-2.0 -->
+          <PathIcon Width="16" Height="16" Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+        </Button>
+        <Button Grid.Column="9" Command="{Binding PublishCommand}" Margin="10,0,0,0" Padding="10,6" ToolTip.Tip="{Binding L[PublishTooltip]}">
+          <!-- "cloud upload" icon, Material Design Icons, Apache-2.0 -->
+          <PathIcon Width="16" Height="16" Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
+        </Button>
       </Grid>
 
       <Grid Grid.Row="1" ColumnDefinitions="44,100,125,*,150" Background="{StaticResource Dw2Steel}">

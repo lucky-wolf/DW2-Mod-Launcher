@@ -5,7 +5,7 @@
         x:Class="DW2ModLauncher.Avalonia.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/icon.png"
-        Width="1280" Height="800" MinWidth="1000" MinHeight="650"
+        Width="1280" Height="800" MinWidth="500" MinHeight="500"
         WindowStartupLocation="CenterScreen">
   <Grid RowDefinitions="Auto,*,Auto">
     <!-- Header -->
@@ -28,7 +28,7 @@
             <Button Content="{Binding L[SaveProfileAs]}" Command="{Binding SaveProfileAsCommand}" ToolTip.Tip="{Binding L[TipSaveProfileAs]}" />
             <Button Content="{Binding L[RenameProfile]}" Command="{Binding RenameProfileCommand}" ToolTip.Tip="{Binding L[TipRenameProfile]}" />
             <Button Content="{Binding L[NewProfile]}" Command="{Binding NewProfileCommand}" ToolTip.Tip="{Binding L[TipNewProfile]}" />
-            <Button Content="{Binding L[Delete]}" Command="{Binding DeleteProfileCommand}" ToolTip.Tip="{Binding L[TipDeleteProfile]}" />
+            <Button Content="{Binding L[DeleteProfile]}" Command="{Binding DeleteProfileCommand}" ToolTip.Tip="{Binding L[TipDeleteProfile]}" />
           </StackPanel>
         </StackPanel>
         <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Top">
