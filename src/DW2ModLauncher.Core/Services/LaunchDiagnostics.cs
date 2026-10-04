@@ -42,7 +42,7 @@ namespace DW2ModLauncher.Core.Services
                         issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + t("MustLoadAfter") + after);
                 }
                 ValidateJsonFile(mod.ModJsonPath, issues, t);
-                ValidateJsonFile(Path.Combine(mod.Folder ?? "", "launcher.json"), issues, t);
+                ValidateJsonFile(Path.Combine(mod.Folder ?? "", "dw2modlauncher.json"), issues, t);
                 try
                 {
                     foreach (string xml in Directory.GetFiles(mod.ContentRoot ?? mod.Folder, "*.xml", SearchOption.AllDirectories))

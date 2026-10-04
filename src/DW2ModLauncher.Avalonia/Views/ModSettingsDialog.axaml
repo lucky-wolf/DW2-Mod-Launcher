@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
         x:Class="DW2ModLauncher.Avalonia.Views.ModSettingsDialog"
@@ -7,25 +7,25 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Grid RowDefinitions="*,Auto">
     <ScrollViewer Grid.Row="0">
-      <StackPanel Margin="18" Spacing="4">
-        <Grid ColumnDefinitions="230,230,*" Margin="0,0,0,8">
-          <TextBlock Grid.Column="0" Classes="eyebrow" Text="{Binding L[Setting]}" />
-          <TextBlock Grid.Column="1" Classes="eyebrow" Text="{Binding L[Value]}" />
-          <TextBlock Grid.Column="2" Classes="eyebrow" Text="{Binding L[Description]}" />
-        </Grid>
+      <StackPanel Margin="16" Spacing="4">
         <ItemsControl ItemsSource="{Binding Fields}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:SettingFieldViewModel">
-              <Grid ColumnDefinitions="230,230,*" Margin="0,0,0,12">
-                <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Margin="0,6,12,0" Text="{Binding Label}" />
-                <Panel Grid.Column="1" Margin="0,0,14,0" VerticalAlignment="Top">
+              <Grid ColumnDefinitions="*,230" Margin="0,0,16,6" Background="Transparent" ToolTip.Tip="{Binding Tooltip}">
+                <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Margin="0,6,10,0" Text="{Binding Label}" />
+                <Panel Grid.Column="1" VerticalAlignment="Top">
                   <CheckBox IsVisible="{Binding IsBool}" IsChecked="{Binding BoolValue}" />
                   <ComboBox IsVisible="{Binding IsChoice}" ItemsSource="{Binding Options}" SelectedItem="{Binding TextValue}" HorizontalAlignment="Stretch" />
                   <NumericUpDown IsVisible="{Binding IsNumber}" Value="{Binding NumberValue}" Minimum="{Binding MinValue}" Maximum="{Binding MaxValue}"
                                  Increment="{Binding Increment}" FormatString="{Binding NumberFormat}" HorizontalAlignment="Stretch" />
-                  <TextBox IsVisible="{Binding IsText}" Text="{Binding TextValue}" />
+                  <Grid IsVisible="{Binding IsTextBox}" ColumnDefinitions="*,Auto">
+                    <TextBox Grid.Column="0" Classes.invalid="{Binding IsInvalid}" Text="{Binding TextValue}" />
+                    <Button Grid.Column="1" Content="&#8230;" Command="{Binding BrowseCommand}" IsVisible="{Binding IsPath}" Margin="6,0,0,0" MinWidth="40" />
+                  </Grid>
                 </Panel>
-                <TextBlock Grid.Column="2" Classes="muted" TextWrapping="Wrap" Margin="0,6,0,0" Text="{Binding Description}" />
               </Grid>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
@@ -34,7 +34,7 @@
     </ScrollViewer>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-        <Button Name="SaveButton" Content="{Binding L[Save]}" MinWidth="125" />
+        <Button Name="SaveButton" IsEnabled="{Binding AllValid}" Content="{Binding L[Save]}" MinWidth="125" />
         <Button Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />
       </StackPanel>
     </Border>

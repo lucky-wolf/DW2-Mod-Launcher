@@ -13,6 +13,7 @@ namespace DW2ModLauncher.Avalonia.Services
     {
         private readonly Func<Window> mainWindow;
         private SettingsDialog settingsDialog;
+        private ModSettingsDialog modSettingsDialog;
 
         public DialogService(Func<Window> owner)
         {
@@ -22,7 +23,7 @@ namespace DW2ModLauncher.Avalonia.Services
         // While the settings window is open it is the window that is not blocked, so dialogs opened from it must belong to it.
         private Window owner()
         {
-            return settingsDialog ?? mainWindow();
+            return (Window)modSettingsDialog ?? settingsDialog ?? mainWindow();
         }
 
         public async Task ShowSettingsAsync(SettingsViewModel settings)
@@ -90,7 +91,16 @@ namespace DW2ModLauncher.Avalonia.Services
 
         public Task<bool> EditModSettingsAsync(ModSettingsEditorViewModel editor)
         {
-            return new ModSettingsDialog(editor).ShowDialog<bool>(owner());
+            return ShowModSettingsAsync(editor);
+        }
+
+        private async Task<bool> ShowModSettingsAsync(ModSettingsEditorViewModel editor)
+        {
+            ModSettingsDialog dialog = new ModSettingsDialog(editor);
+            Window parent = owner();
+            modSettingsDialog = dialog;
+            try { return await dialog.ShowDialog<bool>(parent); }
+            finally { modSettingsDialog = null; }
         }
 
         public IDisposable ShowBusy(string message, string title, string cancelText, TimeSpan cancelAfter, CancellationTokenSource cancel)

@@ -62,6 +62,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             profileStore = new ProfileStore(Path.Combine(appRoot, "Profiles"));
             settings = settingsStore.Load();
             NormalizeSettings();
+            sortColumn = settings.SortColumn >= 0 && settings.SortColumn <= 4 ? settings.SortColumn : -1;
+            sortAscending = settings.SortAscending;
             if (string.IsNullOrWhiteSpace(settings.ManagedModsRoot))
                 settings.ManagedModsRoot = string.IsNullOrWhiteSpace(settings.GameRoot) ? "" : Path.Combine(settings.GameRoot, "mods");
 
@@ -349,6 +351,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             sortAscending = sortColumn == column ? !sortAscending : true;
             sortColumn = column;
             ApplySort();
+            SaveSortPreference();
+        }
+
+        private void SaveSortPreference()
+        {
+            settings.SortColumn = sortColumn;
+            settings.SortAscending = sortAscending;
+            SaveSettings();
         }
 
         private void ApplySort()
@@ -419,6 +429,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             int from = Mods.IndexOf(row);
             if (from < 0) return;
             sortColumn = -1;
+            SaveSortPreference();
             toIndex = Math.Max(0, Math.Min(toIndex, Mods.Count - 1));
             if (from != toIndex) Mods.Move(from, toIndex);
             SelectedRow = row;
@@ -685,7 +696,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 JsonObject values = ModSettingsStore.GetOrCreateValues(mod, schema);
                 ModSettingsEditorViewModel editor = new ModSettingsEditorViewModel(
-                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, values, L);
+                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, values, L, Dialogs);
                 if (!await Dialogs.EditModSettingsAsync(editor)) return;
                 ModSettingsStore.SaveValues(mod, editor.Apply());
                 SetStatus(T("ModSettingsSaved"));

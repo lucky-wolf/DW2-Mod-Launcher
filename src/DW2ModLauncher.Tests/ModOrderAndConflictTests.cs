@@ -128,8 +128,8 @@ namespace DW2ModLauncher.Tests
         [Fact]
         public void Analyze_DifferingSharedFile_IsACollision_IdenticalIsNot()
         {
-            ModInfo a = MakeMod("a", ("Data/Ships.xml", "A"), ("same.txt", "x"));
-            ModInfo b = MakeMod("b", ("data/ships.xml", "B"), ("same.txt", "x"));
+            ModInfo a = MakeMod("a", ("Data/Ships.xml", "A"), ("Hints.txt", "x"));
+            ModInfo b = MakeMod("b", ("data/ships.xml", "B"), ("Hints.txt", "x"));
 
             var collisions = ConflictAnalyzer.Analyze(new[] { a, b }, m => true);
 

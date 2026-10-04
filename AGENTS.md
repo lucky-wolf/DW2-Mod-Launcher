@@ -23,7 +23,7 @@ Planned/target scope (in progress or aspirational — confirm current state befo
   - `Services/` — `ModScanner` (mod.json discovery), `SteamLocator` (Steam/Workshop path detection),
     `ConflictRules` (which files are excluded from conflict checks), `AcfManifest` (Steam manifest
     parsing), `LooseJson` (loose JSON parsing), `WorkshopApiClient` (Steam Workshop API),
-    `LauncherMetaReader` (launcher.json reader), `LoaderManifestBuilder` (builds the manifest the loader DLL
+    `LauncherMetaReader` (optional dw2modlauncher.json injection override), `InjectionScanner` (infers injection DLLs: public static `Entry` class with `Init()`/`InitWithOptions(string)`), `LoaderManifestBuilder` (builds the manifest the loader DLL
     reads — see [docs/DLL Injection.md](docs/DLL%20Injection.md)), `ModSettingsSchemaReader`/`ModSettingsStore`
     (mod-authored `settings.schema.json` + per-user stored values), `UserDataRoot` (`%AppData%\DW2ModLauncher`, or `~/.config/DW2ModLauncher` on Linux),
     `ModJsonWorkshopIdWriter`, `LocalModManager` (create/delete a local Mod folder, folder-name sanitizing). Everything that is logic rather than presentation lives here so both UIs

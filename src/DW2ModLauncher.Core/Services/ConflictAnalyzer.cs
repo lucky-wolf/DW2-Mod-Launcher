@@ -100,7 +100,7 @@ namespace DW2ModLauncher.Core.Services
                 }
                 collisions[kv.Key] = unique;
                 string extension = Path.GetExtension(kv.Key).ToLowerInvariant();
-                bool highRisk = extension == ".dll" || extension == ".exe" || extension == ".xml" || extension == ".json" || extension == ".bin";
+                bool highRisk = extension == ".xml";
                 foreach (ModInfo mod in unique)
                 {
                     mod.ConflictFiles.Add(kv.Key);

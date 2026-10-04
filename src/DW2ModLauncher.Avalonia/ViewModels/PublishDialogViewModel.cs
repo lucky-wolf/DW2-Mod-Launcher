@@ -59,6 +59,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // shows the file over the text too); saving drops whichever one isn't chosen.
             useDescriptionFile = !string.IsNullOrWhiteSpace(metadata.DescriptionFile);
             bundles = string.Join("\n", metadata.Bundles ?? new List<string>());
+            // Read-only: what the launcher will inject for this mod (inferred, or the dw2modlauncher.json override).
+            InjectedDlls = DW2ModLauncher.Core.Services.InjectionScanner.TargetsFor(mod);
 
             BrowsePreviewCommand = new RelayCommand(BrowsePreviewAsync);
             BrowseDescriptionFileCommand = new RelayCommand(BrowseDescriptionFileAsync);
@@ -114,6 +116,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool ReplaceDescription { get { return replaceDescription; } set { Set(ref replaceDescription, value); } }
         /// <summary>The item's Workshop id (read-only), or "Unpublished" until a first publish has written one into mod.json.</summary>
         public string WorkshopIdText { get; }
+        /// <summary>The DLLs (and entry points) the launcher will inject for this mod, shown as a read-only table.</summary>
+        public List<DW2ModLauncher.Core.Services.InjectionTarget> InjectedDlls { get; }
+        public bool HasInjectedDlls { get { return InjectedDlls.Count > 0; } }
+        public bool NoInjectedDlls { get { return InjectedDlls.Count == 0; } }
         public List<VisibilityOption> Visibilities { get; } = new List<VisibilityOption>();
         public RelayCommand BrowsePreviewCommand { get; }
         public RelayCommand BrowseDescriptionFileCommand { get; }
