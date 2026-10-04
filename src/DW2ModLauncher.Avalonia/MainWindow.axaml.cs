@@ -64,7 +64,8 @@ namespace DW2ModLauncher.Avalonia
                 return;
             }
             Logger.Log("Window", "Restoring " + p + " " + w + "x" + h);
-            ClientSize = new Size(w, h);
+            Width = w;
+            Height = h;
             WindowStartupLocation = WindowStartupLocation.Manual;
             Position = p;
         }
