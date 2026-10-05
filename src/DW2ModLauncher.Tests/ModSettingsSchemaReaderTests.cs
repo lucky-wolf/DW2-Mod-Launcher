@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using DW2ModLauncher.Core.Services;
 using Xunit;
 
@@ -41,6 +42,20 @@ namespace DW2ModLauncher.Tests
                 Assert.Equal(2, schema.Fields[1].Options.Count);
             }
             finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void VisibleFields_HidesLocalOnlyFields_ForWorkshopMods()
+        {
+            var schema = new DW2ModLauncher.Core.Models.ModSettingsSchema();
+            schema.Fields.Add(new DW2ModLauncher.Core.Models.ModSettingsField { Key = "Speed" });
+            schema.Fields.Add(new DW2ModLauncher.Core.Models.ModSettingsField { Key = "LogSamples", LocalOnly = true });
+
+            var workshop = new DW2ModLauncher.Core.Models.ModInfo { IsWorkshop = true };
+            var local = new DW2ModLauncher.Core.Models.ModInfo { IsWorkshop = false };
+
+            Assert.Equal(new[] { "Speed" }, schema.VisibleFields(workshop).Select(f => f.Key));
+            Assert.Equal(new[] { "Speed", "LogSamples" }, schema.VisibleFields(local).Select(f => f.Key));
         }
 
         [Fact]

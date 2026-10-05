@@ -84,7 +84,6 @@ namespace DW2ModLauncher.Core.Services
             m.UpdateState = workshop ? "unknown" : "na";
             m.ConflictFiles = new List<string>();
             m.ConflictMods = new List<string>();
-            m.DuplicateLocations = new List<string>();
             m.RequiredMods = new List<string>();
             m.OptionalMods = new List<string>();
             m.IncompatibleMods = new List<string>();

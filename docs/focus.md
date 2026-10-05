@@ -10,3 +10,5 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` empties the list when it creates a new branch.
 
 ---
+- Settings schemas can mark fields `"localOnly": true`; the Configure window hides them for Workshop mods and shows them for local mods under a separator, so authors keep their debug controls without exposing them to players. Hidden fields are still passed to the mod with their defaults and their saved values are left untouched.
+- Removed the name-based "duplicate installation" warning (it fired for every author with a local and a Workshop copy and missed short names like XL). Replaced with a Workshop-ID check that flags a mod only when two copies of it are actually enabled, which also catches DLL-only mods.

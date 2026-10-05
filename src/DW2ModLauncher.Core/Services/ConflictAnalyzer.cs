@@ -8,7 +8,7 @@ using DW2ModLauncher.Core.Models;
 
 namespace DW2ModLauncher.Core.Services
 {
-    /// <summary>File-collision and duplicate-install analysis across installed mods. No UI.</summary>
+    /// <summary>File-collision analysis across enabled mods. No UI.</summary>
     public static class ConflictAnalyzer
     {
         /// <summary>The mod's conflict-relevant files, relative to its content root and lowercased (cached on the mod).</summary>
@@ -52,6 +52,24 @@ namespace DW2ModLauncher.Core.Services
         /// Recomputes every mod's conflict counters and returns the colliding files (lowercased relative path ->
         /// the enabled mods that ship a differing copy). Byte-identical copies are counted but not reported.
         /// </summary>
+        /// <summary>
+        /// Flags enabled mods that are the same Workshop item (a published local mod and its subscribed copy, say).
+        /// Identity is the Workshop item id only - never the name - so an unpublished local mod is never flagged.
+        /// </summary>
+        public static void AnalyzeEnabledCopies(IEnumerable<ModInfo> mods, Func<ModInfo, bool> isEnabled)
+        {
+            List<ModInfo> all = mods.Where(m => m != null).ToList();
+            foreach (ModInfo mod in all) mod.EnabledCopyCount = 0;
+            foreach (IGrouping<string, ModInfo> group in all.Where(isEnabled)
+                         .Where(m => ModDetails.WorkshopId(m) != null)
+                         .GroupBy(m => ModDetails.WorkshopId(m), StringComparer.OrdinalIgnoreCase))
+            {
+                List<ModInfo> copies = group.GroupBy(m => m.Key, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
+                if (copies.Count < 2) continue;
+                foreach (ModInfo mod in copies) mod.EnabledCopyCount = copies.Count - 1;
+            }
+        }
+
         public static Dictionary<string, List<ModInfo>> Analyze(IEnumerable<ModInfo> mods, Func<ModInfo, bool> isEnabled)
         {
             Dictionary<string, List<ModInfo>> collisions = new Dictionary<string, List<ModInfo>>(StringComparer.OrdinalIgnoreCase);
@@ -151,38 +169,6 @@ namespace DW2ModLauncher.Core.Services
                 current = match;
             }
             return current;
-        }
-
-        public static void AnalyzeDuplicates(IEnumerable<ModInfo> mods)
-        {
-            List<ModInfo> all = mods.Where(m => m != null).ToList();
-            foreach (ModInfo mod in all)
-            {
-                mod.DuplicateCount = 0;
-                if (mod.DuplicateLocations == null) mod.DuplicateLocations = new List<string>();
-                else mod.DuplicateLocations.Clear();
-            }
-            Dictionary<string, List<ModInfo>> groups = new Dictionary<string, List<ModInfo>>(StringComparer.OrdinalIgnoreCase);
-            foreach (ModInfo mod in all)
-            {
-                string identity = Regex.Replace((mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder) ?? "").Trim().ToLowerInvariant(), "[^a-z0-9ぁ-んァ-ン一-龯]+", "");
-                if (identity.Length < 3) continue;
-                List<ModInfo> list;
-                if (!groups.TryGetValue(identity, out list)) { list = new List<ModInfo>(); groups[identity] = list; }
-                list.Add(mod);
-            }
-            foreach (List<ModInfo> group in groups.Values.Where(g => g.Select(x => x.Folder).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))
-            {
-                foreach (ModInfo mod in group)
-                {
-                    foreach (ModInfo other in group.Where(x => !string.Equals(x.Folder, mod.Folder, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        string location = (other.SourceName ?? "") + " | " + (other.Version ?? "") + " | " + (other.Folder ?? "");
-                        if (!mod.DuplicateLocations.Contains(location)) mod.DuplicateLocations.Add(location);
-                    }
-                    mod.DuplicateCount = mod.DuplicateLocations.Count;
-                }
-            }
         }
     }
 }

@@ -16,8 +16,6 @@ namespace DW2ModLauncher.Core.Models
         public bool IsWorkshop { get; set; }
         public string SourceName { get; set; }
         public string ActiveToken { get; set; }
-        public int DuplicateCount { get; set; }
-        public List<string> DuplicateLocations { get; set; }
         public string WorkshopDescription { get; set; }
         public string WorkshopTitle { get; set; }
         public string WorkshopPreviewUrl { get; set; }
@@ -47,6 +45,8 @@ namespace DW2ModLauncher.Core.Models
         public int IdenticalFileCount { get; set; }
         public int LowRiskConflictCount { get; set; }
         public int HighRiskConflictCount { get; set; }
+        /// <summary>How many other enabled copies of this same mod (same Workshop item id) are enabled alongside it.</summary>
+        public int EnabledCopyCount { get; set; }
 
         public string Key
         {

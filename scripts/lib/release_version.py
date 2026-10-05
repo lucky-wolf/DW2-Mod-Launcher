@@ -13,7 +13,7 @@ TAG_PREFIX = "v"
 
 # Paths whose change on main makes .github/workflows/release.yml cut a release. Keep in sync with
 # that workflow's `paths:` filters (prefix match; a trailing "/" means a directory).
-RELEASE_PATHS = ("src/", "Directory.Build.props", ".version", ".github/workflows/release.yml")
+RELEASE_PATHS = ("src/", "Directory.Build.props", ".version")
 
 
 def _git(repo_root: Path, *args: str) -> str:

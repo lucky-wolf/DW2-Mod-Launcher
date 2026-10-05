@@ -162,17 +162,19 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
-        public void AnalyzeDuplicates_FlagsSameNamedModsInDifferentFolders()
+        public void AnalyzeEnabledCopies_FlagsSameWorkshopIdEnabledTwice_NotNames()
         {
-            ModInfo a = MakeMod("Cool Mod");
-            ModInfo b = MakeMod("cool-mod");
-            ModInfo c = MakeMod("Other");
+            ModInfo local = MakeMod("Nebulizer"); local.WorkshopId = "123";
+            ModInfo steam = MakeMod("123"); steam.IsWorkshop = true;
+            ModInfo sameName = MakeMod("Nebulizer2"); sameName.DisplayName = "Nebulizer";
 
-            ConflictAnalyzer.AnalyzeDuplicates(new[] { a, b, c });
+            ConflictAnalyzer.AnalyzeEnabledCopies(new[] { local, steam, sameName }, m => true);
+            Assert.Equal(1, local.EnabledCopyCount);
+            Assert.Equal(1, steam.EnabledCopyCount);
+            Assert.Equal(0, sameName.EnabledCopyCount);
 
-            Assert.Equal(1, a.DuplicateCount);
-            Assert.Equal(1, b.DuplicateCount);
-            Assert.Equal(0, c.DuplicateCount);
+            ConflictAnalyzer.AnalyzeEnabledCopies(new[] { local, steam, sameName }, m => m == local);
+            Assert.Equal(0, local.EnabledCopyCount);
         }
 
         [Fact]
