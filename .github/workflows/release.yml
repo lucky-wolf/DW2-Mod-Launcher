@@ -82,7 +82,13 @@ jobs:
         if: steps.release.outputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ steps.release.outputs.tag }}" "${{ steps.package.outputs.zip }}" --title "${{ steps.release.outputs.tag }}" --generate-notes
+        shell: bash
+        run: |
+          # The notes are the docs/focus.md list that was the PR description; GitHub's generated notes
+          # (a bare rebase-merge commit list) are only the fallback when that list is empty.
+          python scripts/release-notes.py release-notes.md
+          if [ -f release-notes.md ]; then notes=(--notes-file release-notes.md); else notes=(--generate-notes); fi
+          gh release create "${{ steps.release.outputs.tag }}" "${{ steps.package.outputs.zip }}" --title "${{ steps.release.outputs.tag }}" "${notes[@]}"
 
   # The Linux build: the Avalonia launcher, self-contained, as a tar.gz (keeps the executable bit). It runs
   # after the Windows job so that job's tag exists; it attaches to the same GitHub Release.
