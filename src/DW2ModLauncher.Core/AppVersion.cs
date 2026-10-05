@@ -5,6 +5,9 @@ namespace DW2ModLauncher.Core
     /// <summary>The launcher's semver, baked into the assembly by MinVer from the git tag; untagged (dev) builds end in "-dev".</summary>
     public static class AppVersion
     {
+        /// <summary>The project's GitHub releases page, where new launcher versions are published.</summary>
+        public const string ReleasesUrl = "https://github.com/lucky-wolf/DW2-Mod-Launcher/releases";
+
         public static string Current
         {
             get

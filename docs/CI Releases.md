@@ -82,7 +82,7 @@ DW2ModLauncher-vX.Y.Z-win-x64/
   Loader/DW2ModLauncher.Loader.dll   injected into the game via --low-level-inject (docs/DLL Injection.md)
   Languages/en.json, ja.json         UI strings
   steam_api64.dll, steam_appid.txt   Steamworks (Workshop publish), loaded by the Steam API by name/CWD
-  launcher_settings.example.json, LICENSE, README.md
+  LICENSE, README.md
 ```
 
 The Linux archive is the same idea as a folder (`DW2ModLauncher` executable, `Loader/`, `Languages/`,

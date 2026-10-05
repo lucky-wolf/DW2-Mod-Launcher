@@ -65,7 +65,7 @@ jobs:
           $stage = Join-Path $PWD "stage/$name"
           New-Item -ItemType Directory -Force $stage | Out-Null
           Copy-Item publish/* $stage -Recurse
-          Copy-Item launcher_settings.example.json, LICENSE, README.md $stage
+          Copy-Item LICENSE, README.md $stage
           Compress-Archive -Path "stage/$name" -DestinationPath "$name.zip"
           "name=$name" >> $env:GITHUB_OUTPUT
           "zip=$name.zip" >> $env:GITHUB_OUTPUT
@@ -122,7 +122,7 @@ jobs:
           name="DW2ModLauncher-v${version}-linux-x64"
           mkdir -p "stage/${name}"
           cp -a publish/. "stage/${name}/"
-          cp launcher_settings.example.json LICENSE README.md "stage/${name}/"
+          cp LICENSE README.md "stage/${name}/"
           tar -czf "${name}.tar.gz" -C stage "${name}"
           echo "name=${name}" >> "$GITHUB_OUTPUT"
           echo "archive=${name}.tar.gz" >> "$GITHUB_OUTPUT"

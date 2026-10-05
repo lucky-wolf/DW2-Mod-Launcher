@@ -10,7 +10,7 @@ namespace DW2ModLauncher.Core.Services
     /// <summary>
     /// DW2's own named mod profiles, which live next to mods.json: "currentProfile.txt" holds the active profile's
     /// name and "mods.&lt;escaped name&gt;.json" holds each profile's order (same format as mods.json). See
-    /// docs/plans/mod-profiles.md. Never throws on missing or bad files, except the write helpers (I/O failure).
+    /// docs/archived/mod-profiles.md. Never throws on missing or bad files, except the write helpers (I/O failure).
     /// </summary>
     public class GameProfileStore
     {

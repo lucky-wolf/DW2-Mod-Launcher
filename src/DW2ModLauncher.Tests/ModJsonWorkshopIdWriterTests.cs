@@ -55,5 +55,36 @@ namespace DW2ModLauncher.Tests
             }
             finally { File.Delete(path); }
         }
+
+        [Fact]
+        public void Write_DropsObsoleteLauncherBlock_KeepingOtherFields()
+        {
+            string path = MakeModJson(@"{ ""launcher"": { ""injection"": { ""dll"": ""A.dll"" } }, ""displayName"": ""My Mod"" }");
+            try
+            {
+                ModJsonWorkshopIdWriter.Write(path, 42);
+
+                string text = File.ReadAllText(path);
+                Assert.DoesNotContain("launcher", text);
+                Assert.Contains("\"workshopId\": 42", text);
+                Assert.Contains("\"displayName\": \"My Mod\"", text);
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Fact]
+        public void PublishMetadataWrite_DropsObsoleteLauncherBlock()
+        {
+            string path = MakeModJson(@"{ ""Launcher"": { ""injection"": {} }, ""displayName"": ""My Mod"", ""version"": ""1.0"" }");
+            try
+            {
+                DW2ModLauncher.Core.Services.Publishing.ModPublishMetadataEditor.WriteVersion(path, "1.0.1");
+
+                string text = File.ReadAllText(path);
+                Assert.DoesNotContain("auncher", text);
+                Assert.Contains("\"version\": \"1.0.1\"", text);
+            }
+            finally { File.Delete(path); }
+        }
     }
 }

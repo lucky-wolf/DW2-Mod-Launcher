@@ -26,7 +26,7 @@ namespace DW2ModLauncher.Core.Models
     public class ModSettingsField
     {
         public string Key { get; set; }
-        // "bool" | "enum" | "int" | "float" | "string"
+        // "bool" | "enum" | "int" | "float" | "string" | "folder" | "file"
         public string Type { get; set; }
         public string Label { get; set; }
         public string Description { get; set; }

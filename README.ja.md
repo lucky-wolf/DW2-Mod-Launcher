@@ -33,20 +33,19 @@ Steam Workshopから導入したMODと、ゲーム本体のMODフォルダーに
 
 ## 主な機能
 
-- ゲーム本体MODフォルダーのMOD検索・一覧表示
-- MODの有効／無効管理
-- MODの重複インストール検出
-- 有効なMOD同士のファイル競合チェック
-- Steam Workshop MODの更新確認
-- MOD情報・説明文の表示
-- MOD付属のREADME／マニュアルの検出と直接表示
-- MODに付属するBAT／EXEツールの検出
-- MODフォルダーを直接開く機能
-- MODが提供する `settings.schema.json` に基づく、スキーマ駆動のフォームによるMOD設定の確認・変更
-- MODごとの起動オプション、ゲーム用の環境変数（Windows）に対応。Steamの起動オプションをワンクリックでインポート可能
-- 同梱のローダーDLLによるコードMODの読み込み（MODの設定をDLLへ直接渡せます）
-- ローカルMODのSteam Workshopへの公開（公開済みMODの更新にも対応）。新しいアイテムのWorkshop IDは `mod.json` に保存されます
-- 日本語／English UI切り替え
+- 日本語／English UI
+  - 他の言語への翻訳も歓迎します！
+- Windows／Linux ネイティブ対応
+- 有効なMODの管理
+  - 読み込み順を自在にコントロール
+  - ファイル競合の自動検出
+  - 対応MODには設定用UIを提供
+- DLLインジェクションを使用するMODの実行
+- 自作MODの管理（DW2向けのあらゆるMODに対応）
+  - 新規MODの作成
+  - Steamへ直接アップロード／更新
+  - DLLインジェクションを使用するMODのテスト
+  - ユーザーが好みに合わせて簡単にMODを設定できる仕様（スキーマ）の作成
 
 ## 必要環境
 
@@ -112,8 +111,6 @@ run.cmd --no-validate
 - Distant Worlds 2 のゲームフォルダー
 - Steam Workshop のDW2 MODフォルダー
 - 管理対象とするローカルMODフォルダー
-
-`launcher_settings.example.json` は設定ファイルのサンプルです。
 
 一般的なSteam Workshopの場所：
 
