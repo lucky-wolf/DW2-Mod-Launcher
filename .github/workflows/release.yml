@@ -15,7 +15,6 @@ on:
       - 'src/**'
       - 'Directory.Build.props'
       - '.version'
-      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 permissions:
