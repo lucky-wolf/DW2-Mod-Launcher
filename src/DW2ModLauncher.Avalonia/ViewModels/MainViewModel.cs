@@ -752,6 +752,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private async Task<ModVisibility?> ReadVisibilityAsync(ModInfo mod)
         {
             if (!long.TryParse(mod.WorkshopId, out long publishedId)) return null;
+            return await ReadVisibilityAsync(publishedId);
+        }
+
+        private async Task<ModVisibility?> ReadVisibilityAsync(long publishedId)
+        {
             SetStatus(T("PublishReadingVisibility"));
             IModPublisher reader = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
             return await Task.Run(() => reader.GetVisibility(publishedId));
@@ -808,6 +813,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModVisibility? currentVisibility = isUpdate ? await ReadVisibilityAsync(mod) : null;
             PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility);
             if (!await Dialogs.EditPublishAsync(editor)) return;
+            // Accepting the dialog wrote the (possibly bumped) version to mod.json; any exit below that doesn't publish undoes it.
+            string versionBefore = editor.OriginalVersion;
+            string versionWritten = metadata.Version;
 
             // Steam can reject a preview image over 1 MiB; warn, but let the author try anyway.
             const long MaxPreviewBytes = 1024 * 1024;
@@ -816,7 +824,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 FileInfo preview = new FileInfo(Path.Combine(mod.ContentRoot ?? mod.Folder, metadata.PreviewImage));
                 if (preview.Exists && preview.Length > MaxPreviewBytes
                     && !await Dialogs.ConfirmAsync(T("PublishImageTooLarge", metadata.PreviewImage, (preview.Length / 1048576.0).ToString("0.##")), "DW2 Mod Launcher", T("Yes"), T("No")))
+                {
+                    RollBackVersion(mod, versionBefore, versionWritten);
                     return;
+                }
             }
 
             // Other content files over 5 MiB get the same warn-and-ask treatment.
@@ -839,7 +850,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 string list = string.Join("\n", bigFiles.Take(10)) + (bigFiles.Count > 10 ? "\n..." : "");
                 if (!await Dialogs.ConfirmAsync(T("PublishFilesTooLarge", list), "DW2 Mod Launcher", T("Yes"), T("No")))
+                {
+                    RollBackVersion(mod, versionBefore, versionWritten);
                     return;
+                }
             }
 
             publishRunning = true;
@@ -868,6 +882,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (cancel.IsCancellationRequested)
                 {
                     if (result.WorkshopId.HasValue) ModJsonWorkshopIdWriter.Write(mod.ModJsonPath, result.WorkshopId.Value);
+                    RollBackVersion(mod, versionBefore, versionWritten);
                     SetStatus(T("PublishCancelledStatus"));
                     return;
                 }
@@ -875,6 +890,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 {
                     // A created-but-failed upload still has an id: keep it so a retry updates instead of duplicating.
                     if (result.WorkshopId.HasValue) ModJsonWorkshopIdWriter.Write(mod.ModJsonPath, result.WorkshopId.Value);
+                    RollBackVersion(mod, versionBefore, versionWritten);
                     await Dialogs.ShowMessageAsync(T("PublishFailed", result.ErrorMessage ?? ""), "DW2 Mod Launcher");
                     SetStatus(T("PublishFailedStatus"));
                     return;
@@ -883,6 +899,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 string url = "https://steamcommunity.com/sharedfiles/filedetails/?id=" + result.WorkshopId.Value;
                 string message = T("PublishCapturedIdMessage", result.WorkshopId.Value, url);
                 if (result.NeedsWorkshopAgreement) message += "\n\n" + T("PublishNeedsWorkshopAgreement");
+                // Steam can quietly hold an item private (e.g. until the Workshop agreement is accepted), so check it took the setting.
+                ModVisibility? requested = editor.SelectedVisibility;
+                ModVisibility? actual = requested.HasValue ? await ReadVisibilityAsync(result.WorkshopId.Value) : null;
+                if (requested.HasValue && actual.HasValue && actual != requested)
+                    message += "\n\n" + T("PublishVisibilityDiffers", T(PublishDialogViewModel.LabelKey(requested.Value)), T(PublishDialogViewModel.LabelKey(actual.Value)));
                 SetStatus(T("WorkshopIdSaved"));
                 if (await Dialogs.ConfirmAsync(message, T("PublishToWorkshop"), T("SteamPage"), T("Close")))
                     OpenSteamPage(result.WorkshopId.Value.ToString());
@@ -891,6 +912,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Publish Mod to Workshop", ex);
+                RollBackVersion(mod, versionBefore, versionWritten);
                 await Dialogs.ShowMessageAsync(T("PublishFailed", ex.Message), "DW2 Mod Launcher");
                 SetStatus(T("PublishFailedStatus"));
             }
@@ -899,6 +921,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 publishRunning = false;
                 PublishCommand.RaiseCanExecuteChanged();
             }
+        }
+
+        /// <summary>
+        /// Puts mod.json's version back after a publish that didn't happen. Only if the file still holds the value this
+        /// publish wrote, so a version the author edited by hand in the meantime is never overwritten.
+        /// </summary>
+        private static void RollBackVersion(ModInfo mod, string before, string written)
+        {
+            if (string.Equals(before, written, StringComparison.Ordinal)) return;
+            try
+            {
+                if (ModPublishMetadataEditor.Read(mod.ModJsonPath).Version == written)
+                    ModPublishMetadataEditor.WriteVersion(mod.ModJsonPath, before ?? "");
+            }
+            catch (Exception ex) { Logger.LogException("Roll back mod.json version", ex); }
         }
 
         // ---- Workshop updates

@@ -50,7 +50,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Note = propertiesOnly ? null : l[isUpdate ? "PublishAboutToRunUpdate" : "PublishAboutToRunFirstTime"];
             WorkshopIdText = string.IsNullOrWhiteSpace(mod.WorkshopId) ? l["PublishWorkshopIdUnpublished"] : mod.WorkshopId.Trim();
             title = metadata.DisplayName;
-            version = metadata.Version;
+            OriginalVersion = metadata.Version;
+            // Updating a published item proposes the next patch version; nothing is written to mod.json until the author accepts.
+            version = isUpdate && !propertiesOnly ? ModVersion.BumpPatch(metadata.Version) : metadata.Version;
             previewImage = metadata.PreviewImage;
             description = metadata.Description;
             shortDescription = metadata.ShortDescription;
@@ -92,7 +94,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         }
 
-        private static string LabelKey(ModVisibility v)
+        public static string LabelKey(ModVisibility v)
         {
             switch (v)
             {
@@ -104,6 +106,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         public LocalizedStrings L { get; }
+        /// <summary>The mod.json version before this dialog proposed anything, for rolling back a publish that did not happen.</summary>
+        public string OriginalVersion { get; }
         public string WindowTitle { get; }
         public string Note { get; }
         /// <summary>"Publish to Workshop", or "Save" when the dialog only edits mod.json.</summary>

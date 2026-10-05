@@ -45,6 +45,15 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return ModScanner.ReadDescriptionFile(contentRoot, metadata.DescriptionFile);
         }
 
+        /// <summary>Rewrites just the "version" key (used to undo the auto-bump after a publish that didn't happen).</summary>
+        public static void WriteVersion(string modJsonPath, string version)
+        {
+            JsonObject root = JsonNode.Parse(File.ReadAllText(modJsonPath, Encoding.UTF8)) as JsonObject;
+            if (root == null) throw new InvalidDataException("mod.json is not a JSON object.");
+            SetString(root, "version", version);
+            File.WriteAllText(modJsonPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+        }
+
         public static void Write(string modJsonPath, ModPublishMetadata metadata)
         {
             JsonObject root = JsonNode.Parse(File.ReadAllText(modJsonPath, Encoding.UTF8)) as JsonObject;
