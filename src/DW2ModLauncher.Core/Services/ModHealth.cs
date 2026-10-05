@@ -10,8 +10,8 @@ namespace DW2ModLauncher.Core.Services
         public static int Severity(ModInfo mod, bool isSelected)
         {
             if (mod == null || !isSelected) return 0;
-            if (mod.HighRiskConflictCount > 0) return 3;
-            bool caution = mod.LowRiskConflictCount > 0 || mod.DuplicateCount > 0 || mod.IdenticalFileCount > 0 ||
+            if (mod.HighRiskConflictCount > 0 || mod.EnabledCopyCount > 0) return 3;
+            bool caution = mod.LowRiskConflictCount > 0 || mod.IdenticalFileCount > 0 ||
                            (mod.IsWorkshop && mod.UpdateState == "update");
             return caution ? 2 : 1;
         }

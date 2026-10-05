@@ -302,7 +302,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void Analyze()
         {
             collisions = ConflictAnalyzer.Analyze(AllMods, m => modOrder.IsEnabledForConflict(m, settings));
-            ConflictAnalyzer.AnalyzeDuplicates(AllMods);
+            ConflictAnalyzer.AnalyzeEnabledCopies(AllMods, m => modOrder.IsEnabledForConflict(m, settings));
         }
 
         private void ApplySourceNames()
@@ -683,7 +683,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private static bool HasModSettings(ModRowViewModel row)
         {
-            return row != null && ModSettingsSchemaReader.Read(row.Mod.ContentRoot ?? row.Mod.Folder) != null;
+            if (row == null) return false;
+            ModSettingsSchema schema = ModSettingsSchemaReader.Read(row.Mod.ContentRoot ?? row.Mod.Folder);
+            return schema != null && schema.VisibleFields(row.Mod).Any(f => !string.IsNullOrWhiteSpace(f.Key));
         }
 
         public async Task OpenModSettingsAsync()
@@ -691,12 +693,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (selectedRow == null) return;
             ModInfo mod = selectedRow.Mod;
             ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
-            if (schema == null) { await Dialogs.ShowMessageAsync(T("NoConfigurableSettings"), "DW2 Mod Launcher"); return; }
+            if (schema == null || !schema.VisibleFields(mod).Any()) { await Dialogs.ShowMessageAsync(T("NoConfigurableSettings"), "DW2 Mod Launcher"); return; }
             try
             {
                 JsonObject values = ModSettingsStore.GetOrCreateValues(mod, schema);
                 ModSettingsEditorViewModel editor = new ModSettingsEditorViewModel(
-                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, values, L, Dialogs);
+                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs);
                 if (!await Dialogs.EditModSettingsAsync(editor)) return;
                 ModSettingsStore.SaveValues(mod, editor.Apply());
                 SetStatus(T("ModSettingsSaved"));
@@ -915,7 +917,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 int updates = WorkshopUpdateService.Apply(result, workshopMods);
                 settings.LastWorkshopUpdateCheckUtc = DateTime.UtcNow.ToString("o");
                 SaveSettings();
-                ConflictAnalyzer.AnalyzeDuplicates(AllMods);
                 RefreshRowStates();
                 if (!string.IsNullOrWhiteSpace(result.Error)) SetStatus(T("WorkshopCheckSteamFailed") + result.Error);
                 else if (updates > 0)
@@ -960,9 +961,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string conflictText = collisions.Count == 0 ? T("NoConflictsStatus") : T("ConflictFiles") + collisions.Count;
             string updateText = updates == 0 ? T("NoUpdatesUnchecked") : T("Updates") + updates;
             if (modOrder.ReadFailed) updateText = T("ModsJsonERROR");
-            int duplicates = AllMods.Count(m => m.DuplicateCount > 0);
-            string duplicateText = duplicates == 0 ? T("NoDuplicateInstallations") : T("DuplicateInstallations") + duplicates;
-            SetStatus(string.Format(T("DW2ModsWorkshopEnabled"), managedMods.Count, workshopMods.Count, selected, conflictText, duplicateText, updateText));
+            SetStatus(string.Format(T("DW2ModsWorkshopEnabled"), managedMods.Count, workshopMods.Count, selected, conflictText, updateText));
         }
 
         public List<ModInfo> OrderedEnabledMods()

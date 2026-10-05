@@ -5,15 +5,8 @@
         x:DataType="vm:ModSettingsEditorViewModel"
         Title="{Binding Title}" Width="980" Height="720" MinWidth="760" MinHeight="520"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-  <Grid RowDefinitions="*,Auto">
-    <ScrollViewer Grid.Row="0">
-      <StackPanel Margin="16" Spacing="4">
-        <ItemsControl ItemsSource="{Binding Fields}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:SettingFieldViewModel">
+  <Window.Resources>
+    <DataTemplate x:Key="FieldTemplate" x:DataType="vm:SettingFieldViewModel">
               <Grid ColumnDefinitions="*,230" Margin="0,0,16,6" Background="Transparent" ToolTip.Tip="{Binding Tooltip}">
                 <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Margin="0,6,10,0" Text="{Binding Label}" />
                 <Panel Grid.Column="1" VerticalAlignment="Top">
@@ -27,9 +20,25 @@
                   </Grid>
                 </Panel>
               </Grid>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
+    </DataTemplate>
+  </Window.Resources>
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Margin="16" Spacing="4">
+        <ItemsControl ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource FieldTemplate}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
         </ItemsControl>
+        <StackPanel IsVisible="{Binding HasLocalFields}" Spacing="8" Margin="0,12,0,0">
+          <Separator />
+          <TextBlock Text="{Binding L[ModSettingsLocalOnly]}" Opacity="0.7" FontStyle="Italic" />
+          <ItemsControl ItemsSource="{Binding LocalFields}" ItemTemplate="{StaticResource FieldTemplate}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </StackPanel>
       </StackPanel>
     </ScrollViewer>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">

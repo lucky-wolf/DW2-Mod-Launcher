@@ -49,13 +49,6 @@ namespace DW2ModLauncher.Core.Services
                 if (mod.ConflictFiles.Count > 8) b.AppendLine("  ... +" + (mod.ConflictFiles.Count - 8));
             }
 
-            if (mod.DuplicateCount > 0)
-            {
-                b.AppendLine();
-                b.AppendLine(t("DuplicateLocationsHeader"));
-                foreach (string location in mod.DuplicateLocations.Take(8)) b.AppendLine("  • " + location);
-            }
-
             if (mod.IsWorkshop)
             {
                 b.AppendLine();
@@ -113,8 +106,8 @@ namespace DW2ModLauncher.Core.Services
                 if (mod.ConflictMods != null && mod.ConflictMods.Count > 0)
                     lines.Add(t("ConflictsWith") + string.Join(", ", mod.ConflictMods.Take(8).ToArray()));
             }
+            if (mod.EnabledCopyCount > 0) lines.Add(t("EnabledMoreThanOnce"));
             if (mod.IdenticalFileCount > 0) lines.Add(t("SamePathAndIdenticalContent") + mod.IdenticalFileCount);
-            if (mod.DuplicateCount > 0) lines.Add(t("DuplicateInstallationsDetail") + mod.DuplicateCount + t("Locations"));
             if (mod.IsWorkshop && mod.UpdateState == "update") lines.Add(t("SteamWorkshopUpdateAvailable"));
             return lines;
         }

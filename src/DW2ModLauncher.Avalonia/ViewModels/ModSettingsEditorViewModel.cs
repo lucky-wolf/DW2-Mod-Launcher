@@ -103,31 +103,34 @@ namespace DW2ModLauncher.Avalonia.ViewModels
     {
         private readonly JsonObject values;
 
-        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, JsonObject values, LocalizedStrings l, IDialogService dialogs)
+        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, ModInfo mod, JsonObject values, LocalizedStrings l, IDialogService dialogs)
         {
             Title = title;
             L = l;
             this.values = values;
-            foreach (ModSettingsField field in schema.Fields)
+            foreach (ModSettingsField field in schema.VisibleFields(mod))
             {
                 if (string.IsNullOrWhiteSpace(field.Key)) continue;
                 SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs);
                 row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.IsInvalid)) Raise(nameof(AllValid)); };
-                Fields.Add(row);
+                (field.LocalOnly ? LocalFields : Fields).Add(row);
             }
         }
 
         /// <summary>False while any folder/filename field holds a path that does not exist (Save is disabled).</summary>
-        public bool AllValid { get { return !Fields.Any(f => f.IsInvalid); } }
+        public bool AllValid { get { return !Fields.Concat(LocalFields).Any(f => f.IsInvalid); } }
 
         public string Title { get; }
         public LocalizedStrings L { get; }
         public ObservableCollection<SettingFieldViewModel> Fields { get; } = new ObservableCollection<SettingFieldViewModel>();
+        /// <summary>Developer-only fields, shown under a separator; empty for Workshop mods.</summary>
+        public ObservableCollection<SettingFieldViewModel> LocalFields { get; } = new ObservableCollection<SettingFieldViewModel>();
+        public bool HasLocalFields { get { return LocalFields.Count > 0; } }
 
         /// <summary>Writes every edited value into the JSON object that was passed in.</summary>
         public JsonObject Apply()
         {
-            foreach (SettingFieldViewModel field in Fields) values[field.Key] = field.ToJson();
+            foreach (SettingFieldViewModel field in Fields.Concat(LocalFields)) values[field.Key] = field.ToJson();
             return values;
         }
     }
