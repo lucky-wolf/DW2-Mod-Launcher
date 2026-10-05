@@ -15,9 +15,6 @@
          last tag's patch+1 until the first tag of the new MAJOR.MINOR exists. -->
     <DW2VersionFile>$(MSBuildThisFileDirectory).version</DW2VersionFile>
     <MinVerMinimumMajorMinor Condition="Exists('$(DW2VersionFile)')">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(DW2VersionFile)')), '^\s*(\d+\.\d+)').Groups[1].Value)</MinVerMinimumMajorMinor>
-    <!-- Lets non-Windows machines restore/build/format the net10.0-windows projects (no-op on Windows).
-         Running the WinForms app still needs Windows. -->
-    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <!-- MinVer appends "-alpha.0.N" to builds past the latest tag. Drop it so every build, dev or

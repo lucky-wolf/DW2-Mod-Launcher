@@ -14,7 +14,7 @@ obj/
 # Python cache
 *.pyc
 
-# Local user config (keep the example tracked)
+# Local user config
 launcher_settings.json
 
 # OS noise

@@ -18,7 +18,7 @@ at injection time through this flag alone.
 Rather than composing every enabled mod's own `dll!entryPoint` into that one flag, the launcher
 injects a single, fixed target: its own `DW2ModLauncher.Loader.dll` (shipped in a `Loader\`
 subfolder next to the launcher's executable, never inside `GameRoot` or a Workshop folder).
-`MainForm.Launch.BuildLaunchArguments` always emits exactly:
+`MainViewModel.BuildLaunchArguments` always emits exactly:
 
 ```
 --low-level-inject "<path>\Loader\DW2ModLauncher.Loader.dll"!DW2ModLauncher.Loader.Entry.Init
@@ -26,7 +26,7 @@ subfolder next to the launcher's executable, never inside `GameRoot` or a Worksh
 
 `DW2ModLauncher.Loader.Entry.Init()` is the only thing the game ever calls directly. It then
 loads every enabled mod **itself**, via reflection, from a manifest the launcher writes right
-before launch (`MainForm.Launch.WriteLoaderManifest`, via `DW2ModLauncher.Core.Services.
+before launch (`GameLauncher.WriteLoaderManifest`, via `DW2ModLauncher.Core.Services.
 LoaderManifestBuilder`) into `manifest.json`, next to the loader DLL. This sidesteps the "only one
 `--low-level-inject` occurrence takes effect" limitation entirely - only one target is ever
 declared - and, because the loader runs in-process before invoking anything, it can pass each mod
@@ -50,7 +50,8 @@ automatically. The entry point becomes `<namespace>.Entry.Init`.
   on ordering beyond that - ship one injection DLL per mod.
 - This works identically for a local "managed" mod and a Steam Workshop mod, since the DLL is
   resolved in place.
-- **`mod.json` is DW2's own file and is not read for injection.** Don't put a `launcher` block in it.
+- **`mod.json` is DW2's own file and is not read for injection.** Don't put a `launcher` block in it; any stale one
+  is removed automatically whenever the launcher rewrites a `mod.json` (`ModJsonFile.Save`).
 
 Manual override (rare): a `dw2modlauncher.json` next to the mod's `mod.json` replaces inference for that mod
 (`LauncherMetaReader`):
@@ -90,16 +91,28 @@ its own settings (read by `DW2ModLauncher.Core.Services.ModSettingsSchemaReader`
 ```json
 {
   "fields": [
-    { "key": "Enabled", "type": "bool", "label": "Enabled", "default": true },
-    { "key": "Mode", "type": "enum", "options": ["a", "b"], "default": "a" },
-    { "key": "Volume", "type": "float", "min": 0, "max": 1, "default": 0.5 }
+    {"key": "SpeedPenaltyPercent", "type": "int", "label": "Nebula speed penalty (%)", "description": "Speed lost inside a nebula.", "min": 0, "max": 80, "default": 22},
+    {"key": "Mode", "type": "enum", "label": "Mode", "options": ["a", "b"], "default": "a"},
+    {"key": "LogSamples", "type": "bool", "label": "Log samples", "description": "Developer logging.", "default": false, "localOnly": true},
+    {"key": "OutputDirectory", "type": "folder", "label": "Output folder", "description": "Blank: the game's current working folder.", "default": "", "localOnly": true}
   ]
 }
 ```
 
-Supported `type` values: `bool`, `enum` (with `options`), `int`, `float` (both with optional
-`min`/`max`), and `string`. A mod's declared schema and `ModSettingsStore` values feed the
-launcher's settings editor (`MainForm.ModSettings.OpenModSettingsEditor`).
+Per field:
+
+| Attribute | Required | Meaning |
+| --- | --- | --- |
+| `key` | yes | The name the value is stored and handed to the mod under |
+| `type` | yes | `bool`, `enum` (needs `options`), `int`, `float`, `string`, `folder` (folder picker), or `file` (file picker; `filename` also works). Folder and file values must exist, or be blank |
+| `default` | recommended | Used until the user changes it; written into the values the mod receives |
+| `label` | no | Text shown beside the control (falls back to `key`) |
+| `description` | no | Help text under the label |
+| `min` / `max` | no | Bounds for `int` and `float` |
+| `options` | for `enum` | The allowed values |
+| `localOnly` | no | `true` hides the field for Steam Workshop copies of the mod, so developer controls (logging, output folders) show only for the author's local copy. Hidden fields still get their defaults. |
+
+A mod's declared schema and `ModSettingsStore` values feed the launcher's settings editor (`ModSettingsEditorViewModel`).
 
 The actual **values** for these fields are stored under the current user's AppData folder
 (`%AppData%\DW2ModLauncher\ModSettings\<mod token>.json`, via `DW2ModLauncher.Core.Services.

@@ -1,6 +1,6 @@
 # Mod profiles on the main page
 
-Status: planned (nothing implemented). Written 2026-10-02 after the launcher showed every mod as disabled on a
+Status: DONE and ARCHIVED. Profiles are a first-class feature (`GameProfileStore` + the profile UI); the old launcher-side `ProfileStore` was removed. Written 2026-10-02 after the launcher showed every mod as disabled on a
 machine whose game uses named profiles.
 
 ## Problem
@@ -80,7 +80,7 @@ Safety rules (these are what the incident would have needed):
 ## Migration
 - Launcher profiles already saved by `ProfileStore` (launcher data folder): on first run offer to import them as
   game profiles, then remove the Settings-tab profile section and its code (`SettingsViewModel` profile commands,
-  `ProfileStore`, WinForms equivalents go with WinForms).
+  `ProfileStore`).
 - Per-profile launch arguments (`ModProfile.ManualLaunchArguments`) have no game-side home. Decide: keep a
   launcher-side `profile name -> launch arguments` map, or drop the feature.
 - Snapshots (Settings tab) were removed (2026-10-02): profiles cover the mod order, so they were redundant.

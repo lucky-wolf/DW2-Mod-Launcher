@@ -2,7 +2,7 @@
 
 **English** | [日本語](README.ja.md)
 
-A community-oriented Mod launcher for **Distant Worlds 2**.
+A community-oriented mod launcher for **Distant Worlds 2**.
 
 Steam Workshop Mods and Mods installed in the game folder can be managed from one launcher.
 The project is developed as a hobby project, and contributions, improvements, forks, and continued development by the community are welcome.
@@ -32,20 +32,20 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
 
 ## Main Features
 
-- Scan and display Mods installed in the game Mod folder
-- Enable / disable Mods
-- Detect duplicate Mod installations
-- Check file conflicts between enabled Mods
-- Check Steam Workshop Mod update status
-- Display Mod information and descriptions
-- Detect and open included README/manual files
-- Detect included BAT/EXE tools
-- Open Mod folders directly
-- View and edit a Mod's settings through one schema-driven form from a Mod-provided `settings.schema.json`
-- Support per-Mod launch arguments, plus environment variables for the game (Windows), with a one-click import of your Steam launch options
-- Load code Mods via a bundled loader DLL, so a Mod's settings can be handed to it directly
-- Publish a local Mod to the Steam Workshop (or push an update to one already published), and save the new item's Workshop ID into its `mod.json`
-- Japanese / English UI switching
+- Japanese & English
+  - Translations for more languages are welcome!
+- Windows & Linux native support
+- Drag & drop your active mods
+  - Full control over load order
+  - Automatic conflict detection
+  - Provides a configuration UI (for mods that support it)
+- Run mods that use DLL injection automatically
+  - Allows multiple mods to include DLLs seamlessly
+- Manage any mods for DW2 of your own
+  - Create new mods
+  - Upload or update your mods to steam directly
+  - Test your mods tha use DLL injection
+  - Create a specification that users can easily configure your mod to their tastes
 
 ## Requirements
 
@@ -108,8 +108,6 @@ On first launch, configure the paths as needed:
 - Distant Worlds 2 game folder
 - Steam Workshop folder for DW2
 - Local/managed Mod folder
-
-`launcher_settings.example.json` is provided as an example configuration file.
 
 Typical Steam Workshop path:
 

@@ -77,45 +77,5 @@ namespace DW2ModLauncher.Tests
             PathDetector.Detect(s, false);
             Assert.Equal(Path.Combine(dir, "mods"), s.ManagedModsRoot);
         }
-
-        private static ModInfo Mod(string token, string version)
-        {
-            return new ModInfo { Id = token, DisplayName = token, Version = version, ActiveToken = token };
-        }
-
-        [Fact]
-        public void ProfileStore_SaveLoadListDelete()
-        {
-            ProfileStore store = new ProfileStore(Path.Combine(dir, "Profiles"));
-            Assert.Empty(store.ListNames());
-            Assert.Null(store.Load("x"));
-
-            ModProfile p = ProfileStore.Capture("My/Profile", new List<string> { "a", "b" }, "--x", new List<ModInfo> { Mod("a", "1.0") });
-            store.Save(p);
-
-            Assert.Equal(new[] { "My_Profile" }, store.ListNames());
-            Assert.True(store.Exists("My/Profile"));
-            ModProfile loaded = store.Load("My/Profile");
-            Assert.Equal(new[] { "a", "b" }, loaded.Order);
-            Assert.Equal("--x", loaded.ManualLaunchArguments);
-            Assert.Equal("1.0", loaded.Versions["a"]);
-
-            store.Delete("My/Profile");
-            Assert.Empty(store.ListNames());
-            store.Delete("My/Profile");
-        }
-
-        [Fact]
-        public void CompareVersions_FlagsMissingAndChangedOnly()
-        {
-            ModProfile p = ProfileStore.Capture("p", null, "", new List<ModInfo> { Mod("same", "1"), Mod("changed", "1"), Mod("gone", "1") });
-            List<ModInfo> installed = new List<ModInfo> { Mod("same", "1"), Mod("changed", "2") };
-
-            List<ProfileVersionChange> changes = ProfileStore.CompareVersions(p, installed);
-
-            Assert.Equal(2, changes.Count);
-            Assert.Contains(changes, c => c.Token == "changed" && c.Installed != null && c.SavedVersion == "1");
-            Assert.Contains(changes, c => c.Token == "gone" && c.Installed == null);
-        }
     }
 }

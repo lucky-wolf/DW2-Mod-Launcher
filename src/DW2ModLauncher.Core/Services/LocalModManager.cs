@@ -67,7 +67,7 @@ namespace DW2ModLauncher.Core.Services
                 ["description"] = "",
                 ["version"] = DefaultVersion
             };
-            File.WriteAllText(Path.Combine(folder, "mod.json"), modJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            ModJsonFile.Save(Path.Combine(folder, "mod.json"), modJson);
             return folder;
         }
 

@@ -10,5 +10,7 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` empties the list when it creates a new branch.
 
 ---
-- Publish dialog proposes the next patch version on updates, writes it on accept, and rolls it back if the publish does not happen.
-- After publishing, warn if Steam did not apply the chosen visibility.
+- New About button (info icon) beside Settings in the header: shows the version and a link to the GitHub releases page.
+- Removed the unused launcher_settings.example.json (the app manages that file itself).
+- Documented every settings.schema.json field attribute and type in docs/DLL Injection.md.
+- The launcher now strips the obsolete "launcher" block from a mod.json whenever it writes one.

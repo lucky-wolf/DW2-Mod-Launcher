@@ -27,6 +27,8 @@ namespace DW2ModLauncher.Avalonia.Services
         Task<string> PickFileAsync(string title, string startFolder, string filterName, params string[] patterns);
         /// <summary>Shows the launcher settings in a modal window; completes when it is closed. Pickers and messages opened from it sit on top of it.</summary>
         Task ShowSettingsAsync(SettingsViewModel settings);
+        /// <summary>Shows the About box (version and a link to the releases page); completes when it is closed.</summary>
+        Task ShowAboutAsync(MainViewModel main);
         /// <summary>True if the user saved.</summary>
         Task<bool> EditModSettingsAsync(ModSettingsEditorViewModel editor);
         /// <summary>

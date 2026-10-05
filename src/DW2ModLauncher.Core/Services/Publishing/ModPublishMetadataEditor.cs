@@ -13,7 +13,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
     /// Reads/writes just the mod.json fields Steam Workshop publish itself cares about
     /// (displayName, shortDescription, descriptionFile, description, previewImage, version, bundles - see
     /// docs/workshop-publish.md), preserving every other field already in the file (workshopId,
-    /// launcher.*, a Mod's own custom fields such as GalCivMusic's "disableDefaultMusic", etc.)
+    /// a Mod's own custom fields such as GalCivMusic's "disableDefaultMusic", etc.)
     /// exactly like ModJsonWorkshopIdWriter does for just the one field it owns.
     /// </summary>
     public static class ModPublishMetadataEditor
@@ -51,7 +51,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
             JsonObject root = JsonNode.Parse(File.ReadAllText(modJsonPath, Encoding.UTF8)) as JsonObject;
             if (root == null) throw new InvalidDataException("mod.json is not a JSON object.");
             SetString(root, "version", version);
-            File.WriteAllText(modJsonPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            ModJsonFile.Save(modJsonPath, root);
         }
 
         public static void Write(string modJsonPath, ModPublishMetadata metadata)
@@ -77,7 +77,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 if (!string.IsNullOrWhiteSpace(bundle)) bundles.Add(JsonValue.Create(bundle.Trim()));
             SetNode(root, "bundles", bundles);
 
-            File.WriteAllText(modJsonPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            ModJsonFile.Save(modJsonPath, root);
         }
 
         private static string GetString(JsonObject root, string key)

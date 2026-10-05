@@ -34,6 +34,11 @@ namespace DW2ModLauncher.Avalonia.Services
             finally { settingsDialog = null; }
         }
 
+        public Task ShowAboutAsync(MainViewModel main)
+        {
+            return new AboutDialog(main).ShowDialog(owner());
+        }
+
         public string OkText { get; set; } = "OK";
 
         public string CopyText { get; set; } = "Copy to clipboard";

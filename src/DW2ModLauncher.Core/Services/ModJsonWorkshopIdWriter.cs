@@ -21,7 +21,7 @@ namespace DW2ModLauncher.Core.Services
             JsonObject root = JsonNode.Parse(File.ReadAllText(modJsonPath, Encoding.UTF8)) as JsonObject;
             if (root == null) throw new InvalidDataException("mod.json is not a JSON object.");
             root["workshopId"] = workshopId;
-            File.WriteAllText(modJsonPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            ModJsonFile.Save(modJsonPath, root);
         }
 
         /// <summary>Removes "workshopId" (the Workshop item was deleted on Steam) so the Mod publishes as a new item.</summary>
@@ -29,7 +29,7 @@ namespace DW2ModLauncher.Core.Services
         {
             JsonObject root = JsonNode.Parse(File.ReadAllText(modJsonPath, Encoding.UTF8)) as JsonObject;
             if (root == null || !root.Remove("workshopId")) return;
-            File.WriteAllText(modJsonPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            ModJsonFile.Save(modJsonPath, root);
         }
     }
 }

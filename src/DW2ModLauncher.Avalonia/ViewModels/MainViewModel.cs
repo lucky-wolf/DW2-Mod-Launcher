@@ -30,7 +30,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
     {
         private readonly string appRoot;
         private readonly LauncherSettingsStore settingsStore;
-        private readonly ProfileStore profileStore;
 
         private LauncherSettings settings;
         private ModOrderState modOrder = new ModOrderState();
@@ -59,7 +58,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Dialogs = dialogs;
             this.appRoot = appRoot;
             settingsStore = new LauncherSettingsStore(Path.Combine(appRoot, "launcher_settings.json"));
-            profileStore = new ProfileStore(Path.Combine(appRoot, "Profiles"));
             settings = settingsStore.Load();
             NormalizeSettings();
             sortColumn = settings.SortColumn >= 0 && settings.SortColumn <= 4 ? settings.SortColumn : -1;
@@ -77,6 +75,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
             Settings = new SettingsViewModel(this);
             OpenSettingsCommand = new RelayCommand(() => Dialogs.ShowSettingsAsync(Settings));
+            OpenAboutCommand = new RelayCommand(() => Dialogs.ShowAboutAsync(this));
             RefreshCommand = new RelayCommand(() => { Refresh(); var _ = VerifyPublishedIdsAsync(); });
             ClearCommand = new RelayCommand(ClearAsync);
             EnableAllCommand = new RelayCommand(EnableAllAsync);
@@ -109,6 +108,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public ObservableCollection<ModRowViewModel> Mods { get; } = new ObservableCollection<ModRowViewModel>();
 
         public RelayCommand OpenSettingsCommand { get; }
+        public RelayCommand OpenAboutCommand { get; }
         public RelayCommand RefreshCommand { get; }
         public RelayCommand ClearCommand { get; }
         public RelayCommand EnableAllCommand { get; }
@@ -228,7 +228,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public LauncherSettings LauncherSettings { get { return settings; } }
         public LauncherSettingsStore SettingsStore { get { return settingsStore; } }
-        public ProfileStore Profiles { get { return profileStore; } }
         /// <summary>DW2's own named profiles, next to mods.json.</summary>
         public GameProfileStore GameProfiles { get { return new GameProfileStore(Path.GetDirectoryName(ModsJsonPath() ?? "")); } }
         public ModOrderState ModOrder { get { return modOrder; } }
