@@ -48,13 +48,26 @@
             <!-- "information-outline" icon, Material Design Icons, Apache-2.0 -->
             <PathIcon Width="22" Height="22" Data="M11 9h2V7h-2m1 13c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8m0-18A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2m-1 15h2v-6h-2v6z" />
           </Button>
-          <Button Classes="play" Classes.stop="{Binding IsGameRunning}" Command="{Binding PlayCommand}" ToolTip.Tip="{Binding PlayTooltip}" Width="260" Height="46" Margin="0,-4,0,0" HorizontalContentAlignment="Center">
-            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-              <Arc Classes="spinner" IsVisible="{Binding IsLaunching}" Width="18" Height="18" StartAngle="0" SweepAngle="270" Stroke="{StaticResource Dw2Gold}" StrokeThickness="3" VerticalAlignment="Center" />
-              <PathIcon IsVisible="{Binding IsGameIdle}" Width="16" Height="16" Data="M8 5v14l11-7z" VerticalAlignment="Center" />
-              <TextBlock Text="{Binding PlayLabel}" VerticalAlignment="Center" />
-            </StackPanel>
-          </Button>
+          <!-- Modal split button: the main part runs the remembered mode; the arrow picks another mode (shown as the label until changed). -->
+          <StackPanel Orientation="Horizontal" Spacing="1" Margin="0,-4,0,0">
+            <Button Classes="play" Classes.stop="{Binding IsGameRunning}" Command="{Binding PlayCommand}" ToolTip.Tip="{Binding PlayTooltip}" Width="220" Height="46" HorizontalContentAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                <Arc Classes="spinner" IsVisible="{Binding IsLaunching}" Width="18" Height="18" StartAngle="0" SweepAngle="270" Stroke="{StaticResource Dw2Gold}" StrokeThickness="3" VerticalAlignment="Center" />
+                <PathIcon IsVisible="{Binding IsGameIdle}" Width="16" Height="16" Data="M8 5v14l11-7z" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding PlayLabel}" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+            <Button Classes="play" Width="40" Height="46" IsVisible="{Binding IsGameIdle}" ToolTip.Tip="{Binding L[PlayModeTooltip]}">
+              <PathIcon Width="14" Height="14" Data="M7 10l5 5 5-5z" />
+              <Button.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedRight">
+                  <MenuItem Header="{Binding L[PlayModeRun]}" Command="{Binding SetLaunchModeCommand}" CommandParameter="Run" />
+                  <MenuItem Header="{Binding L[PlayModeContinue]}" Command="{Binding SetLaunchModeCommand}" CommandParameter="Continue" />
+                  <MenuItem Header="{Binding L[PlayModeNewGame]}" Command="{Binding SetLaunchModeCommand}" CommandParameter="NewGame" />
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
+          </StackPanel>
         </StackPanel>
         </StackPanel>
       </Grid>
