@@ -32,13 +32,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             MaxValue = (decimal)(field.Max ?? 1000000);
             // Remember what the schema's default looks like once it has passed through the same conversions as an edited value,
             // so "at default" compares like with like.
-            defaultNode = ModSettingsStore.ToJsonNode(field.Default);
-            if (defaultNode != null)
-            {
-                Load(defaultNode);
-                defaultJson = ToJson().ToJsonString();
-            }
-            Load(current);
+            // A field with no schema default falls back to its zero value (false, 0 clamped to Min/Max, first option, blank text),
+            // which is what loading null gives, so every field can be reset.
+            Load(ModSettingsStore.ToJsonNode(field.Default));
+            defaultNode = ToJson();
+            defaultJson = defaultNode.ToJsonString();
+            // A key missing from the saved values (e.g. a field added to the schema since) starts at the default.
+            Load(current ?? defaultNode);
             BrowseCommand = new RelayCommand(BrowseAsync);
             ResetCommand = new RelayCommand(Reset);
         }
@@ -96,23 +96,23 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
 
-        /// <summary>The schema gives this field a default, so it gets a reset button.</summary>
-        public bool HasDefault { get { return defaultNode != null; } }
+        /// <summary>Every field has a reset button: its schema default, or the zero value when the schema gives none.</summary>
+        public bool HasDefault { get { return true; } }
         /// <summary>The reset button is only live while the value differs from the default.</summary>
-        public bool CanReset { get { return HasDefault && ToJson().ToJsonString() != defaultJson; } }
+        public bool CanReset { get { return ToJson().ToJsonString() != defaultJson; } }
         public string ResetTooltip
         {
             get
             {
-                string shown = defaultNode == null ? "" : defaultNode.ToString();
+                string shown = defaultNode.ToString();
                 if (defaultNode is JsonValue v && v.TryGetValue(out bool b)) shown = b ? "true" : "false";
                 return l.Format("ModSettingsResetToDefault", shown.Length == 0 ? l["ModSettingsBlankValue"] : shown);
             }
         }
 
-        private void Reset()
+        /// <summary>Puts the field back to its default; used by the row button and the group button.</summary>
+        public void Reset()
         {
-            if (defaultNode == null) return;
             Load(defaultNode);
             Raise(nameof(BoolValue));
             Raise(nameof(TextValue));
@@ -151,18 +151,31 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly List<SettingFieldViewModel> allFields;
         private bool isExpanded = true;
 
-        public SettingGroupViewModel(string heading, bool hasHeading, List<SettingFieldViewModel> fields)
+        public SettingGroupViewModel(string heading, bool hasHeading, List<SettingFieldViewModel> fields, LocalizedStrings l = null)
         {
             Heading = heading;
             HasHeading = hasHeading;
             allFields = fields;
+            ResetTooltip = l?["ModSettingsResetGroup"];
             ToggleCommand = new RelayCommand(() => IsExpanded = !IsExpanded);
+            ResetGroupCommand = new RelayCommand(ResetAll);
+            foreach (SettingFieldViewModel f in fields)
+                f.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.CanReset)) Raise(nameof(CanReset)); };
             Refresh(false);
         }
 
         public string Heading { get; }
         public bool HasHeading { get; }
         public RelayCommand ToggleCommand { get; }
+        public RelayCommand ResetGroupCommand { get; }
+        public string ResetTooltip { get; }
+        /// <summary>The group's reset button is live while any of its fields differs from its default.</summary>
+        public bool CanReset { get { return allFields.Any(f => f.CanReset); } }
+
+        private void ResetAll()
+        {
+            foreach (SettingFieldViewModel f in allFields) f.Reset();
+        }
 
         /// <summary>Whether the group's fields are shown. Only a group with a heading can be collapsed (there is nothing to click otherwise).</summary>
         public bool IsExpanded
@@ -207,7 +220,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     rows.Add(row);
                 }
                 if (rows.Count == 0) continue;
-                SettingGroupViewModel g = new SettingGroupViewModel(group.Name, group.HasHeading, rows);
+                SettingGroupViewModel g = new SettingGroupViewModel(group.Name, group.HasHeading, rows, l);
                 if (g.HasHeading && collapsed.Contains(g.Heading ?? "")) g.IsExpanded = false;
                 Groups.Add(g);
             }
