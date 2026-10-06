@@ -64,6 +64,7 @@
   "Location": "Location: ",
   "ModSettingsResetToDefault": "Reset to default ({0})",
   "ModSettingsBlankValue": "(blank)",
+  "ModSettingsResetGroup": "Reset this section to defaults",
   "ModSettingsShowHidden": "Show hidden",
   "Save": "Save",
   "ConflictWarningIntro": "Selected mods contain files with the same relative path.",

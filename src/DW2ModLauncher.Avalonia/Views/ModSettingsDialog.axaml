@@ -28,7 +28,7 @@
     </DataTemplate>
     <DataTemplate x:Key="GroupTemplate" x:DataType="vm:SettingGroupViewModel">
       <StackPanel Spacing="6" Margin="0,0,0,14">
-        <Grid IsVisible="{Binding HasHeading}" ColumnDefinitions="Auto,12,*">
+        <Grid IsVisible="{Binding HasHeading}" ColumnDefinitions="Auto,12,*,12,Auto">
           <Button Grid.Column="0" Command="{Binding ToggleCommand}" Background="Transparent" BorderThickness="0" Padding="0,2" Cursor="Hand">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Classes="eyebrow" VerticalAlignment="Center" Width="12" Text="{Binding Chevron}" />
@@ -36,6 +36,11 @@
             </StackPanel>
           </Button>
           <Separator Grid.Column="2" VerticalAlignment="Center" />
+          <!-- Reset the whole group to schema defaults; live while any field in it differs. Same "undo" icon as the per-field button. -->
+          <Button Grid.Column="4" VerticalAlignment="Center" Padding="4,2" Width="22" Height="20" MinHeight="0" MinWidth="0"
+                  IsEnabled="{Binding CanReset}" Command="{Binding ResetGroupCommand}" ToolTip.Tip="{Binding ResetTooltip}">
+            <PathIcon Width="10.5" Height="10.5" Data="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
+          </Button>
         </Grid>
         <ItemsControl IsVisible="{Binding IsExpanded}" ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource FieldTemplate}">
           <ItemsControl.ItemsPanel>
