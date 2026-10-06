@@ -93,9 +93,22 @@ its own settings (read by `DW2ModLauncher.Core.Services.ModSettingsSchemaReader`
   "fields": [
     {"key": "SpeedPenaltyPercent", "type": "int", "label": "Nebula speed penalty (%)", "description": "Speed lost inside a nebula.", "min": 0, "max": 80, "default": 22},
     {"key": "Mode", "type": "enum", "label": "Mode", "options": ["a", "b"], "default": "a"},
-    {"key": "LogSamples", "type": "bool", "label": "Log samples", "description": "Developer logging.", "default": false, "localOnly": true},
-    {"key": "OutputDirectory", "type": "folder", "label": "Output folder", "description": "Blank: the game's current working folder.", "default": "", "localOnly": true}
+    {"key": "LogSamples", "type": "bool", "label": "Log samples", "description": "Developer logging.", "default": false, "hidden": true},
+    {"key": "OutputDirectory", "type": "folder", "label": "Output folder", "description": "Blank: the game's current working folder.", "default": "", "hidden": true}
   ]
+}
+```
+
+Every root key whose value is an array of fields is a **group**, shown in the editor as its own block (the key is the
+heading, and each group has its own two-column grid, so groups never share a row). Groups appear in file order. `fields`
+is just the conventional name for the first group and is shown without a heading; other root keys such as `$schema` are
+ignored, and a field `key` that already appeared in an earlier group is skipped:
+
+```json
+{
+  "fields": [ {"key": "Enabled", "type": "bool", "default": true} ],
+  "Speed penalties": [ {"key": "NebulaPercent", "type": "int", "min": 0, "max": 80, "default": 22} ],
+  "Developer": [ {"key": "LogSamples", "type": "bool", "default": false, "hidden": true} ]
 }
 ```
 
@@ -110,7 +123,7 @@ Per field:
 | `description` | no | Help text under the label |
 | `min` / `max` | no | Bounds for `int` and `float` |
 | `options` | for `enum` | The allowed values |
-| `localOnly` | no | `true` hides the field for Steam Workshop copies of the mod, so developer controls (logging, output folders) show only for the author's local copy. Hidden fields still get their defaults. |
+| `hidden` | no | `true` hides the field for Steam Workshop copies of the mod, so developer controls (logging, output folders) show only for the author's local copy, in place within their group. Hidden fields still get their defaults. `localOnly` is the older name and still works |
 
 A mod's declared schema and `ModSettingsStore` values feed the launcher's settings editor (`ModSettingsEditorViewModel`).
 

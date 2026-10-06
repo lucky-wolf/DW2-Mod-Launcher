@@ -21,10 +21,17 @@ namespace DW2ModLauncher.Tests
             ModInfo mod = MakeMod("test/store-defaults-" + Guid.NewGuid().ToString("N"));
             ModSettingsSchema schema = new ModSettingsSchema
             {
-                Fields = new List<ModSettingsField>
+                Groups = new List<ModSettingsGroup>
                 {
-                    new ModSettingsField { Key = "Enabled", Type = "bool", Default = true },
-                    new ModSettingsField { Key = "Volume", Type = "float", Default = 0.5 },
+                    new ModSettingsGroup
+                    {
+                        Name = "fields",
+                        Fields = new List<ModSettingsField>
+                        {
+                            new ModSettingsField { Key = "Enabled", Type = "bool", Default = true },
+                            new ModSettingsField { Key = "Volume", Type = "float", Default = 0.5 },
+                        }
+                    }
                 }
             };
             string path = ModSettingsStore.GetSettingsPath(mod);

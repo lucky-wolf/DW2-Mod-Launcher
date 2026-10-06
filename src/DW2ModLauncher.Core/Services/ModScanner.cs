@@ -141,7 +141,8 @@ namespace DW2ModLauncher.Core.Services
             }
             if (workshop) m.ActiveToken = "steam/" + m.Id;
             if (string.IsNullOrEmpty(m.PreviewImage)) m.PreviewImage = FindFallbackImage(m.ContentRoot);
-            m.DescriptionOverride = ReadDescriptionFile(m.ContentRoot, descriptionFile);
+            // The file mod.json names in "descriptionFile" is the long description; without one, description.bbcode in the mod root is by convention.
+            m.DescriptionOverride = ReadDescriptionFile(m.ContentRoot, descriptionFile) ?? ReadDescriptionFile(m.ContentRoot, "description.bbcode") ?? ReadDescriptionFile(m.ContentRoot, "description.txt");
             m.IncludedTools = FindIncludedTools(m.ContentRoot);
             m.IncludedDocuments = FindIncludedDocuments(m.ContentRoot);
             return m;

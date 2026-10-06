@@ -26,6 +26,10 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Main window's client size in device-independent pixels when it last closed.</summary>
         public double? WindowWidth { get; set; }
         public double? WindowHeight { get; set; }
+        /// <summary>The mod settings editor's "Show hidden" checkbox, restored the next time it opens.</summary>
+        public bool ShowHiddenSettings { get; set; }
+        /// <summary>Per mod (id, else folder name): headings of the settings editor groups the user collapsed.</summary>
+        public Dictionary<string, List<string>> CollapsedSettingGroups { get; set; } = new Dictionary<string, List<string>>();
 
         public LauncherSettings()
         {

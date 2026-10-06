@@ -7,7 +7,7 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Window.Resources>
     <DataTemplate x:Key="FieldTemplate" x:DataType="vm:SettingFieldViewModel">
-              <Grid ColumnDefinitions="*,230" Margin="0,0,16,6" Background="Transparent" ToolTip.Tip="{Binding Tooltip}">
+              <Grid ColumnDefinitions="*,230,Auto" Margin="0,0,16,6" Background="Transparent" ToolTip.Tip="{Binding Tooltip}">
                 <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Margin="0,6,10,0" Text="{Binding Label}" />
                 <Panel Grid.Column="1" VerticalAlignment="Top">
                   <CheckBox IsVisible="{Binding IsBool}" IsChecked="{Binding BoolValue}" />
@@ -19,33 +19,47 @@
                     <Button Grid.Column="1" Content="&#8230;" Command="{Binding BrowseCommand}" IsVisible="{Binding IsPath}" Margin="6,0,0,0" MinWidth="40" />
                   </Grid>
                 </Panel>
+                <!-- Reset to default: shown for fields with a schema default, enabled once the value differs. "undo" icon, Material Design Icons, Apache-2.0 -->
+                <Button Grid.Column="2" VerticalAlignment="Top" Margin="6,0,0,0" Padding="6,5" Width="30" Height="30" IsVisible="{Binding HasDefault}"
+                        IsEnabled="{Binding CanReset}" Command="{Binding ResetCommand}" ToolTip.Tip="{Binding ResetTooltip}">
+                  <PathIcon Width="14" Height="14" Data="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
+                </Button>
               </Grid>
+    </DataTemplate>
+    <DataTemplate x:Key="GroupTemplate" x:DataType="vm:SettingGroupViewModel">
+      <StackPanel Spacing="6" Margin="0,0,0,14">
+        <Grid IsVisible="{Binding HasHeading}" ColumnDefinitions="Auto,12,*">
+          <Button Grid.Column="0" Command="{Binding ToggleCommand}" Background="Transparent" BorderThickness="0" Padding="0,2" Cursor="Hand">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="eyebrow" VerticalAlignment="Center" Width="12" Text="{Binding Chevron}" />
+              <TextBlock Classes="eyebrow" VerticalAlignment="Center" Text="{Binding Heading}" />
+            </StackPanel>
+          </Button>
+          <Separator Grid.Column="2" VerticalAlignment="Center" />
+        </Grid>
+        <ItemsControl IsVisible="{Binding IsExpanded}" ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource FieldTemplate}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </StackPanel>
     </DataTemplate>
   </Window.Resources>
   <Grid RowDefinitions="*,Auto">
     <ScrollViewer Grid.Row="0">
       <StackPanel Margin="16" Spacing="4">
-        <ItemsControl ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource FieldTemplate}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-        </ItemsControl>
-        <StackPanel IsVisible="{Binding HasLocalFields}" Spacing="8" Margin="0,12,0,0">
-          <Separator />
-          <TextBlock Text="{Binding L[ModSettingsLocalOnly]}" Opacity="0.7" FontStyle="Italic" />
-          <ItemsControl ItemsSource="{Binding LocalFields}" ItemTemplate="{StaticResource FieldTemplate}">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-          </ItemsControl>
-        </StackPanel>
+        <ItemsControl ItemsSource="{Binding VisibleGroups}" ItemTemplate="{StaticResource GroupTemplate}" />
       </StackPanel>
     </ScrollViewer>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+      <Grid ColumnDefinitions="*,Auto">
+        <CheckBox Grid.Column="0" IsVisible="{Binding CanShowHidden}" IsChecked="{Binding ShowHidden}" Content="{Binding L[ModSettingsShowHidden]}"
+                  FontSize="11" Opacity="0.75" VerticalAlignment="Center" HorizontalAlignment="Left" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
         <Button Name="SaveButton" IsEnabled="{Binding AllValid}" Content="{Binding L[Save]}" MinWidth="125" />
         <Button Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />
-      </StackPanel>
+        </StackPanel>
+      </Grid>
     </Border>
   </Grid>
 </Window>

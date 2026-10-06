@@ -87,21 +87,23 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
-        public void DescriptionFile_OverridesShortDescription_OnlyWhenNamedInModJson()
+        public void DescriptionTxt_OverridesShortDescription_ByConvention()
         {
             string modDir = Path.Combine(dir, "desc");
             Directory.CreateDirectory(modDir);
             string modJson = Path.Combine(modDir, "mod.json");
             File.WriteAllText(modJson, "{\"displayName\":\"M\",\"shortDescription\":\"short\"}");
-            File.WriteAllText(Path.Combine(modDir, "description.txt"), "  the long text" + Environment.NewLine + "over lines  ");
+            File.WriteAllText(Path.Combine(modDir, "description.bbcode"), "  the long text" + Environment.NewLine + "over lines  ");
 
-            // Not named in mod.json: a stray description.txt is not used.
-            Assert.Contains("short", ModDetails.BuildText(ModScanner.ReadModInfo(modDir, modJson, false, T), true, T));
-
-            File.WriteAllText(modJson, "{\"displayName\":\"M\",\"shortDescription\":\"short\",\"descriptionFile\":\"description.txt\"}");
+            // description.bbcode in the mod root is used by convention (no mod.json key needed).
             string text = ModDetails.BuildText(ModScanner.ReadModInfo(modDir, modJson, false, T), true, T);
             Assert.Contains("the long text", text);
             Assert.DoesNotContain("short", text);
+
+            // A mod that names its own description file keeps using it.
+            File.Move(Path.Combine(modDir, "description.bbcode"), Path.Combine(modDir, "legacy.txt"));
+            File.WriteAllText(modJson, "{\"displayName\":\"M\",\"shortDescription\":\"short\",\"descriptionFile\":\"legacy.txt\"}");
+            Assert.Contains("the long text", ModDetails.BuildText(ModScanner.ReadModInfo(modDir, modJson, false, T), true, T));
 
             // Missing, blank, or outside-the-folder files fall back to the short description.
             File.WriteAllText(modJson, "{\"shortDescription\":\"short\",\"descriptionFile\":\"nope.txt\"}");

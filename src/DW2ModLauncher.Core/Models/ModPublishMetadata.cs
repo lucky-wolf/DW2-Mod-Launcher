@@ -11,9 +11,9 @@ namespace DW2ModLauncher.Core.Models
         public string DisplayName { get; set; }
         /// <summary>mod.json "shortDescription": the one-liner the launcher shows.</summary>
         public string ShortDescription { get; set; }
-        /// <summary>mod.json "descriptionFile": a text file inside the mod folder holding the long description.</summary>
+        /// <summary>mod.json "descriptionFile": the mod's own name for its long-description file; blank means description.bbcode (see ModDescriptionFile).</summary>
         public string DescriptionFile { get; set; }
-        /// <summary>mod.json "description": the text pushed to the Steam page.</summary>
+        /// <summary>Legacy mod.json "description". Read only to seed description.bbcode; never written (see ModDescriptionFile).</summary>
         public string Description { get; set; }
         public string PreviewImage { get; set; }
         public string Version { get; set; }

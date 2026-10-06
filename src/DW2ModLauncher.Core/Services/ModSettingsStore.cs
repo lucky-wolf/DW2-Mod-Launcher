@@ -61,7 +61,7 @@ namespace DW2ModLauncher.Core.Services
         // constructing a schema directly (e.g. unit tests) may set plain CLR primitives instead.
         // JsonValue.Create(object) can't serialize either shape via its generic/reflection path
         // without a source-generated resolver, so both are normalized explicitly here.
-        private static JsonNode ToJsonNode(object value)
+        public static JsonNode ToJsonNode(object value)
         {
             if (value == null) return null;
             if (value is JsonElement element) return JsonNode.Parse(element.GetRawText());
