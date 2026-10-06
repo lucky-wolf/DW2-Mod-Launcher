@@ -80,6 +80,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ClearCommand = new RelayCommand(ClearAsync);
             EnableAllCommand = new RelayCommand(EnableAllAsync);
             PlayCommand = new RelayCommand(PlayOrStopAsync, () => gameState != GameState.Launching);
+            SetLaunchModeCommand = RelayCommand.WithParameter(mode => LaunchMode = (LaunchMode)Enum.Parse(typeof(LaunchMode), (string)mode));
             gameWatchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             gameWatchTimer.Tick += delegate { var _ = WatchGameAsync(); };
             gameWatchTimer.Start();
@@ -132,12 +133,37 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool IsGameIdle { get { return gameState == GameState.Idle; } }
         public string PlayTooltip
         {
-            get { return T(gameState == GameState.Launching ? "LaunchingButton" : gameState == GameState.Running ? "StopTooltip" : "PlayTooltip"); }
+            get
+            {
+                if (gameState == GameState.Idle && LaunchMode == LaunchMode.Continue)
+                {
+                    string save = SaveGames.LatestName(settings.GameRoot);
+                    return save == null ? T("PlayContinueNoSave") : T("PlayContinueTooltip", save);
+                }
+                return T(gameState == GameState.Launching ? "LaunchingButton" : gameState == GameState.Running ? "StopTooltip" : LaunchMode == LaunchMode.NewGame ? "PlayNewGameTooltip" : "PlayTooltip");
+            }
         }
         public string PlayLabel
         {
-            get { return T(gameState == GameState.Launching ? "LaunchingButton" : gameState == GameState.Running ? "StopButton" : "PlayButton"); }
+            get { return T(gameState == GameState.Launching ? "LaunchingButton" : gameState == GameState.Running ? "StopButton" : LaunchMode == LaunchMode.Continue ? "PlayContinueButton" : LaunchMode == LaunchMode.NewGame ? "PlayNewGameButton" : "PlayButton"); }
         }
+
+        /// <summary>The Play button's remembered mode; picking one from the drop-down changes what the button does until another is picked.</summary>
+        public LaunchMode LaunchMode
+        {
+            get { return Enum.IsDefined(settings.LaunchMode) ? settings.LaunchMode : LaunchMode.Run; }
+            set
+            {
+                if (settings.LaunchMode == value) return;
+                settings.LaunchMode = value;
+                SaveSettings();
+                Raise(nameof(LaunchMode));
+                Raise(nameof(PlayLabel));
+                Raise(nameof(PlayTooltip));
+                Settings.UpdateCommandPreview();
+            }
+        }
+        public RelayCommand SetLaunchModeCommand { get; }
 
         private void SetGameState(GameState state)
         {
@@ -1033,7 +1059,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             try
             {
                 GameLauncher.WriteLoaderManifest(OrderedEnabledMods());
-                Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(settings.GlobalLaunchArguments), settings.LaunchEnvironment));
+                Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(settings.GlobalLaunchArguments, LaunchMode), settings.LaunchEnvironment));
                 SetStatus(T("DistantWorlds2Launched"));
                 launchStartedUtc = DateTime.UtcNow;
                 SetGameState(GameState.Launching);

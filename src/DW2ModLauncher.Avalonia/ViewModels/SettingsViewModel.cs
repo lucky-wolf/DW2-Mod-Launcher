@@ -107,7 +107,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             get
             {
-                ProcessStartInfo psi = GameLauncher.BuildStartInfo(gameRoot, GameLauncher.BuildArguments((launchArguments ?? "").Trim()));
+                ProcessStartInfo psi = GameLauncher.BuildStartInfo(gameRoot, GameLauncher.BuildArguments((launchArguments ?? "").Trim(), main.LaunchMode));
                 return "\"" + psi.FileName + "\"" + (string.IsNullOrWhiteSpace(psi.Arguments) ? "" : " " + psi.Arguments);
             }
         }

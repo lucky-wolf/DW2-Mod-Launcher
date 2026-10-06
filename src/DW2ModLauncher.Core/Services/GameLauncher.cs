@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using DW2ModLauncher.Core.Models;
 
@@ -87,13 +88,23 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>The game command line: the loader injection flag, then the user's own arguments.</summary>
-        public static string BuildArguments(string globalLaunchArguments)
+        public static string BuildArguments(string globalLaunchArguments, LaunchMode mode = LaunchMode.Run)
         {
             string loaderDll = GamePaths.ToGameVisiblePath(LoaderDllPath());
             string token = (loaderDll.IndexOf(' ') >= 0 ? "\"" + loaderDll + "\"" : loaderDll) + "!DW2ModLauncher.Loader.Entry.Init";
             List<string> args = new List<string> { "--low-level-inject " + token };
-            if (!string.IsNullOrWhiteSpace(globalLaunchArguments)) args.Add(globalLaunchArguments);
+            string modeFlag = mode == LaunchMode.Continue ? "--continue" : mode == LaunchMode.NewGame ? "--new-game" : null;
+            // The chosen mode is the only source of --continue / --new-game; Run leaves the user's arguments untouched.
+            string userArgs = modeFlag == null ? globalLaunchArguments : StripStartupModeFlags(globalLaunchArguments);
+            if (!string.IsNullOrWhiteSpace(userArgs)) args.Add(userArgs.Trim());
+            if (modeFlag != null) args.Add(modeFlag);
             return string.Join(" ", args).Trim();
+        }
+
+        /// <summary>Removes standalone --continue / --new-game tokens (case-insensitive) from a command line.</summary>
+        public static string StripStartupModeFlags(string arguments)
+        {
+            return Regex.Replace(arguments ?? "", @"(?<!\S)--(?:continue|new-game)(?!\S)", "", RegexOptions.IgnoreCase).Trim();
         }
 
         /// <summary>The mods to load, in load order.</summary>
