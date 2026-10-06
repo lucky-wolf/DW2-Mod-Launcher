@@ -40,40 +40,35 @@
           <TextBox Text="{Binding ShortDescription}" Margin="0,4,0,0" />
         </StackPanel>
         <StackPanel Spacing="6">
-          <StackPanel Orientation="Horizontal" Spacing="28">
-            <RadioButton GroupName="DescriptionSource" IsChecked="{Binding UseDescriptionFile}" Content="{Binding L[PublishDescriptionFile]}" />
-            <RadioButton GroupName="DescriptionSource" IsChecked="{Binding UseDescriptionText}" Content="{Binding L[Description]}" />
-          </StackPanel>
-          <StackPanel Spacing="2" IsVisible="{Binding UseDescriptionFile}">
-            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishDescriptionFileHint]}" />
-            <Grid Margin="0,4,0,0" ColumnDefinitions="*,10,Auto,6,Auto">
-              <TextBox Grid.Column="0" Text="{Binding DescriptionFile}" />
-              <Button Grid.Column="2" Content="&#8230;" Command="{Binding BrowseDescriptionFileCommand}" MinWidth="60" ToolTip.Tip="{Binding L[PublishBrowseDescriptionFileTooltip]}" />
-              <Button Grid.Column="4" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
-                <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
-                <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
-              </Button>
-            </Grid>
-          </StackPanel>
-          <StackPanel Spacing="2" IsVisible="{Binding UseDescriptionText}">
-            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishDescriptionHint]}" />
-            <TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" Height="140" Margin="0,4,0,0" />
-          </StackPanel>
+          <Grid ColumnDefinitions="Auto,*,Auto,6,Auto,6,Auto">
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[Description]}" />
+            <Button Grid.Column="2" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
+              <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
+              <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
+            </Button>
+            <Button Grid.Column="6" IsVisible="{Binding HasWorkshopId}" Content="{Binding L[SteamPage]}" Command="{Binding OpenSteamPageCommand}" />
+            <Button Grid.Column="4" IsVisible="{Binding HasWorkshopId}" Command="{Binding PullSteamDescriptionCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishPullSteamDescriptionTooltip]}">
+              <!-- "cloud download" icon, Material Design Icons, Apache-2.0 -->
+              <PathIcon Width="16" Height="16" Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z" />
+            </Button>
+          </Grid>
+          <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishDescriptionHint]}" />
+          <TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" Height="160" />
+
         </StackPanel>
-        <StackPanel Spacing="6">
-          <TextBlock Text="{Binding L[PublishInfoBundles]}" />
+        <!-- Rarely used sections stay collapsed (just the title and an arrow) unless the mod actually has something in them. -->
+        <Expander Header="{Binding L[PublishInfoBundles]}" IsExpanded="{Binding HasBundles, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0">
           <TextBox Text="{Binding Bundles}" AcceptsReturn="True" Height="90" />
-        </StackPanel>
-        <StackPanel Spacing="6" ToolTip.Tip="{Binding L[PublishInjectedDllsTooltip]}">
-          <TextBlock Text="{Binding L[PublishInjectedDlls]}" />
+        </Expander>
+        <Expander Header="{Binding L[PublishInjectedDlls]}" IsExpanded="{Binding HasInjectedDlls, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0" ToolTip.Tip="{Binding L[PublishInjectedDllsTooltip]}">
           <Border Background="{StaticResource Dw2Void}" BorderBrush="{StaticResource Dw2Steel}" BorderThickness="1" Padding="10,8">
             <StackPanel Spacing="4">
               <Grid ColumnDefinitions="260,12,*">
                 <TextBlock Grid.Column="0" Classes="eyebrow" Text="{Binding L[PublishInjectedDllsColumnDll]}" />
                 <TextBlock Grid.Column="2" Classes="eyebrow" Text="{Binding L[PublishInjectedDllsColumnEntry]}" />
               </Grid>
-              <TextBlock Classes="muted" MinHeight="64" IsVisible="{Binding NoInjectedDlls}" Text="{Binding L[PublishInjectedDllsNone]}" />
-              <ScrollViewer MinHeight="64" MaxHeight="130" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasInjectedDlls}">
+              <TextBlock Classes="muted" IsVisible="{Binding NoInjectedDlls}" Text="{Binding L[PublishInjectedDllsNone]}" />
+              <ScrollViewer MaxHeight="130" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasInjectedDlls}">
                 <ItemsControl ItemsSource="{Binding InjectedDlls}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="svc:InjectionTarget">
@@ -87,11 +82,12 @@
               </ScrollViewer>
             </StackPanel>
           </Border>
-        </StackPanel>
+        </Expander>
       </StackPanel>
     </ScrollViewer>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+        <TextBlock Classes="muted" VerticalAlignment="Center" IsVisible="{Binding ShowDescriptionDiffers}" Text="{Binding L[PublishDescriptionDiffers]}" />
         <CheckBox IsChecked="{Binding ReplaceDescription}" IsVisible="{Binding ShowReplaceDescription}" Content="{Binding L[PublishReplaceDescription]}" VerticalAlignment="Center" Margin="0,0,12,0" />
         <Button Name="PublishButton" Classes="play" Content="{Binding PrimaryButtonText}" MinWidth="170" FontSize="14" ToolTip.Tip="{Binding Note}" />
         <Button Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />

@@ -15,29 +15,37 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly ModSettingsField schemaField;
 
         private readonly IDialogService dialogs;
+        private readonly LocalizedStrings l;
+        private readonly JsonNode defaultNode;
+        private readonly string defaultJson;
 
-        public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs)
+        public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs, LocalizedStrings l)
         {
             schemaField = field;
             this.dialogs = dialogs;
+            this.l = l;
             Kind = ModSettingsValues.KindOf(field);
             Label = string.IsNullOrWhiteSpace(field.Label) ? field.Key : field.Label;
             Description = field.Description ?? "";
             Options = field.Options ?? new List<string>();
             MinValue = (decimal)(field.Min ?? -1000000);
             MaxValue = (decimal)(field.Max ?? 1000000);
-            switch (Kind)
+            // Remember what the schema's default looks like once it has passed through the same conversions as an edited value,
+            // so "at default" compares like with like.
+            defaultNode = ModSettingsStore.ToJsonNode(field.Default);
+            if (defaultNode != null)
             {
-                case ModSettingKind.Bool: boolValue = ModSettingsValues.ToBool(current); break;
-                case ModSettingKind.Choice: textValue = ModSettingsValues.ToChoice(field, current); break;
-                case ModSettingKind.Integer:
-                case ModSettingKind.Number: numberValue = ModSettingsValues.ToNumber(field, current); break;
-                default: textValue = current?.ToString() ?? ""; break;
+                Load(defaultNode);
+                defaultJson = ToJson().ToJsonString();
             }
+            Load(current);
             BrowseCommand = new RelayCommand(BrowseAsync);
+            ResetCommand = new RelayCommand(Reset);
         }
 
         public string Key { get { return schemaField.Key; } }
+        /// <summary>The schema marks this a hidden (developer) field: only shown on request, and never for Workshop copies.</summary>
+        public bool IsHiddenField { get { return schemaField.Hidden; } }
         public ModSettingKind Kind { get; }
         public string Label { get; }
         public string Description { get; }
@@ -58,6 +66,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool IsTextBox { get { return IsText || IsPath; } }
         public bool IsInvalid { get { return IsPath && !ModSettingsValues.IsValidPath(Kind, textValue); } }
         public RelayCommand BrowseCommand { get; }
+        public RelayCommand ResetCommand { get; }
 
         private async System.Threading.Tasks.Task BrowseAsync()
         {
@@ -75,14 +84,51 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (picked != null) TextValue = picked;
         }
 
+        private void Load(JsonNode node)
+        {
+            switch (Kind)
+            {
+                case ModSettingKind.Bool: boolValue = ModSettingsValues.ToBool(node); break;
+                case ModSettingKind.Choice: textValue = ModSettingsValues.ToChoice(schemaField, node); break;
+                case ModSettingKind.Integer:
+                case ModSettingKind.Number: numberValue = ModSettingsValues.ToNumber(schemaField, node); break;
+                default: textValue = node?.ToString() ?? ""; break;
+            }
+        }
+
+        /// <summary>The schema gives this field a default, so it gets a reset button.</summary>
+        public bool HasDefault { get { return defaultNode != null; } }
+        /// <summary>The reset button is only live while the value differs from the default.</summary>
+        public bool CanReset { get { return HasDefault && ToJson().ToJsonString() != defaultJson; } }
+        public string ResetTooltip
+        {
+            get
+            {
+                string shown = defaultNode == null ? "" : defaultNode.ToString();
+                if (defaultNode is JsonValue v && v.TryGetValue(out bool b)) shown = b ? "true" : "false";
+                return l.Format("ModSettingsResetToDefault", shown.Length == 0 ? l["ModSettingsBlankValue"] : shown);
+            }
+        }
+
+        private void Reset()
+        {
+            if (defaultNode == null) return;
+            Load(defaultNode);
+            Raise(nameof(BoolValue));
+            Raise(nameof(TextValue));
+            Raise(nameof(NumberValue));
+            Raise(nameof(IsInvalid));
+            Raise(nameof(CanReset));
+        }
+
         private bool boolValue;
-        public bool BoolValue { get { return boolValue; } set { Set(ref boolValue, value); } }
+        public bool BoolValue { get { return boolValue; } set { if (Set(ref boolValue, value)) Raise(nameof(CanReset)); } }
 
         private string textValue = "";
-        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) Raise(nameof(IsInvalid)); } }
+        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) { Raise(nameof(IsInvalid)); Raise(nameof(CanReset)); } } }
 
         private decimal? numberValue = 0;
-        public decimal? NumberValue { get { return numberValue; } set { Set(ref numberValue, value); } }
+        public decimal? NumberValue { get { return numberValue; } set { if (Set(ref numberValue, value)) Raise(nameof(CanReset)); } }
 
         public JsonNode ToJson()
         {
@@ -99,38 +145,112 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
     }
 
+    /// <summary>One group of the settings schema: an optional heading and its fields, shown in their own grid.</summary>
+    public class SettingGroupViewModel : ViewModelBase
+    {
+        private readonly List<SettingFieldViewModel> allFields;
+        private bool isExpanded = true;
+
+        public SettingGroupViewModel(string heading, bool hasHeading, List<SettingFieldViewModel> fields)
+        {
+            Heading = heading;
+            HasHeading = hasHeading;
+            allFields = fields;
+            ToggleCommand = new RelayCommand(() => IsExpanded = !IsExpanded);
+            Refresh(false);
+        }
+
+        public string Heading { get; }
+        public bool HasHeading { get; }
+        public RelayCommand ToggleCommand { get; }
+
+        /// <summary>Whether the group's fields are shown. Only a group with a heading can be collapsed (there is nothing to click otherwise).</summary>
+        public bool IsExpanded
+        {
+            get { return isExpanded; }
+            set { if (Set(ref isExpanded, value)) Raise(nameof(Chevron)); }
+        }
+        public string Chevron { get { return isExpanded ? "▾" : "▸"; } }
+        /// <summary>Every field of the group, shown or not.</summary>
+        public IReadOnlyList<SettingFieldViewModel> AllFields { get { return allFields; } }
+        /// <summary>The fields currently shown (hidden ones only while "Show hidden" is on).</summary>
+        public ObservableCollection<SettingFieldViewModel> Fields { get; } = new ObservableCollection<SettingFieldViewModel>();
+        public bool IsShown { get { return Fields.Count > 0; } }
+
+        public void Refresh(bool showHidden)
+        {
+            Fields.Clear();
+            foreach (SettingFieldViewModel field in allFields)
+                if (showHidden || !field.IsHiddenField) Fields.Add(field);
+        }
+    }
+
     public class ModSettingsEditorViewModel : ViewModelBase
     {
         private readonly JsonObject values;
+        private bool showHidden;
 
-        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, ModInfo mod, JsonObject values, LocalizedStrings l, IDialogService dialogs)
+        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, ModInfo mod, JsonObject values, LocalizedStrings l, IDialogService dialogs, bool showHidden = false, IEnumerable<string> collapsedGroups = null)
         {
+            HashSet<string> collapsed = new HashSet<string>(collapsedGroups ?? Enumerable.Empty<string>());
             Title = title;
             L = l;
             this.values = values;
-            foreach (ModSettingsField field in schema.VisibleFields(mod))
+            foreach (ModSettingsGroup group in schema.VisibleGroups(mod))
             {
-                if (string.IsNullOrWhiteSpace(field.Key)) continue;
-                SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs);
-                row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.IsInvalid)) Raise(nameof(AllValid)); };
-                (field.LocalOnly ? LocalFields : Fields).Add(row);
+                List<SettingFieldViewModel> rows = new List<SettingFieldViewModel>();
+                foreach (ModSettingsField field in group.Fields)
+                {
+                    if (string.IsNullOrWhiteSpace(field.Key)) continue;
+                    SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs, l);
+                    row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.IsInvalid)) Raise(nameof(AllValid)); };
+                    rows.Add(row);
+                }
+                if (rows.Count == 0) continue;
+                SettingGroupViewModel g = new SettingGroupViewModel(group.Name, group.HasHeading, rows);
+                if (g.HasHeading && collapsed.Contains(g.Heading ?? "")) g.IsExpanded = false;
+                Groups.Add(g);
+            }
+            // Hidden fields are developer controls: only a local mod that has some gets the toggle (Workshop copies never see them).
+            CanShowHidden = mod != null && !mod.IsWorkshop && Groups.Any(g => g.AllFields.Any(f => f.IsHiddenField));
+            ShowHidden = showHidden;
+        }
+
+        public bool CanShowHidden { get; }
+
+        /// <summary>Headings of the groups currently collapsed (remembered per mod by the launcher).</summary>
+        public List<string> CollapsedGroups
+        {
+            get { return Groups.Where(g => g.HasHeading && !g.IsExpanded).Select(g => g.Heading ?? "").ToList(); }
+        }
+
+        /// <summary>The footer's "Show hidden" checkbox: reveals the schema's hidden fields in their groups.</summary>
+        public bool ShowHidden
+        {
+            get { return showHidden; }
+            set
+            {
+                if (!CanShowHidden || !Set(ref showHidden, value)) return;
+                foreach (SettingGroupViewModel group in Groups) group.Refresh(showHidden);
+                Raise(nameof(VisibleGroups));
+                Raise(nameof(AllValid));
             }
         }
 
-        /// <summary>False while any folder/filename field holds a path that does not exist (Save is disabled).</summary>
-        public bool AllValid { get { return !Fields.Concat(LocalFields).Any(f => f.IsInvalid); } }
+        /// <summary>False while any shown folder/filename field holds a path that does not exist (Save is disabled).</summary>
+        public bool AllValid { get { return !Groups.SelectMany(g => g.Fields).Any(f => f.IsInvalid); } }
 
         public string Title { get; }
         public LocalizedStrings L { get; }
-        public ObservableCollection<SettingFieldViewModel> Fields { get; } = new ObservableCollection<SettingFieldViewModel>();
-        /// <summary>Developer-only fields, shown under a separator; empty for Workshop mods.</summary>
-        public ObservableCollection<SettingFieldViewModel> LocalFields { get; } = new ObservableCollection<SettingFieldViewModel>();
-        public bool HasLocalFields { get { return LocalFields.Count > 0; } }
+        /// <summary>The schema's groups in file order; each is shown as its own block, so a group never shares a row with another.</summary>
+        public List<SettingGroupViewModel> Groups { get; } = new List<SettingGroupViewModel>();
+        /// <summary>The groups with at least one shown field (what the dialog lists).</summary>
+        public List<SettingGroupViewModel> VisibleGroups { get { return Groups.Where(g => g.IsShown).ToList(); } }
 
-        /// <summary>Writes every edited value into the JSON object that was passed in.</summary>
+        /// <summary>Writes every edited value (shown or not) into the JSON object that was passed in.</summary>
         public JsonObject Apply()
         {
-            foreach (SettingFieldViewModel field in Fields.Concat(LocalFields)) values[field.Key] = field.ToJson();
+            foreach (SettingFieldViewModel field in Groups.SelectMany(g => g.AllFields)) values[field.Key] = field.ToJson();
             return values;
         }
     }

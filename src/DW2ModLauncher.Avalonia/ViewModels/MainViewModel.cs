@@ -722,9 +722,27 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             try
             {
                 JsonObject values = ModSettingsStore.GetOrCreateValues(mod, schema);
+                string modKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
+                if (settings.CollapsedSettingGroups == null) settings.CollapsedSettingGroups = new Dictionary<string, List<string>>();
+                List<string> collapsedGroups = settings.CollapsedSettingGroups.TryGetValue(modKey, out List<string> saved0) ? saved0 : new List<string>();
                 ModSettingsEditorViewModel editor = new ModSettingsEditorViewModel(
-                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs);
-                if (!await Dialogs.EditModSettingsAsync(editor)) return;
+                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs, settings.ShowHiddenSettings, collapsedGroups);
+                bool saved = await Dialogs.EditModSettingsAsync(editor);
+                bool dirty = false;
+                if (editor.CanShowHidden && editor.ShowHidden != settings.ShowHiddenSettings)
+                {
+                    settings.ShowHiddenSettings = editor.ShowHidden;
+                    dirty = true;
+                }
+                List<string> nowCollapsed = editor.CollapsedGroups;
+                if (!nowCollapsed.SequenceEqual(collapsedGroups))
+                {
+                    if (nowCollapsed.Count == 0) settings.CollapsedSettingGroups.Remove(modKey);
+                    else settings.CollapsedSettingGroups[modKey] = nowCollapsed;
+                    dirty = true;
+                }
+                if (dirty) SaveSettings();
+                if (!saved) return;
                 ModSettingsStore.SaveValues(mod, editor.Apply());
                 SetStatus(T("ModSettingsSaved"));
             }
@@ -836,7 +854,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             bool isUpdate = !string.IsNullOrWhiteSpace(mod.WorkshopId);
             ModVisibility? currentVisibility = isUpdate ? await ReadVisibilityAsync(mod) : null;
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility);
+            // On an update, ask Steam what the description currently says so the dialog only offers to replace it when it differs.
+            string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
+            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription);
             if (!await Dialogs.EditPublishAsync(editor)) return;
             // Accepting the dialog wrote the (possibly bumped) version to mod.json; any exit below that doesn't publish undoes it.
             string versionBefore = editor.OriginalVersion;

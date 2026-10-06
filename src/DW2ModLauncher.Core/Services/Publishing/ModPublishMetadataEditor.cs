@@ -11,7 +11,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
 {
     /// <summary>
     /// Reads/writes just the mod.json fields Steam Workshop publish itself cares about
-    /// (displayName, shortDescription, descriptionFile, description, previewImage, version, bundles - see
+    /// (displayName, shortDescription, previewImage, version, bundles; plus the legacy description/descriptionFile, read only - see
     /// docs/workshop-publish.md), preserving every other field already in the file (workshopId,
     /// a Mod's own custom fields such as GalCivMusic's "disableDefaultMusic", etc.)
     /// exactly like ModJsonWorkshopIdWriter does for just the one field it owns.
@@ -36,13 +36,13 @@ namespace DW2ModLauncher.Core.Services.Publishing
         }
 
         /// <summary>
-        /// The text to push to the Steam page: the "description" if there is one, otherwise the contents of the
-        /// "descriptionFile" (a path inside the mod folder). Null when neither yields any text.
+        /// The text to push to the Steam page: the contents of description.bbcode (see <see cref="ModDescriptionFile"/>, which also
+        /// covers the legacy mod.json fields). Null when there is no text.
         /// </summary>
         public static string ResolveSteamDescription(string contentRoot, ModPublishMetadata metadata)
         {
-            if (!string.IsNullOrWhiteSpace(metadata.Description)) return metadata.Description;
-            return ModScanner.ReadDescriptionFile(contentRoot, metadata.DescriptionFile);
+            string text = ModDescriptionFile.Load(contentRoot, metadata);
+            return string.IsNullOrWhiteSpace(text) ? null : text;
         }
 
         /// <summary>Rewrites just the "version" key (used to undo the auto-bump after a publish that didn't happen).</summary>
@@ -60,15 +60,14 @@ namespace DW2ModLauncher.Core.Services.Publishing
             if (root == null) throw new InvalidDataException("mod.json is not a JSON object.");
 
             SetString(root, "displayName", metadata.DisplayName);
-            // "description" is what gets pushed to the Steam page. A mod that doesn't have one (e.g. it uses descriptionFile and
-            // keeps its Steam text by hand) must not gain an empty key, so a blank value removes the key instead.
-            if (string.IsNullOrWhiteSpace(metadata.Description)) RemoveKey(root, "description");
-            else SetString(root, "description", metadata.Description);
-            // Same rule for the other optional description fields: blank means "not used", not an empty key.
+            // The long description lives in a file (ModDescriptionFile), written by the caller before this, so the legacy inline
+            // "description" is dropped. "descriptionFile" stays when the mod names its own file; the default needs no key.
+            RemoveKey(root, "description");
+            if (string.IsNullOrWhiteSpace(metadata.DescriptionFile) || metadata.DescriptionFile.Trim().Equals(ModDescriptionFile.FileName, StringComparison.OrdinalIgnoreCase)) RemoveKey(root, "descriptionFile");
+            else SetString(root, "descriptionFile", metadata.DescriptionFile.Trim());
+            // Blank means "not used", not an empty key.
             if (string.IsNullOrWhiteSpace(metadata.ShortDescription)) RemoveKey(root, "shortDescription");
             else SetString(root, "shortDescription", metadata.ShortDescription.Trim());
-            if (string.IsNullOrWhiteSpace(metadata.DescriptionFile)) RemoveKey(root, "descriptionFile");
-            else SetString(root, "descriptionFile", metadata.DescriptionFile.Trim());
             SetString(root, "previewImage", metadata.PreviewImage);
             SetString(root, "version", metadata.Version);
 

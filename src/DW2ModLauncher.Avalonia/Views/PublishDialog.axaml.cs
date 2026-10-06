@@ -14,6 +14,7 @@ namespace DW2ModLauncher.Avalonia.Views
         public PublishDialog(PublishDialogViewModel editor, IDialogService dialogs) : this()
         {
             DataContext = editor;
+            Closed += delegate { editor.Dispose(); };
             CancelButton.Click += delegate { Close(false); };
             PublishButton.Click += async delegate
             {

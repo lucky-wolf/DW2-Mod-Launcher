@@ -89,6 +89,17 @@ namespace DW2ModLauncher.Core.Services
             return result;
         }
 
+        /// <summary>The item's current description on Steam, or null when Steam can't be reached or doesn't know the item.</summary>
+        public static string FetchDescription(string id)
+        {
+            try
+            {
+                FetchRemoteTimes(new List<string> { id }, out Dictionary<string, WorkshopRemoteDetail> details);
+                return details.TryGetValue(id, out WorkshopRemoteDetail detail) ? detail.Description ?? "" : null;
+            }
+            catch (Exception) { return null; }
+        }
+
         private static string DictionaryValue(Dictionary<string, object> d, string key)
         {
             if (d == null) return "";

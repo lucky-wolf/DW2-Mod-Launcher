@@ -5,6 +5,18 @@
     <Setter Property="Foreground" Value="{StaticResource Dw2Text}" />
   </Style>
 
+  <!-- Fluent's default scroll bars are thin overlay indicators that only widen on hover, which is hard to grab. Keep them
+       always visible at full width, with a more visible thumb. -->
+  <Style Selector="ScrollViewer">
+    <Setter Property="AllowAutoHide" Value="False" />
+  </Style>
+  <Style Selector="ScrollBar">
+    <Setter Property="AllowAutoHide" Value="False" />
+  </Style>
+  <Style Selector="ScrollBar /template/ Thumb">
+    <Setter Property="Background" Value="{StaticResource Dw2BlueGlow}" />
+  </Style>
+
   <Style Selector="Button">
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Padding" Value="14,6" />

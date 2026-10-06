@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using DW2ModLauncher.Avalonia.Services;
 using DW2ModLauncher.Core.Models;
@@ -17,7 +19,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
     }
 
     /// <summary>Edits the mod.json fields Steam Workshop publish reads, plus how visible the item should be.</summary>
-    public class PublishDialogViewModel : ViewModelBase
+    public class PublishDialogViewModel : ViewModelBase, IDisposable
     {
         private readonly IDialogService dialogs;
         private readonly string modJsonPath;
@@ -28,13 +30,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string previewImage;
         private string description;
         private string shortDescription;
-        private string descriptionFile;
         private string bundles;
         private VisibilityOption visibility;
         private bool replaceDescription;
-        private bool useDescriptionFile;
+        private readonly string workshopId;
+        private bool pullingDescription;
+        // The item's current Steam description when this is an update and Steam could be asked; null otherwise.
+        private readonly string steamDescription;
+        private bool replaceTouched;
+        // What description.bbcode held the last time we looked, so a watcher event only touches the box when the file really changed.
+        private readonly string descriptionFileName;
+        private string lastFileText;
+        private FileSystemWatcher watcher;
+        private Timer debounce;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null)
         {
             this.dialogs = dialogs;
             this.metadata = metadata;
@@ -43,6 +53,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             contentFolder = mod.ContentRoot ?? mod.Folder;
             CanEditVisibility = !propertiesOnly;
             // A first publish has no Steam text to protect, so it sends the description; an update leaves the Steam page alone unless asked.
+            this.steamDescription = isUpdate && !propertiesOnly ? steamDescription : null;
             replaceDescription = !isUpdate;
             PrimaryButtonText = l[propertiesOnly ? "Save" : "PublishToWorkshop"];
             WindowTitle = l[propertiesOnly ? "EditPropertiesTitle" : "PublishToWorkshop"] + " - " + (mod.DisplayName ?? mod.Id);
@@ -54,19 +65,24 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // Updating a published item proposes the next patch version; nothing is written to mod.json until the author accepts.
             version = isUpdate && !propertiesOnly ? ModVersion.BumpPatch(metadata.Version) : metadata.Version;
             previewImage = metadata.PreviewImage;
-            description = metadata.Description;
+            // The long description is always description.bbcode (seeded from the legacy mod.json fields if the file doesn't exist yet).
+            // A mod that already names its own description file keeps it; otherwise it is description.bbcode.
+            descriptionFileName = ModDescriptionFile.NameFor(contentFolder, metadata.DescriptionFile);
+            description = ModDescriptionFile.Load(contentFolder, metadata);
+            // When we know what Steam has, only offer (and by default do) the replacement if the text really differs.
+            if (this.steamDescription != null) replaceDescription = DescriptionDiffersFromSteam;
+            lastFileText = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName);
             shortDescription = metadata.ShortDescription;
-            descriptionFile = metadata.DescriptionFile;
-            // The description comes from a file or from the typed text, never both. A mod.json that has a file uses it (the launcher
-            // shows the file over the text too); saving drops whichever one isn't chosen.
-            useDescriptionFile = !string.IsNullOrWhiteSpace(metadata.DescriptionFile);
             bundles = string.Join("\n", metadata.Bundles ?? new List<string>());
             // Read-only: what the launcher will inject for this mod (inferred, or the dw2modlauncher.json override).
             InjectedDlls = DW2ModLauncher.Core.Services.InjectionScanner.TargetsFor(mod);
 
+            workshopId = long.TryParse(mod.WorkshopId, out long _) ? mod.WorkshopId.Trim() : null;
+            OpenSteamPageCommand = new RelayCommand(OpenSteamPage);
+            PullSteamDescriptionCommand = new RelayCommand(PullSteamDescriptionAsync);
             BrowsePreviewCommand = new RelayCommand(BrowsePreviewAsync);
-            BrowseDescriptionFileCommand = new RelayCommand(BrowseDescriptionFileAsync);
             EditDescriptionFileCommand = new RelayCommand(EditDescriptionFileAsync);
+            StartWatchingDescriptionFile();
 
             if (propertiesOnly)
             {
@@ -115,41 +131,88 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>False when only editing properties: visibility is Steam's to hold, shown read-only.</summary>
         public bool CanEditVisibility { get; }
         /// <summary>The "replace the Steam description" checkbox only applies to publishing, not to editing properties.</summary>
-        public bool ShowReplaceDescription { get { return CanEditVisibility; } }
+        public bool ShowReplaceDescription { get { return CanEditVisibility && (steamDescription == null || DescriptionDiffersFromSteam); } }
+        /// <summary>True when Steam's text is known and differs from the box; the dialog says so next to the checkbox.</summary>
+        public bool ShowDescriptionDiffers { get { return CanEditVisibility && steamDescription != null && DescriptionDiffersFromSteam; } }
+        private bool DescriptionDiffersFromSteam { get { return steamDescription != null && !ModDescriptionFile.SameText(description, steamDescription); } }
         /// <summary>Whether this publish overwrites the Steam page's description. A per-publish choice, not stored in mod.json.</summary>
-        public bool ReplaceDescription { get { return replaceDescription; } set { Set(ref replaceDescription, value); } }
+        public bool ReplaceDescription { get { return replaceDescription; } set { replaceTouched = true; Set(ref replaceDescription, value); } }
         /// <summary>The item's Workshop id (read-only), or "Unpublished" until a first publish has written one into mod.json.</summary>
         public string WorkshopIdText { get; }
         /// <summary>The DLLs (and entry points) the launcher will inject for this mod, shown as a read-only table.</summary>
         public List<DW2ModLauncher.Core.Services.InjectionTarget> InjectedDlls { get; }
+        /// <summary>Whether the mod lists any bundles; the Bundles section starts collapsed when it does not.</summary>
+        public bool HasBundles { get { return !string.IsNullOrWhiteSpace(bundles); } }
         public bool HasInjectedDlls { get { return InjectedDlls.Count > 0; } }
         public bool NoInjectedDlls { get { return InjectedDlls.Count == 0; } }
         public List<VisibilityOption> Visibilities { get; } = new List<VisibilityOption>();
+        /// <summary>The Steam page and "pull description" buttons only make sense once the item has a Workshop id.</summary>
+        public bool HasWorkshopId { get { return workshopId != null; } }
+        public RelayCommand OpenSteamPageCommand { get; }
+        public RelayCommand PullSteamDescriptionCommand { get; }
         public RelayCommand BrowsePreviewCommand { get; }
-        public RelayCommand BrowseDescriptionFileCommand { get; }
         public RelayCommand EditDescriptionFileCommand { get; }
 
         public string Title { get { return title; } set { Set(ref title, value); } }
         public string Version { get { return version; } set { Set(ref version, value); } }
         public string PreviewImage { get { return previewImage; } set { Set(ref previewImage, value); } }
-        public string Description { get { return description; } set { Set(ref description, value); } }
-        public bool UseDescriptionFile
+        public string Description
         {
-            get { return useDescriptionFile; }
-            set { if (Set(ref useDescriptionFile, value)) Raise(nameof(UseDescriptionText)); }
-        }
-        public bool UseDescriptionText
-        {
-            get { return !useDescriptionFile; }
-            set { UseDescriptionFile = !value; }
+            get { return description; }
+            set
+            {
+                if (!Set(ref description, value) || steamDescription == null) return;
+                // Follow the text until the author decides for themselves: differing means send it, identical means there is nothing to send.
+                if (!replaceTouched) Set(ref replaceDescription, DescriptionDiffersFromSteam, nameof(ReplaceDescription));
+                Raise(nameof(ShowReplaceDescription));
+                Raise(nameof(ShowDescriptionDiffers));
+            }
         }
         public string ShortDescription { get { return shortDescription; } set { Set(ref shortDescription, value); } }
-        public string DescriptionFile { get { return descriptionFile; } set { Set(ref descriptionFile, value); } }
         public string Bundles { get { return bundles; } set { Set(ref bundles, value); } }
         public VisibilityOption Visibility { get { return visibility; } set { if (value != null) Set(ref visibility, value); } }
 
         public ModPublishMetadata Metadata { get { return metadata; } }
         public ModVisibility? SelectedVisibility { get { return visibility.Value; } }
+
+        /// <summary>Opens the item in the Steam client, falling back to the default browser if the steam:// link can't be handled.</summary>
+        private void OpenSteamPage()
+        {
+            if (workshopId == null) return;
+            try { DW2ModLauncher.Core.Services.PlatformShell.Create().OpenUrl("steam://url/CommunityFilePage/" + workshopId); }
+            catch
+            {
+                try { DW2ModLauncher.Core.Services.PlatformShell.Create().OpenUrl("https://steamcommunity.com/sharedfiles/filedetails/?id=" + workshopId); }
+                catch (Exception ex) { var _ = dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher"); }
+            }
+        }
+
+        /// <summary>Replaces the typed description with the one currently on the item's Steam page (switching to typed text if a file was in use).</summary>
+        private async Task PullSteamDescriptionAsync()
+        {
+            if (workshopId == null || pullingDescription) return;
+            pullingDescription = true;
+            try
+            {
+                WorkshopRemoteDetail detail = await Task.Run(() =>
+                {
+                    DW2ModLauncher.Core.Services.WorkshopApiClient.FetchRemoteTimes(new List<string> { workshopId }, out Dictionary<string, WorkshopRemoteDetail> details);
+                    return details.TryGetValue(workshopId, out WorkshopRemoteDetail d) ? d : null;
+                });
+                if (detail == null)
+                {
+                    await dialogs.ShowMessageAsync(L["PublishPullSteamDescriptionNotFound"], "DW2 Mod Launcher");
+                    return;
+                }
+                Description = detail.Description ?? "";
+            }
+            catch (Exception ex)
+            {
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Pull Steam description", ex);
+                await dialogs.ShowMessageAsync(L.Format("PublishPullSteamDescriptionFailed", ex.Message), "DW2 Mod Launcher");
+            }
+            finally { pullingDescription = false; }
+        }
 
         private async Task BrowsePreviewAsync()
         {
@@ -178,25 +241,55 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
 
-        private async Task BrowseDescriptionFileAsync()
-        {
-            string picked = await dialogs.PickFileAsync(L["PublishDescriptionFile"], contentFolder, "Text files", "*.txt", "*.md", "*.markdown", "*.bbcode");
-            string relative = await ResolveInsideModAsync(picked);
-            if (relative != null) DescriptionFile = relative;
-        }
-
-        /// <summary>Opens the description file in the OS's associated editor; if there isn't one (yet), lets the author pick it instead.</summary>
+        /// <summary>Opens description.bbcode in the OS's associated editor, first creating it from the box if it doesn't exist yet.</summary>
         private async Task EditDescriptionFileAsync()
         {
-            string path = string.IsNullOrWhiteSpace(descriptionFile) ? null
-                : System.IO.Path.Combine(contentFolder, descriptionFile.Trim().Replace('/', System.IO.Path.DirectorySeparatorChar));
-            if (path == null || !System.IO.File.Exists(path))
+            try
             {
-                await BrowseDescriptionFileAsync();
-                return;
+                if (ModDescriptionFile.ReadFile(contentFolder, descriptionFileName) == null)
+                {
+                    ModDescriptionFile.Save(contentFolder, descriptionFileName, description);
+                    lastFileText = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName);
+                }
+                DW2ModLauncher.Core.Services.PlatformShell.Create().OpenFile(ModDescriptionFile.PathFor(contentFolder, descriptionFileName));
             }
-            try { DW2ModLauncher.Core.Services.PlatformShell.Create().OpenFile(path); }
             catch (Exception ex) { await dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher"); }
+        }
+
+        /// <summary>Watches description.bbcode so edits made in an external editor show up in the box.</summary>
+        private void StartWatchingDescriptionFile()
+        {
+            if (!Directory.Exists(System.IO.Path.GetDirectoryName(ModDescriptionFile.PathFor(contentFolder, descriptionFileName)))) return;
+            try
+            {
+                debounce = new Timer(delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(ReloadDescriptionFromFile); });
+                watcher = new FileSystemWatcher(System.IO.Path.GetDirectoryName(ModDescriptionFile.PathFor(contentFolder, descriptionFileName)), System.IO.Path.GetFileName(descriptionFileName))
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size | NotifyFilters.CreationTime
+                };
+                FileSystemEventHandler changed = delegate { debounce?.Change(300, Timeout.Infinite); };
+                watcher.Changed += changed;
+                watcher.Created += changed;
+                watcher.Renamed += delegate { debounce?.Change(300, Timeout.Infinite); };
+                watcher.EnableRaisingEvents = true;
+            }
+            catch (Exception ex) { DW2ModLauncher.Core.Diagnostics.Logger.LogException("Watch description.bbcode", ex); }
+        }
+
+        private void ReloadDescriptionFromFile()
+        {
+            string text = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName);
+            if (text == null || text == lastFileText) return;
+            lastFileText = text;
+            Description = text;
+        }
+
+        public void Dispose()
+        {
+            watcher?.Dispose();
+            debounce?.Dispose();
+            watcher = null;
+            debounce = null;
         }
 
         /// <summary>Writes the edited fields back to mod.json. Returns an error message, or null on success.</summary>
@@ -205,10 +298,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             metadata.DisplayName = (title ?? "").Trim();
             metadata.Version = (version ?? "").Trim();
             metadata.PreviewImage = (previewImage ?? "").Trim();
-            // Only the chosen source is kept in mod.json; a blank value removes its key (see ModPublishMetadataEditor.Write).
-            metadata.Description = useDescriptionFile ? "" : description ?? "";
             metadata.ShortDescription = (shortDescription ?? "").Trim();
-            metadata.DescriptionFile = useDescriptionFile ? (descriptionFile ?? "").Trim() : "";
+            // The long description goes to description.bbcode first; only then does Write drop the legacy mod.json keys, so a failed
+            // file write can't lose the text. An untouched, never-written description (nothing in the box, no file) creates no file.
+            metadata.Description = "";
+            metadata.DescriptionFile = descriptionFileName == ModDescriptionFile.FileName ? "" : descriptionFileName;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(description) || ModDescriptionFile.ReadFile(contentFolder, descriptionFileName) != null)
+                    ModDescriptionFile.Save(contentFolder, descriptionFileName, description);
+            }
+            catch (Exception ex)
+            {
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write description.bbcode", ex);
+                return ex.Message;
+            }
             metadata.Bundles = (bundles ?? "").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
             try
             {
