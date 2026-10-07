@@ -35,7 +35,12 @@ namespace DW2ModLauncher.Core.Services.Publishing
             string stage = "pre-flight checks";
             try
             {
-                string problem = Preflight(request);
+                if (request.DescriptionOnly && (!request.ExistingWorkshopId.HasValue || string.IsNullOrWhiteSpace(request.Description)))
+                {
+                    result.ErrorMessage = "A description-only update needs an existing Workshop item and a non-blank description.";
+                    return result;
+                }
+                string problem = request.DescriptionOnly ? null : Preflight(request);
                 if (problem != null)
                 {
                     result.ErrorMessage = problem;
@@ -82,20 +87,20 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 stage = "preparing the update (SteamUGC.StartItemUpdate)";
                 UGCUpdateHandle_t update = SteamUGC.StartItemUpdate((AppId_t)appId, fileId);
                 stage = "setting the title (SteamUGC.SetItemTitle)";
-                if (!SteamUGC.SetItemTitle(update, request.Title ?? ""))
+                if (!request.DescriptionOnly && !SteamUGC.SetItemTitle(update, request.Title ?? ""))
                     return Fail(result, stage, "Steam rejected the title " + Quote(request.Title) + " (too long or invalid).", request);
                 // Only send a description the author supplied: leaving it out keeps whatever the Steam page already has (an empty one would wipe it).
                 stage = "setting the description (SteamUGC.SetItemDescription)";
                 if (!string.IsNullOrWhiteSpace(request.Description) && !SteamUGC.SetItemDescription(update, request.Description))
                     return Fail(result, stage, "Steam rejected the description (" + request.Description.Length + " characters; too long?).", request);
                 stage = "setting the content folder (SteamUGC.SetItemContent)";
-                if (!SteamUGC.SetItemContent(update, request.ContentFolder))
+                if (!request.DescriptionOnly && !SteamUGC.SetItemContent(update, request.ContentFolder))
                     return Fail(result, stage, "Steam rejected the content folder " + Quote(request.ContentFolder) + ".", request);
                 stage = "setting the visibility (SteamUGC.SetItemVisibility)";
-                if (request.Visibility.HasValue && !SteamUGC.SetItemVisibility(update, ToSteam(request.Visibility.Value)))
+                if (!request.DescriptionOnly && request.Visibility.HasValue && !SteamUGC.SetItemVisibility(update, ToSteam(request.Visibility.Value)))
                     return Fail(result, stage, "Steam rejected visibility " + request.Visibility.Value + ".", request);
                 stage = "setting the preview image (SteamUGC.SetItemPreview)";
-                if (!string.IsNullOrWhiteSpace(request.PreviewImagePath) && !SteamUGC.SetItemPreview(update, request.PreviewImagePath))
+                if (!request.DescriptionOnly && !string.IsNullOrWhiteSpace(request.PreviewImagePath) && !SteamUGC.SetItemPreview(update, request.PreviewImagePath))
                     return Fail(result, stage, "Steam could not add the preview image " + Quote(request.PreviewImagePath) + " (" + DescribeFile(request.PreviewImagePath) + ").", request);
 
                 stage = "uploading the content and metadata (SteamUGC.SubmitItemUpdate)";

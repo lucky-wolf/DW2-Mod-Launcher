@@ -28,6 +28,8 @@ namespace DW2ModLauncher.Core.Models
         public double? WindowHeight { get; set; }
         /// <summary>The mod settings editor's "Show hidden" checkbox, restored the next time it opens.</summary>
         public bool ShowHiddenSettings { get; set; }
+        /// <summary>ActiveToken of the mod selected in the list when the launcher last closed; reselected (and scrolled into view) at startup.</summary>
+        public string LastSelectedMod { get; set; }
         /// <summary>Per mod (id, else folder name): headings of the settings editor groups the user collapsed.</summary>
         public Dictionary<string, List<string>> CollapsedSettingGroups { get; set; } = new Dictionary<string, List<string>>();
 

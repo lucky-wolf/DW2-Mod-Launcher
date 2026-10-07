@@ -20,6 +20,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public string Title { get; set; }
         /// <summary>Null or blank leaves the Steam page's description untouched; anything else replaces it on every publish.</summary>
         public string Description { get; set; }
+        /// <summary>Sends only <see cref="Description"/> to an existing item: no title, content, preview image or visibility is touched (and none is needed).</summary>
+        public bool DescriptionOnly { get; set; }
         public string PreviewImagePath { get; set; }
         public long? ExistingWorkshopId { get; set; }
         /// <summary>Null leaves visibility alone: a new item stays private (Steam's default), an existing one keeps what it has.</summary>

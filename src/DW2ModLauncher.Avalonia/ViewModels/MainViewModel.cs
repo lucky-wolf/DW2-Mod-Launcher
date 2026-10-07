@@ -99,6 +99,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             PathDetector.Detect(settings, false);
             SaveSettings();
             Refresh();
+            // Reselect what was selected last time; the Mods view scrolls it into view when it loads.
+            if (!string.IsNullOrEmpty(settings.LastSelectedMod))
+                SelectedRow = Mods.FirstOrDefault(r => string.Equals(r.Mod.ActiveToken, settings.LastSelectedMod, StringComparison.OrdinalIgnoreCase)) ?? selectedRow;
             var verify = VerifyPublishedIdsAsync();
         }
 
@@ -226,6 +229,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             set
             {
                 if (!Set(ref selectedRow, value)) return;
+                // A null selection is usually the list being rebuilt, not the user deselecting, so only a real pick is remembered.
+                if (value != null && !string.IsNullOrEmpty(value.Mod.ActiveToken)) settings.LastSelectedMod = value.Mod.ActiveToken;
                 Raise(nameof(SelectedIsWorkshop));
                 Raise(nameof(SelectedHasSteamPage));
                 ShowDetails();
@@ -498,6 +503,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 Preview = null;
                 return;
             }
+            ReloadLocalFiles(mod);
             bool selected = IsSelected(mod);
             int severity = ModHealth.Severity(mod, selected);
             DetailTitle = (mod.DisplayName ?? "") + (string.IsNullOrWhiteSpace(mod.Version) ? "" : "  v" + mod.Version);
@@ -508,6 +514,27 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ProblemsIsConflict = severity == 3;
             ProblemsText = problems.Count == 0 ? "" : (severity == 3 ? T("HealthConflict") : T("HealthCaution")) + "\n" + string.Join("\n", problems);
             Preview = ImageLoader.Load(mod.PreviewImage, 0);
+        }
+
+        /// <summary>
+        /// A local mod's files are the author's to edit at any time, so the details pane re-reads what it shows (names, description,
+        /// preview, included tools/documents) instead of trusting the last scan. Conflict and state fields are left alone.
+        /// </summary>
+        private void ReloadLocalFiles(ModInfo mod)
+        {
+            if (mod.IsWorkshop || string.IsNullOrWhiteSpace(mod.ModJsonPath) || !File.Exists(mod.ModJsonPath)) return;
+            try
+            {
+                ModInfo fresh = ModScanner.ReadModInfo(mod.Folder, mod.ModJsonPath, false, key => T(key));
+                mod.DisplayName = fresh.DisplayName;
+                mod.Version = fresh.Version;
+                mod.Description = fresh.Description;
+                mod.DescriptionOverride = fresh.DescriptionOverride;
+                mod.PreviewImage = fresh.PreviewImage;
+                mod.IncludedTools = fresh.IncludedTools;
+                mod.IncludedDocuments = fresh.IncludedDocuments;
+            }
+            catch (Exception ex) { Logger.LogException("Reload mod files for details", ex); }
         }
 
         /// <summary>The Workshop item id behind a row: the folder name for a Workshop copy, or the id written into mod.json by a publish.</summary>

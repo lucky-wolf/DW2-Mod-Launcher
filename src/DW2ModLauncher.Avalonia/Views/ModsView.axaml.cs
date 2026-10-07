@@ -35,7 +35,24 @@ namespace DW2ModLauncher.Avalonia.Views
             ModList.AddHandler(PointerCaptureLostEvent, delegate { EndDrag(false); }, RoutingStrategies.Tunnel);
             ModList.AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
             PreviewBorder.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.OpenSteamPageCommand.CanExecute(null)) m.OpenSteamPageCommand.Execute(null); };
+            // Bring the remembered selection into view once the list has been laid out (a restored row can be far down).
+            Loaded += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(ScrollToSelection, global::Avalonia.Threading.DispatcherPriority.Background); };
             ModList.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.ModSettingsCommand.CanExecute(null)) m.ModSettingsCommand.Execute(null); };
+        }
+
+        private void ScrollToSelection()
+        {
+            if (DataContext is not MainViewModel m || m.SelectedRow == null) return;
+            ModList.ScrollIntoView(m.SelectedRow);
+            // Then centre the row in the viewport where there is room (the offset is clamped, so rows near either end just stay put).
+            ModList.UpdateLayout();
+            ScrollViewer scroller = ModList.FindDescendantOfType<ScrollViewer>();
+            int index = m.Mods.IndexOf(m.SelectedRow);
+            if (scroller == null || index < 0 || ModList.ContainerFromIndex(index) is not Control row) return;
+            Point top = row.TranslatePoint(new Point(0, 0), scroller) ?? new Point(0, 0);
+            double target = scroller.Offset.Y + top.Y + row.Bounds.Height / 2 - scroller.Viewport.Height / 2;
+            double max = Math.Max(0, scroller.Extent.Height - scroller.Viewport.Height);
+            scroller.Offset = scroller.Offset.WithY(Math.Max(0, Math.Min(target, max)));
         }
 
         private static ModRowViewModel RowAt(Visual source)
