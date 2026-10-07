@@ -61,7 +61,7 @@
         <CheckBox Grid.Column="0" IsVisible="{Binding CanShowHidden}" IsChecked="{Binding ShowHidden}" Content="{Binding L[ModSettingsShowHidden]}"
                   FontSize="11" Opacity="0.75" VerticalAlignment="Center" HorizontalAlignment="Left" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
-        <Button Name="SaveButton" IsEnabled="{Binding AllValid}" Content="{Binding L[Save]}" MinWidth="125" />
+        <Button Name="SaveButton" IsEnabled="{Binding CanSave}" Content="{Binding L[Save]}" MinWidth="125" />
         <Button Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />
         </StackPanel>
       </Grid>

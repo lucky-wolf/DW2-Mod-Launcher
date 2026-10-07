@@ -18,6 +18,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly LocalizedStrings l;
         private readonly JsonNode defaultNode;
         private readonly string defaultJson;
+        private readonly string savedJson;
 
         public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs, LocalizedStrings l)
         {
@@ -39,6 +40,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             defaultJson = defaultNode.ToJsonString();
             // A key missing from the saved values (e.g. a field added to the schema since) starts at the default.
             Load(current ?? defaultNode);
+            // What the field held when the dialog opened (normalised like an edited value), for "differs from saved".
+            savedJson = ToJson().ToJsonString();
             BrowseCommand = new RelayCommand(BrowseAsync);
             ResetCommand = new RelayCommand(Reset);
         }
@@ -100,6 +103,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool HasDefault { get { return true; } }
         /// <summary>The reset button is only live while the value differs from the default.</summary>
         public bool CanReset { get { return ToJson().ToJsonString() != defaultJson; } }
+        /// <summary>The value differs from what was saved when the dialog opened.</summary>
+        public bool IsModified { get { return ToJson().ToJsonString() != savedJson; } }
         public string ResetTooltip
         {
             get
@@ -119,16 +124,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Raise(nameof(NumberValue));
             Raise(nameof(IsInvalid));
             Raise(nameof(CanReset));
+            Raise(nameof(IsModified));
         }
 
         private bool boolValue;
-        public bool BoolValue { get { return boolValue; } set { if (Set(ref boolValue, value)) Raise(nameof(CanReset)); } }
+        public bool BoolValue { get { return boolValue; } set { if (Set(ref boolValue, value)) { Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
         private string textValue = "";
-        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) { Raise(nameof(IsInvalid)); Raise(nameof(CanReset)); } } }
+        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) { Raise(nameof(IsInvalid)); Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
         private decimal? numberValue = 0;
-        public decimal? NumberValue { get { return numberValue; } set { if (Set(ref numberValue, value)) Raise(nameof(CanReset)); } }
+        public decimal? NumberValue { get { return numberValue; } set { if (Set(ref numberValue, value)) { Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
         public JsonNode ToJson()
         {
@@ -216,7 +222,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 {
                     if (string.IsNullOrWhiteSpace(field.Key)) continue;
                     SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs, l);
-                    row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.IsInvalid)) Raise(nameof(AllValid)); };
+                    row.PropertyChanged += (s, e) =>
+                    {
+                        if (e.PropertyName == nameof(SettingFieldViewModel.IsInvalid)) { Raise(nameof(AllValid)); Raise(nameof(CanSave)); }
+                        else if (e.PropertyName == nameof(SettingFieldViewModel.IsModified)) { Raise(nameof(IsModified)); Raise(nameof(CanSave)); }
+                    };
                     rows.Add(row);
                 }
                 if (rows.Count == 0) continue;
@@ -247,11 +257,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 foreach (SettingGroupViewModel group in Groups) group.Refresh(showHidden);
                 Raise(nameof(VisibleGroups));
                 Raise(nameof(AllValid));
+                Raise(nameof(CanSave));
             }
         }
 
         /// <summary>False while any shown folder/filename field holds a path that does not exist (Save is disabled).</summary>
         public bool AllValid { get { return !Groups.SelectMany(g => g.Fields).Any(f => f.IsInvalid); } }
+
+        /// <summary>Any field (shown or not) differs from the values saved when the dialog opened.</summary>
+        public bool IsModified { get { return Groups.SelectMany(g => g.AllFields).Any(f => f.IsModified); } }
+
+        /// <summary>Save is live only when something changed and every shown path is valid.</summary>
+        public bool CanSave { get { return AllValid && IsModified; } }
 
         public string Title { get; }
         public LocalizedStrings L { get; }
