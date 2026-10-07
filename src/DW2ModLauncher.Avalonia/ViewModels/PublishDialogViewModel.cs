@@ -38,6 +38,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         // The item's current Steam description when this is an update and Steam could be asked; null otherwise.
         private readonly string steamDescription;
         private bool replaceTouched;
+        // Properties dialog: the field values as they were when it opened, so Save is only live once something differs.
+        private readonly bool propertiesOnly;
+        private string savedFields;
+        private string savedDescription;
         // What description.bbcode held the last time we looked, so a watcher event only touches the box when the file really changed.
         private readonly string descriptionFileName;
         private string lastFileText;
@@ -52,6 +56,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             modJsonPath = mod.ModJsonPath;
             contentFolder = mod.ContentRoot ?? mod.Folder;
             CanEditVisibility = !propertiesOnly;
+            this.propertiesOnly = propertiesOnly;
             // A first publish has no Steam text to protect, so it sends the description; an update leaves the Steam page alone unless asked.
             this.steamDescription = isUpdate && !propertiesOnly ? steamDescription : null;
             replaceDescription = !isUpdate;
@@ -80,9 +85,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             workshopId = long.TryParse(mod.WorkshopId, out long _) ? mod.WorkshopId.Trim() : null;
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage);
             PullSteamDescriptionCommand = new RelayCommand(PullSteamDescriptionAsync);
+            PushSteamDescriptionCommand = new RelayCommand(PushSteamDescriptionAsync);
             BrowsePreviewCommand = new RelayCommand(BrowsePreviewAsync);
             EditDescriptionFileCommand = new RelayCommand(EditDescriptionFileAsync);
             StartWatchingDescriptionFile();
+            savedFields = FieldsSnapshot();
+            savedDescription = description;
 
             if (propertiesOnly)
             {
@@ -150,26 +158,40 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool HasWorkshopId { get { return workshopId != null; } }
         public RelayCommand OpenSteamPageCommand { get; }
         public RelayCommand PullSteamDescriptionCommand { get; }
+        public RelayCommand PushSteamDescriptionCommand { get; }
         public RelayCommand BrowsePreviewCommand { get; }
         public RelayCommand EditDescriptionFileCommand { get; }
 
-        public string Title { get { return title; } set { Set(ref title, value); } }
-        public string Version { get { return version; } set { Set(ref version, value); } }
-        public string PreviewImage { get { return previewImage; } set { Set(ref previewImage, value); } }
+        private string FieldsSnapshot()
+        {
+            return string.Join("", new[] { title, version, previewImage, shortDescription, bundles }.Select(x => (x ?? "").Trim()));
+        }
+
+        /// <summary>Something in the dialog differs from what it opened with.</summary>
+        public bool IsModified { get { return FieldsSnapshot() != savedFields || !ModDescriptionFile.SameText(description, savedDescription); } }
+        /// <summary>The primary button: publishing is always allowed; the Properties "Save" only once something changed.</summary>
+        public bool CanPrimary { get { return !propertiesOnly || IsModified; } }
+        private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanPrimary)); }
+
+        public string Title { get { return title; } set { if (Set(ref title, value)) RaiseModified(); } }
+        public string Version { get { return version; } set { if (Set(ref version, value)) RaiseModified(); } }
+        public string PreviewImage { get { return previewImage; } set { if (Set(ref previewImage, value)) RaiseModified(); } }
         public string Description
         {
             get { return description; }
             set
             {
-                if (!Set(ref description, value) || steamDescription == null) return;
+                if (!Set(ref description, value)) return;
+                RaiseModified();
+                if (steamDescription == null) return;
                 // Follow the text until the author decides for themselves: differing means send it, identical means there is nothing to send.
                 if (!replaceTouched) Set(ref replaceDescription, DescriptionDiffersFromSteam, nameof(ReplaceDescription));
                 Raise(nameof(ShowReplaceDescription));
                 Raise(nameof(ShowDescriptionDiffers));
             }
         }
-        public string ShortDescription { get { return shortDescription; } set { Set(ref shortDescription, value); } }
-        public string Bundles { get { return bundles; } set { Set(ref bundles, value); } }
+        public string ShortDescription { get { return shortDescription; } set { if (Set(ref shortDescription, value)) RaiseModified(); } }
+        public string Bundles { get { return bundles; } set { if (Set(ref bundles, value)) RaiseModified(); } }
         public VisibilityOption Visibility { get { return visibility; } set { if (value != null) Set(ref visibility, value); } }
 
         public ModPublishMetadata Metadata { get { return metadata; } }
@@ -214,6 +236,47 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             finally { pullingDescription = false; }
         }
 
+        /// <summary>Sends the description box to the item's Steam page and nothing else (no content, title, preview or visibility).</summary>
+        private async Task PushSteamDescriptionAsync()
+        {
+            if (workshopId == null || pullingDescription) return;
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                await dialogs.ShowMessageAsync(L["PublishPushSteamDescriptionBlank"], "DW2 Mod Launcher");
+                return;
+            }
+            pullingDescription = true;
+            try
+            {
+                // Make the backing file match what is being uploaded, so the file and the Steam page never disagree (written first, like Save).
+                ModDescriptionFile.Save(contentFolder, descriptionFileName, description);
+                lastFileText = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName);
+                savedDescription = description;
+                RaiseModified();
+                ModPublishRequest request = new ModPublishRequest
+                {
+                    Description = description,
+                    DescriptionOnly = true,
+                    ExistingWorkshopId = long.Parse(workshopId)
+                };
+                CancellationTokenSource cancel = new CancellationTokenSource();
+                request.Cancel = cancel.Token;
+                ModPublishResult result;
+                using (dialogs.ShowBusy(L["PublishPushSteamDescriptionRunning"], "DW2 Mod Launcher", L["Cancel"], TimeSpan.FromSeconds(15), cancel))
+                    result = await Task.Run(() => ModPublisherFactory.Create(uint.Parse(DW2ModLauncher.Core.Services.SteamLocator.AppId)).Publish(request));
+                if (cancel.IsCancellationRequested) return;
+                await dialogs.ShowMessageAsync(string.IsNullOrEmpty(result.ErrorMessage)
+                    ? L["PublishPushSteamDescriptionDone"]
+                    : L.Format("PublishPushSteamDescriptionFailed", result.ErrorMessage), "DW2 Mod Launcher");
+            }
+            catch (Exception ex)
+            {
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Push Steam description", ex);
+                await dialogs.ShowMessageAsync(L.Format("PublishPushSteamDescriptionFailed", ex.Message), "DW2 Mod Launcher");
+            }
+            finally { pullingDescription = false; }
+        }
+
         private async Task BrowsePreviewAsync()
         {
             string picked = await dialogs.PickFileAsync(L["PublishInfoPreviewImage"], contentFolder, "Image files", "*.jpg", "*.jpeg", "*.png");
@@ -250,6 +313,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 {
                     ModDescriptionFile.Save(contentFolder, descriptionFileName, description);
                     lastFileText = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName);
+                    savedDescription = description;
+                    RaiseModified();
                 }
                 DW2ModLauncher.Core.Services.PlatformShell.Create().OpenFile(ModDescriptionFile.PathFor(contentFolder, descriptionFileName));
             }
@@ -281,7 +346,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string text = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName);
             if (text == null || text == lastFileText) return;
             lastFileText = text;
+            // The file already holds this text, so it is not an unsaved change.
+            savedDescription = text;
             Description = text;
+            RaiseModified();
         }
 
         public void Dispose()

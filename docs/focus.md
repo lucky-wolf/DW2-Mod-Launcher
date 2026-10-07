@@ -12,3 +12,7 @@ reconstruct it right before opening the PR. Fold several small related lines int
 ---
 
 - Mod config dialog now distinguishes whether you've modified anything or not and ties the save button to that awareness
+- Properties dialog: Can Sync Description only without updating your whole mod
+- Properties dialog: Save only enabled when something changed; description toolbar reordered with icons, plus an upload-description-only button (writes the description file, touches nothing else on Steam); smaller bundles box
+- Mod details pane re-reads a local mod's files each time, so it never shows stale info
+- Remembers the selected mod across restarts and scrolls it to the centre of the list

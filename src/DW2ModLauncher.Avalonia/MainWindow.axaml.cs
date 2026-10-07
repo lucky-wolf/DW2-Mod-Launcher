@@ -73,7 +73,7 @@ namespace DW2ModLauncher.Avalonia
         private void SavePosition(MainViewModel main)
         {
             // A maximized or minimized window reports a position that isn't worth restoring.
-            if (WindowState != WindowState.Normal) { Logger.Log("Window", "State " + WindowState + "; position not saved."); return; }
+            if (WindowState != WindowState.Normal) { Logger.Log("Window", "State " + WindowState + "; position not saved."); main.SaveSettings(); return; }
             Logger.Log("Window", "Saving " + Position + " " + ClientSize.Width + "x" + ClientSize.Height);
             main.LauncherSettings.WindowX = Position.X;
             main.LauncherSettings.WindowY = Position.Y;
