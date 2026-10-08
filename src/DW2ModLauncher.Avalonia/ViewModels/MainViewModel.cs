@@ -902,7 +902,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
             }
 
-            // Other content files over 5 MiB get the same warn-and-ask treatment.
+            // Other content files (except .bundle) over 5 MiB get the same warn-and-ask treatment.
             const long MaxFileBytes = 5L * 1024 * 1024;
             string contentRoot = mod.ContentRoot ?? mod.Folder;
             string previewFull = string.IsNullOrWhiteSpace(metadata.PreviewImage) ? null : Path.GetFullPath(Path.Combine(contentRoot, metadata.PreviewImage));
@@ -912,6 +912,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 foreach (string file in Directory.EnumerateFiles(contentRoot, "*", SearchOption.AllDirectories))
                 {
                     if (previewFull != null && string.Equals(Path.GetFullPath(file), previewFull, StringComparison.OrdinalIgnoreCase)) continue;
+                    // Asset bundles are legitimately huge and publish fine.
+                    if (string.Equals(Path.GetExtension(file), ".bundle", StringComparison.OrdinalIgnoreCase)) continue;
                     long length = new FileInfo(file).Length;
                     if (length > MaxFileBytes)
                         bigFiles.Add(file.Substring(contentRoot.Length).TrimStart('\\', '/') + " (" + (length / 1048576.0).ToString("0.##") + " MiB)");
