@@ -25,7 +25,7 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
 | [new-branch.py](../scripts/new-branch.py) | Sync `main`, delete merged/gone local branches, create `<user>/vX.Y.Z` (waits for the release tag if `main`'s tip should have one). |
 | [open-pr.py](../scripts/open-pr.py) | Run the checks, commit, push, open the PR via `gh`, titled `Released as vX.Y.Z`; the description is the list in [focus.md](focus.md), or the commit subjects when that is empty. `new-branch.py` empties `focus.md` for the new branch. |
 | [release.py](../scripts/release.py) | CI-only: tags the next version (see Versioning). |
-| [release-notes.py](../scripts/release-notes.py) | CI-only: writes the GitHub Release notes from [focus.md](focus.md) (the merged PR's description); falls back to generated notes when it is empty. |
+| [release-notes.py](../scripts/release-notes.py) | CI-only: writes the GitHub Release notes from the merged PR's description (found via the GitHub API from the pushed commit; focus.md is not read, so a stale copy on main can't leak into a release); falls back to generated notes when no description is found. |
 
 `open-pr.py` needs the GitHub CLI (`gh auth login`); it never handles tokens.
 
