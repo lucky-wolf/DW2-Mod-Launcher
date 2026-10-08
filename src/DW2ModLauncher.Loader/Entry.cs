@@ -47,6 +47,7 @@ namespace DW2ModLauncher.Loader
                 LoadOne(entry);
 
             InstallXmlPatching(manifest, baseDir);
+            InstallFontBundles(manifest, baseDir);
         }
 
         // Kept in its own method so a missing 0Harmony.dll fails here (caught, logged) instead of stopping the mods above from loading:
@@ -62,6 +63,21 @@ namespace DW2ModLauncher.Loader
             catch (Exception ex)
             {
                 Log("ERROR: XML patching could not be installed (mods are unaffected): " + ex);
+            }
+        }
+
+        // Own method for the same reason as InstallXmlPatching: Harmony types are resolved only when this is first called.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InstallFontBundles(LoaderManifest manifest, string baseDir)
+        {
+            try
+            {
+                int fonts = FontBundleHooks.Install(manifest, baseDir);
+                if (fonts > 0) Log("Font bundles: " + fonts + " declared; see fonts.log.");
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR: font bundle support could not be installed (mods are unaffected): " + ex);
             }
         }
 

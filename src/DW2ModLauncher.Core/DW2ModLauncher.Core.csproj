@@ -18,4 +18,9 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- XML patching: the localization generator reuses the patch engine's key map. -->
+    <ProjectReference Include="..\DW2ModLauncher.XmlPatching\DW2ModLauncher.XmlPatching.csproj" />
+  </ItemGroup>
+
 </Project>

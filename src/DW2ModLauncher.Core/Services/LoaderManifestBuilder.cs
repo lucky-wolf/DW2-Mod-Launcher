@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using DW2ModLauncher.Core.Models;
 
 namespace DW2ModLauncher.Core.Services
@@ -24,6 +25,7 @@ namespace DW2ModLauncher.Core.Services
                     AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint);
                 AddPatches(manifest, mod, modRoot);
             }
+            manifest.Fonts.AddRange(FontsOf(orderedEnabledMods));
             return manifest;
         }
 
@@ -38,6 +40,44 @@ namespace DW2ModLauncher.Core.Services
             List<string> files = new List<string>(Directory.GetFiles(dir, "*.xml", SearchOption.AllDirectories));
             files.Sort(StringComparer.OrdinalIgnoreCase);
             return files;
+        }
+
+        /// <summary>
+        /// The font bundles declared by the mods (dw2modlauncher.json "font"), in the order given. Only plain names count: the value ends up
+        /// on the game's command line and in a file name, so anything but letters, digits, '_' and '-' is ignored.
+        /// </summary>
+        public static List<LoaderManifestFont> FontsOf(IEnumerable<ModInfo> orderedEnabledMods)
+        {
+            List<LoaderManifestFont> fonts = new List<LoaderManifestFont>();
+            foreach (ModInfo mod in orderedEnabledMods ?? new List<ModInfo>())
+            {
+                string name = LauncherMetaReader.Read(mod)?.font?.Trim();
+                string root = mod.ContentRoot ?? mod.Folder;
+                if (string.IsNullOrEmpty(name) || string.IsNullOrWhiteSpace(root) || !IsPlainName(name)) continue;
+                fonts.Add(new LoaderManifestFont
+                {
+                    DisplayName = mod.DisplayName ?? mod.Id,
+                    Name = name,
+                    Folder = GamePaths.ToGameVisiblePath(Path.GetFullPath(root))
+                });
+            }
+            return fonts;
+        }
+
+        /// <summary>The font bundle to start the game with: the last declared in load order, or null.</summary>
+        public static string ActiveFont(IEnumerable<ModInfo> orderedEnabledMods)
+        {
+            return FontsOf(orderedEnabledMods).LastOrDefault()?.Name;
+        }
+
+        private static bool IsPlainName(string name)
+        {
+            if (name.Length == 0 || !char.IsAsciiLetterOrDigit(name[0])) return false;
+            foreach (char c in name)
+            {
+                if (!(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '-')) return false;
+            }
+            return true;
         }
 
         private static void AddPatches(LoaderManifest manifest, ModInfo mod, string modRoot)

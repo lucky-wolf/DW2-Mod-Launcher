@@ -200,6 +200,51 @@ namespace DW2ModLauncher.Tests
             finally { Directory.Delete(dir, true); }
         }
 
+
+        [Fact]
+        public void FontsOf_ReadsTheDeclaredFont_InLoadOrder_AndTheLastOneIsActive()
+        {
+            string a = MakeModDir();
+            string b = MakeModDir();
+            string c = MakeModDir();
+            try
+            {
+                File.WriteAllText(Path.Combine(a, "dw2modlauncher.json"), @"{ ""font"": ""RussianFont"" }");
+                File.WriteAllText(Path.Combine(b, "dw2modlauncher.json"), @"{ ""font"": ""ChsFonts"" }");
+                // c declares no font.
+                List<ModInfo> mods = new List<ModInfo> { ModAt(a), ModAt(b), ModAt(c) };
+
+                List<LoaderManifestFont> fonts = LoaderManifestBuilder.FontsOf(mods);
+
+                Assert.Equal(new[] { "RussianFont", "ChsFonts" }, fonts.ConvertAll(f => f.Name));
+                Assert.Equal(GamePaths.ToGameVisiblePath(Path.GetFullPath(a)), fonts[0].Folder);
+                Assert.Equal("ChsFonts", LoaderManifestBuilder.ActiveFont(mods));
+                Assert.Equal(fonts.Count, LoaderManifestBuilder.Build(mods).Fonts.Count);
+                Assert.Null(LoaderManifestBuilder.ActiveFont(new List<ModInfo> { ModAt(c) }));
+            }
+            finally { Directory.Delete(a, true); Directory.Delete(b, true); Directory.Delete(c, true); }
+        }
+
+        [Theory]
+        [InlineData("Russian Font")]
+        [InlineData("Font\"Bad")]
+        [InlineData("..\\Evil")]
+        [InlineData("a/b")]
+        [InlineData("--new-game")]
+        [InlineData("Font.bundle")]
+        [InlineData("")]
+        public void FontsOf_IgnoresNamesThatAreNotPlain(string name)
+        {
+            string dir = MakeModDir();
+            try
+            {
+                File.WriteAllText(Path.Combine(dir, "dw2modlauncher.json"), "{ \"font\": " + System.Text.Json.JsonSerializer.Serialize(name) + " }");
+                List<LoaderManifestFont> fonts = LoaderManifestBuilder.FontsOf(new List<ModInfo> { ModAt(dir) });
+                Assert.Empty(fonts);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
         [Fact]
         public void Build_SkipsMods_WithNoInjectionTarget()
         {

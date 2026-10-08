@@ -141,3 +141,41 @@ patches/races.xml: 9 applied, 0 unchanged, 5 skipped
 Every change that was applied is logged as `old -> new`, so you can confirm what happened. "unchanged" means the value was
 already what you wrote. The usual causes of a patch that "does nothing": a typo in a field name, the wrong `id`, the file
 sitting outside `patches/`, or the mod not enabled in the launcher.
+
+## Translating the game: the Localization Mod shortcut
+
+In the launcher, **Create Mod... > Localization Mod** asks for a language and creates a mod whose `patches` folder already
+holds all player-visible text of the game (and of your enabled mods) as patch files that mirror the data files:
+`Races.xml`, `Races_Atuuk.xml`, `GameEvents_Zenox.xml`, `ArmyTemplates.xml`, ... An entity appears only in the file whose
+definition wins in the game, so you translate each text once. If two folders contribute a file of the same name, each goes
+into a subfolder named after its folder (`patches/data/Races.xml`, `patches/SomeMod/Races.xml`):
+
+```xml
+<Race id="0">
+  <Name>Human</Name>
+  <Description>The Humans are ...</Description>
+</Race>
+```
+
+Translate the text in place and keep every `id="..."` and `index="..."` exactly as it is: they say which entity or
+list item the text belongs to. Delete anything you do not want to translate. Only display text is collected; identifiers
+(a game event's `Name`, which is its key, and fields that refer to other entities by name) are never touched.
+The interface and other plain-text strings live in `.txt` files, which the game replaces as a whole file. The shortcut
+copies them into the mod folder at the same path (`GameText.txt`, `Hints.txt`, `SystemNames.txt`, `dialog/*.txt`,
+`Galactopedia/**/*.txt`). Each line is `KEY ;text`: translate only the text after the semicolon and leave the key alone.
+
+### Fonts for non-Latin languages
+
+The game's default font has no Cyrillic, CJK and similar glyphs, and the game only uses another font when it is started with
+`--font <BundleName>`. A localization mod can bring its own font bundle and let the launcher do the rest:
+
+1. Put the font bundle files in the mod folder (`RussianFont.bundle` and the hashed `RussianFont.<hash>.bundle` next to it) and
+   list the bundle in `mod.json`: `"bundles": [ "RussianFont.Bundle" ]`.
+2. Add a `dw2modlauncher.json` next to `mod.json`:
+   ```json
+   { "font": "RussianFont" }
+   ```
+
+When the mod is enabled, the launcher starts the game with `--font RussianFont` and the loader makes the game find the bundle in the
+mod folder (the game itself only looks in `data/db/bundles`). The name may contain only letters, digits, `_` and `-`. If several
+enabled mods declare a font, the last one in load order is used.

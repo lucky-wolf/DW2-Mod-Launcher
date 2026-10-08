@@ -3,6 +3,13 @@ namespace DW2ModLauncher.Core.Models
     public class LauncherMeta
     {
         public LauncherInjection injection { get; set; }
+
+        /// <summary>
+        /// Name of a font bundle the mod ships (e.g. "RussianFont" for RussianFont.bundle in the mod folder, also listed in mod.json "bundles").
+        /// The launcher starts the game with --font and makes the game find the bundle in the mod folder. Used by localization mods
+        /// for non-Latin text; when several enabled mods declare one, the last in load order wins.
+        /// </summary>
+        public string font { get; set; }
     }
 
     // Optional manual override of injection discovery (normally inferred, see InjectionScanner):
