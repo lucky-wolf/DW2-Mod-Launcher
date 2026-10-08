@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using HarmonyLib;
 
 namespace DW2ModLauncher.Loader
 {
@@ -12,7 +13,10 @@ namespace DW2ModLauncher.Loader
     // underneath is reachable while it is open, and any click closes it. The widgets are the game's own DWButton controls registered as custom controls, so they are drawn with
     // the rest of the interface and hide with it.
     //
-    // The whole thing runs on reflection. The loader is built on CI machines that do not have the game installed, so it cannot be
+    // Harmony is referenced at compile time (Lib.Harmony.Ref; the game's own 0Harmony.dll is used at runtime). Entry calls Install inside
+    // a try/catch, so a missing or incompatible Harmony fails there and changes nothing for the mods.
+    //
+    // The rest runs on reflection. The loader is built on CI machines that do not have the game installed, so it cannot be
     // compiled against the game's assemblies; every game type, field and method is looked up by name once in Bind, and anything
     // missing throws there (one line in dw2modlauncher.log) instead of failing later on the render thread. A failed install changes nothing
     // for the mods or the game: the registry and dw2modlauncher.log still record everything.
@@ -45,38 +49,11 @@ namespace DW2ModLauncher.Loader
             _log = log;
             _g = Game.Bind();
 
-            Assembly harmonyAssembly = Assembly.Load("0Harmony");
-            Type harmonyType = harmonyAssembly.GetType("HarmonyLib.Harmony", throwOnError: true);
-            Type harmonyMethodType = harmonyAssembly.GetType("HarmonyLib.HarmonyMethod", throwOnError: true);
-
             MethodInfo target = _g.Controller.GetMethod("Update", BindingFlags.Public | BindingFlags.Static);
             if (target == null) throw new MissingMethodException("UserInterfaceController.Update not found");
             MethodInfo postfix = typeof(StatusWidget).GetMethod(nameof(UpdatePostfix), BindingFlags.Public | BindingFlags.Static);
 
-            object harmony = Activator.CreateInstance(harmonyType, "DW2ModLauncher.Loader.StatusWidget");
-            object postfixMethod = Activator.CreateInstance(harmonyMethodType, new object[] { postfix });
-
-            // Patch(MethodBase original, HarmonyMethod prefix, postfix, transpiler, finalizer): the trailing parameters differ by Harmony
-            // version, so fill the postfix by name and leave the rest null.
-            MethodInfo patch = null;
-            foreach (MethodInfo m in harmonyType.GetMethods(BindingFlags.Public | BindingFlags.Instance))
-            {
-                ParameterInfo[] ps = m.GetParameters();
-                if (m.Name == "Patch" && ps.Length > 0 && ps[0].ParameterType == typeof(MethodBase))
-                {
-                    patch = m;
-                    break;
-                }
-            }
-            if (patch == null) throw new MissingMethodException("Harmony.Patch not found");
-            ParameterInfo[] parameters = patch.GetParameters();
-            var args = new object[parameters.Length];
-            for (int i = 1; i < parameters.Length; i++)
-            {
-                if (parameters[i].Name == "postfix") args[i] = postfixMethod;
-            }
-            args[0] = target;
-            patch.Invoke(harmony, args);
+            new Harmony("DW2ModLauncher.Loader.StatusWidget").Patch(target, postfix: new HarmonyMethod(postfix));
             _log("OK status widget: hooked UserInterfaceController.Update.");
         }
 
