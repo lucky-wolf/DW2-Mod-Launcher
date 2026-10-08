@@ -30,6 +30,22 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Per mod (id, else folder name): headings of the settings editor groups the user collapsed.</summary>
         public Dictionary<string, List<string>> CollapsedSettingGroups { get; set; } = new Dictionary<string, List<string>>();
 
+        /// <summary>Per mod (id, else folder name): how the publish dialog proposes the next version. Mods not listed use the defaults (auto-increment, patch).</summary>
+        public Dictionary<string, VersionBumpPolicy> VersionBump { get; set; } = new Dictionary<string, VersionBumpPolicy>();
+
+        public VersionBumpPolicy VersionBumpFor(string modKey)
+        {
+            return VersionBump != null && modKey != null && VersionBump.TryGetValue(modKey, out VersionBumpPolicy p) && p != null ? p : new VersionBumpPolicy();
+        }
+
+        /// <summary>Stores the policy, or drops the entry when it is the default so the file stays small.</summary>
+        public void SetVersionBump(string modKey, VersionBumpPolicy policy)
+        {
+            if (VersionBump == null) VersionBump = new Dictionary<string, VersionBumpPolicy>();
+            if (string.Equals(policy.Level, "patch", StringComparison.OrdinalIgnoreCase)) VersionBump.Remove(modKey);
+            else VersionBump[modKey] = policy;
+        }
+
         public LauncherSettings()
         {
             SortColumn = -1;

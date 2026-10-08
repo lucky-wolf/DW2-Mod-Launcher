@@ -18,6 +18,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public override string ToString() { return Label; }
     }
 
+    public class BumpLevelOption
+    {
+        public string Value { get; set; }
+        public string Label { get; set; }
+        public override string ToString() { return Label; }
+    }
+
     /// <summary>Edits the mod.json fields Steam Workshop publish reads, plus how visible the item should be.</summary>
     public class PublishDialogViewModel : ViewModelBase, IDisposable
     {
@@ -47,8 +54,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastFileText;
         private FileSystemWatcher watcher;
         private Timer debounce;
+        // Version proposal: what the dialog last proposed (so a policy change only replaces an untouched proposal), and the X.Y.Z split.
+        private readonly bool proposesBump;
+        private BumpLevelOption bumpLevel;
+        private string proposedVersion;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null)
         {
             this.dialogs = dialogs;
             this.metadata = metadata;
@@ -67,8 +78,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             WorkshopIdText = string.IsNullOrWhiteSpace(mod.WorkshopId) ? l["PublishWorkshopIdUnpublished"] : mod.WorkshopId.Trim();
             title = metadata.DisplayName;
             OriginalVersion = metadata.Version;
-            // Updating a published item proposes the next patch version; nothing is written to mod.json until the author accepts.
-            version = isUpdate && !propertiesOnly ? ModVersion.BumpPatch(metadata.Version) : metadata.Version;
+            // Updating a published item proposes the next version per the mod's launcher-side policy (default: patch); nothing is
+            // written to mod.json until the author accepts.
+            bumpPolicy = bumpPolicy ?? new VersionBumpPolicy();
+            proposesBump = isUpdate && !propertiesOnly;
+            BumpLevels.Add(new BumpLevelOption { Value = "none", Label = l["VersionLevelNone"] });
+            foreach (VersionBumpLevel level in new[] { VersionBumpLevel.Patch, VersionBumpLevel.Minor, VersionBumpLevel.Major })
+                BumpLevels.Add(new BumpLevelOption { Value = ModVersion.LevelName(level), Label = l["VersionLevel" + level] });
+            string wanted = ModVersion.IsNoBump(bumpPolicy.Level) ? "none" : ModVersion.LevelName(ModVersion.ParseLevel(bumpPolicy.Level));
+            bumpLevel = BumpLevels.First(o => o.Value == wanted);
+            proposedVersion = ProposeVersion();
+            version = proposedVersion;
+            AdjustVersionCommand = RelayCommand.WithParameter(AdjustVersion);
+            IsSemver = ModVersion.TryParseSemver(version, out _, out _, out _);
             previewImage = metadata.PreviewImage;
             // The long description is always description.bbcode (seeded from the legacy mod.json fields if the file doesn't exist yet).
             // A mod that already names its own description file keeps it; otherwise it is description.bbcode.
@@ -164,7 +186,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private string FieldsSnapshot()
         {
-            return string.Join("", new[] { title, version, previewImage, shortDescription, bundles }.Select(x => (x ?? "").Trim()));
+            return string.Join("", new[] { title, version, previewImage, shortDescription, bundles, bumpLevel.Value }.Select(x => (x ?? "").Trim()));
         }
 
         /// <summary>Something in the dialog differs from what it opened with.</summary>
@@ -174,7 +196,67 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanPrimary)); }
 
         public string Title { get { return title; } set { if (Set(ref title, value)) RaiseModified(); } }
-        public string Version { get { return version; } set { if (Set(ref version, value)) RaiseModified(); } }
+        public string Version
+        {
+            get { return version; }
+            set
+            {
+                if (!Set(ref version, value)) return;
+                UpdateIsSemver();
+                RaiseModified();
+            }
+        }
+
+        /// <summary>The version is plain X.Y.Z, so the Major/Minor/Patch +/- buttons are live; any other shape (1.2, 1.2.3-beta) is edited as text only.</summary>
+        public bool IsSemver { get; private set; }
+
+        /// <summary>Parameter is "+" or "-" followed by "major", "minor" or "patch": changes that one part only (never below 0).</summary>
+        private void AdjustVersion(object how)
+        {
+            string text = how as string ?? "";
+            if (text.Length < 2 || !ModVersion.TryParseSemver(version, out int major, out int minor, out int patch)) return;
+            int delta = text[0] == '-' ? -1 : 1;
+            switch (text.Substring(1))
+            {
+                case "major": major = Math.Max(0, major + delta); break;
+                case "minor": minor = Math.Max(0, minor + delta); break;
+                case "patch": patch = Math.Max(0, patch + delta); break;
+            }
+            Version = major + "." + minor + "." + patch;
+        }
+
+        public RelayCommand AdjustVersionCommand { get; }
+
+        /// <summary>The choices for how the next version is proposed; shown only when publishing.</summary>
+        public List<BumpLevelOption> BumpLevels { get; } = new List<BumpLevelOption>();
+        public BumpLevelOption BumpLevel
+        {
+            get { return bumpLevel; }
+            set { if (value != null && Set(ref bumpLevel, value)) { Repropose(); RaiseModified(); } }
+        }
+        /// <summary>The policy as the author left it, for the caller to store per mod in launcher_settings.json.</summary>
+        public VersionBumpPolicy BumpPolicy { get { return new VersionBumpPolicy { Level = bumpLevel.Value }; } }
+
+        private void UpdateIsSemver()
+        {
+            bool semver = ModVersion.TryParseSemver(version, out _, out _, out _);
+            if (IsSemver == semver) return;
+            IsSemver = semver;
+            Raise(nameof(IsSemver));
+        }
+
+        private string ProposeVersion()
+        {
+            return proposesBump && !ModVersion.IsNoBump(bumpLevel.Value) ? ModVersion.Bump(OriginalVersion, ModVersion.ParseLevel(bumpLevel.Value)) : OriginalVersion;
+        }
+
+        /// <summary>A policy change replaces the proposal, unless the author already typed their own version.</summary>
+        private void Repropose()
+        {
+            string next = ProposeVersion();
+            if (version == proposedVersion) Version = next;
+            proposedVersion = next;
+        }
         public string PreviewImage { get { return previewImage; } set { if (Set(ref previewImage, value)) RaiseModified(); } }
         public string Description
         {

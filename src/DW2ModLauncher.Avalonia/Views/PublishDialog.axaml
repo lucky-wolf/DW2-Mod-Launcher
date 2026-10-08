@@ -13,27 +13,66 @@
           <TextBlock Text="{Binding L[PublishInfoTitle]}" />
           <TextBox Text="{Binding Title}" />
         </StackPanel>
-        <Grid ColumnDefinitions="120,16,170,16,*">
+        <Grid ColumnDefinitions="*,16,*,16,*">
           <StackPanel Grid.Column="0" Spacing="6">
-            <TextBlock Text="{Binding L[Version]}" />
-            <TextBox Text="{Binding Version}" />
-          </StackPanel>
-          <StackPanel Grid.Column="2" Spacing="6">
             <TextBlock Text="{Binding L[PublishWorkshopId]}" />
             <TextBox Text="{Binding WorkshopIdText, Mode=OneWay}" IsReadOnly="True" />
           </StackPanel>
-          <StackPanel Grid.Column="4" Spacing="6">
+          <StackPanel Grid.Column="2" Spacing="6">
             <TextBlock Text="{Binding L[PublishVisibility]}" />
             <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" IsEnabled="{Binding CanEditVisibility}" HorizontalAlignment="Stretch" />
           </StackPanel>
+          <StackPanel Grid.Column="4" Spacing="6">
+            <TextBlock Text="{Binding L[PublishInfoPreviewImage]}" />
+            <Grid ColumnDefinitions="*,6,Auto">
+              <TextBox Grid.Column="0" Text="{Binding PreviewImage}" />
+              <Button Grid.Column="2" Content="…" Command="{Binding BrowsePreviewCommand}" MinWidth="36" />
+            </Grid>
+          </StackPanel>
         </Grid>
-        <StackPanel Spacing="6">
-          <TextBlock Text="{Binding L[PublishInfoPreviewImage]}" />
-          <Grid ColumnDefinitions="*,10,Auto">
-            <TextBox Grid.Column="0" Text="{Binding PreviewImage}" />
-            <Button Grid.Column="2" Content="…" Command="{Binding BrowsePreviewCommand}" MinWidth="60" />
-          </Grid>
-        </StackPanel>
+        <Grid ColumnDefinitions="Auto,24,*">
+          <StackPanel Grid.Column="0" Spacing="6">
+            <TextBlock Text="{Binding L[Version]}" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBox Text="{Binding Version}" Width="140" />
+              <!-- Small +/- pairs in major, minor, patch order (tooltips say which); they only act on plain X.Y.Z versions and grey out otherwise. -->
+              <StackPanel Orientation="Horizontal" Spacing="6" IsEnabled="{Binding IsSemver}">
+                <StackPanel.Styles>
+                  <Style Selector="Button.step">
+                    <Setter Property="Width" Value="28" />
+                    <Setter Property="Height" Value="15" />
+                    <Setter Property="MinWidth" Value="0" />
+                    <Setter Property="MinHeight" Value="0" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="FontSize" Value="11" />
+                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                  </Style>
+                  <!-- Exactly 1px down: a margin would only move a centred icon by half that. -->
+                  <Style Selector="Button.step PathIcon">
+                    <Setter Property="RenderTransform" Value="translateY(1px)" />
+                  </Style>
+                </StackPanel.Styles>
+              <StackPanel Spacing="2" VerticalAlignment="Center">
+                <Button Classes="step" Command="{Binding AdjustVersionCommand}" CommandParameter="+major" ToolTip.Tip="{Binding L[VersionIncMajor]}"><PathIcon Width="9" Height="9" Data="M4 0h2v4h4v2H6v4H4V6H0V4h4z" /></Button>
+                <Button Classes="step" Command="{Binding AdjustVersionCommand}" CommandParameter="-major" ToolTip.Tip="{Binding L[VersionDecMajor]}"><PathIcon Width="9" Height="9" Data="M0 4h10v2H0z" /></Button>
+              </StackPanel>
+              <StackPanel Spacing="2" VerticalAlignment="Center">
+                <Button Classes="step" Command="{Binding AdjustVersionCommand}" CommandParameter="+minor" ToolTip.Tip="{Binding L[VersionIncMinor]}"><PathIcon Width="9" Height="9" Data="M4 0h2v4h4v2H6v4H4V6H0V4h4z" /></Button>
+                <Button Classes="step" Command="{Binding AdjustVersionCommand}" CommandParameter="-minor" ToolTip.Tip="{Binding L[VersionDecMinor]}"><PathIcon Width="9" Height="9" Data="M0 4h10v2H0z" /></Button>
+              </StackPanel>
+              <StackPanel Spacing="2" VerticalAlignment="Center">
+                <Button Classes="step" Command="{Binding AdjustVersionCommand}" CommandParameter="+patch" ToolTip.Tip="{Binding L[VersionIncPatch]}"><PathIcon Width="9" Height="9" Data="M4 0h2v4h4v2H6v4H4V6H0V4h4z" /></Button>
+                <Button Classes="step" Command="{Binding AdjustVersionCommand}" CommandParameter="-patch" ToolTip.Tip="{Binding L[VersionDecPatch]}"><PathIcon Width="9" Height="9" Data="M0 4h10v2H0z" /></Button>
+              </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="6">
+            <TextBlock Text="{Binding L[VersionOnPublish]}" />
+            <ComboBox ItemsSource="{Binding BumpLevels}" SelectedItem="{Binding BumpLevel}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+        </Grid>
         <StackPanel Spacing="2">
           <TextBlock Text="{Binding L[PublishShortDescription]}" />
           <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishShortDescriptionHint]}" />
