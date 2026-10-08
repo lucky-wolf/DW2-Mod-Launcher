@@ -20,21 +20,6 @@
       </Grid>
 
       <StackPanel Spacing="6">
-        <TextBlock Text="{Binding L[AdditionalLaunchArguments]}" />
-        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-          <TextBox Grid.Column="0" Text="{Binding LaunchArguments}" />
-          <Button Grid.Column="1" Content="{Binding L[ImportFromSteam]}" Command="{Binding ImportSteamLaunchOptionsCommand}" MinWidth="160" />
-          <Button Grid.Column="2" Content="{Binding L[ResetLaunchOptions]}" Command="{Binding ResetLaunchOptionsCommand}" MinWidth="100" />
-        </Grid>
-      </StackPanel>
-
-      <StackPanel Spacing="6">
-        <TextBlock Text="{Binding L[EnvironmentVariables]}" />
-        <TextBox Text="{Binding LaunchEnvironment}" AcceptsReturn="True" MinHeight="70" IsEnabled="{Binding EnvironmentApplies}" />
-        <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding EnvironmentIgnored}" Text="{Binding L[EnvironmentSteamNote]}" />
-      </StackPanel>
-
-      <StackPanel Spacing="6">
         <TextBlock Text="{Binding L[EffectiveLaunchCommand]}" />
         <TextBox Text="{Binding CommandPreview, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
                  MinHeight="70" Foreground="{StaticResource Dw2BlueGlow}" />

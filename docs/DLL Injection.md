@@ -18,7 +18,7 @@ at injection time through this flag alone.
 Rather than composing every enabled mod's own `dll!entryPoint` into that one flag, the launcher
 injects a single, fixed target: its own `DW2ModLauncher.Loader.dll` (shipped in a `Loader\`
 subfolder next to the launcher's executable, never inside `GameRoot` or a Workshop folder).
-`MainViewModel.BuildLaunchArguments` always emits exactly:
+`GameLauncher.BuildArguments` always emits exactly:
 
 ```
 --low-level-inject "<path>\Loader\DW2ModLauncher.Loader.dll"!DW2ModLauncher.Loader.Entry.Init

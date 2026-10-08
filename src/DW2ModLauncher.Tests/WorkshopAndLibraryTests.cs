@@ -152,13 +152,13 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
-        public void BuildArguments_StartsWithInjectionFlag_ThenUserArguments()
+        public void BuildArguments_StartsWithInjectionFlag_ThenModeFlag()
         {
-            string args = GameLauncher.BuildArguments("--windowed");
+            string args = GameLauncher.BuildArguments();
             Assert.StartsWith("--low-level-inject ", args);
             Assert.Contains("!DW2ModLauncher.Loader.Entry.Init", args);
-            Assert.EndsWith(" --windowed", args);
-            Assert.DoesNotContain("--windowed", GameLauncher.BuildArguments(" "));
+            Assert.EndsWith(" --continue", GameLauncher.BuildArguments(LaunchMode.Continue));
+            Assert.EndsWith(" --new-game", GameLauncher.BuildArguments(LaunchMode.NewGame));
         }
     }
 }

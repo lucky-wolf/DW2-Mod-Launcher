@@ -10,6 +10,12 @@ namespace DW2ModLauncher.Avalonia
         [STAThread]
         public static void Main(string[] args)
         {
+            // Helper mode: do the Steam call and exit, never showing a window.
+            if (args.Length > 0 && args[0] == DW2ModLauncher.Core.Services.Publishing.SteamWorker.Flag)
+            {
+                Environment.Exit(DW2ModLauncher.Core.Services.Publishing.SteamWorker.Run());
+                return;
+            }
             AppDomain.CurrentDomain.UnhandledException += delegate (object sender, UnhandledExceptionEventArgs e)
             {
                 Logger.LogException("Unhandled domain exception", e.ExceptionObject as Exception);

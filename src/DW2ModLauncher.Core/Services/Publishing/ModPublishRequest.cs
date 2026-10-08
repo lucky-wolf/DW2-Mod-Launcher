@@ -27,6 +27,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
         /// <summary>Null leaves visibility alone: a new item stays private (Steam's default), an existing one keeps what it has.</summary>
         public ModVisibility? Visibility { get; set; }
         /// <summary>Lets the caller stop waiting on Steam. A cancelled publish returns an error result (WorkshopId is still set if the item was already created).</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
         public System.Threading.CancellationToken Cancel { get; set; }
     }
 }
