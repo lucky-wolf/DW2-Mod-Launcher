@@ -66,6 +66,40 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void GetOrCreateValues_FillsAndPersistsMissingKeys_KeepingStoredOnes()
+        {
+            ModInfo mod = MakeMod("test/store-missing-" + Guid.NewGuid().ToString("N"));
+            ModSettingsSchema schema = new ModSettingsSchema
+            {
+                Groups = new List<ModSettingsGroup>
+                {
+                    new ModSettingsGroup
+                    {
+                        Name = "fields",
+                        Fields = new List<ModSettingsField>
+                        {
+                            new ModSettingsField { Key = "Enabled", Type = "bool", Default = true },
+                            new ModSettingsField { Key = "Added", Type = "bool", Default = true },
+                        }
+                    }
+                }
+            };
+            string path = ModSettingsStore.GetSettingsPath(mod);
+            try
+            {
+                ModSettingsStore.SaveValues(mod, new JsonObject { ["Enabled"] = false });
+
+                ModSettingsStore.GetOrCreateValues(mod, schema);
+
+                // Read back from disk (no schema): the new key is really in the file, the stored one untouched.
+                JsonObject onDisk = ModSettingsStore.GetOrCreateValues(mod, null);
+                Assert.False(onDisk["Enabled"].GetValue<bool>());
+                Assert.True(onDisk["Added"].GetValue<bool>());
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        [Fact]
         public void SaveValues_RoundTrips()
         {
             ModInfo mod = MakeMod("test/store-roundtrip-" + Guid.NewGuid().ToString("N"));

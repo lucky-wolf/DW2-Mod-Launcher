@@ -74,7 +74,18 @@ namespace DW2ModLauncher.Core.Services
         public static SetEnabledResult SetEnabled(ModInfo mod, bool enabled, LauncherSettings settings, ModOrderState order)
         {
             settings.SelectedMods[mod.Key] = enabled;
-            return SaveOrderSelection(mod, enabled, settings, order);
+            SetEnabledResult result = SaveOrderSelection(mod, enabled, settings, order);
+            // An enabled mod always has a settings file holding every schema key (missing ones at their defaults).
+            if (enabled && result.Outcome == SetEnabledOutcome.Saved)
+            {
+                try
+                {
+                    ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
+                    if (schema != null) ModSettingsStore.GetOrCreateValues(mod, schema);
+                }
+                catch { }
+            }
+            return result;
         }
 
         public static SetEnabledResult SaveOrderSelection(ModInfo mod, bool enabled, LauncherSettings settings, ModOrderState order)

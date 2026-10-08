@@ -325,8 +325,24 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
             Analyze();
             RebuildRows();
+            SyncEnabledModSettings();
             Settings.LoadFromSettings();
             UpdateStatus();
+        }
+
+        /// <summary>Completes the settings file of every enabled mod (keys added by a mod update appear at their defaults).</summary>
+        private void SyncEnabledModSettings()
+        {
+            foreach (ModInfo mod in AllMods)
+            {
+                if (!IsSelected(mod)) continue;
+                try
+                {
+                    ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
+                    if (schema != null) ModSettingsStore.GetOrCreateValues(mod, schema);
+                }
+                catch (Exception ex) { Logger.LogException("Sync mod settings", ex); }
+            }
         }
 
         private void Analyze()
@@ -847,8 +863,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             bool isPublished = !string.IsNullOrWhiteSpace(mod.WorkshopId);
             ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true);
+            string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
+            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey));
             if (!await Dialogs.EditPublishAsync(editor)) { UpdateStatus(); return; }
+            // The version policy is launcher-side (launcher_settings.json); it only takes effect at the next publish.
+            settings.SetVersionBump(bumpKey, editor.BumpPolicy);
+            SaveSettings();
 
             string folder = mod.Folder;
             Refresh();
@@ -884,8 +904,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModVisibility? currentVisibility = isUpdate ? await ReadVisibilityAsync(mod) : null;
             // On an update, ask Steam what the description currently says so the dialog only offers to replace it when it differs.
             string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription);
+            string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
+            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey));
             if (!await Dialogs.EditPublishAsync(editor)) return;
+            // The version policy is remembered per mod in launcher_settings.json (never in the mod itself).
+            settings.SetVersionBump(bumpKey, editor.BumpPolicy);
+            SaveSettings();
             // Accepting the dialog wrote the (possibly bumped) version to mod.json; any exit below that doesn't publish undoes it.
             string versionBefore = editor.OriginalVersion;
             string versionWritten = metadata.Version;

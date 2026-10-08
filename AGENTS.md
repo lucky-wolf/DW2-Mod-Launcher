@@ -83,7 +83,7 @@ never hand-set a version in a `.csproj`. Full writeup: [docs/CI Releases.md](doc
 
 ## Keeping docs/focus.md current
 
-[docs/focus.md](docs/focus.md) is the running list of what the current branch has accomplished; `scripts/open-pr.py` uses it as the PR description and `scripts/new-branch.py` empties it for new work. When you finish a user-visible change (human or AI), add a one-line `- ` entry below the `---` in the same change; fold small related entries together once a theme is done.
+[docs/focus.md](docs/focus.md) is the running list of what the current branch has accomplished; `scripts/open-pr.py` uses it as the PR description and `scripts/new-branch.py` empties it for new work. When you finish a user-visible change (human or AI), add a one-line `- ` entry below the `---` in the same change. Each line is one short, single-line, fairly high-level accomplishment - never a long run-on sentence smashing several things together. If three things were done in the same subsystem, that is three short lines saying what they were, not one merged line.
 
 ## Updating this file
 

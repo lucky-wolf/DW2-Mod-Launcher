@@ -51,7 +51,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 Thread watcher = new Thread(delegate ()
                 {
                     try { if (input.ReadLine() == "cancel") cancel.Cancel(); } catch { }
-                }) { IsBackground = true };
+                })
+                { IsBackground = true };
                 watcher.Start();
 
                 IModPublisher publisher = new SteamworksNetModPublisher(call.AppId);

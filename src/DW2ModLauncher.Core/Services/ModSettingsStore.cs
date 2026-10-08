@@ -24,29 +24,33 @@ namespace DW2ModLauncher.Core.Services
             return Path.Combine(UserDataRoot.Get(), "ModSettings", token + ".json");
         }
 
-        /// <summary>Reads existing stored values; if none exist and a schema is given, synthesizes
-        /// defaults from it, persists them, and returns those instead.</summary>
+        /// <summary>Reads existing stored values and fills in any schema key the file lacks with its default
+        /// (no file, or an unreadable one, counts as all keys lacking). If anything was filled in the file is
+        /// rewritten at once, so what the editor shows is exactly what is on disk and only a user edit makes
+        /// the values differ from the file.</summary>
         public static JsonObject GetOrCreateValues(ModInfo mod, ModSettingsSchema schema)
         {
             string path = GetSettingsPath(mod);
+            JsonObject values = null;
             if (File.Exists(path))
             {
                 try
                 {
-                    JsonNode node = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8));
-                    if (node is JsonObject existing) return existing;
+                    values = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)) as JsonObject;
                 }
                 catch { }
             }
 
-            JsonObject defaults = new JsonObject();
+            bool changed = values == null;
+            if (values == null) values = new JsonObject();
             foreach (ModSettingsField field in schema?.Fields ?? new System.Collections.Generic.List<ModSettingsField>())
             {
-                if (string.IsNullOrWhiteSpace(field.Key)) continue;
-                defaults[field.Key] = ToJsonNode(field.Default);
+                if (string.IsNullOrWhiteSpace(field.Key) || values.ContainsKey(field.Key)) continue;
+                values[field.Key] = ToJsonNode(field.Default);
+                changed = true;
             }
-            SaveValues(mod, defaults);
-            return defaults;
+            if (changed) SaveValues(mod, values);
+            return values;
         }
 
         public static void SaveValues(ModInfo mod, JsonObject values)
