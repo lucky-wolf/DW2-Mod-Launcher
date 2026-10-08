@@ -80,8 +80,10 @@ For each manifest entry, in order, `DW2ModLauncher.Loader.Entry` resolves the de
    this is why existing mods that only implement `Init()` (e.g. `NoStarField`) keep working
    unmodified.
 
-One mod failing to load (missing DLL, exception during `Init`, etc.) is logged to `loader.log`
-next to the manifest and does not stop the rest from loading - see `Entry.LoadOne`.
+One mod failing to load (missing DLL, exception during `Init`, etc.) is logged to `dw2modlauncher.log` (in the game's `data/Logs/`, next to `SessionLog.txt`)
+next to the manifest and does not stop the rest from loading - see `Entry.LoadOne`. The same outcome is
+recorded in the loader's status registry and shown by the in-game status line (red when a mod failed
+to load), which mods can add to; see [Mod Status Line.md](Mod%20Status%20Line.md).
 
 ## Settings schema
 

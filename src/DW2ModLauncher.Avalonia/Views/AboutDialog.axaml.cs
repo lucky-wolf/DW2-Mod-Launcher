@@ -20,6 +20,12 @@ namespace DW2ModLauncher.Avalonia.Views
         public AboutDialog(MainViewModel main) : this()
         {
             DataContext = main;
+            // The update dialogs belong on the main window, so leave the About box before checking.
+            CheckUpdateButton.Click += delegate
+            {
+                Close();
+                main.CheckLauncherUpdateCommand.Execute(null);
+            };
             VersionText.Text = main.T("AboutVersion", AppVersion.Display);
             ReleasesLink.Text = AppVersion.ReleasesUrl;
         }

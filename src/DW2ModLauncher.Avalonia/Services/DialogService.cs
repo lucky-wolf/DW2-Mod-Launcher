@@ -122,6 +122,18 @@ namespace DW2ModLauncher.Avalonia.Services
             public void Dispose() { dialog.Finish(); }
         }
 
+        public IProgressHandle ShowProgress(string message, string title, string cancelText, CancellationTokenSource cancel)
+        {
+            ProgressDialog dialog = new ProgressDialog(message, title, cancelText, cancel);
+            var shown = dialog.ShowDialog(owner());
+            return dialog;
+        }
+
+        public void RequestExit()
+        {
+            mainWindow().Close();
+        }
+
         public Task<bool> EditPublishAsync(PublishDialogViewModel editor)
         {
             return new PublishDialog(editor, this).ShowDialog<bool>(owner());

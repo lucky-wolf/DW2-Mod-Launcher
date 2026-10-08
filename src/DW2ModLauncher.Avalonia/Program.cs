@@ -16,6 +16,12 @@ namespace DW2ModLauncher.Avalonia
                 Environment.Exit(DW2ModLauncher.Core.Services.Publishing.SteamWorker.Run());
                 return;
             }
+            // Helper mode of a self-update: replace the launcher's files once it has exited, then start it again.
+            if (args.Length > 0 && args[0] == DW2ModLauncher.Core.Services.Updates.LauncherUpdater.Flag)
+            {
+                Environment.Exit(DW2ModLauncher.Core.Services.Updates.UpdateApplier.Run(args));
+                return;
+            }
             AppDomain.CurrentDomain.UnhandledException += delegate (object sender, UnhandledExceptionEventArgs e)
             {
                 Logger.LogException("Unhandled domain exception", e.ExceptionObject as Exception);

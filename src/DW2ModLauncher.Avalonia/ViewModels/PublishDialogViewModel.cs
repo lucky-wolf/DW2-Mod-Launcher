@@ -18,6 +18,29 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public override string ToString() { return Label; }
     }
 
+    /// <summary>One line of the read-only Injected DLLs table: a loadable target, or a DLL with no valid entry point (flagged, never injected).</summary>
+    public class InjectedDllRow
+    {
+        public string Dll { get; set; }
+        public string EntryPoint { get; set; }
+        public bool IsInvalid { get; set; }
+        /// <summary>Loads fine, but something doesn't add up (for example the mod has settings and this DLL can't receive them).</summary>
+        public bool IsWarning { get; set; }
+        public bool IsValid { get { return !IsInvalid && !IsWarning; } }
+        public string Tooltip { get; set; }
+    }
+
+    /// <summary>One line of the read-only Bundles table: the bundle found in the mod folder (or listed in mod.json but missing) and its size.</summary>
+    public class BundleRow
+    {
+        public string Name { get; set; }
+        public string Size { get; set; }
+        /// <summary>Listed in mod.json but not in the mod folder: shown with an error mark, and dropped from mod.json on save.</summary>
+        public bool IsMissing { get; set; }
+        public bool IsPresent { get { return !IsMissing; } }
+        public string Tooltip { get; set; }
+    }
+
     public class BumpLevelOption
     {
         public string Value { get; set; }
@@ -37,7 +60,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string previewImage;
         private string description;
         private string shortDescription;
-        private string bundles;
         private VisibilityOption visibility;
         private bool replaceDescription;
         private readonly string workshopId;
@@ -57,6 +79,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         // Version proposal: what the dialog last proposed (so a policy change only replaces an untouched proposal), and the X.Y.Z split.
         private readonly bool proposesBump;
         private BumpLevelOption bumpLevel;
+        private readonly List<string> detectedBundles;
+        private readonly List<string> missingBundles = new List<string>();
         private string proposedVersion;
 
         public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null)
@@ -100,9 +124,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (this.steamDescription != null) replaceDescription = DescriptionDiffersFromSteam;
             lastFileText = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName);
             shortDescription = metadata.ShortDescription;
-            bundles = string.Join("\n", metadata.Bundles ?? new List<string>());
+            // Bundles are detected from the mod folder (never typed); the list is written back to mod.json on save.
+            detectedBundles = BundleSet.Detect(contentFolder);
+            BundleRows = detectedBundles.Select(b => BundleRowFor(b, l)).ToList();
+            // Safety net: bundles mod.json lists that are gone from the folder stay visible (flagged) until the author saves.
+            foreach (string listed in (metadata.Bundles ?? new List<string>()).Select(b => (b ?? "").Trim()).Where(b => b.Length > 0))
+            {
+                if (detectedBundles.Contains(listed, StringComparer.OrdinalIgnoreCase) || BundleSet.TotalBytes(contentFolder, listed).HasValue) continue;
+                missingBundles.Add(listed);
+                BundleRows.Add(new BundleRow { Name = listed, Size = l["PublishBundlesMissing"], IsMissing = true, Tooltip = l["PublishBundlesMissingTooltip"] });
+            }
             // Read-only: what the launcher will inject for this mod (inferred, or the dw2modlauncher.json override).
-            InjectedDlls = DW2ModLauncher.Core.Services.InjectionScanner.TargetsFor(mod);
+            InjectedDlls = BuildInjectedRows(mod, l);
 
             workshopId = long.TryParse(mod.WorkshopId, out long _) ? mod.WorkshopId.Trim() : null;
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage);
@@ -170,9 +203,43 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>The item's Workshop id (read-only), or "Unpublished" until a first publish has written one into mod.json.</summary>
         public string WorkshopIdText { get; }
         /// <summary>The DLLs (and entry points) the launcher will inject for this mod, shown as a read-only table.</summary>
-        public List<DW2ModLauncher.Core.Services.InjectionTarget> InjectedDlls { get; }
+        public List<InjectedDllRow> InjectedDlls { get; }
+
+        private static List<InjectedDllRow> BuildInjectedRows(ModInfo mod, LocalizedStrings l)
+        {
+            List<InjectedDllRow> rows = DW2ModLauncher.Core.Services.InjectionScanner.TargetsFor(mod)
+                .Select(t => new InjectedDllRow { Dll = t.Dll, EntryPoint = t.EntryPoint }).ToList();
+            // Incongruous: the mod ships a settings schema, yet none of its DLLs can receive settings (they only have Init()).
+            string root = mod.ContentRoot ?? mod.Folder;
+            if (rows.Count > 0 && DW2ModLauncher.Core.Services.ModSettingsSchemaReader.Read(root) != null
+                && !rows.Any(r => DW2ModLauncher.Core.Services.InjectionScanner.AcceptsOptions(System.IO.Path.Combine(root, r.Dll.Replace('/', System.IO.Path.DirectorySeparatorChar)))))
+            {
+                foreach (InjectedDllRow row in rows)
+                {
+                    row.IsWarning = true;
+                    row.Tooltip = l["PublishInjectedDllsWarnNoOptions"];
+                }
+            }
+            // DLLs with an unusable Entry type are listed too, flagged; they are display-only and never reach the loader manifest.
+            foreach (DW2ModLauncher.Core.Services.InvalidInjectionDll bad in DW2ModLauncher.Core.Services.InjectionScanner.InvalidFor(mod))
+                rows.Add(new InjectedDllRow { Dll = bad.Dll, EntryPoint = l["PublishInjectedDllsInvalid"], IsInvalid = true, Tooltip = l["PublishInjectedDllsProblem" + bad.Problem] });
+            return rows.OrderBy(r => r.Dll, StringComparer.Ordinal).ToList();
+        }
         /// <summary>Whether the mod lists any bundles; the Bundles section starts collapsed when it does not.</summary>
-        public bool HasBundles { get { return !string.IsNullOrWhiteSpace(bundles); } }
+        public bool HasBundles { get { return BundleRows.Count > 0; } }
+        public bool NoBundles { get { return BundleRows.Count == 0; } }
+        /// <summary>The bundles found in the mod folder with their total size in MiB (head file plus its hashed part files).</summary>
+        public List<BundleRow> BundleRows { get; }
+
+        /// <summary>Null when saving loses nothing; otherwise the OK/Cancel question about the missing bundles that saving removes from mod.json.</summary>
+        public string MissingBundlesQuestion { get { return missingBundles.Count == 0 ? null : L.Format("PublishBundlesRemoveConfirm", string.Join("\n", missingBundles)); } }
+
+        private BundleRow BundleRowFor(string name, LocalizedStrings l)
+        {
+            long? bytes = BundleSet.TotalBytes(contentFolder, name);
+            string size = bytes.HasValue ? DW2ModLauncher.Core.Services.ByteSize.Format(bytes.Value) : l["PublishBundlesMissing"];
+            return new BundleRow { Name = name, Size = size };
+        }
         public bool HasInjectedDlls { get { return InjectedDlls.Count > 0; } }
         public bool NoInjectedDlls { get { return InjectedDlls.Count == 0; } }
         public List<VisibilityOption> Visibilities { get; } = new List<VisibilityOption>();
@@ -186,7 +253,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private string FieldsSnapshot()
         {
-            return string.Join("", new[] { title, version, previewImage, shortDescription, bundles, bumpLevel.Value }.Select(x => (x ?? "").Trim()));
+            return string.Join("", new[] { title, version, previewImage, shortDescription, bumpLevel.Value }.Select(x => (x ?? "").Trim()));
         }
 
         /// <summary>Something in the dialog differs from what it opened with.</summary>
@@ -257,7 +324,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (version == proposedVersion) Version = next;
             proposedVersion = next;
         }
-        public string PreviewImage { get { return previewImage; } set { if (Set(ref previewImage, value)) RaiseModified(); } }
+        public string PreviewImage { get { return previewImage; } set { if (Set(ref previewImage, value)) { Raise(nameof(PreviewImageSize)); RaiseModified(); } } }
+        /// <summary>The preview file's size once the box names a file that exists (Steam rejects previews over 1 MiB); blank otherwise.</summary>
+        public string PreviewImageSize
+        {
+            get
+            {
+                try
+                {
+                    string name = (previewImage ?? "").Trim();
+                    FileInfo file = name.Length == 0 ? null : new FileInfo(System.IO.Path.Combine(contentFolder, name));
+                    if (file != null && file.Exists) return DW2ModLauncher.Core.Services.ByteSize.Format(file.Length);
+                }
+                catch (Exception) { }
+                return "";
+            }
+        }
         public string Description
         {
             get { return description; }
@@ -273,7 +355,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
         public string ShortDescription { get { return shortDescription; } set { if (Set(ref shortDescription, value)) RaiseModified(); } }
-        public string Bundles { get { return bundles; } set { if (Set(ref bundles, value)) RaiseModified(); } }
         public VisibilityOption Visibility { get { return visibility; } set { if (value != null) Set(ref visibility, value); } }
 
         public ModPublishMetadata Metadata { get { return metadata; } }
@@ -463,7 +544,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write description.bbcode", ex);
                 return ex.Message;
             }
-            metadata.Bundles = (bundles ?? "").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+            metadata.Bundles = detectedBundles;
             try
             {
                 ModPublishMetadataEditor.Write(modJsonPath, metadata);

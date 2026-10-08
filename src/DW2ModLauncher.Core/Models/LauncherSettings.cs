@@ -12,6 +12,10 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>The Play button's remembered mode (run / continue / new game).</summary>
         public LaunchMode LaunchMode { get; set; }
         public string LastWorkshopUpdateCheckUtc { get; set; }
+        /// <summary>Ask GitHub for a newer launcher release at startup (and offer to install it).</summary>
+        public bool CheckForLauncherUpdates { get; set; } = true;
+        /// <summary>A launcher version the user chose "Skip this version" for; the startup check stays quiet about exactly that one.</summary>
+        public string SkippedLauncherVersion { get; set; } = "";
         public Dictionary<string, bool> SelectedMods { get; set; }
         public string ActiveProfile { get; set; }
         /// <summary>Mod list sort column (0 name, 1 source, 2 state, 3 health, 4 load order); -1 = manual load order.</summary>
