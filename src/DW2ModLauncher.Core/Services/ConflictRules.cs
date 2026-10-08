@@ -27,6 +27,10 @@ namespace DW2ModLauncher.Core.Services
             if (rel.StartsWith(".git/") || rel.StartsWith(".vs/") || rel.StartsWith(".vscode/") || rel.StartsWith("__macosx/") ||
                 rel.Contains("/.git/") || rel.Contains("/.vs/") || rel.Contains("/.vscode/") || rel.Contains("/__macosx/")) return true;
 
+            // XML patches (see docs/plans/xml-patching.md) are merged field by field, so two mods patching the same entity is the
+            // point, not a conflict.
+            if (rel.StartsWith("patches/")) return true;
+
             if (ext == ".xml" || ext == ".atlas") return false;
             if (ext == ".mp3") return !rel.StartsWith("music/");
             if (ext == ".txt")

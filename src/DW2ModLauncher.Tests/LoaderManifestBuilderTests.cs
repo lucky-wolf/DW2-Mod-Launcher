@@ -133,6 +133,74 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Build_ListsPatchFiles_ForModsWithoutAnyDll_InOrdinalPathOrder()
+        {
+            string dir = MakeModDir();
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(dir, "patches", "sub"));
+                File.WriteAllText(Path.Combine(dir, "patches", "b.xml"), "<ArrayOfRace />");
+                File.WriteAllText(Path.Combine(dir, "patches", "A.xml"), "<ArrayOfRace />");
+                File.WriteAllText(Path.Combine(dir, "patches", "sub", "c.xml"), "<ArrayOfRace />");
+                File.WriteAllText(Path.Combine(dir, "patches", "notes.txt"), "not a patch");
+
+                LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(dir) });
+
+                Assert.Empty(manifest.Entries);
+                LoaderManifestPatchSet set = Assert.Single(manifest.Patches);
+                Assert.Equal("Some Mod", set.DisplayName);
+                Assert.Equal(3, set.Files.Count);
+                Assert.EndsWith("A.xml", set.Files[0]);
+                Assert.EndsWith("b.xml", set.Files[1]);
+                Assert.EndsWith("c.xml", set.Files[2]);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void Build_KeepsPatchSets_InModLoadOrder_AndSkipsModsWithoutPatches()
+        {
+            string first = MakeModDir();
+            string plain = MakeModDir();
+            string second = MakeModDir();
+            try
+            {
+                foreach (string dir in new[] { first, second })
+                {
+                    Directory.CreateDirectory(Path.Combine(dir, "patches"));
+                    File.WriteAllText(Path.Combine(dir, "patches", "p.xml"), "<ArrayOfRace />");
+                }
+                ModInfo a = ModAt(first);
+                a.DisplayName = "First";
+                ModInfo b = ModAt(plain);
+                b.DisplayName = "Plain";
+                ModInfo c = ModAt(second);
+                c.DisplayName = "Second";
+
+                LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { a, b, c });
+
+                Assert.Equal(new[] { "First", "Second" }, manifest.Patches.ConvertAll(p => p.DisplayName));
+            }
+            finally
+            {
+                Directory.Delete(first, true);
+                Directory.Delete(plain, true);
+                Directory.Delete(second, true);
+            }
+        }
+
+        [Fact]
+        public void Build_WithoutPatchesFolder_HasNoPatchSets()
+        {
+            string dir = MakeModDir("SomeMod.dll");
+            try
+            {
+                Assert.Empty(LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(dir) }).Patches);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
         public void Build_SkipsMods_WithNoInjectionTarget()
         {
             string dir = MakeModDir();

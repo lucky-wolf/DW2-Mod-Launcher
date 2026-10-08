@@ -10,6 +10,17 @@ namespace DW2ModLauncher.Core.Models
     public class LoaderManifest
     {
         public List<LoaderManifestEntry> Entries { get; set; } = new List<LoaderManifestEntry>();
+
+        /// <summary>The XML patch files of every enabled mod, in load order (a mod needs no DLL to have patches).</summary>
+        public List<LoaderManifestPatchSet> Patches { get; set; } = new List<LoaderManifestPatchSet>();
+    }
+
+    /// <summary>One mod's XML patch files (see docs/plans/xml-patching.md), in the order they apply.</summary>
+    public class LoaderManifestPatchSet
+    {
+        public string DisplayName { get; set; }
+        /// <summary>Paths as the game process sees them (Z:\... under Proton).</summary>
+        public List<string> Files { get; set; } = new List<string>();
     }
 
     public class LoaderManifestEntry

@@ -45,6 +45,24 @@ namespace DW2ModLauncher.Loader
 
             foreach (LoaderManifestEntry entry in manifest?.Entries ?? new System.Collections.Generic.List<LoaderManifestEntry>())
                 LoadOne(entry);
+
+            InstallXmlPatching(manifest, baseDir);
+        }
+
+        // Kept in its own method so a missing 0Harmony.dll fails here (caught, logged) instead of stopping the mods above from loading:
+        // the JIT only resolves Harmony types when this method is first called.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InstallXmlPatching(LoaderManifest manifest, string baseDir)
+        {
+            try
+            {
+                int files = XmlPatchHooks.Install(manifest, baseDir);
+                if (files > 0) Log("XML patching: " + files + " patch file(s) loaded; see patches.log.");
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR: XML patching could not be installed (mods are unaffected): " + ex);
+            }
         }
 
         private static void LoadOne(LoaderManifestEntry entry)

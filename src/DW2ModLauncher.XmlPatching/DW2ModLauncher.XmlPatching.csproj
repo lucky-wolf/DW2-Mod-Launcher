@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Stays net8.0 on purpose: the sources of this project are also compiled into DW2ModLauncher.Loader, which runs
+         inside the game process (.NET 8). BCL only (System.Xml.Linq); no game or launcher references. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>DW2ModLauncher.XmlPatching</RootNamespace>
+    <AssemblyName>DW2ModLauncher.XmlPatching</AssemblyName>
+  </PropertyGroup>
+
+</Project>

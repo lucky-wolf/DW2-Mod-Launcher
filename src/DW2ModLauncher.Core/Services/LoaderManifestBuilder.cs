@@ -22,8 +22,32 @@ namespace DW2ModLauncher.Core.Services
                 string modRoot = mod.ContentRoot ?? mod.Folder;
                 foreach (InjectionTarget target in InjectionScanner.TargetsFor(mod))
                     AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint);
+                AddPatches(manifest, mod, modRoot);
             }
             return manifest;
+        }
+
+        /// <summary>
+        /// The mod's XML patch files: every *.xml below its "patches" folder, in ordinal path order. They live there, not in the
+        /// mod root, because the game loads root *.xml files as data and would read a partial patch as a whole entity.
+        /// </summary>
+        public static List<string> PatchFilesOf(string modRoot)
+        {
+            string dir = string.IsNullOrWhiteSpace(modRoot) ? null : Path.Combine(modRoot, "patches");
+            if (dir == null || !Directory.Exists(dir)) return new List<string>();
+            List<string> files = new List<string>(Directory.GetFiles(dir, "*.xml", SearchOption.AllDirectories));
+            files.Sort(StringComparer.OrdinalIgnoreCase);
+            return files;
+        }
+
+        private static void AddPatches(LoaderManifest manifest, ModInfo mod, string modRoot)
+        {
+            List<string> files = PatchFilesOf(modRoot);
+            if (files.Count == 0) return;
+            LoaderManifestPatchSet set = new LoaderManifestPatchSet { DisplayName = mod.DisplayName ?? mod.Id };
+            foreach (string file in files)
+                set.Files.Add(GamePaths.ToGameVisiblePath(Path.GetFullPath(file)));
+            manifest.Patches.Add(set);
         }
 
         private static void AddEntry(LoaderManifest manifest, HashSet<string> seen, ModInfo mod, string modRoot, string dllRelative, string entryPoint)
