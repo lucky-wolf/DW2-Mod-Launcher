@@ -2,7 +2,8 @@
 """Run the same checks CI runs, commit any uncommitted changes, push, and open a GitHub PR.
 
 The PR is titled "Released as vX.Y.Z" (the version release.py will tag when it merges; see
-docs/CI Releases.md) and its description is the list in docs/focus.md
+docs/CI Releases.md), or "Housekeeping (no release)" when the branch changes no file the release
+workflow watches. Its description is the list in docs/focus.md
 (falling back to this branch's commit subjects when that is empty).
 
 Usage:
@@ -21,9 +22,12 @@ from pathlib import Path
 from lib import dotnet_checks, focus, github, launcher_build, output, proc, release_version
 
 
-def compute_pr_title(repo_root: Path, fallback: str) -> str:
-    """"Released as vX.Y.Z" when the next version can be predicted (relies on locally-known tags;
-    new-branch.py fetches them), else the branch name."""
+def compute_pr_title(repo_root: Path, target: str, fallback: str) -> str:
+    """"Housekeeping (no release)" when the branch touches nothing the release workflow watches (CI
+    won't tag or build anything); else "Released as vX.Y.Z" when the next version can be predicted
+    (relies on locally-known tags; new-branch.py fetches them), else the branch name."""
+    if not release_version.branch_will_release(repo_root, target):
+        return "Housekeeping (no release)"
     tag = release_version.next_tag(repo_root)
     return f"Released as {tag}" if tag else fallback
 
@@ -102,7 +106,7 @@ def main() -> int:
         output.ok("working tree clean")
 
     output.step("push & open PR")
-    pr_title = compute_pr_title(repo_root, current_branch)
+    pr_title = compute_pr_title(repo_root, target, current_branch)
     pr_description = compute_pr_description(repo_root, target)
 
     entries = focus.read_entries(repo_root)
