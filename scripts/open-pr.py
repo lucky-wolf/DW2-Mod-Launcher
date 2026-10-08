@@ -105,8 +105,12 @@ def main() -> int:
     pr_title = compute_pr_title(repo_root, current_branch)
     pr_description = compute_pr_description(repo_root, target)
 
-    if not focus.read_entries(repo_root):
+    entries = focus.read_entries(repo_root)
+    if not entries:
         print("  note: docs/focus.md has no entries, so the description falls back to commit subjects")
+    elif focus.same_as_last_release(repo_root, target):
+        print("  WARNING: docs/focus.md is identical to the last release's list - stale entries from earlier work?")
+        print("           (the release notes come from this description, so clear or fix the list first)")
     print(f"  Branch: {current_branch} -> {target}")
     print(f"  PR title: {pr_title}")
     print(f"  PR description:\n{pr_description}" if pr_description else "  PR description: (none)")
