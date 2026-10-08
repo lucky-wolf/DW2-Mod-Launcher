@@ -18,6 +18,9 @@ namespace DW2ModLauncher.Avalonia.Views
             CancelButton.Click += delegate { Close(false); };
             PublishButton.Click += async delegate
             {
+                // Saving rewrites mod.json's bundle list from the folder, so missing entries are about to be dropped: ask first.
+                string question = editor.MissingBundlesQuestion;
+                if (question != null && !await dialogs.ConfirmAsync(question, Title, editor.L["OK"], editor.L["Cancel"])) return;
                 // Saving mod.json is part of publishing: a failed write keeps the dialog open.
                 string error = editor.Commit();
                 if (error != null) await new MessageDialog(error, Title, editor.L["OK"], null).ShowDialog<bool>(this);

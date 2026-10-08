@@ -6,6 +6,13 @@ using DW2ModLauncher.Avalonia.ViewModels;
 
 namespace DW2ModLauncher.Avalonia.Services
 {
+    /// <summary>An open progress box. Call <see cref="Report"/> on the UI thread.</summary>
+    public interface IProgressHandle : IDisposable
+    {
+        /// <summary>A fraction in 0..1, or null for "working, no measurable progress"; <paramref name="detail"/> is the line under the bar.</summary>
+        void Report(double? fraction, string detail);
+    }
+
     /// <summary>The few things view models need from the windowing layer, kept out of the view models themselves.</summary>
     public interface IDialogService
     {
@@ -36,6 +43,12 @@ namespace DW2ModLauncher.Avalonia.Services
         /// after <paramref name="cancelAfter"/> and, when clicked, cancels <paramref name="cancel"/>.
         /// </summary>
         IDisposable ShowBusy(string message, string title, string cancelText, TimeSpan cancelAfter, CancellationTokenSource cancel);
+        /// <summary>
+        /// Shows a modal progress bar with a Cancel button that cancels <paramref name="cancel"/>; dispose the result to close it.
+        /// </summary>
+        IProgressHandle ShowProgress(string message, string title, string cancelText, CancellationTokenSource cancel);
+        /// <summary>Closes the main window (and so the launcher), going through the usual exit checks.</summary>
+        void RequestExit();
         /// <summary>True if the user chose to publish.</summary>
         Task<bool> EditPublishAsync(PublishDialogViewModel editor);
     }

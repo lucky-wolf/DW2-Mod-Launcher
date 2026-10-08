@@ -13,7 +13,7 @@
           <TextBlock Text="{Binding L[PublishInfoTitle]}" />
           <TextBox Text="{Binding Title}" />
         </StackPanel>
-        <Grid ColumnDefinitions="*,16,*,16,*">
+        <Grid ColumnDefinitions="1*,16,1*,16,2*">
           <StackPanel Grid.Column="0" Spacing="6">
             <TextBlock Text="{Binding L[PublishWorkshopId]}" />
             <TextBox Text="{Binding WorkshopIdText, Mode=OneWay}" IsReadOnly="True" />
@@ -24,9 +24,10 @@
           </StackPanel>
           <StackPanel Grid.Column="4" Spacing="6">
             <TextBlock Text="{Binding L[PublishInfoPreviewImage]}" />
-            <Grid ColumnDefinitions="*,6,Auto">
+            <Grid ColumnDefinitions="*,8,Auto,6,Auto">
               <TextBox Grid.Column="0" Text="{Binding PreviewImage}" />
-              <Button Grid.Column="2" Content="…" Command="{Binding BrowsePreviewCommand}" MinWidth="36" />
+              <TextBlock Grid.Column="2" Classes="muted" VerticalAlignment="Center" Text="{Binding PreviewImageSize}" />
+              <Button Grid.Column="4" Content="…" Command="{Binding BrowsePreviewCommand}" MinWidth="36" />
             </Grid>
           </StackPanel>
         </Grid>
@@ -104,7 +105,28 @@
         </StackPanel>
         <!-- Rarely used sections stay collapsed (just the title and an arrow) unless the mod actually has something in them. -->
         <Expander Header="{Binding L[PublishInfoBundles]}" IsExpanded="{Binding HasBundles, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0">
-          <TextBox Text="{Binding Bundles}" AcceptsReturn="True" Height="62" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+          <Border Background="{StaticResource Dw2Void}" BorderBrush="{StaticResource Dw2Steel}" BorderThickness="1" Padding="10,8">
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="*,12,90">
+                <TextBlock Grid.Column="0" Classes="eyebrow" Text="{Binding L[PublishBundlesColumnFile]}" />
+                <TextBlock Grid.Column="2" Classes="eyebrow" HorizontalAlignment="Right" Text="{Binding L[PublishBundlesColumnSize]}" />
+              </Grid>
+              <TextBlock Classes="muted" IsVisible="{Binding NoBundles}" Text="{Binding L[PublishBundlesNone]}" />
+              <ScrollViewer MaxHeight="130" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasBundles}">
+                <ItemsControl ItemsSource="{Binding BundleRows}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:BundleRow">
+                      <Grid ColumnDefinitions="*,12,90" ToolTip.Tip="{Binding Tooltip}">
+                        <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Text="{Binding Name}" IsVisible="{Binding IsPresent}" />
+                        <TextBlock Grid.Column="0" Foreground="IndianRed" TextWrapping="Wrap" Text="{Binding Name, StringFormat='⚠ {0}'}" IsVisible="{Binding IsMissing}" />
+                        <TextBlock Grid.Column="2" HorizontalAlignment="Right" Text="{Binding Size}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </StackPanel>
+          </Border>
         </Expander>
         <Expander Header="{Binding L[PublishInjectedDlls]}" IsExpanded="{Binding HasInjectedDlls, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0" ToolTip.Tip="{Binding L[PublishInjectedDllsTooltip]}">
           <Border Background="{StaticResource Dw2Void}" BorderBrush="{StaticResource Dw2Steel}" BorderThickness="1" Padding="10,8">
@@ -117,9 +139,11 @@
               <ScrollViewer MaxHeight="130" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasInjectedDlls}">
                 <ItemsControl ItemsSource="{Binding InjectedDlls}">
                   <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="svc:InjectionTarget">
-                      <Grid ColumnDefinitions="260,12,*">
-                        <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Text="{Binding Dll}" />
+                    <DataTemplate x:DataType="vm:InjectedDllRow">
+                      <Grid ColumnDefinitions="260,12,*" ToolTip.Tip="{Binding Tooltip}">
+                        <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Text="{Binding Dll}" IsVisible="{Binding IsValid}" />
+                        <TextBlock Grid.Column="0" Foreground="Orange" TextWrapping="Wrap" Text="{Binding Dll, StringFormat='⚠ {0}'}" IsVisible="{Binding IsWarning}" />
+                        <TextBlock Grid.Column="0" Foreground="IndianRed" TextWrapping="Wrap" Text="{Binding Dll, StringFormat='⚠ {0}'}" IsVisible="{Binding IsInvalid}" />
                         <TextBlock Grid.Column="2" TextWrapping="Wrap" Text="{Binding EntryPoint}" />
                       </Grid>
                     </DataTemplate>

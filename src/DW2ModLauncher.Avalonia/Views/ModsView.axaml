@@ -44,7 +44,7 @@
         </Button>
       </Grid>
 
-      <Grid Grid.Row="1" ColumnDefinitions="44,100,125,*,150" Background="{StaticResource Dw2Steel}">
+      <Grid Grid.Row="1" ColumnDefinitions="40,76,76,*,150" Background="{StaticResource Dw2Steel}">
         <Button Classes="header" Grid.Column="0" Command="{Binding SortCommand}" CommandParameter="4" Content="#" ToolTip.Tip="{Binding L[LoadOrder]}" />
         <Button Classes="header" Grid.Column="1" Command="{Binding SortCommand}" CommandParameter="2" Content="{Binding L[ModState]}" />
         <Button Classes="header" Grid.Column="2" Command="{Binding SortCommand}" CommandParameter="3" Content="{Binding L[Health]}" />
@@ -70,7 +70,7 @@
           </ListBox.ContextMenu>
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:ModRowViewModel">
-              <Grid ColumnDefinitions="44,100,125,*,150" MinHeight="54">
+              <Grid ColumnDefinitions="40,76,76,*,150" MinHeight="54">
                 <TextBlock Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" Text="{Binding LoadOrder}" />
                 <Button Classes="glyph" Classes.on="{Binding Enabled}" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
                         Command="{Binding ToggleCommand}" CommandParameter="{Binding}" Content="{Binding StateGlyph}" />

@@ -17,6 +17,9 @@
   <ItemGroup>
     <ProjectReference Include="..\DW2ModLauncher.Core\DW2ModLauncher.Core.csproj" />
     <ProjectReference Include="..\DW2ModLauncher.XmlPatching\DW2ModLauncher.XmlPatching.csproj" />
+    <!-- The Loader has the XmlPatching sources compiled in, so its public types would clash with the XmlPatching project's own;
+         the alias keeps the Loader's copy out of the global namespace (files that test Loader types say "extern alias loader;"). -->
+    <ProjectReference Include="..\DW2ModLauncher.Loader\DW2ModLauncher.Loader.csproj" Aliases="loader" />
   </ItemGroup>
 
 </Project>

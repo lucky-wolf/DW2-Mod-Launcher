@@ -1,0 +1,12 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DW2ModLauncher.Avalonia.Views.ProgressDialog"
+        SizeToContent="Height" Width="440"
+        WindowStartupLocation="CenterOwner" CanResize="False" ShowInTaskbar="False">
+  <StackPanel Margin="24" Spacing="14">
+    <TextBlock Name="MessageText" TextWrapping="Wrap" />
+    <ProgressBar Name="Bar" Minimum="0" Maximum="1" Height="10" Foreground="{StaticResource Dw2Gold}" />
+    <TextBlock Name="DetailText" Classes="muted" />
+    <Button Name="CancelButton" IsCancel="True" HorizontalAlignment="Center" MinWidth="110" />
+  </StackPanel>
+</Window>
