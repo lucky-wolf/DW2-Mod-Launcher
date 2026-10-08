@@ -18,8 +18,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string gameRoot = "";
         private string workshopRoot = "";
         private string managedRoot = "";
-        private string launchArguments = "";
-        private string launchEnvironment = "";
         private string profileName = "";
         /// <summary>
         /// The default profile's "saved" copy: what the live list (mods.json) held when it became the default profile, or at the last
@@ -37,8 +35,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 main.Refresh();
             });
             SaveCommand = new RelayCommand(SaveAsync);
-            ImportSteamLaunchOptionsCommand = new RelayCommand(ImportSteamLaunchOptionsAsync);
-            ResetLaunchOptionsCommand = new RelayCommand(delegate { LaunchArguments = ""; LaunchEnvironment = ""; });
             BrowseGameCommand = new RelayCommand(async delegate { string p = await Browse(gameRoot); if (p != null) GameRoot = p; });
             BrowseWorkshopCommand = new RelayCommand(async delegate { string p = await Browse(workshopRoot); if (p != null) WorkshopRoot = p; });
             BrowseManagedCommand = new RelayCommand(async delegate { string p = await Browse(managedRoot); if (p != null) ManagedRoot = p; });
@@ -57,8 +53,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public RelayCommand AutoDetectCommand { get; }
         public RelayCommand SaveCommand { get; }
-        public RelayCommand ImportSteamLaunchOptionsCommand { get; }
-        public RelayCommand ResetLaunchOptionsCommand { get; }
         public RelayCommand BrowseGameCommand { get; }
         public RelayCommand BrowseWorkshopCommand { get; }
         public RelayCommand BrowseManagedCommand { get; }
@@ -77,11 +71,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string GameRoot { get { return gameRoot; } set { if (Set(ref gameRoot, value)) Raise(nameof(CommandPreview)); } }
         public string WorkshopRoot { get { return workshopRoot; } set { Set(ref workshopRoot, value); } }
         public string ManagedRoot { get { return managedRoot; } set { Set(ref managedRoot, value); } }
-        public string LaunchArguments { get { return launchArguments; } set { if (Set(ref launchArguments, value)) Raise(nameof(CommandPreview)); } }
-        /// <summary>True when the launcher starts the game itself (Windows); on Linux Steam owns the environment.</summary>
-        public bool EnvironmentApplies { get { return OperatingSystem.IsWindows(); } }
-        public bool EnvironmentIgnored { get { return !OperatingSystem.IsWindows(); } }
-        public string LaunchEnvironment { get { return launchEnvironment; } set { Set(ref launchEnvironment, value); } }
         private bool refreshingProfiles;
         /// <summary>
         /// The selected (active) profile; selecting one in the UI switches to it. With no named profile active this is the
@@ -107,7 +96,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             get
             {
-                ProcessStartInfo psi = GameLauncher.BuildStartInfo(gameRoot, GameLauncher.BuildArguments((launchArguments ?? "").Trim(), main.LaunchMode));
+                ProcessStartInfo psi = GameLauncher.BuildStartInfo(gameRoot, GameLauncher.BuildArguments(main.LaunchMode));
                 return "\"" + psi.FileName + "\"" + (string.IsNullOrWhiteSpace(psi.Arguments) ? "" : " " + psi.Arguments);
             }
         }
@@ -121,8 +110,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             GameRoot = s.GameRoot ?? "";
             WorkshopRoot = s.WorkshopRoot ?? "";
             ManagedRoot = s.ManagedModsRoot ?? "";
-            LaunchArguments = s.GlobalLaunchArguments ?? "";
-            LaunchEnvironment = GameLauncher.FormatEnvironment(s.LaunchEnvironment);
             RefreshProfiles();
             UpdateCommandPreview();
         }
@@ -130,8 +117,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Writes the editable fields into the settings object without validating (used right before launch).</summary>
         public void CommitToSettings()
         {
-            main.LauncherSettings.GlobalLaunchArguments = (launchArguments ?? "").Trim();
-            main.LauncherSettings.LaunchEnvironment = GameLauncher.ParseEnvironment(launchEnvironment);
             main.SaveSettings();
         }
 
@@ -154,22 +139,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex) { await main.Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher"); }
         }
 
-        private async Task ImportSteamLaunchOptionsAsync()
-        {
-            SteamLaunchOptions options = SteamLaunchOptions.ReadForApp(SteamLocator.AppId);
-            if (options == null)
-            {
-                await main.Dialogs.ShowMessageAsync(main.T("SteamLaunchOptionsNone"), "DW2 Mod Launcher");
-                return;
-            }
-            LaunchArguments = options.Arguments;
-            LaunchEnvironment = GameLauncher.FormatEnvironment(options.Environment);
-            string env = options.Environment.Count == 0 ? "-" : string.Join(" ", options.Environment.Keys);
-            string note = string.Format(main.T("SteamLaunchOptionsImported"), string.IsNullOrEmpty(options.Arguments) ? "-" : options.Arguments, env);
-            if (!string.IsNullOrEmpty(options.Wrapper)) note += " | " + string.Format(main.T("SteamLaunchOptionsWrapperIgnored"), options.Wrapper);
-            main.SetStatus(note);
-        }
-
         private async Task SaveAsync()
         {
             string game = (gameRoot ?? "").Trim();
@@ -185,8 +154,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             s.GameRoot = game;
             s.WorkshopRoot = workshop;
             s.ManagedModsRoot = managed;
-            s.GlobalLaunchArguments = (launchArguments ?? "").Trim();
-            s.LaunchEnvironment = GameLauncher.ParseEnvironment(launchEnvironment);
             main.SaveSettings();
             main.Refresh();
         }

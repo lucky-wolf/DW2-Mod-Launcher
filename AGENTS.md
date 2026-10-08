@@ -26,7 +26,7 @@ Not planned: merging Mods into a combined output folder, and automatic conflict 
     tested and independent of the UI: `LauncherSettingsStore`/`PathDetector`
     (settings, path detection), `GameProfileStore` (DW2's named mod profiles: `currentProfile.txt` + `mods.<name>.json` beside `mods.json`; design history in [docs/archived/mod-profiles.md](docs/archived/mod-profiles.md)), `ModOrderState`/`ModOrderStore` (DW2's `mods.json` + the "is this mod
     enabled" rules), `ConflictAnalyzer`/`ModHealth`/`LaunchDiagnostics`, `WorkshopUpdateService`, `ModLibrary`,
-    `ModDetails`, `ModSettingsValues`, `ModFileImporter` (turns a file the author picked into a mod-relative path for mod.json, copying it into the mod folder if needed), `SteamLaunchOptions` (parses Steam's launch-option string into arguments + environment), `FileNames`, `GameLauncher` (launch command: the exe on Windows, `steam -applaunch`
+    `ModDetails`, `ModSettingsValues`, `ModFileImporter` (turns a file the author picked into a mod-relative path for mod.json, copying it into the mod folder if needed), `FileNames`, `GameLauncher` (launch command: the exe on Windows, `steam -applaunch` on Linux
     on Linux), `GamePaths` (host path -> `Z:\...` as the game sees it under Proton), `PlatformShell`
     (explorer / xdg-open), `GameProcess`, `Localization`
   - `Services/Publishing/` — Steam Workshop publish.

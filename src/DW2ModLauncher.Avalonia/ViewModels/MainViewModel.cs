@@ -785,6 +785,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>
         /// Asks Steam whether each local Mod's Workshop item still exists and erases the id of any that were
         /// deleted there, so the list shows the truth and the Mod can be published as new. Silent if Steam can't be asked.
+        /// Runs in the Steam helper process, so DW2 only looks "running" to Steam for the second or so it takes.
         /// </summary>
         private async Task VerifyPublishedIdsAsync()
         {
@@ -1080,11 +1081,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             return GameLauncher.OrderedEnabled(AllMods, modOrder, settings);
         }
 
-        public string BuildLaunchArguments(string globalLaunchArguments)
-        {
-            return GameLauncher.BuildArguments(globalLaunchArguments);
-        }
-
         private async Task PlayAsync()
         {
             Settings.CommitToSettings();
@@ -1108,7 +1104,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             try
             {
                 GameLauncher.WriteLoaderManifest(OrderedEnabledMods());
-                Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(settings.GlobalLaunchArguments, LaunchMode), settings.LaunchEnvironment));
+                Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(LaunchMode)));
                 SetStatus(T("DistantWorlds2Launched"));
                 launchStartedUtc = DateTime.UtcNow;
                 SetGameState(GameState.Launching);

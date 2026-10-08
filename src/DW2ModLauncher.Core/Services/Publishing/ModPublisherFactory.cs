@@ -12,9 +12,10 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return new List<ModVisibility> { ModVisibility.Private, ModVisibility.FriendsOnly, ModVisibility.Unlisted, ModVisibility.Public };
         }
 
+        /// <summary>Every call runs in a helper process so DW2 never looks "running" to Steam while the launcher is open.</summary>
         public static IModPublisher Create(uint appId)
         {
-            return new SteamworksNetModPublisher(appId);
+            return new OutOfProcessModPublisher(appId);
         }
     }
 }
