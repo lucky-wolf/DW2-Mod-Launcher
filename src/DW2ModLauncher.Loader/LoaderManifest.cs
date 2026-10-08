@@ -8,6 +8,13 @@ namespace DW2ModLauncher.Loader
     public class LoaderManifest
     {
         public List<LoaderManifestEntry> Entries { get; set; } = new List<LoaderManifestEntry>();
+        public List<LoaderManifestPatchSet> Patches { get; set; } = new List<LoaderManifestPatchSet>();
+    }
+
+    public class LoaderManifestPatchSet
+    {
+        public string DisplayName { get; set; }
+        public List<string> Files { get; set; } = new List<string>();
     }
 
     public class LoaderManifestEntry

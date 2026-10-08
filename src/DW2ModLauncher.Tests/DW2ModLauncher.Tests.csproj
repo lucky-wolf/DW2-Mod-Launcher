@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DW2ModLauncher.Core\DW2ModLauncher.Core.csproj" />
+    <ProjectReference Include="..\DW2ModLauncher.XmlPatching\DW2ModLauncher.XmlPatching.csproj" />
   </ItemGroup>
 
 </Project>

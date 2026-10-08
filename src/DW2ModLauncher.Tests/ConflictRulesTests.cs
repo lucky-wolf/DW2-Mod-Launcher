@@ -32,6 +32,8 @@ namespace DW2ModLauncher.Tests
         [InlineData("tool.exe")]
         [InlineData("notes.pdf")]
         [InlineData("backup.launcher_backup")]
+        [InlineData("patches\\Races.xml")]
+        [InlineData("Patches/sub/ComponentDefinitions.xml")]
         public void IsIgnored_ReturnsTrue_ForNonGameData(string path)
         {
             Assert.True(ConflictRules.IsIgnored(path));
