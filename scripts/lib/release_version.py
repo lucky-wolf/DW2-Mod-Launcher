@@ -67,4 +67,21 @@ def head_triggers_release(repo_root: Path) -> bool:
     if not last_tag:
         return True
     changed = _git(repo_root, "diff", "--name-only", last_tag, "HEAD").splitlines()
-    return any(f == p or (p.endswith("/") and f.startswith(p)) for f in changed for p in RELEASE_PATHS)
+    return touches_release_path(changed)
+
+
+def touches_release_path(files: list[str]) -> bool:
+    return any(f == p or (p.endswith("/") and f.startswith(p)) for f in files for p in RELEASE_PATHS)
+
+
+def branch_will_release(repo_root: Path, target: str) -> bool:
+    """Whether merging the current branch into `target` will make the release workflow cut a release:
+    the same path test as the workflow's `paths:` filter, over everything the branch changes relative
+    to origin/<target> (committed, uncommitted and untracked, since open-pr.py may commit those next).
+    Assumes a release when the merge base can't be found, so the title errs toward the usual one."""
+    base = _git(repo_root, "merge-base", f"origin/{target}", "HEAD").strip()
+    if not base:
+        return True
+    changed = _git(repo_root, "diff", "--name-only", base).splitlines()
+    changed += _git(repo_root, "ls-files", "--others", "--exclude-standard").splitlines()
+    return touches_release_path(changed)
