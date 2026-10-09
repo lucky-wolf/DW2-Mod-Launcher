@@ -81,6 +81,7 @@ namespace DW2ModLauncher.Loader
             if (vfs == null)
             {
                 Log("ERROR: Stride VirtualFileSystem not found; patches will not be applied.");
+                HookStatus.Failed("patches", "XML patches are not applied: the game's file system was not found", _logPath);
                 return;
             }
             MethodInfo post = typeof(XmlPatchHooks).GetMethod(nameof(OpenStreamPostfix), BindingFlags.Static | BindingFlags.NonPublic);
@@ -95,6 +96,7 @@ namespace DW2ModLauncher.Loader
                 catch (Exception ex)
                 {
                     Log("ERROR: could not hook OpenStream(" + string.Join(", ", ps.Select(p => p.Name)) + "): " + ex.Message);
+                    HookStatus.Failed("patches", "XML patches are not applied: OpenStream could not be hooked", _logPath);
                 }
             }
         }
@@ -110,7 +112,11 @@ namespace DW2ModLauncher.Loader
                 ParameterInfo[] ps = m.GetParameters();
                 if (ps.Length == 0 || ps[0].Name != "url" || !typeof(Stream).IsAssignableFrom(m.ReturnType)) continue;
                 try { harmony.Patch(m, postfix: new HarmonyMethod(post)); }
-                catch (Exception ex) { Log("WARNING: could not hook the data provider's OpenStream (tour items will not be patched): " + ex.Message); }
+                catch (Exception ex)
+                {
+                    Log("WARNING: could not hook the data provider's OpenStream (tour items will not be patched): " + ex.Message);
+                    HookStatus.Warn("tours", "tutorial tours are not patched: the data provider could not be hooked", _logPath);
+                }
             }
         }
 
@@ -201,6 +207,17 @@ namespace DW2ModLauncher.Loader
             runner.Finish();
             FlushReport(runner);
             foreach (string line in runner.Report.SummaryLines()) Log(line);
+            ReportProblems(runner);
+        }
+
+        // Patch problems never stop the game and many players play on with them (a translation that targets an entity another mod
+        // removed, say), so they are shown as an amber warning, never red: red is kept for a feature that could not install at all.
+        private static void ReportProblems(PatchRunner runner)
+        {
+            int errors = runner.Report.Entries.Count(e => e.Severity == Severity.Error);
+            int warnings = runner.Report.Entries.Count(e => e.Severity == Severity.Warning);
+            if (errors + warnings == 0) return;
+            HookStatus.Warn("patch-problems", "XML patches: " + errors + " item(s) skipped, " + warnings + " warning(s) - see patches.log", _logPath);
         }
 
         // ---- helpers ----

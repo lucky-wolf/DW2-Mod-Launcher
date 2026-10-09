@@ -187,7 +187,7 @@ namespace DW2ModLauncher.XmlPatching
                     {
                         if (_invalid.Contains(e) || _matchedEntities.Contains(e)) continue;
                         string id = Attr(e, "id");
-                        Skipped(f, e, schema.EntityElement + " id=" + id + " not found in any " + rootName + " file" + KnownIdsHint(rootName, id));
+                        Skipped(f, e, schema.EntityElement + " id=" + id + " is not defined by any loaded " + rootName + " file (a mod may have replaced it)" + KnownIdsHint(rootName, id));
                     }
                 }
 

@@ -155,7 +155,8 @@ namespace DW2ModLauncher.Tests.XmlPatching
             kit.Runner.Finish();
 
             string error = Assert.Single(kit.Errors());
-            Assert.Contains("Race id=99 not found", error);
+            Assert.Contains("Race id=99 is not defined by any loaded ArrayOfRace file", error);
+            Assert.Contains("a mod may have replaced it", error);
             Assert.Contains("did you mean '9'", error);
             Assert.Equal(1, kit.Report.Skipped("patches/p.xml"));
         }

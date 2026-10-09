@@ -24,7 +24,7 @@ namespace DW2ModLauncher.Loader
             _logPath = Path.Combine(baseDir, "textfiles.log");
             Type resolver = Type.GetType("DistantWorlds.Types.TextResolver, DistantWorlds.Types", false);
             _getText = resolver?.GetMethod("GetText", new[] { typeof(string) });
-            if (_getText == null) { Log("TextResolver.GetText not found; titles are not matched by translation."); return 0; }
+            if (_getText == null) { Log("TextResolver.GetText not found; titles are not matched by translation."); HookStatus.Warn("titles", "translated tour/article titles are not matched: TextResolver.GetText not found", _logPath); return 0; }
 
             Harmony harmony = new Harmony("dw2modlauncher.loader.titlelookup");
             int hooked = 0;
@@ -32,7 +32,7 @@ namespace DW2ModLauncher.Loader
             {
                 string[] p = spec.Split('|');
                 MethodInfo m = Type.GetType(p[0] + ", DistantWorlds.Types", false)?.GetMethod(p[1], new[] { typeof(string) });
-                if (m == null) { Log(p[1] + " not found."); continue; }
+                if (m == null) { Log(p[1] + " not found."); HookStatus.Warn("titles", "translated titles are not matched: " + p[1] + " not found (game update?)", _logPath); continue; }
                 harmony.Patch(m, postfix: new HarmonyMethod(typeof(TitleLookupHooks).GetMethod(p[2] == "TourItem" ? nameof(TourPostfix) : nameof(ArticlePostfix), BindingFlags.Static | BindingFlags.NonPublic)));
                 hooked++;
             }

@@ -22,3 +22,6 @@ reconstruct it right before opening the PR. Fold several small related lines int
 - Mods can add or replace Galactopedia articles by file name; dw2modlauncher.json "galactopedia": "replace" drops the game's and earlier mods' articles
 - XML patches now also apply to the tour (tutorial) items, which the game opens outside the normal data load
 - Tutorial tours and Galactopedia articles are found by their translated title even when the data keeps the English title
+- Launch warnings for font mods: a declared font whose bundle file is missing is dropped with a warning, and a font replaced by a later mod's font is named
+- In-game status line now shows when a loader feature (XML patching, fonts, text files, title lookup) cannot install, and summarizes XML patch errors/warnings
+- Text-file hooks reject unrelated File calls cheaply, log which API served each file, and are covered by tests for Windows and Proton/Linux path shapes

@@ -49,6 +49,8 @@
   "Refresh": "Refresh",
   "SteamWorkshopUpdateAvailable": "⚠ Steam Workshop: Update available",
   "DuplicateDLL": "Duplicate DLL: ",
+  "FontBundleMissing": "declares a font but the bundle file is missing from the mod folder: ",
+  "FontOverridden": "the game takes only one font; a later mod's font replaces this one: ",
   "IncompatibleModEnabled": "Incompatible Mod enabled: ",
   "MustLoadBefore": " must load before: ",
   "ModSettingsTitle": "Configure - ",

@@ -82,7 +82,8 @@ namespace DW2ModLauncher.Core.Services
 
         /// <summary>
         /// The font bundles declared by the mods (dw2modlauncher.json "font"), in the order given. Only plain names count: the value ends up
-        /// on the game's command line and in a file name, so anything but letters, digits, '_' and '-' is ignored.
+        /// on the game's command line and in a file name, so anything but letters, digits, '_' and '-' is ignored. A font whose
+        /// Name.bundle is not in the mod folder is dropped too: the game would be started with a --font it cannot find (see FontIssues).
         /// </summary>
         public static List<LoaderManifestFont> FontsOf(IEnumerable<ModInfo> orderedEnabledMods)
         {
@@ -92,6 +93,7 @@ namespace DW2ModLauncher.Core.Services
                 string name = LauncherMetaReader.Read(mod)?.font?.Trim();
                 string root = mod.ContentRoot ?? mod.Folder;
                 if (string.IsNullOrEmpty(name) || string.IsNullOrWhiteSpace(root) || !IsPlainName(name)) continue;
+                if (!File.Exists(Path.Combine(root, name + ".bundle"))) continue;
                 fonts.Add(new LoaderManifestFont
                 {
                     DisplayName = mod.DisplayName ?? mod.Id,
@@ -100,6 +102,31 @@ namespace DW2ModLauncher.Core.Services
                 });
             }
             return fonts;
+        }
+
+        /// <summary>
+        /// What is wrong with the declared fonts, for the pre-launch warnings: a declared font whose bundle file is missing from its
+        /// mod ("missing"), and a font that loses to a later mod's different font, since the game takes only one ("overridden").
+        /// Each tuple is (kind, mod display name, font name, name of the winning font or null).
+        /// </summary>
+        public static List<(string Kind, string Mod, string Font, string Winner)> FontIssues(IEnumerable<ModInfo> orderedEnabledMods)
+        {
+            List<(string Kind, string Mod, string Font, string Winner)> issues = new List<(string Kind, string Mod, string Font, string Winner)>();
+            List<ModInfo> mods = (orderedEnabledMods ?? new List<ModInfo>()).ToList();
+            foreach (ModInfo mod in mods)
+            {
+                string name = LauncherMetaReader.Read(mod)?.font?.Trim();
+                string root = mod.ContentRoot ?? mod.Folder;
+                if (string.IsNullOrEmpty(name) || string.IsNullOrWhiteSpace(root) || !IsPlainName(name)) continue;
+                if (!File.Exists(Path.Combine(root, name + ".bundle"))) issues.Add(("missing", mod.DisplayName ?? mod.Id, name, null));
+            }
+            List<LoaderManifestFont> fonts = FontsOf(mods);
+            LoaderManifestFont winner = fonts.LastOrDefault();
+            foreach (LoaderManifestFont f in fonts)
+            {
+                if (winner != null && !string.Equals(f.Name, winner.Name, StringComparison.OrdinalIgnoreCase)) issues.Add(("overridden", f.DisplayName, f.Name, winner.Name));
+            }
+            return issues;
         }
 
         /// <summary>The font bundle to start the game with: the last declared in load order, or null.</summary>
