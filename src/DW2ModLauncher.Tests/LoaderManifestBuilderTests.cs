@@ -176,6 +176,28 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Build_RecordsModFolders_AndEachPatchSetsPlaceInThem()
+        {
+            string first = MakeModDir();
+            string plain = MakeModDir();
+            string second = MakeModDir();
+            try
+            {
+                foreach (string dir in new[] { first, second })
+                {
+                    Directory.CreateDirectory(Path.Combine(dir, "patches"));
+                    File.WriteAllText(Path.Combine(dir, "patches", "a.xml"), "<ArrayOfRace/>");
+                }
+
+                LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(first), ModAt(plain), ModAt(second) });
+
+                Assert.Equal(new[] { Path.GetFileName(first), Path.GetFileName(plain), Path.GetFileName(second) }, manifest.ModFolders);
+                Assert.Equal(new[] { 0, 2 }, manifest.Patches.ConvertAll(p => p.Order));
+            }
+            finally { Directory.Delete(first, true); Directory.Delete(plain, true); Directory.Delete(second, true); }
+        }
+
+        [Fact]
         public void Build_KeepsPatchSets_InModLoadOrder_AndSkipsModsWithoutPatches()
         {
             string first = MakeModDir();

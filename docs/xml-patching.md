@@ -119,8 +119,11 @@ Common keyed list items: `ResourceQuantity` (`ResourceId`), `Component` (`Compon
 - **Order.** Mods apply in launcher load order; inside a mod, patch files by name, top to bottom. A later patch sees the
   result of earlier ones (after you add a level, `index="5"` can address it).
 - **Positions shift.** `index` counts the list as it is when your patch runs. Prefer `id` where an item has a key.
-- **Every definition is patched.** If several data files define the same entity, the patch applies to all of them, so it
-  works on entities added by other mods too.
+- **Load order decides what a patch touches.** A patch applies to the game's own data and to the data files of its own mod and
+  of the mods loaded **before** it. If a mod loaded after yours defines the same entity in a normal data file, that definition
+  replaces the result, so your patch leaves it alone (as it would have been overwritten anyway). To change such an entity,
+  load the patch's mod after the one that defines it. If several data files define the same entity, the patch applies to all
+  of those it may touch, so it works on entities added by other mods too.
 - **New levels** of a component also need a research project that unlocks them (patch `ResearchProjectDefinition`).
 - **File paths** (textures, sounds) are not checked; a wrong path fails when the game loads the asset. Ship your assets in the mod.
 - Not supported: patching "every Rail Gun" at once, arithmetic like "+20%", creating whole new entities (use normal data files).

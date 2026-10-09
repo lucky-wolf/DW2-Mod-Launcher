@@ -9,6 +9,7 @@ namespace DW2ModLauncher.Loader
     {
         public List<LoaderManifestEntry> Entries { get; set; } = new List<LoaderManifestEntry>();
         public List<LoaderManifestPatchSet> Patches { get; set; } = new List<LoaderManifestPatchSet>();
+        public List<string> ModFolders { get; set; } = new List<string>();
         public List<LoaderManifestFont> Fonts { get; set; } = new List<LoaderManifestFont>();
         public List<LoaderManifestTextFile> TextFiles { get; set; } = new List<LoaderManifestTextFile>();
         public bool GalactopediaReplacesVanilla { get; set; }
@@ -23,6 +24,7 @@ namespace DW2ModLauncher.Loader
     public class LoaderManifestPatchSet
     {
         public string DisplayName { get; set; }
+        public int Order { get; set; }
         public List<string> Files { get; set; } = new List<string>();
     }
 

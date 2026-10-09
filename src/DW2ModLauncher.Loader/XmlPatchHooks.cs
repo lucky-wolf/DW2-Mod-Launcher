@@ -32,6 +32,7 @@ namespace DW2ModLauncher.Loader
         private static string _logPath;
         private static int _logged;
         private static Dictionary<string, SchemaRoot> _schemas;
+        private static List<string> _modFolders;
 
         /// <summary>Reads every patch file of the manifest, and if there are any installs the hooks. Returns the number of patch files loaded.</summary>
         public static int Install(LoaderManifest manifest, string baseDir)
@@ -40,6 +41,7 @@ namespace DW2ModLauncher.Loader
             try { File.WriteAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] XML patching: reading patch files." + Environment.NewLine); }
             catch { _logPath = null; }
 
+            _modFolders = manifest?.ModFolders ?? new List<string>();
             PatchRunner runner = new PatchRunner(SchemaFor, KeyMap.Default);
             runner.LateRoots.Add("ArrayOfTourItem");
             foreach (LoaderManifestPatchSet set in manifest?.Patches ?? new List<LoaderManifestPatchSet>())
@@ -48,7 +50,7 @@ namespace DW2ModLauncher.Loader
                 {
                     try
                     {
-                        runner.AddFile(set.DisplayName, DisplayPath(set, file), File.ReadAllText(file));
+                        runner.AddFile(set.DisplayName, DisplayPath(set, file), File.ReadAllText(file), set.Order);
                     }
                     catch (Exception ex)
                     {
@@ -158,7 +160,7 @@ namespace DW2ModLauncher.Loader
                 if (root == null || !runner.HasPatchesFor(root)) return;
 
                 XDocument doc = XDocument.Load(stream);
-                int changes = runner.Apply(doc, path);
+                int changes = runner.Apply(doc, path, OrderOf(path));
                 if (changes == 0)
                 {
                     stream.Position = 0;
@@ -204,6 +206,21 @@ namespace DW2ModLauncher.Loader
         }
 
         // ---- helpers ----
+
+        /// <summary>
+        /// The load-order position of the mod a data file belongs to: /mods/Folder/x.xml and /steam/WorkshopId/x.xml are found by their
+        /// folder name in the manifest's mod list, the game's own /data/ comes before every mod. Unknown files count as the game's.
+        /// </summary>
+        private static int OrderOf(string path)
+        {
+            string[] parts = path.Split('/');
+            if (parts.Length > 3 && parts[0].Length == 0 && (parts[1] == "mods" || parts[1] == "steam") && _modFolders != null)
+            {
+                int i = _modFolders.FindIndex(f => string.Equals(f, parts[2], StringComparison.OrdinalIgnoreCase));
+                if (i >= 0) return i;
+            }
+            return int.MinValue;
+        }
 
         /// <summary>The first <c>&lt;ArrayOfX&gt;</c> in the head of the stream; the position is restored to 0.</summary>
         private static string PeekRoot(Stream s)

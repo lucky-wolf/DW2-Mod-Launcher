@@ -21,9 +21,10 @@ namespace DW2ModLauncher.Core.Services
             foreach (ModInfo mod in orderedEnabledMods ?? new List<ModInfo>())
             {
                 string modRoot = mod.ContentRoot ?? mod.Folder;
+                manifest.ModFolders.Add(LeafName(mod.Folder ?? modRoot));
                 foreach (InjectionTarget target in InjectionScanner.TargetsFor(mod))
                     AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint);
-                AddPatches(manifest, mod, modRoot);
+                AddPatches(manifest, mod, modRoot, manifest.ModFolders.Count - 1);
             }
             manifest.Fonts.AddRange(FontsOf(orderedEnabledMods));
             manifest.TextFiles.AddRange(TextFilesOf(orderedEnabledMods));
@@ -118,11 +119,16 @@ namespace DW2ModLauncher.Core.Services
             return true;
         }
 
-        private static void AddPatches(LoaderManifest manifest, ModInfo mod, string modRoot)
+        private static string LeafName(string folder)
+        {
+            return Path.GetFileName((folder ?? string.Empty).TrimEnd('/', (char)92));
+        }
+
+        private static void AddPatches(LoaderManifest manifest, ModInfo mod, string modRoot, int order)
         {
             List<string> files = PatchFilesOf(modRoot);
             if (files.Count == 0) return;
-            LoaderManifestPatchSet set = new LoaderManifestPatchSet { DisplayName = mod.DisplayName ?? mod.Id };
+            LoaderManifestPatchSet set = new LoaderManifestPatchSet { DisplayName = mod.DisplayName ?? mod.Id, Order = order };
             foreach (string file in files)
                 set.Files.Add(GamePaths.ToGameVisiblePath(Path.GetFullPath(file)));
             manifest.Patches.Add(set);

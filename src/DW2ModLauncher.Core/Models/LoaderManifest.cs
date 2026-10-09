@@ -14,6 +14,9 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>The XML patch files of every enabled mod, in load order (a mod needs no DLL to have patches).</summary>
         public List<LoaderManifestPatchSet> Patches { get; set; } = new List<LoaderManifestPatchSet>();
 
+        /// <summary>Folder names (the game's /mods/Name/ or /steam/Id/) of every enabled mod, in load order; a patch set's Order is an index into it.</summary>
+        public List<string> ModFolders { get; set; } = new List<string>();
+
         /// <summary>Font bundles declared by enabled mods (dw2modlauncher.json "font"), in load order; the last one is the one passed to the game as --font.</summary>
         public List<LoaderManifestFont> Fonts { get; set; } = new List<LoaderManifestFont>();
 
@@ -28,6 +31,8 @@ namespace DW2ModLauncher.Core.Models
     public class LoaderManifestPatchSet
     {
         public string DisplayName { get; set; }
+        /// <summary>The mod's position in <see cref="LoaderManifest.ModFolders"/>: the patches apply to data of this mod and of the ones before it.</summary>
+        public int Order { get; set; }
         /// <summary>Paths as the game process sees them (Z:\... under Proton).</summary>
         public List<string> Files { get; set; } = new List<string>();
     }
