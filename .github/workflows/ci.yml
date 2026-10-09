@@ -5,6 +5,25 @@ on:
   pull_request:
 
 jobs:
+  # Merges here are rebases, and GitHub shows "cannot be rebased" only to maintainers, so a contributor would never see it.
+  # Its own job so a red build never has to be dug through the logs to find out it was this. Fast: no build, no restore.
+  rebaseable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }} # the PR's real commits, not the merge commit the build tests
+      - name: Check the PR can be rebased onto the base branch
+        run: |
+          git config user.email ci@example.invalid
+          git config user.name ci
+          git rebase origin/${{ github.base_ref }} || {
+            echo "::error::This PR cannot be rebased onto ${{ github.base_ref }}, and merges here are rebases. Squash or rebase your branch onto the latest ${{ github.base_ref }} and force-push (git reset --soft origin/${{ github.base_ref }}, commit once, push --force-with-lease)."
+            git status --short | grep -E '^(UU|AA|DU|UD) ' || true
+            exit 1
+          }
+
   build-and-test:
     # Both OSes build the whole solution and run the tests (Windows ships the win-x64 Avalonia build,
     # Ubuntu the linux-x64 one).
