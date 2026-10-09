@@ -43,6 +43,12 @@ namespace DW2ModLauncher.Loader
         static int _lastWidth;
         static int _lastHeight;
         static bool _reported;
+        // The collapsed line can be shrunk to its marker, and the problems it shows can be dismissed until something new is reported.
+        static bool _minimized;
+        static string _dismissedSignature;
+        static int _textRows;
+        static readonly List<RowAction> _actions = new List<RowAction>();
+        enum RowAction { Dismiss, Minimize }
 
         public static void Install(Action<string> log)
         {
@@ -115,9 +121,15 @@ namespace DW2ModLauncher.Loader
         {
             Game g = _g;
             StatusLevel worst = StatusText.Worst(mods);
+            string signature = worst >= StatusLevel.Warn ? Signature(mods) : null;
+            bool dismissed = signature != null && signature == _dismissedSignature;
+            if (dismissed) worst = StatusLevel.Ok;
 
             string marker = _expanded ? "[-]" : "[+]";
-            string text = marker + (worst == StatusLevel.Error ? " /!\\ " : " ") + StatusText.Line(mods);
+            string line = dismissed ? "DW2 mods: " + mods.Count + " loaded (problems dismissed)" : StatusText.Line(mods);
+            string text = _minimized && !_expanded
+                ? marker + (worst == StatusLevel.Error ? " /!\\" : worst == StatusLevel.Warn ? " !" : "")
+                : marker + (worst == StatusLevel.Error ? " /!\\ " : " ") + line;
             object color = worst == StatusLevel.Error ? g.Bad : worst == StatusLevel.Warn ? g.Warn : g.Dim;
 
             float lineTop = PlaceAboveEdge(_line, text, color, screenWidth * 0.8f, 0f, screenHeight - 1f);
@@ -134,6 +146,15 @@ namespace DW2ModLauncher.Loader
 
             List<PanelRow> panel = StatusText.Rows(mods);
             panel.Insert(0, new PanelRow { Level = StatusLevel.Ok, Text = "DW2 Mod Launcher: " + mods.Count + " code mod" + (mods.Count == 1 ? "" : "s") + " loaded. Click anywhere to close." });
+            _textRows = panel.Count;
+            _actions.Clear();
+            if (signature != null && !dismissed)
+            {
+                _actions.Add(RowAction.Dismiss);
+                panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = "[Dismiss warnings and errors]  (the line stops showing them until something new is reported)" });
+            }
+            _actions.Add(RowAction.Minimize);
+            panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = _minimized ? "[Show the full status line]" : "[Minimize the status line]" });
             if (_rows.Count != panel.Count)
             {
                 foreach (object row in _rows) EnsureAbsent(row);
@@ -177,6 +198,24 @@ namespace DW2ModLauncher.Loader
             float top = bottomY - h;
             g.SetSizeAndPosition.Invoke(button, new object[] { g.Vec2(w, h), g.Vec2(IndentX, top) });
             return top;
+        }
+
+        // What the problems currently are, so a dismissal holds until a different problem shows up.
+        static string Signature(List<ModStatusSnapshot> mods)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (ModStatusSnapshot m in mods)
+            {
+                if (m.Level < StatusLevel.Warn) continue;
+                sb.Append(m.Id).Append('|').Append(m.LoadError);
+                foreach (string e in m.Errors) sb.Append('|').Append(e);
+                foreach (StatusDetail d in m.Details)
+                {
+                    if (d.Level >= StatusLevel.Warn) sb.Append('|').Append(d.Key).Append(':').Append(d.Text);
+                }
+                sb.Append('#');
+            }
+            return sb.ToString();
         }
 
         enum Kind { Line, Row, Backdrop }
@@ -224,6 +263,12 @@ namespace DW2ModLauncher.Loader
             {
                 OnMenuClick(name);
                 return;
+            }
+            if (name != null && name.StartsWith(RowPrefix, StringComparison.Ordinal)
+                && int.TryParse(name.Substring(RowPrefix.Length), out int index) && index >= _textRows && index - _textRows < _actions.Count)
+            {
+                if (_actions[index - _textRows] == RowAction.Minimize) _minimized = !_minimized;
+                else _dismissedSignature = Signature(ModStatus.Registry.Snapshot());
             }
             _expanded = !_expanded;
             _shownRevision = -1;

@@ -26,3 +26,4 @@ reconstruct it right before opening the PR. Fold several small related lines int
 - Launch warnings for font mods: a declared font whose bundle file is missing is dropped with a warning, and a font replaced by a later mod's font is named
 - In-game status line now shows when a loader feature (XML patching, fonts, text files, title lookup) cannot install, and summarizes XML patch errors/warnings
 - Text-file hooks reject unrelated File calls cheaply, log which API served each file, and are covered by tests for Windows and Proton/Linux path shapes
+- In-game status line: the panel has "Minimize the status line" (shrinks the collapsed line to its marker) and "Dismiss warnings and errors" (hidden until something new is reported)
