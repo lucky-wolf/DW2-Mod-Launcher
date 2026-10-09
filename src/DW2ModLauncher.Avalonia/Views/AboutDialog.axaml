@@ -10,10 +10,15 @@
       <TextBlock Classes="heading" Text="DW2 MOD LAUNCHER" />
       <TextBlock Name="VersionText" Classes="eyebrow" />
       <TextBlock TextWrapping="Wrap" Text="{Binding L[AboutDescription]}" />
+      <TextBlock Classes="subheading" Margin="0,6,0,-6" Text="{Binding L[AboutLatestUpdates]}" />
       <Button Name="ReleasesButton" Classes="link" HorizontalAlignment="Left" Padding="0" Background="Transparent" BorderThickness="0"
               ToolTip.Tip="{Binding L[AboutReleasesTooltip]}">
         <TextBlock Name="ReleasesLink" TextDecorations="Underline" Foreground="{StaticResource Dw2BlueGlow}" />
       </Button>
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <Button Name="CheckUpdateButton" Content="{Binding L[AboutCheckForUpdates]}" MinWidth="170" />
+        <CheckBox IsChecked="{Binding CheckForLauncherUpdates}" Content="{Binding L[AboutAutoCheckUpdates]}" VerticalAlignment="Center" />
+      </StackPanel>
       <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding L[AboutDisclaimer]}" />
     </StackPanel>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">

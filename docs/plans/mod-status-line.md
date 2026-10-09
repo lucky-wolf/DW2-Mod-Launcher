@@ -1,6 +1,15 @@
 # Shared in-game status line for code mods, hosted by the loader
 
-Status: planned (not started). A working single-mod prototype exists in DW2-XL (see "Prototype").
+Status: built, not yet seen in the game. Usage and the mod-author API are in [../Mod Status Line.md](../Mod%20Status%20Line.md); this file keeps the design reasoning. A single-mod prototype in DW2-XL (see "Prototype") came first.
+
+Decisions made while building:
+
+- **Reflection-only widget.** The launcher's CI and release builds run on GitHub runners without the game, so nothing in this repo can compile against the game's assemblies. The widget (`StatusWidget`, in the loader) builds the game's own `DWButton` controls by reflection and hooks `UserInterfaceController.Update` through Harmony (referenced at compile time via `Lib.Harmony.Ref`, like the XML patching hooks; the game's own `0Harmony.dll` is used at runtime). Cost: no custom-drawn icon (colour plus `[+]`/`/!\` markers instead) and a game update that renames a member disables the widget (logged once to `dw2modlauncher.log`). The "separate UI assembly" idea below is dropped for this reason.
+- **Click is feasible.** Custom controls take part in the game's hover pass, and `DWButton.ClickEvent` fires from `DoMouseUp`. A click on the line toggles the panel. No hotkey.
+- **Mods report by primitive-only static methods** (`ModStatus.Error(id, text)`, no handle object), found by reflection in the loaded assemblies, so there is nothing to version-skew. The soft-dependency snippet is in the doc.
+- **No heartbeat / "running" state.** The loader claims only that mods loaded; it does not ask mods for extra per-frame work to be counted as running, and it does not say "all ok" (it cannot know). Problems appear only if the loader saw them or a mod reported them.
+- **Dialog, not a floating panel.** Opening it dims the screen with a full-screen layer and the blocks sit contiguous on the line; both take clicks, so nothing underneath is reachable. The widget is indented 10px from the left edge.
+- The loader names each mod by its DLL file name and reads its version and build time itself, so a mod needs to call nothing to appear.
 
 ## Goal
 
@@ -48,28 +57,29 @@ The loader stays minimal (BCL plus `System.Text.Json`) and mods must keep workin
 
 ### Where the UI code lives
 
-The loader process has no reference to the game assemblies today. The rendering needs `DistantWorlds.UI`, `DistantWorlds.Types` (`DrawingHelper`), `Stride.Core.Mathematics`, `Stride.Graphics`, `Stride.Rendering` and Harmony. Keep the registry in the loader (BCL only) and put the rendering in a second assembly, loaded by the loader after the game assemblies are available, so the loader itself keeps its minimal footprint and still works if the UI assembly fails to load (the registry and `loader.log` still record everything).
+The loader process has no reference to the game assemblies today. The rendering needs `DistantWorlds.UI`, `DistantWorlds.Types` (`DrawingHelper`), `Stride.Core.Mathematics`, `Stride.Graphics`, `Stride.Rendering` and Harmony. Keep the registry in the loader (BCL only) and put the rendering in a second assembly, loaded by the loader after the game assemblies are available, so the loader itself keeps its minimal footprint and still works if the UI assembly fails to load (the registry and `dw2modlauncher.log` still record everything).
 
 ## Rules
 
 - The loader never lets a status failure affect a mod or the game: every status call is wrapped, the frame hook reports once and goes quiet.
 - Registration is idempotent by id, so reloads and duplicate injection do not double-list a mod.
-- A mod's own errors are never hidden: the status line is an index, and `loader.log` plus the mod's own log keep the full text.
+- A mod's own errors are never hidden: the status line is an index, and `dw2modlauncher.log` plus the mod's own log keep the full text.
 - No per-mod on/off setting for the line itself; one launcher-level setting at most.
 
 ## Steps
 
-- [ ] Research the control side: mouse hit-testing and click handling on a `DWControl` (can a label take clicks without the game's UI swallowing them?), and whether the game has a hotkey system a mod can add to.
-- [ ] Loader: registry (`ModStatus`), automatic per-mod load status from `Entry.LoadOne`, heartbeat expiry.
-- [ ] UI assembly: lift `StatusLine` from the DW2-XL prototype; collapsed line first, then the expanded panel.
-- [ ] Reflection wrapper snippet and a short doc for mod authors (add to `docs/DLL Injection.md`).
-- [ ] Port DW2FreighterLogistics to it: register with the loader when present, keep the standalone line as the fallback.
-- [ ] Tests for the registry (levels, worst-of aggregation, heartbeat expiry, idempotent register) in `DW2ModLauncher.Tests`; the rendering is checked by hand in the game.
+- [x] Research the control side: custom controls are hit-tested by rectangle and `DWButton` raises `ClickEvent` on mouse up. No hotkey system looked at (not needed).
+- [x] Loader: registry (`StatusRegistry`, `ModStatus`), automatic per-mod load status from `Entry.LoadOne`, heartbeat expiry.
+- [x] Widget: collapsed line and expanded panel (`StatusWidget`), by reflection. Every reflection lookup was checked against the real game assemblies offline; drawing and clicking are still to be seen in the game.
+- [x] Reflection wrapper snippet and a doc for mod authors ([../Mod Status Line.md](../Mod%20Status%20Line.md)).
+- [x] Port DW2FreighterLogistics to it: reports to the loader when present, keeps the standalone line as the fallback.
+- [x] Tests for the registry and the wording (levels, worst-of aggregation, heartbeat expiry, idempotent register, stable ordering) in `DW2ModLauncher.Tests`.
+- [ ] **Check in the game**: the line appears and reads right, a click opens the panel, the panel's blocks are readable and sized sensibly, and it survives a scaling change and a new game. Make an error appear on purpose (e.g. a mod with a missing DLL in the manifest) and confirm it goes red.
 - [ ] Linux and Proton: check that the UI hooks behave the same (the game runs the same assemblies, so it should).
 
 ## Open questions
 
-- Expand trigger: click on the line, a hotkey, or both. Does a click get through the game's own input handling?
+- Expand trigger: click only for now. Confirm in the game that the click is not also passed to the map underneath.
 - Should the expanded panel stay open across scene changes, and should the state persist between launches?
 - Scaling: the prototype follows the game's font scaling through `DoLayout`; confirm the panel does at every `ScalingSize`.
 - Do we want a "copy report" button (all mod states and errors as text) for bug reports?

@@ -49,6 +49,18 @@ def _entries_at(repo_root: Path, rev: str) -> list[str]:
     return parse_entries(shown.stdout) if shown.returncode == 0 else []
 
 
+def same_as_last_release(repo_root: Path, target: str) -> bool:
+    """True when the working-tree entries exactly match focus.md as of the newest tag reachable from origin/<target>,
+    i.e. the list was never cleared after that release."""
+    described = subprocess.run(
+        ["git", "describe", "--tags", "--abbrev=0", f"origin/{target}"], cwd=repo_root, capture_output=True, encoding="utf-8"
+    )
+    if described.returncode != 0:
+        return False
+    entries = read_entries(repo_root)
+    return bool(entries) and entries == _entries_at(repo_root, described.stdout.strip())
+
+
 def stash_entries(repo_root: Path, stash_sha: str) -> list[str]:
     """The entries a stash added to focus.md: those in the stashed file but not in the commit it was
     made on. Everything already at that base belongs to earlier, merged work, so what's left is new.

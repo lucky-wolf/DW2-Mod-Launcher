@@ -7,8 +7,10 @@ using System.Linq;
 using DW2ModLauncher.Avalonia.Services;
 using DW2ModLauncher.Core.Diagnostics;
 using System.Text.Json.Nodes;
+using DW2ModLauncher.Core;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services.Publishing;
+using DW2ModLauncher.Core.Services.Updates;
 using DW2ModLauncher.Core.Services;
 using System.Threading;
 using System.Threading.Tasks;
@@ -92,6 +94,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModSettingsCommand = new RelayCommand(OpenModSettingsAsync, () => HasModSettings(selectedRow));
             PublishCommand = new RelayCommand(PublishAsync, () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !publishRunning);
             EditPropertiesCommand = new RelayCommand(() => EditPropertiesAsync(selectedRow.Mod), () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !string.IsNullOrWhiteSpace(selectedRow.Mod.ModJsonPath));
+            CheckLauncherUpdateCommand = new RelayCommand(() => CheckForLauncherUpdateAsync(true));
             CheckUpdatesCommand = new RelayCommand(() => BeginWorkshopUpdateCheck(true), () => !updateCheckRunning && workshopMods.Count > 0);
             CreateModCommand = new RelayCommand(CreateModAsync);
             DeleteModCommand = new RelayCommand(DeleteModAsync, () => selectedRow != null && LocalModManager.CanDelete(selectedRow.Mod, settings.ManagedModsRoot));
@@ -113,6 +116,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public RelayCommand OpenSettingsCommand { get; }
         public RelayCommand OpenAboutCommand { get; }
+        public RelayCommand CheckLauncherUpdateCommand { get; }
         public RelayCommand RefreshCommand { get; }
         public RelayCommand ClearCommand { get; }
         public RelayCommand EnableAllCommand { get; }
@@ -660,6 +664,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             await AnalyzeInBackgroundAsync();
         }
 
+        private bool launcherUpdateRunning;
         private bool isBusy;
         private string busyText = "";
         /// <summary>True while a long job runs: the window shows a darkened, non-dismissable overlay with <see cref="BusyText"/>.</summary>
@@ -1109,6 +1114,120 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     ModPublishMetadataEditor.WriteVersion(mod.ModJsonPath, before ?? "");
             }
             catch (Exception ex) { Logger.LogException("Roll back mod.json version", ex); }
+        }
+
+        // ---- Launcher self-update
+
+        private string UpdateWorkDir { get { return Path.Combine(appRoot, "Updates"); } }
+
+        /// <summary>The About box's "Check for updates at startup" box.</summary>
+        public bool CheckForLauncherUpdates
+        {
+            get { return settings.CheckForLauncherUpdates; }
+            set
+            {
+                if (settings.CheckForLauncherUpdates == value) return;
+                settings.CheckForLauncherUpdates = value;
+                SaveSettings();
+                Raise();
+            }
+        }
+
+        /// <summary>Removes the work folder of an earlier update (its helper copy was still running when the new launcher started).</summary>
+        public void CleanUpFinishedUpdate()
+        {
+            Task.Run(async delegate
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                LauncherUpdater.CleanUp(UpdateWorkDir);
+            });
+        }
+
+        /// <summary>Looks for a newer launcher release on GitHub and, if the user agrees, downloads it and restarts into it.</summary>
+        public async Task CheckForLauncherUpdateAsync(bool manual)
+        {
+            if (launcherUpdateRunning) return;
+            if (!manual && (!settings.CheckForLauncherUpdates || !LauncherUpdater.CanSelfUpdate)) return;
+            launcherUpdateRunning = true;
+            try
+            {
+                if (manual && !LauncherUpdater.CanSelfUpdate)
+                {
+                    await Dialogs.ShowMessageAsync(T("LauncherUpdateNotSupported", AppVersion.ReleasesUrl), T("LauncherUpdateTitle"));
+                    return;
+                }
+                LauncherRelease release;
+                try { release = await UpdateChecker.FindNewerAsync(AppVersion.Current, CancellationToken.None); }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Launcher update check", ex);
+                    if (manual) await Dialogs.ShowMessageAsync(T("LauncherUpdateCheckFailed", ex.Message), T("LauncherUpdateTitle"));
+                    return;
+                }
+                if (release == null)
+                {
+                    if (manual) await Dialogs.ShowMessageAsync(T("LauncherUpdateUpToDate", AppVersion.Display), T("LauncherUpdateTitle"));
+                    return;
+                }
+                if (!manual && string.Equals(settings.SkippedLauncherVersion, release.Version, StringComparison.Ordinal)) return;
+
+                string notes = release.Notes.Trim();
+                if (notes.Length > 700) notes = notes.Substring(0, 700).TrimEnd() + "...";
+                string message = T("LauncherUpdateAvailable", release.Version, AppVersion.Display) + (notes.Length > 0 ? "\n\n" + notes : "");
+                int choice = await Dialogs.ChooseAsync(message, T("LauncherUpdateTitle"), new[] { T("LauncherUpdateNow"), T("LauncherUpdateSkip"), T("LauncherUpdateLater") });
+                if (choice == 1)
+                {
+                    settings.SkippedLauncherVersion = release.Version;
+                    SaveSettings();
+                }
+                if (choice != 0) return;
+                await InstallLauncherUpdateAsync(release);
+            }
+            finally { launcherUpdateRunning = false; }
+        }
+
+        private async Task InstallLauncherUpdateAsync(LauncherRelease release)
+        {
+            CancellationTokenSource cancel = new CancellationTokenSource();
+            string staged;
+            using (IProgressHandle box = Dialogs.ShowProgress(T("LauncherUpdateDownloading", release.Version), T("LauncherUpdateTitle"), T("Cancel"), cancel))
+            {
+                // Progress<T> built here posts back to the UI thread, which is where the box must be touched.
+                Progress<UpdateProgress> progress = new Progress<UpdateProgress>(delegate (UpdateProgress p)
+                {
+                    if (p.Extracting) box.Report(null, T("LauncherUpdateExtracting"));
+                    else if (p.Total > 0) box.Report((double)p.Done / p.Total, ByteSize.Format(p.Done) + " / " + ByteSize.Format(p.Total));
+                    else box.Report(null, ByteSize.Format(p.Done));
+                });
+                try { staged = await LauncherUpdater.DownloadAndStageAsync(release, UpdateWorkDir, progress, cancel.Token); }
+                catch (OperationCanceledException)
+                {
+                    SetStatus(T("LauncherUpdateCancelled"));
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Launcher update download", ex);
+                    box.Dispose();
+                    await Dialogs.ShowMessageAsync(T("LauncherUpdateFailed", ex.Message), T("LauncherUpdateTitle"));
+                    return;
+                }
+            }
+
+            // Last chance to back out: the helper starts waiting for this process to exit.
+            if (!await Settings.ConfirmSaveForExitAsync())
+            {
+                LauncherUpdater.CleanUp(UpdateWorkDir);
+                return;
+            }
+            try { LauncherUpdater.StartInstall(staged, UpdateWorkDir); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Launcher update start", ex);
+                await Dialogs.ShowMessageAsync(T("LauncherUpdateFailed", ex.Message), T("LauncherUpdateTitle"));
+                return;
+            }
+            Dialogs.RequestExit();
         }
 
         // ---- Workshop updates

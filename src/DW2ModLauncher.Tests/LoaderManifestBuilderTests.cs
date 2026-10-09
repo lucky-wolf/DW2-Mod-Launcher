@@ -158,6 +158,24 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void InvalidFor_ReportsEveryDllWithoutAValidEntryPoint()
+        {
+            string dir = MakeModDir("Good.dll");
+            try
+            {
+                File.Copy(typeof(InjectionScanner).Assembly.Location, Path.Combine(dir, "Library.dll"));
+                File.WriteAllBytes(Path.Combine(dir, "Native.dll"), new byte[] { 1, 2, 3 });
+                List<InvalidInjectionDll> invalid = InjectionScanner.InvalidFor(ModAt(dir));
+                Assert.Equal(new[] { "Library.dll", "Native.dll" }, invalid.ConvertAll(i => i.Dll));
+                Assert.Equal(EntryProblem.NoEntryType, invalid[0].Problem);
+                Assert.Equal(EntryProblem.NotManaged, invalid[1].Problem);
+                // Reporting never changes what gets injected.
+                Assert.Single(InjectionScanner.TargetsFor(ModAt(dir)));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
         public void Build_KeepsPatchSets_InModLoadOrder_AndSkipsModsWithoutPatches()
         {
             string first = MakeModDir();
@@ -293,6 +311,13 @@ namespace DW2ModLauncher.Tests
             }
             finally { Directory.Delete(a, true); Directory.Delete(b, true); }
         }
+
+        [Fact]
+        public void AcceptsOptions_FalseForInitOnlyEntry()
+        {
+            Assert.False(InjectionScanner.AcceptsOptions(TestDll));
+        }
+
         [Fact]
         public void Build_SkipsMods_WithNoInjectionTarget()
         {

@@ -36,12 +36,14 @@ Not planned: merging Mods into a combined output folder, and automatic conflict 
     [third_party/steamworks/](third_party/steamworks/README.md)) so publishing piggybacks on the locally
     logged-in Steam client instead of needing its own credentials. `ModPublisherFactory` creates it and
     reports which `ModVisibility` levels are supported.
+  - `Services/Updates/` — launcher self-update. `UpdateChecker` asks GitHub's latest-release API (newer tag + the package for this OS), `LauncherUpdater` downloads/unpacks it into `<data root>/Updates` and starts a copy of the launcher with `--apply-update` (handled in `Program.Main`, like `--steam-worker`), and that copy (`UpdateApplier`) waits for the launcher to exit, copies the new files over the install folder (exe last) and relaunches. Dev builds and `dotnet run` never self-update.
   - `Diagnostics/Logger.cs` — log writer (`DW2ModLauncher.log` in the user data folder)
 - [src/DW2ModLauncher.Loader/](src/DW2ModLauncher.Loader/) — the standalone DLL the launcher injects via
   `--low-level-inject` (see [docs/DLL Injection.md](docs/DLL%20Injection.md)). Deliberately has no project
   reference to `Core`/`Avalonia` — it runs inside the game process, so it stays minimal (BCL +
   `System.Text.Json` only). Loads every enabled mod itself, via reflection, from a manifest the launcher
-  writes before launch.
+  writes before launch. Also owns the in-game status line (`StatusRegistry`/`ModStatus`/`StatusText`/`StatusWidget`): the
+  widget is built entirely by reflection because CI has no game to compile against - see [docs/Mod Status Line.md](docs/Mod%20Status%20Line.md).
 - [src/DW2ModLauncher.Avalonia/](src/DW2ModLauncher.Avalonia/) — the launcher (Windows and Linux). MVVM-lite:
   `ViewModels/` hold state and commands (`MainViewModel`, `SettingsViewModel`, `PublishDialogViewModel`, ...),
   `Views/` are thin XAML, `Services/DialogService` is the only code that touches windows/pickers. Bindings to
