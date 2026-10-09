@@ -28,25 +28,38 @@ namespace DW2ModLauncher.Loader
                 .Where(f => !string.IsNullOrWhiteSpace(f?.Name) && !string.IsNullOrWhiteSpace(f.Folder)).ToList();
             if (_fonts.Count == 0) return 0;
             _logPath = Path.Combine(baseDir, "fonts.log");
+            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like patches.log
 
             Type vfs = Type.GetType("Stride.Core.IO.VirtualFileSystem, Stride.Core.IO", false);
             if (vfs == null)
             {
                 Log("ERROR: Stride VirtualFileSystem not found; font bundles will not be found by the game.");
+                HookStatus.Failed("font", "font hook failed: the game's file system was not found, so the mod's font will not load", _logPath);
                 return 0;
             }
             Harmony harmony = new Harmony("dw2modlauncher.loader.fontbundle");
             MethodInfo exists = vfs.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
                 .FirstOrDefault(m => m.Name == "FileExists" && m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType == typeof(string));
             if (exists != null) harmony.Patch(exists, postfix: new HarmonyMethod(typeof(FontBundleHooks).GetMethod(nameof(FileExistsPostfix), BindingFlags.Static | BindingFlags.NonPublic)));
-            else Log("ERROR: VirtualFileSystem.FileExists not found.");
+            else
+            {
+                Log("ERROR: VirtualFileSystem.FileExists not found.");
+                HookStatus.Failed("font", "font hook failed: VirtualFileSystem.FileExists not found (game update?)", _logPath);
+            }
 
             MethodInfo pre = typeof(FontBundleHooks).GetMethod(nameof(OpenStreamPrefix), BindingFlags.Static | BindingFlags.NonPublic);
+            int opened = 0;
             foreach (MethodInfo m in vfs.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly).Where(x => x.Name == "OpenStream"))
             {
                 ParameterInfo[] ps = m.GetParameters();
                 if (ps.Length == 0 || ps[0].Name != "path" || !typeof(Stream).IsAssignableFrom(m.ReturnType)) continue;
                 harmony.Patch(m, prefix: new HarmonyMethod(pre));
+                opened++;
+            }
+            if (opened == 0)
+            {
+                Log("ERROR: VirtualFileSystem.OpenStream not found.");
+                HookStatus.Failed("font", "font hook failed: VirtualFileSystem.OpenStream not found (game update?)", _logPath);
             }
             foreach (LoaderManifestFont f in _fonts) Log("font bundle '" + f.Name + "' from " + f.Folder + " (" + f.DisplayName + ")");
             return _fonts.Count;

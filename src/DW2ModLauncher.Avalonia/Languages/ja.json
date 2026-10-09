@@ -49,6 +49,8 @@
   "Refresh": "再読込", 
   "SteamWorkshopUpdateAvailable": "⚠ Steam Workshop: 更新あり", 
   "DuplicateDLL": "重複DLL: ",
+  "FontBundleMissing": "フォントを宣言していますが、バンドルファイルがModフォルダにありません: ",
+  "FontOverridden": "ゲームが使えるフォントは1つだけです。後のModのフォントがこのフォントを置き換えます: ",
   "IncompatibleModEnabled": "同時使用不可: ", 
   "MustLoadBefore": " は次のModより先にロードする必要があります: ", 
   "ModSettingsTitle": "設定 - ",

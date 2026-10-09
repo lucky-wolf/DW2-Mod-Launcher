@@ -34,6 +34,7 @@ namespace DW2ModLauncher.Loader
             _replaceVanilla = manifest?.GalactopediaReplacesVanilla ?? false;
             if (_files.Count == 0 && !_replaceVanilla) return 0;
             _logPath = Path.Combine(baseDir, "textfiles.log");
+            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like patches.log
 
             Harmony harmony = new Harmony("dw2modlauncher.loader.textfiles");
             HarmonyMethod prefix = new HarmonyMethod(typeof(TextFileHooks).GetMethod(nameof(PathPrefix), BindingFlags.Static | BindingFlags.NonPublic));
@@ -60,6 +61,7 @@ namespace DW2ModLauncher.Loader
             else
             {
                 Log("Stride FileSystemProvider not found.");
+                HookStatus.Failed("textfiles", "text file hook failed: the game's data provider was not found (Hints, dialog, Galactopedia stay unreplaced)", _logPath);
             }
             foreach (string name in new[] { "ReadAllText", "ReadAllLines", "ReadLines", "ReadAllBytes", "OpenRead", "OpenText", "Exists" })
             {
@@ -72,23 +74,35 @@ namespace DW2ModLauncher.Loader
             }
             foreach (KeyValuePair<string, string> f in _files) Log("replacing data/" + f.Key + " with " + f.Value);
             Log(hooked + " file API(s) hooked.");
+            if (hooked == 0) HookStatus.Failed("textfiles", "text file hook failed: no file API could be hooked", _logPath);
             return _files.Count;
         }
 
         /// <summary>
-        /// The mod's copy of a data-folder text file the game asks for, or null. The game names it by real path (.../data/Hints.txt),
-        /// or, through Stride's provider, relative to the data folder (Hints.txt, dialog/x.txt).
+        /// The path below the data folder (Hints.txt, dialog/x.txt, Galactopedia/GameConcepts/y.txt) of a text file the game may read,
+        /// or null when the path cannot be one of the replaceable files. The game names it by real path (.../data/Hints.txt, under Proton
+        /// Z:\...\data\Hints.txt), or, through Stride's provider, relative to the data folder (Hints.txt, dialog/x.txt).
+        /// This runs on every hooked File call in the process, so the cheap checks come first and nothing is allocated for other paths.
         /// </summary>
-        private static string Replacement(string path, bool relativeToData)
+        internal static string DataRelative(string path, bool relativeToData)
         {
             if (path == null || path.Length < 5 || !path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) return null;
+            if (path.IndexOf("Hints", StringComparison.OrdinalIgnoreCase) < 0
+                && path.IndexOf("dialog", StringComparison.OrdinalIgnoreCase) < 0
+                && path.IndexOf("Galactopedia", StringComparison.OrdinalIgnoreCase) < 0) return null;
             string normalized = path.Replace((char)92, '/');
-            string relative;
             int at = normalized.LastIndexOf("/data/", StringComparison.OrdinalIgnoreCase);
-            if (at >= 0) relative = normalized.Substring(at + 6);
-            else if (normalized.StartsWith("data/", StringComparison.OrdinalIgnoreCase)) relative = normalized.Substring(5);
-            else if (relativeToData && normalized.IndexOf(':') < 0 && !normalized.StartsWith("/", StringComparison.Ordinal)) relative = normalized;
-            else return null;
+            if (at >= 0) return normalized.Substring(at + 6);
+            if (normalized.StartsWith("data/", StringComparison.OrdinalIgnoreCase)) return normalized.Substring(5);
+            if (relativeToData && normalized.IndexOf(':') < 0 && !normalized.StartsWith("/", StringComparison.Ordinal)) return normalized;
+            return null;
+        }
+
+        /// <summary>The mod's copy of a data-folder text file the game asks for, or null.</summary>
+        private static string Replacement(string path, bool relativeToData, MethodBase api)
+        {
+            string relative = DataRelative(path, relativeToData);
+            if (relative == null) return null;
             if (!_files.TryGetValue(relative, out string mine) || string.Equals(path, mine, StringComparison.OrdinalIgnoreCase)) return null;
             if (_checking) return null; // the File.Exists below is hooked too
             _checking = true;
@@ -96,7 +110,8 @@ namespace DW2ModLauncher.Loader
             finally { _checking = false; }
             lock (Logged)
             {
-                if (Logged.Add(normalized)) Log("served " + path + " from " + mine);
+                // the API is logged so the hooks can be narrowed to the calls the game really makes
+                if (Logged.Add(relative.ToLowerInvariant() + "|" + api?.Name)) Log("served " + path + " from " + mine + " via " + api?.DeclaringType?.Name + "." + api?.Name);
             }
             return mine;
         }
@@ -153,19 +168,19 @@ namespace DW2ModLauncher.Loader
 
 
         // Harmony binds the parameters below by name.
-        private static void PathPrefix(ref string path)
+        private static void PathPrefix(ref string path, MethodBase __originalMethod)
         {
-            try { string mine = Replacement(path, false); if (mine != null) path = mine; }
+            try { string mine = Replacement(path, false, __originalMethod); if (mine != null) path = mine; }
             catch (Exception ex) { Log("hook failed for " + path + ": " + ex.Message); }
         }
 
         // The provider's url is relative to the data folder (Hints.txt), so swapping it for the mod's absolute path would be
         // combined with the data folder and fail; these answer the call directly instead.
-        private static bool OpenStreamPrefix(string url, ref Stream __result)
+        private static bool OpenStreamPrefix(string url, ref Stream __result, MethodBase __originalMethod)
         {
             try
             {
-                string mine = Replacement(url, true);
+                string mine = Replacement(url, true, __originalMethod);
                 if (mine == null) return true;
                 __result = new FileStream(mine, FileMode.Open, FileAccess.Read, FileShare.Read);
                 return false;
@@ -177,11 +192,11 @@ namespace DW2ModLauncher.Loader
             }
         }
 
-        private static bool FileExistsPrefix(string url, ref bool __result)
+        private static bool FileExistsPrefix(string url, ref bool __result, MethodBase __originalMethod)
         {
             try
             {
-                if (Replacement(url, true) == null) return true;
+                if (Replacement(url, true, __originalMethod) == null) return true;
                 __result = true;
                 return false;
             }

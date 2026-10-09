@@ -251,6 +251,8 @@ namespace DW2ModLauncher.Tests
             {
                 File.WriteAllText(Path.Combine(a, "dw2modlauncher.json"), @"{ ""font"": ""RussianFont"" }");
                 File.WriteAllText(Path.Combine(b, "dw2modlauncher.json"), @"{ ""font"": ""ChsFonts"" }");
+                File.WriteAllText(Path.Combine(a, "RussianFont.bundle"), "x");
+                File.WriteAllText(Path.Combine(b, "ChsFonts.bundle"), "x");
                 // c declares no font.
                 List<ModInfo> mods = new List<ModInfo> { ModAt(a), ModAt(b), ModAt(c) };
 
@@ -261,6 +263,49 @@ namespace DW2ModLauncher.Tests
                 Assert.Equal("ChsFonts", LoaderManifestBuilder.ActiveFont(mods));
                 Assert.Equal(fonts.Count, LoaderManifestBuilder.Build(mods).Fonts.Count);
                 Assert.Null(LoaderManifestBuilder.ActiveFont(new List<ModInfo> { ModAt(c) }));
+            }
+            finally { Directory.Delete(a, true); Directory.Delete(b, true); Directory.Delete(c, true); }
+        }
+
+        [Fact]
+        public void FontsOf_DropsAFontWhoseBundleIsMissing_AndFontIssuesNamesIt()
+        {
+            string a = MakeModDir();
+            try
+            {
+                File.WriteAllText(Path.Combine(a, "dw2modlauncher.json"), @"{ ""font"": ""RussianFont"" }");
+                List<ModInfo> mods = new List<ModInfo> { ModAt(a) };
+
+                Assert.Empty(LoaderManifestBuilder.FontsOf(mods));
+                Assert.Null(LoaderManifestBuilder.ActiveFont(mods));
+                var issue = Assert.Single(LoaderManifestBuilder.FontIssues(mods));
+                Assert.Equal("missing", issue.Kind);
+                Assert.Equal("RussianFont", issue.Font);
+            }
+            finally { Directory.Delete(a, true); }
+        }
+
+        [Fact]
+        public void FontIssues_ReportsTheFontThatLosesToALaterMod()
+        {
+            string a = MakeModDir();
+            string b = MakeModDir();
+            string c = MakeModDir();
+            try
+            {
+                File.WriteAllText(Path.Combine(a, "dw2modlauncher.json"), @"{ ""font"": ""RussianFont"" }");
+                File.WriteAllText(Path.Combine(a, "RussianFont.bundle"), "x");
+                File.WriteAllText(Path.Combine(b, "dw2modlauncher.json"), @"{ ""font"": ""ChsFonts"" }");
+                File.WriteAllText(Path.Combine(b, "ChsFonts.bundle"), "x");
+                File.WriteAllText(Path.Combine(c, "dw2modlauncher.json"), @"{ ""font"": ""ChsFonts"" }");
+                File.WriteAllText(Path.Combine(c, "ChsFonts.bundle"), "x");
+
+                var issue = Assert.Single(LoaderManifestBuilder.FontIssues(new List<ModInfo> { ModAt(a), ModAt(b), ModAt(c) }));
+                Assert.Equal("overridden", issue.Kind);
+                Assert.Equal("RussianFont", issue.Font);
+                Assert.Equal("ChsFonts", issue.Winner);
+                // the same font declared twice is not a conflict
+                Assert.Empty(LoaderManifestBuilder.FontIssues(new List<ModInfo> { ModAt(b), ModAt(c) }));
             }
             finally { Directory.Delete(a, true); Directory.Delete(b, true); Directory.Delete(c, true); }
         }

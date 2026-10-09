@@ -135,7 +135,7 @@ written to **`patches.log`** (next to `loader.log` in the launcher's `Loader` fo
 
 ```
 patches/races.xml:5: error: <Race> has no field 'Agression' - did you mean 'Aggression'?
-patches/races.xml:9: error: Race id=99 not found in any ArrayOfRace file (has: 0, 1, 2, ...) - did you mean '9'?
+patches/races.xml:9: error: Race id=99 is not defined by any loaded ArrayOfRace file (a mod may have replaced it) (has: 0, 1, 2, ...) - did you mean '9'?
 patches/races.xml:12: error: <Bonus> is a list item of <Bonuses>; say which one: id="Type value", index="N" or op="add"
 patches/races.xml:14: error: Race id=3 > PreferredGovernmentIds > short index=9: list has 1 item(s) (valid: 1..1)
 patches/races.xml: 9 applied, 0 unchanged, 5 skipped
@@ -205,4 +205,8 @@ The game's default font has no Cyrillic, CJK and similar glyphs, and the game on
 
 When the mod is enabled, the launcher starts the game with `--font RussianFont` and the loader makes the game find the bundle in the
 mod folder (the game itself only looks in `data/db/bundles`). The name may contain only letters, digits, `_` and `-`. If several
-enabled mods declare a font, the last one in load order is used.
+enabled mods declare a font, the last one in load order is used (the launcher warns before launch about the ones it replaces).
+A font whose `Name.bundle` is not in the mod folder is ignored, with a warning, instead of starting the game with a `--font` it cannot find.
+
+If one of the loader's features cannot install (for example after a game update), the in-game status line shows a red
+"Mod Launcher (loader)" entry, and XML patch problems are summarized there as an amber warning (never red, since the game plays on without the skipped items); details are in the log files.
