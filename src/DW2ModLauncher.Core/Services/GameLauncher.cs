@@ -48,22 +48,25 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>Writes manifest.json beside the loader DLL; the loader reads it at --low-level-inject time.</summary>
-        public static void WriteLoaderManifest(IEnumerable<ModInfo> orderedEnabledMods)
+        public static LoaderManifest WriteLoaderManifest(IEnumerable<ModInfo> orderedEnabledMods)
         {
             LoaderManifest manifest = LoaderManifestBuilder.Build(orderedEnabledMods.ToList());
             string loaderDir = Path.GetDirectoryName(LoaderDllPath());
             Directory.CreateDirectory(loaderDir);
             File.WriteAllText(Path.Combine(loaderDir, "manifest.json"), JsonSerializer.Serialize(manifest), new UTF8Encoding(false));
+            return manifest;
         }
 
         /// <summary>The game command line: the loader injection flag, then the startup mode flag if any.</summary>
-        public static string BuildArguments(LaunchMode mode = LaunchMode.Run)
+        public static string BuildArguments(LaunchMode mode = LaunchMode.Run, string fontBundle = null)
         {
             string loaderDll = GamePaths.ToGameVisiblePath(LoaderDllPath());
             string token = (loaderDll.IndexOf(' ') >= 0 ? "\"" + loaderDll + "\"" : loaderDll) + "!DW2ModLauncher.Loader.Entry.Init";
             string args = "--low-level-inject " + token;
             if (mode == LaunchMode.Continue) args += " --continue";
             else if (mode == LaunchMode.NewGame) args += " --new-game";
+            // A localization mod's font bundle (the Loader makes the game find it in the mod folder). The name is checked by the manifest builder.
+            if (!string.IsNullOrWhiteSpace(fontBundle)) args += " --font " + fontBundle.Trim();
             return args;
         }
 

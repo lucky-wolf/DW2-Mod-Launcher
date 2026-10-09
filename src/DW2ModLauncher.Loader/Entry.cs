@@ -57,6 +57,9 @@ namespace DW2ModLauncher.Loader
             }
 
             InstallXmlPatching(manifest, baseDir);
+            InstallFontBundles(manifest, baseDir);
+            InstallTextFiles(manifest, baseDir);
+            InstallTitleLookup(manifest, baseDir);
         }
 
         // Kept in its own method so a missing 0Harmony.dll fails here (caught, logged) instead of stopping the mods above from loading:
@@ -72,6 +75,51 @@ namespace DW2ModLauncher.Loader
             catch (Exception ex)
             {
                 Log("ERROR: XML patching could not be installed (mods are unaffected): " + ex);
+            }
+        }
+
+        // Own method for the same reason as InstallXmlPatching: Harmony types are resolved only when this is first called.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InstallFontBundles(LoaderManifest manifest, string baseDir)
+        {
+            try
+            {
+                int fonts = FontBundleHooks.Install(manifest, baseDir);
+                if (fonts > 0) Log("Font bundles: " + fonts + " declared; see fonts.log.");
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR: font bundle support could not be installed (mods are unaffected): " + ex);
+            }
+        }
+
+        // Own method for the same reason as InstallXmlPatching.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InstallTextFiles(LoaderManifest manifest, string baseDir)
+        {
+            try
+            {
+                int files = TextFileHooks.Install(manifest, baseDir);
+                if (files > 0) Log("Text files: " + files + " replacement(s) for Hints/dialog/Galactopedia; see textfiles.log.");
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR: text file replacement could not be installed (mods are unaffected): " + ex);
+            }
+        }
+
+        // Own method for the same reason as InstallXmlPatching. Only for translations: a Mod with patches or replaced text files.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InstallTitleLookup(LoaderManifest manifest, string baseDir)
+        {
+            try
+            {
+                if ((manifest?.Patches?.Count ?? 0) == 0 && (manifest?.TextFiles?.Count ?? 0) == 0) return;
+                TitleLookupHooks.Install(baseDir);
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR: title lookup support could not be installed (mods are unaffected): " + ex);
             }
         }
 

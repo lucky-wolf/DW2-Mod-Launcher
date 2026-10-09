@@ -32,6 +32,7 @@ namespace DW2ModLauncher.Loader
         private static string _logPath;
         private static int _logged;
         private static Dictionary<string, SchemaRoot> _schemas;
+        private static List<string> _modFolders;
 
         /// <summary>Reads every patch file of the manifest, and if there are any installs the hooks. Returns the number of patch files loaded.</summary>
         public static int Install(LoaderManifest manifest, string baseDir)
@@ -40,14 +41,16 @@ namespace DW2ModLauncher.Loader
             try { File.WriteAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] XML patching: reading patch files." + Environment.NewLine); }
             catch { _logPath = null; }
 
+            _modFolders = manifest?.ModFolders ?? new List<string>();
             PatchRunner runner = new PatchRunner(SchemaFor, KeyMap.Default);
+            runner.LateRoots.Add("ArrayOfTourItem");
             foreach (LoaderManifestPatchSet set in manifest?.Patches ?? new List<LoaderManifestPatchSet>())
             {
                 foreach (string file in set.Files ?? new List<string>())
                 {
                     try
                     {
-                        runner.AddFile(set.DisplayName, DisplayPath(set, file), File.ReadAllText(file));
+                        runner.AddFile(set.DisplayName, DisplayPath(set, file), File.ReadAllText(file), set.Order);
                     }
                     catch (Exception ex)
                     {
@@ -65,6 +68,7 @@ namespace DW2ModLauncher.Loader
             _runner = runner;
             Harmony harmony = new Harmony("dw2modlauncher.loader.xmlpatch");
             PatchOpenStream(harmony);
+            PatchProviderOpenStream(harmony);
             PatchListDataFiles(harmony);
             AppDomain.CurrentDomain.ProcessExit += (_, __) => EndPass();
             Log(runner.Files.Count + " patch file(s) loaded; hooks installed.");
@@ -79,6 +83,7 @@ namespace DW2ModLauncher.Loader
             if (vfs == null)
             {
                 Log("ERROR: Stride VirtualFileSystem not found; patches will not be applied.");
+                HookStatus.Failed("patches", "XML patches are not applied: the game's file system was not found", _logPath);
                 return;
             }
             MethodInfo post = typeof(XmlPatchHooks).GetMethod(nameof(OpenStreamPostfix), BindingFlags.Static | BindingFlags.NonPublic);
@@ -93,8 +98,34 @@ namespace DW2ModLauncher.Loader
                 catch (Exception ex)
                 {
                     Log("ERROR: could not hook OpenStream(" + string.Join(", ", ps.Select(p => p.Name)) + "): " + ex.Message);
+                    HookStatus.Failed("patches", "XML patches are not applied: OpenStream could not be hooked", _logPath);
                 }
             }
+        }
+
+        // The tour (tutorial) items are the one data file the game opens straight through the data folder's provider with a relative url
+        // ("TourItems.xml"), not through VirtualFileSystem.OpenStream, so they need their own hook.
+        private static void PatchProviderOpenStream(Harmony harmony)
+        {
+            Type provider = Type.GetType("Stride.Core.IO.FileSystemProvider, Stride.Core.IO", false);
+            MethodInfo post = typeof(XmlPatchHooks).GetMethod(nameof(ProviderOpenStreamPostfix), BindingFlags.Static | BindingFlags.NonPublic);
+            foreach (MethodInfo m in (provider?.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly) ?? new MethodInfo[0]).Where(x => x.Name == "OpenStream"))
+            {
+                ParameterInfo[] ps = m.GetParameters();
+                if (ps.Length == 0 || ps[0].Name != "url" || !typeof(Stream).IsAssignableFrom(m.ReturnType)) continue;
+                try { harmony.Patch(m, postfix: new HarmonyMethod(post)); }
+                catch (Exception ex)
+                {
+                    Log("WARNING: could not hook the data provider's OpenStream (tour items will not be patched): " + ex.Message);
+                    HookStatus.Warn("tours", "tutorial tours are not patched: the data provider could not be hooked", _logPath);
+                }
+            }
+        }
+
+        private static void ProviderOpenStreamPostfix(string url, ref Stream __result)
+        {
+            if (url == null || url.IndexOf('/') >= 0 || url.IndexOf((char)92) >= 0 || !url.StartsWith("TourItems", StringComparison.OrdinalIgnoreCase)) return;
+            OpenStreamPostfix("/data/" + url, ref __result);
         }
 
         private static void PatchListDataFiles(Harmony harmony)
@@ -135,7 +166,7 @@ namespace DW2ModLauncher.Loader
                 if (root == null || !runner.HasPatchesFor(root)) return;
 
                 XDocument doc = XDocument.Load(stream);
-                int changes = runner.Apply(doc, path);
+                int changes = runner.Apply(doc, path, OrderOf(path));
                 if (changes == 0)
                 {
                     stream.Position = 0;
@@ -178,9 +209,35 @@ namespace DW2ModLauncher.Loader
             runner.Finish();
             FlushReport(runner);
             foreach (string line in runner.Report.SummaryLines()) Log(line);
+            ReportProblems(runner);
+        }
+
+        // Patch problems never stop the game and many players play on with them (a translation that targets an entity another mod
+        // removed, say), so they are shown as an amber warning, never red: red is kept for a feature that could not install at all.
+        private static void ReportProblems(PatchRunner runner)
+        {
+            int errors = runner.Report.Entries.Count(e => e.Severity == Severity.Error);
+            int warnings = runner.Report.Entries.Count(e => e.Severity == Severity.Warning);
+            if (errors + warnings == 0) return;
+            HookStatus.Warn("patch-problems", "XML patches: " + errors + " item(s) skipped, " + warnings + " warning(s) - see patches.log", _logPath);
         }
 
         // ---- helpers ----
+
+        /// <summary>
+        /// The load-order position of the mod a data file belongs to: /mods/Folder/x.xml and /steam/WorkshopId/x.xml are found by their
+        /// folder name in the manifest's mod list, the game's own /data/ comes before every mod. Unknown files count as the game's.
+        /// </summary>
+        private static int OrderOf(string path)
+        {
+            string[] parts = path.Split('/');
+            if (parts.Length > 3 && parts[0].Length == 0 && (parts[1] == "mods" || parts[1] == "steam") && _modFolders != null)
+            {
+                int i = _modFolders.FindIndex(f => string.Equals(f, parts[2], StringComparison.OrdinalIgnoreCase));
+                if (i >= 0) return i;
+            }
+            return int.MinValue;
+        }
 
         /// <summary>The first <c>&lt;ArrayOfX&gt;</c> in the head of the stream; the position is restored to 0.</summary>
         private static string PeekRoot(Stream s)

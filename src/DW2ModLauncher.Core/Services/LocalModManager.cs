@@ -51,7 +51,7 @@ namespace DW2ModLauncher.Core.Services
         /// Creates <paramref name="managedRoot"/>/&lt;sanitized name&gt;/mod.json and returns the new folder.
         /// Throws <see cref="IOException"/> if the folder already exists, so an existing Mod is never overwritten.
         /// </summary>
-        public static string Create(string managedRoot, string displayName)
+        public static string Create(string managedRoot, string displayName, string description = "")
         {
             if (string.IsNullOrWhiteSpace(managedRoot)) throw new DirectoryNotFoundException("The DW2 Mod folder is not set.");
             string name = (displayName ?? "").Trim();
@@ -64,7 +64,7 @@ namespace DW2ModLauncher.Core.Services
             JsonObject modJson = new JsonObject
             {
                 ["displayName"] = name,
-                ["description"] = "",
+                ["description"] = description ?? "",
                 ["version"] = DefaultVersion
             };
             ModJsonFile.Save(Path.Combine(folder, "mod.json"), modJson);
