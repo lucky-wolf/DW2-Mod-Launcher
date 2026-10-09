@@ -19,8 +19,16 @@ def require_gh_auth() -> None:
         output.fail("gh is not logged in - run `gh auth login`")
 
 
-def create_or_update_pr(repo_root: Path, branch: str, target: str, title: str, body: str, draft: bool) -> tuple[str, bool]:
-    """Creates the PR for branch, or updates the open one's title/body. Returns (url, created).
+def open_pr_exists(repo_root: Path, branch: str) -> bool:
+    listing = subprocess.run(
+        ["gh", "pr", "list", "--head", branch, "--state", "open", "--json", "number"],
+        cwd=repo_root, capture_output=True, text=True,
+    )
+    return listing.returncode == 0 and json.loads(listing.stdout or "[]") != []
+
+
+def create_or_update_pr(repo_root: Path, branch: str, target: str, title: str, body: str | None, draft: bool) -> tuple[str, bool]:
+    """Creates the PR for branch, or updates the open one's title (and body, unless body is None). Returns (url, created).
     Raises RuntimeError with gh's message on failure."""
     listing = subprocess.run(
         ["gh", "pr", "list", "--head", branch, "--state", "open", "--json", "url,number"],
@@ -36,14 +44,14 @@ def create_or_update_pr(repo_root: Path, branch: str, target: str, title: str, b
         # (classic)" field (repository.pullRequest.projectCards). gh substitutes {owner}/{repo}.
         edit = subprocess.run(
             ["gh", "api", "--method", "PATCH", f"repos/{{owner}}/{{repo}}/pulls/{existing[0]['number']}",
-             "-f", f"title={title}", "-f", f"body={body}"],
+             "-f", f"title={title}", *([] if body is None else ["-f", f"body={body}"])],
             cwd=repo_root, capture_output=True, text=True,
         )
         if edit.returncode != 0:
             raise RuntimeError(edit.stderr.strip() or edit.stdout.strip())
         return url, False
 
-    cmd = ["gh", "pr", "create", "--base", target, "--head", branch, "--title", title, "--body", body]
+    cmd = ["gh", "pr", "create", "--base", target, "--head", branch, "--title", title, "--body", body or ""]
     if draft:
         cmd.append("--draft")
     create = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True)

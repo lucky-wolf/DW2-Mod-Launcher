@@ -32,10 +32,10 @@ def compute_pr_title(repo_root: Path, target: str, fallback: str) -> str:
     return f"Released as {tag}" if tag else fallback
 
 
-def compute_pr_description(repo_root: Path, target: str) -> str:
-    """The entries in docs/focus.md (see lib/focus.py), one bullet each; when there are none, one bullet per
-    commit on this branch that isn't on origin/<target>, oldest first."""
-    entries = focus.read_entries(repo_root)
+def compute_pr_description(repo_root: Path, target: str, use_focus: bool = True) -> str:
+    """The entries in docs/focus.md (see lib/focus.py), one bullet each; when there are none (or use_focus is
+    False), one bullet per commit on this branch that isn't on origin/<target>, oldest first."""
+    entries = focus.read_entries(repo_root) if use_focus else []
     if entries:
         return "\n".join(f"- {entry}" for entry in entries)
     log = proc.git(repo_root, "log", f"origin/{target}..HEAD", "--reverse", "--format=%s").stdout
@@ -107,14 +107,22 @@ def main() -> int:
 
     output.step("push & open PR")
     pr_title = compute_pr_title(repo_root, target, current_branch)
-    pr_description = compute_pr_description(repo_root, target)
 
+    use_focus = True
     entries = focus.read_entries(repo_root)
     if not entries:
         print("  note: docs/focus.md has no entries, so the description falls back to commit subjects")
     elif focus.same_as_last_release(repo_root, target):
         print("  WARNING: docs/focus.md is identical to the last release's list - stale entries from earlier work?")
-        print("           (the release notes come from this description, so clear or fix the list first)")
+        print("           (the release notes come from this description)")
+        if not output.confirm("  Reuse anyway? (No: open the PR without it, describing it by its commit subjects)", default=False):
+            use_focus = False
+    pr_description = compute_pr_description(repo_root, target, use_focus)
+    # Re-running for an open PR whose list was already cleared by an earlier run: the description written then is the
+    # real one; rebuilding it from commit subjects would overwrite it with a worse one.
+    keep_description = not entries and github.open_pr_exists(repo_root, current_branch)
+    if keep_description:
+        print("  note: docs/focus.md is empty and the PR is already open, so its description is left as it is")
     print(f"  Branch: {current_branch} -> {target}")
     print(f"  PR title: {pr_title}")
     print(f"  PR description:\n{pr_description}" if pr_description else "  PR description: (none)")
@@ -127,11 +135,20 @@ def main() -> int:
     if not output.confirm("\n  Push and open the PR with the above?", default=True):
         output.fail("aborted - nothing pushed")
 
+    # The list has done its job (it is in pr_description now), so it never holds over to the next branch: it is emptied in the
+    # PR's own last commit, which makes the merge land an empty list on main.
+    if entries:
+        focus.reset(repo_root)
+        if proc.git(repo_root, "status", "--porcelain", "--", str(focus.FOCUS_PATH)).stdout.strip():
+            proc.run(repo_root, "clear docs/focus.md", ["git", "add", "--", str(focus.FOCUS_PATH)])
+            proc.run(repo_root, "git commit", ["git", "commit", "-m", "Clear docs/focus.md (its list is in the PR description)"])
+            output.ok("docs/focus.md cleared (committed with the PR)")
+
     proc.run(repo_root, f"git push {current_branch}", ["git", "push", "-u", "origin", current_branch])
     output.ok("pushed")
 
     try:
-        url, created = github.create_or_update_pr(repo_root, current_branch, target, pr_title, pr_description, args.draft)
+        url, created = github.create_or_update_pr(repo_root, current_branch, target, pr_title, None if keep_description else pr_description, args.draft)
     except RuntimeError as e:
         output.fail(f"branch is pushed, but creating/updating the PR via gh failed: {e}")
     output.ok("PR created" if created else "existing PR title/description updated")
