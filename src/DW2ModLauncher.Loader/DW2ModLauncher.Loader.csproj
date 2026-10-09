@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="DW2ModLauncher.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The XML patch engine is compiled INTO this DLL (not referenced) so the loader stays the single loose file the launcher
          ships and injects. The same sources are the standalone DW2ModLauncher.XmlPatching project the launcher and tests use. -->
     <Compile Include="..\DW2ModLauncher.XmlPatching\**\*.cs" Exclude="..\DW2ModLauncher.XmlPatching\obj\**;..\DW2ModLauncher.XmlPatching\bin\**" LinkBase="XmlPatching" />

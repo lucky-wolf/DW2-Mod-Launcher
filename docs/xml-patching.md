@@ -119,8 +119,11 @@ Common keyed list items: `ResourceQuantity` (`ResourceId`), `Component` (`Compon
 - **Order.** Mods apply in launcher load order; inside a mod, patch files by name, top to bottom. A later patch sees the
   result of earlier ones (after you add a level, `index="5"` can address it).
 - **Positions shift.** `index` counts the list as it is when your patch runs. Prefer `id` where an item has a key.
-- **Every definition is patched.** If several data files define the same entity, the patch applies to all of them, so it
-  works on entities added by other mods too.
+- **Load order decides what a patch touches.** A patch applies to the game's own data and to the data files of its own mod and
+  of the mods loaded **before** it. If a mod loaded after yours defines the same entity in a normal data file, that definition
+  replaces the result, so your patch leaves it alone (as it would have been overwritten anyway). To change such an entity,
+  load the patch's mod after the one that defines it. If several data files define the same entity, the patch applies to all
+  of those it may touch, so it works on entities added by other mods too.
 - **New levels** of a component also need a research project that unlocks them (patch `ResearchProjectDefinition`).
 - **File paths** (textures, sounds) are not checked; a wrong path fails when the game loads the asset. Ship your assets in the mod.
 - Not supported: patching "every Rail Gun" at once, arithmetic like "+20%", creating whole new entities (use normal data files).
@@ -132,7 +135,7 @@ written to **`patches.log`** (next to `loader.log` in the launcher's `Loader` fo
 
 ```
 patches/races.xml:5: error: <Race> has no field 'Agression' - did you mean 'Aggression'?
-patches/races.xml:9: error: Race id=99 not found in any ArrayOfRace file (has: 0, 1, 2, ...) - did you mean '9'?
+patches/races.xml:9: error: Race id=99 is not defined by any loaded ArrayOfRace file (a mod may have replaced it) (has: 0, 1, 2, ...) - did you mean '9'?
 patches/races.xml:12: error: <Bonus> is a list item of <Bonuses>; say which one: id="Type value", index="N" or op="add"
 patches/races.xml:14: error: Race id=3 > PreferredGovernmentIds > short index=9: list has 1 item(s) (valid: 1..1)
 patches/races.xml: 9 applied, 0 unchanged, 5 skipped
@@ -141,3 +144,69 @@ patches/races.xml: 9 applied, 0 unchanged, 5 skipped
 Every change that was applied is logged as `old -> new`, so you can confirm what happened. "unchanged" means the value was
 already what you wrote. The usual causes of a patch that "does nothing": a typo in a field name, the wrong `id`, the file
 sitting outside `patches/`, or the mod not enabled in the launcher.
+
+## Translating the game: the Localization Mod shortcut
+
+In the launcher, **Create Mod... > Localization Mod** asks for a language and creates a mod whose `patches` folder already
+holds all player-visible text of the game (and of your enabled mods) as patch files that mirror the data files:
+`Races.xml`, `Races_Atuuk.xml`, `GameEvents_Zenox.xml`, `ArmyTemplates.xml`, ... An entity appears only in the file whose
+definition wins in the game, so you translate each text once. If two folders contribute a file of the same name, each goes
+into a subfolder named after its folder (`patches/data/Races.xml`, `patches/SomeMod/Races.xml`):
+
+```xml
+<Race id="0">
+  <Name>Human</Name>
+  <Description>The Humans are ...</Description>
+</Race>
+```
+
+Translate the text in place and keep every `id="..."` and `index="..."` exactly as it is: they say which entity or
+list item the text belongs to. Delete anything you do not want to translate. Only display text is collected; identifiers
+(a game event's `Name`, which is its key, and fields that refer to other entities by name) are never touched.
+The interface and other plain-text strings live in `.txt` files, which the game replaces as a whole file. The shortcut
+copies them into the mod folder at the same path (`GameText.txt`, `Hints.txt`, `SystemNames.txt`, `dialog/*.txt`,
+`Galactopedia/**/*.txt`). Each line is `KEY ;text`: translate only the text after the semicolon and leave the key alone.
+Keep the file names: the game finds them by name. `GameText.txt` and `SystemNames.txt` are picked up by the game itself; the game
+reads `Hints.txt`, `dialog/*.txt` and `Galactopedia/**/*.txt` straight from its data folder, so the launcher's loader serves
+your copies instead (logged in `textfiles.log` next to the loader). The last mod in load order wins for each file.
+
+**Galactopedia articles.** Each article is a `.txt` file in `Galactopedia/GameConcepts` or `Galactopedia/GameScreens`, and the
+file name (without `.txt`) is the article's title in the game. Any mod can add articles by putting files there; a file with the
+same name as an earlier one (the game's or another mod's) replaces it. A translation mod can rename the files to translated
+titles, and then it should drop the game's English articles by adding this to `dw2modlauncher.json` (the Localization Mod shortcut
+does this for you):
+
+```json
+{ "galactopedia": "replace" }
+```
+
+The game also opens some articles by a title from `GameText.txt` (for example the one for the key `Getting Started`), so name
+such a file exactly like the translation of that key, or the game will not find it (the loader logs `no Galactopedia article is
+titled '...'` in `textfiles.log`).
+
+If a title has a translation in `GameText.txt` (the same key), the loader also finds the article, and the tutorial tour with that title,
+when the game asks for the translated title and the data still has the English one. Tours and articles whose title has no
+`GameText.txt` key are only found by their exact title.
+
+Not translatable this way: the introduction text shown when a game starts ("Our faction is known as the ...") is built from
+English fragments inside the game's code, so no text file reaches it.
+
+### Fonts for non-Latin languages
+
+The game's default font has no Cyrillic, CJK and similar glyphs, and the game only uses another font when it is started with
+`--font <BundleName>`. A localization mod can bring its own font bundle and let the launcher do the rest:
+
+1. Put the font bundle files in the mod folder (`RussianFont.bundle` and the hashed `RussianFont.<hash>.bundle` next to it).
+   Listing the bundle in `mod.json` is not needed for the font.
+2. Add a `dw2modlauncher.json` next to `mod.json`:
+   ```json
+   { "font": "RussianFont" }
+   ```
+
+When the mod is enabled, the launcher starts the game with `--font RussianFont` and the loader makes the game find the bundle in the
+mod folder (the game itself only looks in `data/db/bundles`). The name may contain only letters, digits, `_` and `-`. If several
+enabled mods declare a font, the last one in load order is used (the launcher warns before launch about the ones it replaces).
+A font whose `Name.bundle` is not in the mod folder is ignored, with a warning, instead of starting the game with a `--font` it cannot find.
+
+If one of the loader's features cannot install (for example after a game update), the in-game status line shows a red
+"Mod Launcher (loader)" entry, and XML patch problems are summarized there as an amber warning (never red, since the game plays on without the skipped items); details are in the log files.

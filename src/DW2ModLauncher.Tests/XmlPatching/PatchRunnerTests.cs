@@ -17,6 +17,23 @@ namespace DW2ModLauncher.Tests.XmlPatching
             return d.Root.Elements("ComponentDefinition").First(c => c.Element("ComponentId").Value == "6");
         }
 
+        // ---- load order ----
+
+        [Fact]
+        public void Patch_AppliesOnlyToData_OfItsOwnModAndEarlierOnes()
+        {
+            PatchTestKit kit = new PatchTestKit();
+            kit.Runner.AddFile("Mod B", "patches/b.xml", "<ArrayOfRace><Race id=\"0\"><Aggression>2</Aggression></Race></ArrayOfRace>", 1);
+
+            XDocument vanilla = kit.Apply(kit.Races(PatchTestKit.HumanRace), "/data/Races.xml");              // before B: patched
+            XDocument later = kit.Races(PatchTestKit.HumanRace);
+            int laterChanges = kit.Runner.Apply(later, "/mods/C/Races.xml", 2);                              // after B: B's patch must not touch it
+
+            Assert.Equal("2", Race0(vanilla).Element("Aggression").Value);
+            Assert.Equal(0, laterChanges);
+            Assert.Equal("1.2", Race0(later).Element("Aggression").Value);
+        }
+
         // ---- scalars and structs ----
 
         [Fact]
@@ -155,7 +172,8 @@ namespace DW2ModLauncher.Tests.XmlPatching
             kit.Runner.Finish();
 
             string error = Assert.Single(kit.Errors());
-            Assert.Contains("Race id=99 not found", error);
+            Assert.Contains("Race id=99 is not defined by any loaded ArrayOfRace file", error);
+            Assert.Contains("a mod may have replaced it", error);
             Assert.Contains("did you mean '9'", error);
             Assert.Equal(1, kit.Report.Skipped("patches/p.xml"));
         }

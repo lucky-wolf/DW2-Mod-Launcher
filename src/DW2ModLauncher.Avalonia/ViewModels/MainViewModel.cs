@@ -690,12 +690,86 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await Dialogs.ShowMessageAsync(T("CreateModNoFolder"), "DW2 Mod Launcher");
                 return;
             }
-            string name = await Dialogs.PromptTextAsync(T("CreateModTitle"), T("CreateModPrompt"), "", T("OK"), T("Cancel"),
-                text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", LocalModManager.FolderNameFor(text)));
-            if (name == null) return;
+            int kind = await Dialogs.ChooseAsync(T("CreateModKindPrompt"), T("CreateModTitle"),
+                new[] { T("CreateModKindEmpty"), T("CreateModKindLocalization"), T("Cancel") });
+            if (kind < 0 || kind > 1) return;
+            bool localization = kind == 1;
+
+            // Localization: translate the base game (with the enabled Mods), or just one existing Mod.
+            ModInfo targetMod = null;
+            if (localization)
+            {
+                int scope = await Dialogs.ChooseAsync(T("LocalizationScopePrompt"), T("CreateModKindLocalization"),
+                    new[] { T("LocalizationScopeBaseGame"), T("LocalizationScopeMod"), T("Cancel") });
+                if (scope < 0 || scope > 1) return;
+                if (scope == 0 && !Directory.Exists(Path.Combine(settings.GameRoot ?? "", "data")))
+                {
+                    await Dialogs.ShowMessageAsync(T("LocalizationNoGameData"), "DW2 Mod Launcher");
+                    return;
+                }
+                if (scope == 1)
+                {
+                    List<ModInfo> candidates = AllMods.Where(m => !string.IsNullOrWhiteSpace(m.ContentRoot ?? m.Folder)).ToList();
+                    List<string> labels = candidates.Select(m => m.DisplayName ?? m.Id ?? Path.GetFileName(m.Folder)).ToList();
+                    for (int i = 0; i < labels.Count; i++)
+                    {
+                        if (labels.Count(l => l == labels[i]) > 1) labels[i] += " (" + (candidates[i].Id ?? Path.GetFileName(candidates[i].Folder)) + ")";
+                    }
+                    if (labels.Count == 0)
+                    {
+                        await Dialogs.ShowMessageAsync(T("LocalizationNoMods"), "DW2 Mod Launcher");
+                        return;
+                    }
+                    string picked = await Dialogs.PickFromListAsync(T("CreateModKindLocalization"), T("LocalizationPickMod"), labels);
+                    if (picked == null) return;
+                    int at = labels.IndexOf(picked);
+                    if (at < 0) return;
+                    targetMod = candidates[at];
+                }
+            }
+            string targetLabel = targetMod == null ? null : targetMod.DisplayName ?? targetMod.Id ?? Path.GetFileName(targetMod.Folder);
+
+            string name;
+            if (localization)
+            {
+                Func<string, string> modName = lang => targetLabel == null ? T("LocalizationModName", lang.Trim()) : T("LocalizationModNameFor", lang.Trim(), targetLabel);
+                string language = await Dialogs.PromptTextAsync(T("CreateModKindLocalization"), T("LocalizationLanguagePrompt"), "", T("OK"), T("Cancel"),
+                    text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", LocalModManager.FolderNameFor(modName(text))));
+                if (language == null) return;
+                name = modName(language);
+            }
+            else
+            {
+                name = await Dialogs.PromptTextAsync(T("CreateModTitle"), T("CreateModPrompt"), "", T("OK"), T("Cancel"),
+                    text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", LocalModManager.FolderNameFor(text)));
+                if (name == null) return;
+            }
             try
             {
-                string folder = LocalModManager.Create(settings.ManagedModsRoot, name);
+                string folder = LocalModManager.Create(settings.ManagedModsRoot, name, localization ? T("LocalizationModDescription") : "");
+                if (localization)
+                {
+                    IsBusy = true;
+                    LocalizationResult built;
+                    try
+                    {
+                        string gameRoot = settings.GameRoot;
+                        List<ModInfo> enabled = OrderedEnabledMods();
+                        ModInfo target = targetMod;
+                        built = await Task.Run(() => target != null
+                            ? LocalizationModBuilder.Build(folder, LocalizationModBuilder.CollectModDataFiles(target), LocalizationModBuilder.CollectModTextFiles(target))
+                            : LocalizationModBuilder.Build(folder, LocalizationModBuilder.CollectDataFiles(gameRoot, enabled), LocalizationModBuilder.CollectTextFiles(gameRoot, enabled)));
+                    }
+                    finally { IsBusy = false; }
+                    if (built.Files == 0 && built.TextFiles == 0)
+                    {
+                        // Nothing to translate (e.g. a Mod without data files): do not leave an empty Mod behind.
+                        Directory.Delete(folder, true);
+                        await Dialogs.ShowMessageAsync(T("LocalizationNothing", targetLabel ?? ""), "DW2 Mod Launcher");
+                        return;
+                    }
+                    await Dialogs.ShowMessageAsync(T("LocalizationDone", built.Strings, built.Files, built.Unreadable.Count, built.TextFiles), "DW2 Mod Launcher");
+                }
                 Refresh();
                 SelectedRow = Mods.FirstOrDefault(r => !r.Mod.IsWorkshop && string.Equals(r.Mod.Folder, folder, StringComparison.OrdinalIgnoreCase));
                 SetStatus(T("ModCreatedStatus", name));
@@ -1246,8 +1320,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (!await Settings.ConfirmSaveForLaunchAsync()) return;
             try
             {
-                GameLauncher.WriteLoaderManifest(OrderedEnabledMods());
-                Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(LaunchMode)));
+                LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods());
+                Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(LaunchMode, launchManifest.Fonts.LastOrDefault()?.Name)));
                 SetStatus(T("DistantWorlds2Launched"));
                 launchStartedUtc = DateTime.UtcNow;
                 SetGameState(GameState.Launching);

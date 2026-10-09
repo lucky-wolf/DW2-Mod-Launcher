@@ -176,6 +176,28 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Build_RecordsModFolders_AndEachPatchSetsPlaceInThem()
+        {
+            string first = MakeModDir();
+            string plain = MakeModDir();
+            string second = MakeModDir();
+            try
+            {
+                foreach (string dir in new[] { first, second })
+                {
+                    Directory.CreateDirectory(Path.Combine(dir, "patches"));
+                    File.WriteAllText(Path.Combine(dir, "patches", "a.xml"), "<ArrayOfRace/>");
+                }
+
+                LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(first), ModAt(plain), ModAt(second) });
+
+                Assert.Equal(new[] { Path.GetFileName(first), Path.GetFileName(plain), Path.GetFileName(second) }, manifest.ModFolders);
+                Assert.Equal(new[] { 0, 2 }, manifest.Patches.ConvertAll(p => p.Order));
+            }
+            finally { Directory.Delete(first, true); Directory.Delete(plain, true); Directory.Delete(second, true); }
+        }
+
+        [Fact]
         public void Build_KeepsPatchSets_InModLoadOrder_AndSkipsModsWithoutPatches()
         {
             string first = MakeModDir();
@@ -216,6 +238,145 @@ namespace DW2ModLauncher.Tests
                 Assert.Empty(LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(dir) }).Patches);
             }
             finally { Directory.Delete(dir, true); }
+        }
+
+
+        [Fact]
+        public void FontsOf_ReadsTheDeclaredFont_InLoadOrder_AndTheLastOneIsActive()
+        {
+            string a = MakeModDir();
+            string b = MakeModDir();
+            string c = MakeModDir();
+            try
+            {
+                File.WriteAllText(Path.Combine(a, "dw2modlauncher.json"), @"{ ""font"": ""RussianFont"" }");
+                File.WriteAllText(Path.Combine(b, "dw2modlauncher.json"), @"{ ""font"": ""ChsFonts"" }");
+                File.WriteAllText(Path.Combine(a, "RussianFont.bundle"), "x");
+                File.WriteAllText(Path.Combine(b, "ChsFonts.bundle"), "x");
+                // c declares no font.
+                List<ModInfo> mods = new List<ModInfo> { ModAt(a), ModAt(b), ModAt(c) };
+
+                List<LoaderManifestFont> fonts = LoaderManifestBuilder.FontsOf(mods);
+
+                Assert.Equal(new[] { "RussianFont", "ChsFonts" }, fonts.ConvertAll(f => f.Name));
+                Assert.Equal(GamePaths.ToGameVisiblePath(Path.GetFullPath(a)), fonts[0].Folder);
+                Assert.Equal("ChsFonts", LoaderManifestBuilder.ActiveFont(mods));
+                Assert.Equal(fonts.Count, LoaderManifestBuilder.Build(mods).Fonts.Count);
+                Assert.Null(LoaderManifestBuilder.ActiveFont(new List<ModInfo> { ModAt(c) }));
+            }
+            finally { Directory.Delete(a, true); Directory.Delete(b, true); Directory.Delete(c, true); }
+        }
+
+        [Fact]
+        public void FontsOf_DropsAFontWhoseBundleIsMissing_AndFontIssuesNamesIt()
+        {
+            string a = MakeModDir();
+            try
+            {
+                File.WriteAllText(Path.Combine(a, "dw2modlauncher.json"), @"{ ""font"": ""RussianFont"" }");
+                List<ModInfo> mods = new List<ModInfo> { ModAt(a) };
+
+                Assert.Empty(LoaderManifestBuilder.FontsOf(mods));
+                Assert.Null(LoaderManifestBuilder.ActiveFont(mods));
+                var issue = Assert.Single(LoaderManifestBuilder.FontIssues(mods));
+                Assert.Equal("missing", issue.Kind);
+                Assert.Equal("RussianFont", issue.Font);
+            }
+            finally { Directory.Delete(a, true); }
+        }
+
+        [Fact]
+        public void FontIssues_ReportsTheFontThatLosesToALaterMod()
+        {
+            string a = MakeModDir();
+            string b = MakeModDir();
+            string c = MakeModDir();
+            try
+            {
+                File.WriteAllText(Path.Combine(a, "dw2modlauncher.json"), @"{ ""font"": ""RussianFont"" }");
+                File.WriteAllText(Path.Combine(a, "RussianFont.bundle"), "x");
+                File.WriteAllText(Path.Combine(b, "dw2modlauncher.json"), @"{ ""font"": ""ChsFonts"" }");
+                File.WriteAllText(Path.Combine(b, "ChsFonts.bundle"), "x");
+                File.WriteAllText(Path.Combine(c, "dw2modlauncher.json"), @"{ ""font"": ""ChsFonts"" }");
+                File.WriteAllText(Path.Combine(c, "ChsFonts.bundle"), "x");
+
+                var issue = Assert.Single(LoaderManifestBuilder.FontIssues(new List<ModInfo> { ModAt(a), ModAt(b), ModAt(c) }));
+                Assert.Equal("overridden", issue.Kind);
+                Assert.Equal("RussianFont", issue.Font);
+                Assert.Equal("ChsFonts", issue.Winner);
+                // the same font declared twice is not a conflict
+                Assert.Empty(LoaderManifestBuilder.FontIssues(new List<ModInfo> { ModAt(b), ModAt(c) }));
+            }
+            finally { Directory.Delete(a, true); Directory.Delete(b, true); Directory.Delete(c, true); }
+        }
+
+        [Fact]
+        public void TextFilesOf_ListsHintsDialogAndGalactopedia_LastModWins_AndIgnoresOtherTextFiles()
+        {
+            string a = MakeModDir();
+            string b = MakeModDir();
+            try
+            {
+                foreach (string rel in new[] { "Hints.txt", "dialog/zenox.txt", "Galactopedia/GameConcepts/Alliances.txt", "GameText.txt", "notes.txt", "patches/readme.txt" })
+                {
+                    string path = Path.Combine(a, rel.Replace('/', Path.DirectorySeparatorChar));
+                    Directory.CreateDirectory(Path.GetDirectoryName(path));
+                    File.WriteAllText(path, "a");
+                }
+                File.WriteAllText(Path.Combine(b, "hints.txt"), "b");
+
+                List<LoaderManifestTextFile> files = LoaderManifestBuilder.TextFilesOf(new List<ModInfo> { ModAt(a), ModAt(b) });
+
+                Assert.Equal(new[] { "dialog/zenox.txt", "Galactopedia/GameConcepts/Alliances.txt", "hints.txt" }, files.ConvertAll(f => f.Relative));
+                Assert.Equal(GamePaths.ToGameVisiblePath(Path.GetFullPath(Path.Combine(b, "hints.txt"))), files[2].Path);
+                Assert.Equal(3, LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(a), ModAt(b) }).TextFiles.Count);
+            }
+            finally { Directory.Delete(a, true); Directory.Delete(b, true); }
+        }
+
+        [Theory]
+        [InlineData("Russian Font")]
+        [InlineData("Font\"Bad")]
+        [InlineData("..\\Evil")]
+        [InlineData("a/b")]
+        [InlineData("--new-game")]
+        [InlineData("Font.bundle")]
+        [InlineData("")]
+        public void FontsOf_IgnoresNamesThatAreNotPlain(string name)
+        {
+            string dir = MakeModDir();
+            try
+            {
+                File.WriteAllText(Path.Combine(dir, "dw2modlauncher.json"), "{ \"font\": " + System.Text.Json.JsonSerializer.Serialize(name) + " }");
+                List<LoaderManifestFont> fonts = LoaderManifestBuilder.FontsOf(new List<ModInfo> { ModAt(dir) });
+                Assert.Empty(fonts);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+
+        [Fact]
+        public void TextFilesOf_GalactopediaReplace_DropsEarlierArticles_AndSetsTheFlag()
+        {
+            string a = MakeModDir();
+            string b = MakeModDir();
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(a, "Galactopedia", "GameConcepts"));
+                File.WriteAllText(Path.Combine(a, "Galactopedia", "GameConcepts", "Old.txt"), "x");
+                File.WriteAllText(Path.Combine(a, "Hints.txt"), "x");
+                Directory.CreateDirectory(Path.Combine(b, "Galactopedia", "GameConcepts"));
+                File.WriteAllText(Path.Combine(b, "Galactopedia", "GameConcepts", "Neu.txt"), "x");
+                File.WriteAllText(Path.Combine(b, "dw2modlauncher.json"), @"{ ""galactopedia"": ""replace"" }");
+                List<ModInfo> mods = new List<ModInfo> { ModAt(a), ModAt(b) };
+
+                List<LoaderManifestTextFile> files = LoaderManifestBuilder.TextFilesOf(mods);
+
+                Assert.Equal(new[] { "Galactopedia/GameConcepts/Neu.txt", "Hints.txt" }, files.ConvertAll(f => f.Relative));
+                Assert.True(LoaderManifestBuilder.Build(mods).GalactopediaReplacesVanilla);
+                Assert.False(LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(a) }).GalactopediaReplacesVanilla);
+            }
+            finally { Directory.Delete(a, true); Directory.Delete(b, true); }
         }
 
         [Fact]

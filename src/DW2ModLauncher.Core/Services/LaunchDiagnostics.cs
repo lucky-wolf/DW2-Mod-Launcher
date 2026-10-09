@@ -53,6 +53,11 @@ namespace DW2ModLauncher.Core.Services
                 }
                 catch { }
             }
+            foreach (var font in LoaderManifestBuilder.FontIssues(enabled))
+            {
+                if (font.Kind == "missing") issues.Add("⚠ " + font.Mod + ": " + t("FontBundleMissing") + font.Font + ".bundle");
+                else issues.Add("⚠ " + font.Mod + ": " + t("FontOverridden") + font.Font + " → " + font.Winner);
+            }
             Dictionary<string, List<string>> dlls = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (ModInfo mod in enabled)
             {

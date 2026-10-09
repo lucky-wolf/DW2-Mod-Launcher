@@ -160,5 +160,14 @@ namespace DW2ModLauncher.Tests
             Assert.EndsWith(" --continue", GameLauncher.BuildArguments(LaunchMode.Continue));
             Assert.EndsWith(" --new-game", GameLauncher.BuildArguments(LaunchMode.NewGame));
         }
+
+        [Fact]
+        public void BuildArguments_AddsTheFontSwitch_Last()
+        {
+            Assert.EndsWith(" --font RussianFont", GameLauncher.BuildArguments(LaunchMode.Run, "RussianFont"));
+            Assert.EndsWith(" --new-game --font RussianFont", GameLauncher.BuildArguments(LaunchMode.NewGame, "RussianFont"));
+            Assert.DoesNotContain("--font", GameLauncher.BuildArguments(LaunchMode.Run, null));
+            Assert.DoesNotContain("--font", GameLauncher.BuildArguments(LaunchMode.Run, "  "));
+        }
     }
 }

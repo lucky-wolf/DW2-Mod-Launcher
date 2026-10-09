@@ -14,6 +14,8 @@ namespace DW2ModLauncher.XmlPatching
         public string Path { get; set; }
         public XDocument Doc { get; set; }
         internal bool Validated { get; set; }
+        /// <summary>Position of the owning mod in the load order. The patch only applies to data from this mod or from before it (see <see cref="PatchRunner.Apply"/>).</summary>
+        public int Order { get; set; } = int.MaxValue;
     }
 
     /// <summary>
@@ -33,6 +35,7 @@ namespace DW2ModLauncher.XmlPatching
         private readonly Dictionary<string, SchemaRoot> _schemas = new Dictionary<string, SchemaRoot>();
         private readonly HashSet<XElement> _invalid = new HashSet<XElement>();
         private readonly HashSet<XElement> _matchedEntities = new HashSet<XElement>();
+        private readonly HashSet<PatchFile> _orderSkipped = new HashSet<PatchFile>();
 
         // Data-dependent failures are only reported at Finish, and only for items that never applied in any file of their group:
         // an entity that several files define can lack an item in one of them and have it in another.
@@ -43,6 +46,9 @@ namespace DW2ModLauncher.XmlPatching
         private readonly HashSet<string> _rootsApplied = new HashSet<string>();
         private readonly HashSet<string> _rootsWithoutSchema = new HashSet<string>();
         private int _changes;
+
+        /// <summary>Roots whose data file the game opens outside the main load pass (the tour items), so a patch for them is not "unused" at the end of the pass.</summary>
+        public HashSet<string> LateRoots { get; } = new HashSet<string>(StringComparer.Ordinal);
 
         public PatchRunner(Func<string, SchemaRoot> schemaFor, KeyMap keys)
         {
@@ -58,7 +64,7 @@ namespace DW2ModLauncher.XmlPatching
         }
 
         /// <summary>Parses one patch file and queues it. Returns false (and reports why) when the file is not usable at all.</summary>
-        public bool AddFile(string label, string displayPath, string xml)
+        public bool AddFile(string label, string displayPath, string xml, int order = int.MaxValue)
         {
             lock (_lock)
             {
@@ -78,7 +84,7 @@ namespace DW2ModLauncher.XmlPatching
                     Report.Add(Severity.Error, displayPath, 1, "the root element must be the one of the data it patches, e.g. <ArrayOfRace>");
                     return false;
                 }
-                _files.Add(new PatchFile { Label = label, Path = displayPath, Doc = doc });
+                _files.Add(new PatchFile { Label = label, Path = displayPath, Doc = doc, Order = order });
                 return true;
             }
         }
@@ -111,8 +117,13 @@ namespace DW2ModLauncher.XmlPatching
             }
         }
 
-        /// <summary>Patches one data document in place; <paramref name="targetPath"/> is only used in messages. Returns the number of changes.</summary>
-        public int Apply(XDocument target, string targetPath)
+        /// <summary>
+        /// Patches one data document in place; <paramref name="targetPath"/> is only used in messages. Returns the number of changes.
+        /// <paramref name="targetOrder"/> is the load-order position of the mod that owns the document (the game's own data comes before
+        /// every mod): a patch applies only to data of its own mod or of mods before it, because the data of a later mod overrides
+        /// the patch's result, the same as it overrides the earlier mod's own data. The default applies every patch.
+        /// </summary>
+        public int Apply(XDocument target, string targetPath, int targetOrder = int.MinValue)
         {
             lock (_lock)
             {
@@ -138,6 +149,11 @@ namespace DW2ModLauncher.XmlPatching
                 int before = _changes;
                 foreach (PatchFile f in files)
                 {
+                    if (f.Order < targetOrder)
+                    {
+                        _orderSkipped.Add(f);
+                        continue;
+                    }
                     EnsureValidated(f, schema);
                     ApplyFile(f, schema, target, targetPath);
                 }
@@ -154,6 +170,7 @@ namespace DW2ModLauncher.XmlPatching
             lock (_lock)
             {
                 _matchedEntities.Clear();
+                _orderSkipped.Clear();
                 _pending.Clear();
                 _pendingOrder.Clear();
                 _satisfied.Clear();
@@ -172,6 +189,7 @@ namespace DW2ModLauncher.XmlPatching
                 {
                     string rootName = f.Doc.Root.Name.LocalName;
                     if (_rootsWithoutSchema.Contains(rootName)) continue;
+                    if (!_rootsApplied.Contains(rootName) && LateRoots.Contains(rootName)) continue; // opened after the pass, and warned about then
                     if (!_rootsApplied.Contains(rootName))
                     {
                         Report.Add(Severity.Warning, f.Path, 1, "no data file with root <" + rootName + "> was loaded, so this patch did nothing");
@@ -183,7 +201,8 @@ namespace DW2ModLauncher.XmlPatching
                     {
                         if (_invalid.Contains(e) || _matchedEntities.Contains(e)) continue;
                         string id = Attr(e, "id");
-                        Skipped(f, e, schema.EntityElement + " id=" + id + " not found in any " + rootName + " file" + KnownIdsHint(rootName, id));
+                        Skipped(f, e, schema.EntityElement + " id=" + id + " is not defined by any loaded " + rootName + " file (a mod may have replaced it)" + KnownIdsHint(rootName, id)
+                            + (_orderSkipped.Contains(f) ? "; data of mods loaded after this one is not patched" : string.Empty));
                     }
                 }
 
