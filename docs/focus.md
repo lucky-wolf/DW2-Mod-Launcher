@@ -18,3 +18,7 @@ reconstruct it right before opening the PR. Fold several small related lines int
 - Removed the launch-arguments box, the environment-variables box and "Import from Steam" (Steam owns launch options and the environment)
 - Mod settings files are always complete: keys missing from the saved file (new mod, or settings added by a mod update) are filled with schema defaults and saved on rescan, enable, config-dialog open and launch, so Save only lights up for real user edits
 - Localization Mod shortcut also collects army and fleet template names and copies the game's text files (GameText.txt, Hints.txt, SystemNames.txt, dialog, Galactopedia) into the new Mod
+- Loader serves a mod's Hints.txt, dialog/*.txt and Galactopedia/**/*.txt, which the game reads straight from its data folder (translations of them were ignored before)
+- Mods can add or replace Galactopedia articles by file name; dw2modlauncher.json "galactopedia": "replace" drops the game's and earlier mods' articles
+- XML patches now also apply to the tour (tutorial) items, which the game opens outside the normal data load
+- Tutorial tours and Galactopedia articles are found by their translated title even when the data keeps the English title

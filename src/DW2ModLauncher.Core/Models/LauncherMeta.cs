@@ -10,6 +10,9 @@ namespace DW2ModLauncher.Core.Models
         /// for non-Latin text; when several enabled mods declare one, the last in load order wins.
         /// </summary>
         public string font { get; set; }
+
+        /// <summary>"replace": this mod's Galactopedia articles replace those of the game and of the mods before it (instead of being added to them). For translations.</summary>
+        public string galactopedia { get; set; }
     }
 
     // Optional manual override of injection discovery (normally inferred, see InjectionScanner):

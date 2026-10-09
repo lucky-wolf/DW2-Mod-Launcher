@@ -16,6 +16,12 @@ namespace DW2ModLauncher.Core.Models
 
         /// <summary>Font bundles declared by enabled mods (dw2modlauncher.json "font"), in load order; the last one is the one passed to the game as --font.</summary>
         public List<LoaderManifestFont> Fonts { get; set; } = new List<LoaderManifestFont>();
+
+        /// <summary>Text files the game reads straight from its data folder (Hints.txt, dialog, Galactopedia), which the loader serves from the mods instead.</summary>
+        public List<LoaderManifestTextFile> TextFiles { get; set; } = new List<LoaderManifestTextFile>();
+
+        /// <summary>True when a mod asked (dw2modlauncher.json "galactopedia": "replace") for the game's own Galactopedia articles to be dropped.</summary>
+        public bool GalactopediaReplacesVanilla { get; set; }
     }
 
     /// <summary>One mod's XML patch files (see docs/plans/xml-patching.md), in the order they apply.</summary>
@@ -34,6 +40,15 @@ namespace DW2ModLauncher.Core.Models
         public string Name { get; set; }
         /// <summary>The mod's content folder as the game process sees it.</summary>
         public string Folder { get; set; }
+    }
+
+    /// <summary>A mod's replacement for a text file the game reads from its data folder; the last mod in load order wins per Relative.</summary>
+    public class LoaderManifestTextFile
+    {
+        /// <summary>Path below the data folder with forward slashes, e.g. Hints.txt or dialog/zenox.txt.</summary>
+        public string Relative { get; set; }
+        /// <summary>The mod's file as the game process sees it.</summary>
+        public string Path { get; set; }
     }
 
     public class LoaderManifestEntry

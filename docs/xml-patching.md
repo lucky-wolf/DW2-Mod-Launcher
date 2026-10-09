@@ -163,14 +163,38 @@ list item the text belongs to. Delete anything you do not want to translate. Onl
 The interface and other plain-text strings live in `.txt` files, which the game replaces as a whole file. The shortcut
 copies them into the mod folder at the same path (`GameText.txt`, `Hints.txt`, `SystemNames.txt`, `dialog/*.txt`,
 `Galactopedia/**/*.txt`). Each line is `KEY ;text`: translate only the text after the semicolon and leave the key alone.
+Keep the file names: the game finds them by name. `GameText.txt` and `SystemNames.txt` are picked up by the game itself; the game
+reads `Hints.txt`, `dialog/*.txt` and `Galactopedia/**/*.txt` straight from its data folder, so the launcher's loader serves
+your copies instead (logged in `textfiles.log` next to the loader). The last mod in load order wins for each file.
+
+**Galactopedia articles.** Each article is a `.txt` file in `Galactopedia/GameConcepts` or `Galactopedia/GameScreens`, and the
+file name (without `.txt`) is the article's title in the game. Any mod can add articles by putting files there; a file with the
+same name as an earlier one (the game's or another mod's) replaces it. A translation mod can rename the files to translated
+titles, and then it should drop the game's English articles by adding this to `dw2modlauncher.json` (the Localization Mod shortcut
+does this for you):
+
+```json
+{ "galactopedia": "replace" }
+```
+
+The game also opens some articles by a title from `GameText.txt` (for example the one for the key `Getting Started`), so name
+such a file exactly like the translation of that key, or the game will not find it (the loader logs `no Galactopedia article is
+titled '...'` in `textfiles.log`).
+
+If a title has a translation in `GameText.txt` (the same key), the loader also finds the article, and the tutorial tour with that title,
+when the game asks for the translated title and the data still has the English one. Tours and articles whose title has no
+`GameText.txt` key are only found by their exact title.
+
+Not translatable this way: the introduction text shown when a game starts ("Our faction is known as the ...") is built from
+English fragments inside the game's code, so no text file reaches it.
 
 ### Fonts for non-Latin languages
 
 The game's default font has no Cyrillic, CJK and similar glyphs, and the game only uses another font when it is started with
 `--font <BundleName>`. A localization mod can bring its own font bundle and let the launcher do the rest:
 
-1. Put the font bundle files in the mod folder (`RussianFont.bundle` and the hashed `RussianFont.<hash>.bundle` next to it) and
-   list the bundle in `mod.json`: `"bundles": [ "RussianFont.Bundle" ]`.
+1. Put the font bundle files in the mod folder (`RussianFont.bundle` and the hashed `RussianFont.<hash>.bundle` next to it).
+   Listing the bundle in `mod.json` is not needed for the font.
 2. Add a `dw2modlauncher.json` next to `mod.json`:
    ```json
    { "font": "RussianFont" }

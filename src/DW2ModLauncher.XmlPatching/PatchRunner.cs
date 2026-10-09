@@ -44,6 +44,9 @@ namespace DW2ModLauncher.XmlPatching
         private readonly HashSet<string> _rootsWithoutSchema = new HashSet<string>();
         private int _changes;
 
+        /// <summary>Roots whose data file the game opens outside the main load pass (the tour items), so a patch for them is not "unused" at the end of the pass.</summary>
+        public HashSet<string> LateRoots { get; } = new HashSet<string>(StringComparer.Ordinal);
+
         public PatchRunner(Func<string, SchemaRoot> schemaFor, KeyMap keys)
         {
             _schemaFor = schemaFor;
@@ -172,6 +175,7 @@ namespace DW2ModLauncher.XmlPatching
                 {
                     string rootName = f.Doc.Root.Name.LocalName;
                     if (_rootsWithoutSchema.Contains(rootName)) continue;
+                    if (!_rootsApplied.Contains(rootName) && LateRoots.Contains(rootName)) continue; // opened after the pass, and warned about then
                     if (!_rootsApplied.Contains(rootName))
                     {
                         Report.Add(Severity.Warning, f.Path, 1, "no data file with root <" + rootName + "> was loaded, so this patch did nothing");

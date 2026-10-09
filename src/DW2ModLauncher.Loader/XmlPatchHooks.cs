@@ -41,6 +41,7 @@ namespace DW2ModLauncher.Loader
             catch { _logPath = null; }
 
             PatchRunner runner = new PatchRunner(SchemaFor, KeyMap.Default);
+            runner.LateRoots.Add("ArrayOfTourItem");
             foreach (LoaderManifestPatchSet set in manifest?.Patches ?? new List<LoaderManifestPatchSet>())
             {
                 foreach (string file in set.Files ?? new List<string>())
@@ -65,6 +66,7 @@ namespace DW2ModLauncher.Loader
             _runner = runner;
             Harmony harmony = new Harmony("dw2modlauncher.loader.xmlpatch");
             PatchOpenStream(harmony);
+            PatchProviderOpenStream(harmony);
             PatchListDataFiles(harmony);
             AppDomain.CurrentDomain.ProcessExit += (_, __) => EndPass();
             Log(runner.Files.Count + " patch file(s) loaded; hooks installed.");
@@ -95,6 +97,27 @@ namespace DW2ModLauncher.Loader
                     Log("ERROR: could not hook OpenStream(" + string.Join(", ", ps.Select(p => p.Name)) + "): " + ex.Message);
                 }
             }
+        }
+
+        // The tour (tutorial) items are the one data file the game opens straight through the data folder's provider with a relative url
+        // ("TourItems.xml"), not through VirtualFileSystem.OpenStream, so they need their own hook.
+        private static void PatchProviderOpenStream(Harmony harmony)
+        {
+            Type provider = Type.GetType("Stride.Core.IO.FileSystemProvider, Stride.Core.IO", false);
+            MethodInfo post = typeof(XmlPatchHooks).GetMethod(nameof(ProviderOpenStreamPostfix), BindingFlags.Static | BindingFlags.NonPublic);
+            foreach (MethodInfo m in (provider?.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly) ?? new MethodInfo[0]).Where(x => x.Name == "OpenStream"))
+            {
+                ParameterInfo[] ps = m.GetParameters();
+                if (ps.Length == 0 || ps[0].Name != "url" || !typeof(Stream).IsAssignableFrom(m.ReturnType)) continue;
+                try { harmony.Patch(m, postfix: new HarmonyMethod(post)); }
+                catch (Exception ex) { Log("WARNING: could not hook the data provider's OpenStream (tour items will not be patched): " + ex.Message); }
+            }
+        }
+
+        private static void ProviderOpenStreamPostfix(string url, ref Stream __result)
+        {
+            if (url == null || url.IndexOf('/') >= 0 || url.IndexOf((char)92) >= 0 || !url.StartsWith("TourItems", StringComparison.OrdinalIgnoreCase)) return;
+            OpenStreamPostfix("/data/" + url, ref __result);
         }
 
         private static void PatchListDataFiles(Harmony harmony)

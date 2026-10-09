@@ -26,7 +26,45 @@ namespace DW2ModLauncher.Core.Services
                 AddPatches(manifest, mod, modRoot);
             }
             manifest.Fonts.AddRange(FontsOf(orderedEnabledMods));
+            manifest.TextFiles.AddRange(TextFilesOf(orderedEnabledMods));
+            manifest.GalactopediaReplacesVanilla = (orderedEnabledMods ?? new List<ModInfo>()).Any(ReplacesGalactopedia);
             return manifest;
+        }
+
+        /// <summary>
+        /// The mods' replacements for the text files the game reads straight from its data folder, bypassing the mod file lookup:
+        /// Hints.txt, dialog/*.txt and Galactopedia/**/*.txt. (GameText.txt and SystemNames.txt go through the mod lookup and need nothing.)
+        /// For the same file the last mod in load order wins, as for the game's own data files.
+        /// </summary>
+        public static List<LoaderManifestTextFile> TextFilesOf(IEnumerable<ModInfo> orderedEnabledMods)
+        {
+            Dictionary<string, LoaderManifestTextFile> found = new Dictionary<string, LoaderManifestTextFile>(StringComparer.OrdinalIgnoreCase);
+            foreach (ModInfo mod in orderedEnabledMods ?? new List<ModInfo>())
+            {
+                string root = mod.ContentRoot ?? mod.Folder;
+                if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) continue;
+                // A mod that replaces the Galactopedia drops the articles of the mods before it (and the game's own, see the manifest).
+                if (ReplacesGalactopedia(mod))
+                {
+                    foreach (string key in found.Keys.Where(k => k.StartsWith("Galactopedia/", StringComparison.OrdinalIgnoreCase)).ToList()) found.Remove(key);
+                }
+                foreach (string file in Directory.GetFiles(root, "*.txt", SearchOption.AllDirectories))
+                {
+                    string relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+                    bool read = relative.Equals("Hints.txt", StringComparison.OrdinalIgnoreCase)
+                        || relative.StartsWith("dialog/", StringComparison.OrdinalIgnoreCase)
+                        || relative.StartsWith("Galactopedia/", StringComparison.OrdinalIgnoreCase);
+                    if (!read) continue;
+                    found[relative] = new LoaderManifestTextFile { Relative = relative, Path = GamePaths.ToGameVisiblePath(Path.GetFullPath(file)) };
+                }
+            }
+            return found.Values.OrderBy(f => f.Relative, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        /// <summary>Whether the mod's dw2modlauncher.json says "galactopedia": "replace".</summary>
+        public static bool ReplacesGalactopedia(ModInfo mod)
+        {
+            return string.Equals(LauncherMetaReader.Read(mod)?.galactopedia?.Trim(), "replace", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

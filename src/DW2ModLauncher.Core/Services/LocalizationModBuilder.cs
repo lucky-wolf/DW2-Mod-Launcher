@@ -119,6 +119,10 @@ namespace DW2ModLauncher.Core.Services
                 File.Copy(text.Source, target, true);
                 result.TextFiles++;
             }
+            // A translated Galactopedia has to replace the game's articles, not sit beside them (article titles are the file names).
+            string launcherJson = Path.Combine(modFolder, "dw2modlauncher.json");
+            if (textFiles != null && textFiles.Any(t => t.Relative.StartsWith("Galactopedia/", StringComparison.OrdinalIgnoreCase)) && !File.Exists(launcherJson))
+                File.WriteAllText(launcherJson, "{ \"galactopedia\": \"replace\" }" + Environment.NewLine);
             LocalizationPatchGenerator generator = new LocalizationPatchGenerator();
             List<string> files = dataFilesInLoadOrder.ToList();
             HashSet<string> clashing = new HashSet<string>(
