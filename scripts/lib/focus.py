@@ -1,7 +1,8 @@
 """docs/focus.md: the running list of what a branch has accomplished, used to build the PR description.
 
 Everything below the first line that is exactly '---' is the list; each '- ' line is one entry.
-new-branch.py resets the file (header kept, entries dropped) when it starts fresh work.
+open-pr.py resets the file (header kept, entries dropped) in the PR's last commit, once the list is in the PR
+ description, so main never carries entries; new-branch.py resets it too when it starts fresh work.
 """
 
 import subprocess
@@ -18,7 +19,8 @@ Format: one `- ` line per finished piece of work, below the `---`: a short, user
 Add the line when you actually finish the work (humans and AI agents alike) rather than trying to
 reconstruct it right before opening the PR. Fold several small related lines into one when a theme is done.
 
-`scripts/new-branch.py` empties the list when it creates a new branch.
+`scripts/open-pr.py` empties the list (in the PR's last commit) once it is in the PR description, so it never holds over;
+`scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
 """
