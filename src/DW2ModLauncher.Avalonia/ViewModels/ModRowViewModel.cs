@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows.Input;
 using Avalonia.Media.Imaging;
 using DW2ModLauncher.Core.Models;
+using DW2ModLauncher.Core.Services;
 
 namespace DW2ModLauncher.Avalonia.ViewModels
 {
@@ -11,18 +12,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private Bitmap thumbnail;
         private bool thumbnailLoaded;
 
-        public ModRowViewModel(ModInfo mod, ICommand toggleCommand)
+        private readonly string managedModsRoot;
+
+        public ModRowViewModel(ModInfo mod, ICommand toggleCommand, string managedModsRoot)
         {
             Mod = mod;
             ToggleCommand = toggleCommand;
+            this.managedModsRoot = managedModsRoot;
         }
 
         public ModInfo Mod { get; }
         public ICommand ToggleCommand { get; }
 
         public string Name { get { return Mod.DisplayName ?? Mod.Id ?? "Unknown"; } }
-        /// <summary>Where the mod lives on disk; the row subtitle (local mods only), so same-named copies (XL, XL.bak) can be told apart.</summary>
-        public string FolderPath { get { return Mod.IsWorkshop ? "" : Mod.Folder ?? ""; } }
+        /// <summary>Where the mod lives, as "mods\&lt;folder&gt;"; the subtitle under the source (local mods only), so same-named copies (XL, XL.bak) can be told apart.</summary>
+        public string FolderPath { get { return Mod.IsWorkshop || string.IsNullOrWhiteSpace(Mod.Folder) ? "" : ModDetails.SourceText(Mod, managedModsRoot); } }
         public bool HasFolderPath { get { return FolderPath.Length > 0; } }
         public string Source { get { return Mod.SourceName ?? ""; } }
 

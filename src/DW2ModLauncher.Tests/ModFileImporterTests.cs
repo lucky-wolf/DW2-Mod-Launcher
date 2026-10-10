@@ -63,5 +63,21 @@ namespace DW2ModLauncher.Tests
             // Same different file again: the earlier copy is identical, so it is reused rather than creating (3).
             Assert.Equal("poster (2).png", ModFileImporter.CopyIntoMod(Mod, same));
         }
+
+        [Fact]
+        public void FindIdentical_AndUniquePath_LookAtTheSameNamedFileInTheMod()
+        {
+            string source = Path.Combine(Elsewhere, "poster.png");
+            File.WriteAllText(source, "image");
+            Assert.Null(ModFileImporter.FindIdentical(Mod, source));
+            Assert.Equal(Path.Combine(Mod, "poster.png"), ModFileImporter.UniquePath(Mod, source));
+
+            File.WriteAllText(Path.Combine(Mod, "poster.png"), "image");
+            Assert.Equal(Path.Combine(Mod, "poster.png"), ModFileImporter.FindIdentical(Mod, source));
+            Assert.Equal(Path.Combine(Mod, "poster (2).png"), ModFileImporter.UniquePath(Mod, source));
+
+            File.WriteAllText(Path.Combine(Mod, "poster.png"), "other");
+            Assert.Null(ModFileImporter.FindIdentical(Mod, source));
+        }
     }
 }

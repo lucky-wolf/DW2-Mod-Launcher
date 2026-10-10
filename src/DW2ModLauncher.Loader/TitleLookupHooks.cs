@@ -21,7 +21,7 @@ namespace DW2ModLauncher.Loader
 
         public static int Install(string baseDir)
         {
-            _logPath = Path.Combine(baseDir, "textfiles.log");
+            _logPath = Path.Combine(baseDir, "dw2modlauncher-textfiles.log");
             Type resolver = Type.GetType("DistantWorlds.Types.TextResolver, DistantWorlds.Types", false);
             _getText = resolver?.GetMethod("GetText", new[] { typeof(string) });
             if (_getText == null) { Log("TextResolver.GetText not found; titles are not matched by translation."); HookStatus.Warn("titles", "translated tour/article titles are not matched: TextResolver.GetText not found", _logPath); return 0; }

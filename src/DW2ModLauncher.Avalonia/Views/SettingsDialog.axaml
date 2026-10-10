@@ -9,7 +9,11 @@
   <Grid RowDefinitions="*,Auto">
     <views:SettingsView Grid.Row="0" />
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
-      <Button Name="CloseButton" IsCancel="True" Content="{Binding L[Close]}" MinWidth="125" HorizontalAlignment="Right" />
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <Button Grid.Column="0" Content="{Binding L[AutoDetect]}" Command="{Binding AutoDetectCommand}" ToolTip.Tip="{Binding L[AutoDetectTooltip]}" MinWidth="125" HorizontalAlignment="Left" />
+        <Button Grid.Column="1" Name="OkButton" IsDefault="True" Content="{Binding L[OK]}" MinWidth="125" Margin="0,0,12,0" />
+        <Button Grid.Column="2" Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />
+      </Grid>
     </Border>
   </Grid>
 </Window>

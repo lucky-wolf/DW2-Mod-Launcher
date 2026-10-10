@@ -25,6 +25,9 @@ namespace DW2ModLauncher.Core.Models
 
         /// <summary>True when a mod asked (dw2modlauncher.json "galactopedia": "replace") for the game's own Galactopedia articles to be dropped.</summary>
         public bool GalactopediaReplacesVanilla { get; set; }
+
+        /// <summary>Where the loader writes its logs (as the game process sees the path); blank = the game's data/Logs folder.</summary>
+        public string LogDirectory { get; set; } = "";
     }
 
     /// <summary>One mod's XML patch files (see docs/plans/xml-patching.md), in the order they apply.</summary>

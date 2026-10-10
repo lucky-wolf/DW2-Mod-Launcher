@@ -131,7 +131,7 @@ Common keyed list items: `ResourceQuantity` (`ResourceId`), `Component` (`Compon
 ## When something does not work
 
 A problem never stops the game from loading: the faulty item is skipped, everything else still applies, and the cause is
-written to **`patches.log`** (next to `loader.log` in the launcher's `Loader` folder). Each line has the file and line number:
+written to **`dw2modlauncher-patches.log`** (in the launcher's log folder: Settings > Log Folder, blank = the game's `data/Logs`, beside `dw2modlauncher.log`). Each line has the file and line number:
 
 ```
 patches/races.xml:5: error: <Race> has no field 'Agression' - did you mean 'Aggression'?
@@ -168,7 +168,7 @@ copies them into the mod folder at the same path (`GameText.txt`, `Hints.txt`, `
 `Galactopedia/**/*.txt`). Each line is `KEY ;text`: translate only the text after the semicolon and leave the key alone.
 Keep the file names: the game finds them by name. `GameText.txt` and `SystemNames.txt` are picked up by the game itself; the game
 reads `Hints.txt`, `dialog/*.txt` and `Galactopedia/**/*.txt` straight from its data folder, so the launcher's loader serves
-your copies instead (logged in `textfiles.log` next to the loader). The last mod in load order wins for each file.
+your copies instead (logged in `dw2modlauncher-textfiles.log` in the log folder). The last mod in load order wins for each file.
 
 **Galactopedia articles.** Each article is a `.txt` file in `Galactopedia/GameConcepts` or `Galactopedia/GameScreens`, and the
 file name (without `.txt`) is the article's title in the game. Any mod can add articles by putting files there; a file with the
@@ -182,7 +182,7 @@ does this for you):
 
 The game also opens some articles by a title from `GameText.txt` (for example the one for the key `Getting Started`), so name
 such a file exactly like the translation of that key, or the game will not find it (the loader logs `no Galactopedia article is
-titled '...'` in `textfiles.log`).
+titled '...'` in `dw2modlauncher-textfiles.log`).
 
 If a title has a translation in `GameText.txt` (the same key), the loader also finds the article, and the tutorial tour with that title,
 when the game asks for the translated title and the data still has the English one. Tours and articles whose title has no

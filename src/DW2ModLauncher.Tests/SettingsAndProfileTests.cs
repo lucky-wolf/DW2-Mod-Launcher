@@ -67,6 +67,8 @@ namespace DW2ModLauncher.Tests
             Assert.Equal(SettingsProblem.WorkshopFolderMissing, LauncherSettingsStore.Validate(dir, Path.Combine(dir, "nope"), ""));
             Assert.Equal(SettingsProblem.ManagedFolderMissing, LauncherSettingsStore.Validate(dir, dir, Path.Combine(dir, "nope")));
             Assert.Equal(SettingsProblem.None, LauncherSettingsStore.Validate(dir, dir, dir));
+            Assert.Equal(SettingsProblem.LogFolderMissing, LauncherSettingsStore.Validate(dir, dir, dir, Path.Combine(dir, "nope")));
+            Assert.Equal(SettingsProblem.None, LauncherSettingsStore.Validate(dir, dir, dir, dir));
         }
 
         [Fact]

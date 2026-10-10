@@ -17,7 +17,7 @@ namespace DW2ModLauncher.Loader
     /// a postfix on VirtualFileSystem.OpenStream swaps the stream of a data file that has patches for a patched in-memory copy,
     /// and a prefix on the 2-argument DwModSupport.ListDataFiles marks the start and end of a load pass (the first and last data
     /// groups of Galaxy.LoadStaticBaseData). Nothing is installed when no enabled mod has patches. Everything here is fail-soft:
-    /// a problem is logged to patches.log and the game loads unpatched data.
+    /// a problem is logged to dw2modlauncher-patches.log and the game loads unpatched data.
     /// </summary>
     internal static class XmlPatchHooks
     {
@@ -37,7 +37,7 @@ namespace DW2ModLauncher.Loader
         /// <summary>Reads every patch file of the manifest, and if there are any installs the hooks. Returns the number of patch files loaded.</summary>
         public static int Install(LoaderManifest manifest, string baseDir)
         {
-            _logPath = Path.Combine(baseDir, "patches.log");
+            _logPath = Path.Combine(baseDir, "dw2modlauncher-patches.log");
             try { File.WriteAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] XML patching: reading patch files." + Environment.NewLine); }
             catch { _logPath = null; }
 
@@ -219,7 +219,7 @@ namespace DW2ModLauncher.Loader
             int errors = runner.Report.Entries.Count(e => e.Severity == Severity.Error);
             int warnings = runner.Report.Entries.Count(e => e.Severity == Severity.Warning);
             if (errors + warnings == 0) return;
-            HookStatus.Warn("patch-problems", "XML patches: " + errors + " item(s) skipped, " + warnings + " warning(s) - see patches.log", _logPath);
+            HookStatus.Warn("patch-problems", "XML patches: " + errors + " item(s) skipped, " + warnings + " warning(s) - see dw2modlauncher-patches.log", _logPath);
         }
 
         // ---- helpers ----

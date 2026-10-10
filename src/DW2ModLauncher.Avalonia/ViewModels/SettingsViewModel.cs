@@ -30,17 +30,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             this.main = main;
             AutoDetectCommand = new RelayCommand(delegate
             {
-                PathDetector.Detect(main.LauncherSettings, true);
-                main.SaveSettings();
-                main.Refresh();
+                // fills the boxes with the defaults: detected game, workshop and mod roots, and the log folder back to the game's data/Logs.
+                // Nothing is saved until OK.
+                var detected = new LauncherSettings();
+                PathDetector.Detect(detected, true);
+                SetPathFields(detected);
             });
-            SaveCommand = new RelayCommand(SaveAsync);
             BrowseGameCommand = new RelayCommand(async delegate { string p = await Browse(gameRoot); if (p != null) GameRoot = p; });
             BrowseWorkshopCommand = new RelayCommand(async delegate { string p = await Browse(workshopRoot); if (p != null) WorkshopRoot = p; });
             BrowseManagedCommand = new RelayCommand(async delegate { string p = await Browse(managedRoot); if (p != null) ManagedRoot = p; });
-            OpenGameCommand = new RelayCommand(delegate { Open(main.LauncherSettings.GameRoot); });
-            OpenWorkshopCommand = new RelayCommand(delegate { Open(main.LauncherSettings.WorkshopRoot); });
-            OpenManagedCommand = new RelayCommand(delegate { Open(main.LauncherSettings.ManagedModsRoot); });
+            BrowseLogFolderCommand = new RelayCommand(async delegate { string p = await Browse(logFolder); if (p != null) LogFolder = p; });
             SaveProfileCommand = new RelayCommand(SaveProfile, () => profileIsDirty);
             RevertProfileCommand = new RelayCommand(RevertProfile, () => profileIsDirty);
             SaveProfileAsCommand = new RelayCommand(SaveProfileAs);
@@ -52,13 +51,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public LocalizedStrings L { get { return main.L; } }
 
         public RelayCommand AutoDetectCommand { get; }
-        public RelayCommand SaveCommand { get; }
         public RelayCommand BrowseGameCommand { get; }
         public RelayCommand BrowseWorkshopCommand { get; }
         public RelayCommand BrowseManagedCommand { get; }
-        public RelayCommand OpenGameCommand { get; }
-        public RelayCommand OpenWorkshopCommand { get; }
-        public RelayCommand OpenManagedCommand { get; }
+        public RelayCommand BrowseLogFolderCommand { get; }
         public RelayCommand SaveProfileCommand { get; }
         public RelayCommand RevertProfileCommand { get; }
         public RelayCommand SaveProfileAsCommand { get; }
@@ -71,6 +67,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string GameRoot { get { return gameRoot; } set { if (Set(ref gameRoot, value)) Raise(nameof(CommandPreview)); } }
         public string WorkshopRoot { get { return workshopRoot; } set { Set(ref workshopRoot, value); } }
         public string ManagedRoot { get { return managedRoot; } set { Set(ref managedRoot, value); } }
+        private string logFolder = "";
+        /// <summary>Where the loader writes its logs; blank = the game's data/Logs folder.</summary>
+        public string LogFolder { get { return logFolder; } set { Set(ref logFolder, value); } }
         private bool refreshingProfiles;
         /// <summary>
         /// The selected (active) profile; selecting one in the UI switches to it. With no named profile active this is the
@@ -106,12 +105,23 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Pulls the current settings into the editable fields.</summary>
         public void LoadFromSettings()
         {
-            LauncherSettings s = main.LauncherSettings;
+            DiscardPathEdits();
+            RefreshProfiles();
+            UpdateCommandPreview();
+        }
+
+        /// <summary>Puts the saved path settings back into the boxes (Cancel).</summary>
+        public void DiscardPathEdits()
+        {
+            SetPathFields(main.LauncherSettings);
+        }
+
+        private void SetPathFields(LauncherSettings s)
+        {
             GameRoot = s.GameRoot ?? "";
             WorkshopRoot = s.WorkshopRoot ?? "";
             ManagedRoot = s.ManagedModsRoot ?? "";
-            RefreshProfiles();
-            UpdateCommandPreview();
+            LogFolder = s.LogDirectory ?? "";
         }
 
         /// <summary>Writes the editable fields into the settings object without validating (used right before launch).</summary>
@@ -125,37 +135,32 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             return await main.Dialogs.PickFolderAsync(main.T("SelectGameFolderHint"), start);
         }
 
-        private async void Open(string path)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
-                {
-                    await main.Dialogs.ShowMessageAsync(main.T("FolderNotFound"), "DW2 Mod Launcher");
-                    return;
-                }
-                PlatformShell.Create().OpenFolder(path);
-            }
-            catch (Exception ex) { await main.Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher"); }
-        }
-
-        private async Task SaveAsync()
+        /// <summary>
+        /// Validates the path boxes and saves them; false (after telling the user why) when one is invalid. Nothing is written or
+        /// rescanned when the boxes still match the saved settings. The settings dialog cannot close until this is true.
+        /// </summary>
+        public async Task<bool> TrySaveAsync()
         {
             string game = (gameRoot ?? "").Trim();
             string workshop = (workshopRoot ?? "").Trim();
             string managed = (managedRoot ?? "").Trim();
-            switch (LauncherSettingsStore.Validate(game, workshop, managed))
+            switch (LauncherSettingsStore.Validate(game, workshop, managed, (logFolder ?? "").Trim()))
             {
-                case SettingsProblem.GameFolderInvalid: await main.Dialogs.ShowMessageAsync(main.T("SelectGameFolderHint"), "DW2 Mod Launcher"); return;
-                case SettingsProblem.WorkshopFolderMissing: await main.Dialogs.ShowMessageAsync(main.T("WorkshopFolderMissing"), "DW2 Mod Launcher"); return;
-                case SettingsProblem.ManagedFolderMissing: await main.Dialogs.ShowMessageAsync(main.T("TheDW2ModFolderDoesNotExist"), "DW2 Mod Launcher"); return;
+                case SettingsProblem.LogFolderMissing: await main.Dialogs.ShowMessageAsync(main.T("LogFolderMissing"), "DW2 Mod Launcher"); return false;
+                case SettingsProblem.GameFolderInvalid: await main.Dialogs.ShowMessageAsync(main.T("SelectGameFolderHint"), "DW2 Mod Launcher"); return false;
+                case SettingsProblem.WorkshopFolderMissing: await main.Dialogs.ShowMessageAsync(main.T("WorkshopFolderMissing"), "DW2 Mod Launcher"); return false;
+                case SettingsProblem.ManagedFolderMissing: await main.Dialogs.ShowMessageAsync(main.T("TheDW2ModFolderDoesNotExist"), "DW2 Mod Launcher"); return false;
             }
+            string log = (logFolder ?? "").Trim();
             LauncherSettings s = main.LauncherSettings;
+            if (game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory) return true;
             s.GameRoot = game;
             s.WorkshopRoot = workshop;
             s.ManagedModsRoot = managed;
+            s.LogDirectory = log;
             main.SaveSettings();
             main.Refresh();
+            return true;
         }
 
         /// <summary>Lists DW2's own profiles (mods.&lt;name&gt;.json) and selects the active one from currentProfile.txt.</summary>

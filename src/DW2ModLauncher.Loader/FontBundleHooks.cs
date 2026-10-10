@@ -27,8 +27,8 @@ namespace DW2ModLauncher.Loader
             _fonts = (manifest?.Fonts ?? new List<LoaderManifestFont>())
                 .Where(f => !string.IsNullOrWhiteSpace(f?.Name) && !string.IsNullOrWhiteSpace(f.Folder)).ToList();
             if (_fonts.Count == 0) return 0;
-            _logPath = Path.Combine(baseDir, "fonts.log");
-            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like patches.log
+            _logPath = Path.Combine(baseDir, "dw2modlauncher-fonts.log");
+            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like dw2modlauncher-patches.log
 
             Type vfs = Type.GetType("Stride.Core.IO.VirtualFileSystem, Stride.Core.IO", false);
             if (vfs == null)
