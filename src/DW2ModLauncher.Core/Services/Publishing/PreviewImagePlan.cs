@@ -56,7 +56,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public static string FileNameFor(string typed, string extension)
         {
             string name = (typed ?? "").Trim();
-            if (name.Length == 0 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || name == "." || name == "..") return null;
+            if (name.Length == 0 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || name.IndexOfAny(new[] { '/', '\\' }) >= 0 || name == "." || name == "..") return null;
             string ext = Path.GetExtension(name);
             if (ext.Equals(".png", StringComparison.OrdinalIgnoreCase) || ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
                 name = name.Substring(0, name.Length - ext.Length).TrimEnd();
