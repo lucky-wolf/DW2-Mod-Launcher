@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace DW2ModLauncher.XmlPatching
 {
@@ -12,6 +14,7 @@ namespace DW2ModLauncher.XmlPatching
     public sealed class KeyMap
     {
         private readonly Dictionary<string, string> _keys = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly HashSet<string> _entities = new HashSet<string>(StringComparer.Ordinal);
 
         public static KeyMap Default { get; } = CreateDefault();
 
@@ -19,6 +22,41 @@ namespace DW2ModLauncher.XmlPatching
         {
             _keys[elementName] = keyField;
             return this;
+        }
+
+        /// <summary>Adds the key of a top-level entity (<c>Race</c> by <c>RaceId</c>), as opposed to a list item (see <see cref="Add"/>).</summary>
+        public KeyMap AddEntity(string elementName, string keyField)
+        {
+            _entities.Add(elementName);
+            return Add(elementName, keyField);
+        }
+
+        /// <summary>
+        /// The map as JSON for tools outside the launcher (the release publishes it as <c>keymap.json</c>): <c>entities</c> and
+        /// <c>items</c>, each element name to its key field, sorted by name so the file only changes when the map does.
+        /// <c>format</c> is bumped only if the shape of this file changes.
+        /// </summary>
+        public string ToJson()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("{\n  \"format\": 1,\n");
+            AppendGroup(sb, "entities", true);
+            sb.Append(",\n");
+            AppendGroup(sb, "items", false);
+            sb.Append("\n}\n");
+            return sb.ToString();
+        }
+
+        private void AppendGroup(StringBuilder sb, string name, bool entities)
+        {
+            sb.Append("  \"").Append(name).Append("\": {");
+            bool first = true;
+            foreach (KeyValuePair<string, string> kv in _keys.Where(k => _entities.Contains(k.Key) == entities).OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                sb.Append(first ? "\n" : ",\n").Append("    \"").Append(kv.Key).Append("\": \"").Append(kv.Value).Append('"');
+                first = false;
+            }
+            sb.Append("\n  }");
         }
 
         public bool TryGetKey(string elementName, out string keyField)
@@ -31,29 +69,29 @@ namespace DW2ModLauncher.XmlPatching
             KeyMap map = new KeyMap();
 
             // Entities.
-            map.Add("ArmyTemplate", "ArmyTemplateId")
-                .Add("Artifact", "ArtifactId")
-                .Add("CharacterAnimation", "CharacterAnimationId")
-                .Add("CharacterRoom", "RoomId")
-                .Add("ColonyEventDefinition", "ColonyEventDefinitionId")
-                .Add("ComponentDefinition", "ComponentId")
-                .Add("CreatureType", "CreatureTypeId")
-                .Add("DesignTemplate", "DesignTemplateId")
-                .Add("FixedStructureDefinition", "FixedStructureDefinitionId")
-                .Add("FleetTemplate", "FleetTemplateId")
-                .Add("GameEvent", "Name")
-                .Add("Government", "GovernmentId")
-                .Add("MusicTrack", "Mood")
-                .Add("OrbType", "OrbTypeId")
-                .Add("Overlay", "OverlayId")
-                .Add("PlanetaryFacilityDefinition", "PlanetaryFacilityDefinitionId")
-                .Add("Race", "RaceId")
-                .Add("ResearchProjectDefinition", "ResearchProjectId")
-                .Add("Resource", "ResourceId")
-                .Add("ShipHull", "ShipHullId")
-                .Add("SpaceItemDefinition", "SpaceItemDefinitionId")
-                .Add("TourItem", "Title")
-                .Add("TroopDefinition", "TroopDefinitionId");
+            map.AddEntity("ArmyTemplate", "ArmyTemplateId")
+                .AddEntity("Artifact", "ArtifactId")
+                .AddEntity("CharacterAnimation", "CharacterAnimationId")
+                .AddEntity("CharacterRoom", "RoomId")
+                .AddEntity("ColonyEventDefinition", "ColonyEventDefinitionId")
+                .AddEntity("ComponentDefinition", "ComponentId")
+                .AddEntity("CreatureType", "CreatureTypeId")
+                .AddEntity("DesignTemplate", "DesignTemplateId")
+                .AddEntity("FixedStructureDefinition", "FixedStructureDefinitionId")
+                .AddEntity("FleetTemplate", "FleetTemplateId")
+                .AddEntity("GameEvent", "Name")
+                .AddEntity("Government", "GovernmentId")
+                .AddEntity("MusicTrack", "Mood")
+                .AddEntity("OrbType", "OrbTypeId")
+                .AddEntity("Overlay", "OverlayId")
+                .AddEntity("PlanetaryFacilityDefinition", "PlanetaryFacilityDefinitionId")
+                .AddEntity("Race", "RaceId")
+                .AddEntity("ResearchProjectDefinition", "ResearchProjectId")
+                .AddEntity("Resource", "ResourceId")
+                .AddEntity("ShipHull", "ShipHullId")
+                .AddEntity("SpaceItemDefinition", "SpaceItemDefinitionId")
+                .AddEntity("TourItem", "Title")
+                .AddEntity("TroopDefinition", "TroopDefinitionId");
 
             // List items that are keyed (unique in every list of the shipped data).
             map.Add("ResourceQuantity", "ResourceId")

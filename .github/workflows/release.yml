@@ -77,6 +77,22 @@ jobs:
           name: ${{ steps.package.outputs.name }}
           path: stage/${{ steps.package.outputs.name }}
 
+      # keymap.json: the patch key map (which child identifies each entity / list item) for tools outside the launcher, such
+      # as editor extensions. Written by the same KeyMap the patcher uses, from the assembly the test step just built, so it
+      # cannot drift. Attached to every release under a fixed name: .../releases/latest/download/keymap.json
+      - name: Write keymap.json
+        shell: pwsh
+        run: |
+          $dll = Resolve-Path src/DW2ModLauncher.XmlPatching/bin/Release/net8.0/DW2ModLauncher.XmlPatching.dll
+          [System.Reflection.Assembly]::LoadFrom($dll) | Out-Null
+          [System.IO.File]::WriteAllText("$PWD/keymap.json", [DW2ModLauncher.XmlPatching.KeyMap]::Default.ToJson())
+          Get-Content keymap.json | Select-Object -First 8
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: keymap
+          path: keymap.json
+
       - name: Create GitHub Release
         if: steps.release.outputs.tag != ''
         env:
@@ -87,7 +103,7 @@ jobs:
           # notes (a bare rebase-merge commit list) are only the fallback when no PR description is found.
           python scripts/release-notes.py release-notes.md
           if [ -f release-notes.md ]; then notes=(--notes-file release-notes.md); else notes=(--generate-notes); fi
-          gh release create "${{ steps.release.outputs.tag }}" "${{ steps.package.outputs.zip }}" --title "${{ steps.release.outputs.tag }}" "${notes[@]}"
+          gh release create "${{ steps.release.outputs.tag }}" "${{ steps.package.outputs.zip }}" keymap.json --title "${{ steps.release.outputs.tag }}" "${notes[@]}"
 
   # The Linux build: the Avalonia launcher, self-contained, as a tar.gz (keeps the executable bit). It runs
   # after the Windows job so that job's tag exists; it attaches to the same GitHub Release.

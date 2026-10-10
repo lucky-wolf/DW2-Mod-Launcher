@@ -56,7 +56,10 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
    A second job (`release-linux`, on `ubuntu-latest`, after the first so the tag exists) publishes the Avalonia
    launcher for `linux-x64` (self-contained, not single-file: Skia and the Steam library are native `.so`s), packages
    `DW2ModLauncher-vX.Y.Z-linux-x64.tar.gz`, and attaches it to the same release.
-6. `gh release create` attaches the zip to a GitHub Release with generated notes (push to `main` only).
+6. `gh release create` attaches the zip, and `keymap.json`, to a GitHub Release with generated notes (push to `main` only).
+   `keymap.json` is the patch key map (`KeyMap.Default.ToJson()`: which child element identifies each entity and list item) for
+   tools outside this repo, such as editor extensions; its shape is pinned by `KeyMapTests`. Fixed asset name, so
+   `https://github.com/lucky-wolf/DW2-Mod-Launcher/releases/latest/download/keymap.json` always serves the newest. Not yet run in CI: check the first release.
 
 **Pull requests do not run this workflow** (`ci.yml` validates them; packaging is only exercised on merge to `main`,
 since both distributions are known to work). A **manual dispatch** builds and uploads both packages as workflow
