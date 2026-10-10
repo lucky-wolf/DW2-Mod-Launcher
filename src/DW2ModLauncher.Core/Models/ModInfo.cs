@@ -42,6 +42,8 @@ namespace DW2ModLauncher.Core.Models
         public List<string> IncompatibleMods { get; set; }
         public List<string> LoadBefore { get; set; }
         public List<string> LoadAfter { get; set; }
+        /// <summary>dw2modlauncher.json "minLauncherVersion", or null/empty when the mod names no floor.</summary>
+        public string MinLauncherVersion { get; set; }
         public int IdenticalFileCount { get; set; }
         public int LowRiskConflictCount { get; set; }
         public int HighRiskConflictCount { get; set; }

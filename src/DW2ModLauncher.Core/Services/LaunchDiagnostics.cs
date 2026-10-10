@@ -24,6 +24,7 @@ namespace DW2ModLauncher.Core.Services
             {
                 foreach (string required in mod.RequiredMods ?? new List<string>())
                     if (!enabled.Any(m => matches(m, required))) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("MissingRequiredMod") + required);
+                if (LauncherRequirement.IsUnmet(mod)) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
                 foreach (string incompatible in mod.IncompatibleMods ?? new List<string>())
                     if (enabled.Any(m => m != mod && matches(m, incompatible))) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("IncompatibleModEnabled") + incompatible);
                 int ownIndex = order.IndexOf(mod.ActiveToken);

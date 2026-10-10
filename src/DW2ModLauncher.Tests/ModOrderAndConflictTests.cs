@@ -203,6 +203,38 @@ namespace DW2ModLauncher.Tests
             Assert.Contains(issues, i => i.Contains("LaunchArgumentDLLNotFound:") && i.Contains("nope.dll"));
         }
 
+        [Theory]
+        [InlineData("1.0.6", "1.0.5", true)]
+        [InlineData("1.0.6", "1.0.6", false)]
+        [InlineData("1.0.6", "1.0.6-dev", false)]
+        [InlineData("v1.0.6", "1.1.0", false)]
+        [InlineData("1.0.6", "", false)]
+        [InlineData("garbage", "1.0.0", false)]
+        [InlineData("", "1.0.0", false)]
+        public void LauncherRequirement_ComparesNumericVersion_AndIgnoresWhatItCannotRead(string required, string current, bool unmet)
+        {
+            Assert.Equal(unmet, LauncherRequirement.IsUnmet(new ModInfo { MinLauncherVersion = required }, current));
+        }
+
+        [Fact]
+        public void ReadModInfo_PicksUpMinLauncherVersion_FromDw2ModLauncherJson()
+        {
+            ModInfo mod = MakeMod("needy", ("mod.json", "{\"displayName\":\"Needy\"}"), ("dw2modlauncher.json", "{\"minLauncherVersion\":\" 1.0.6 \"}"));
+
+            ModInfo read = ModScanner.ReadModInfo(mod.Folder, Path.Combine(mod.Folder, "mod.json"), false, key => key);
+
+            Assert.Equal("1.0.6", read.MinLauncherVersion);
+            Assert.Null(ModScanner.ReadModInfo(MakeMod("plain", ("mod.json", "{}")).Folder, Path.Combine(dir, "plain", "mod.json"), false, key => key).MinLauncherVersion);
+        }
+
+        [Fact]
+        public void MetLauncherRequirement_AddsNoCautionOrProblemLine()
+        {
+            ModInfo mod = new ModInfo { MinLauncherVersion = "0.0.1" };
+            Assert.Equal(1, ModHealth.Severity(mod, true));
+            Assert.Empty(ModDetails.BuildProblems(mod, 2, key => key));
+        }
+
         [Fact]
         public void Diagnostics_ChecksHostPathNotGamePath_OfInjectedDlls()
         {
