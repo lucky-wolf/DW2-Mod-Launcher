@@ -11,4 +11,3 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
-- Every release now attaches `keymap.json`, the XML patching key map (which element identifies each entity and list item), for editor tools outside this repo
