@@ -16,6 +16,7 @@ reconstruct it right before opening the PR. Fold several small related lines int
 - Shrinking an oversized preview image that is already in the mod now replaces it in place (original to the recycle bin) instead of leaving a heavy copy beside it. "Shrink and publish" does the same (same name, original to the recycle bin); the launcher no longer makes "(resized)" files.
 - A mod whose mod.json names a preview image that doesn't exist now shows no preview, instead of silently showing some other image from its folder.
 - AGENTS.md now forbids defensive programming: no silent fallbacks or swallowed errors that hide a problem.
+- Russian translation: the UI strings added since Serge's pack are translated (flagged for a native speaker to review).
 - AGENTS.md says to catch errors at failure points and report them to the user through a real channel (UI message, or the in-game status line), never to crash or hide them.
 - A preview image picked from outside the mod is offered under the mod's own name (it is the cover art) rather than the source file's name.
 - The publish / edit-properties dialog warns about loose image files in the mod folder that the mod doesn't use (only the preview is) but that would be uploaded to Steam; Save and Publish offer to move them to the recycle bin, and carry on regardless if declined.
