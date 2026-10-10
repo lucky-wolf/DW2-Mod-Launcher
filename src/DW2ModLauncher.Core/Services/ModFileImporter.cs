@@ -29,6 +29,23 @@ namespace DW2ModLauncher.Core.Services
             return Path.GetRelativePath(modFolder, file).Replace('\\', '/');
         }
 
+        /// <summary>The same-named file already in the mod folder when its contents are identical to the source (nothing to copy), else null.</summary>
+        public static string FindIdentical(string modFolder, string sourceFile)
+        {
+            string existing = Path.Combine(modFolder, Path.GetFileName(sourceFile));
+            return File.Exists(existing) && File.ReadAllBytes(existing).SequenceEqual(File.ReadAllBytes(sourceFile)) ? existing : null;
+        }
+
+        /// <summary>The source's own name in the mod folder when free, else "name (2).ext", "name (3).ext"... The first name nothing occupies.</summary>
+        public static string UniquePath(string modFolder, string sourceFile)
+        {
+            string name = Path.GetFileName(sourceFile);
+            string target = Path.Combine(modFolder, name);
+            for (int n = 2; File.Exists(target); n++)
+                target = Path.Combine(modFolder, Path.GetFileNameWithoutExtension(name) + " (" + n + ")" + Path.GetExtension(name));
+            return target;
+        }
+
         /// <summary>
         /// Copies a file from outside the mod into the mod folder's top level and returns its mod-relative path. A file of the same
         /// name that already has identical contents is reused; one with different contents is never overwritten (the copy gets

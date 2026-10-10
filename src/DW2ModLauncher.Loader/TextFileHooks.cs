@@ -33,8 +33,8 @@ namespace DW2ModLauncher.Loader
             }
             _replaceVanilla = manifest?.GalactopediaReplacesVanilla ?? false;
             if (_files.Count == 0 && !_replaceVanilla) return 0;
-            _logPath = Path.Combine(baseDir, "textfiles.log");
-            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like patches.log
+            _logPath = Path.Combine(baseDir, "dw2modlauncher-textfiles.log");
+            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like dw2modlauncher-patches.log
 
             Harmony harmony = new Harmony("dw2modlauncher.loader.textfiles");
             HarmonyMethod prefix = new HarmonyMethod(typeof(TextFileHooks).GetMethod(nameof(PathPrefix), BindingFlags.Static | BindingFlags.NonPublic));

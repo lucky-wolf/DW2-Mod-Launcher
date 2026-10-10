@@ -37,6 +37,11 @@ namespace DW2ModLauncher.Avalonia.Views
             PreviewBorder.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.OpenSteamPageCommand.CanExecute(null)) m.OpenSteamPageCommand.Execute(null); };
             // Bring the remembered selection into view once the list has been laid out (a restored row can be far down).
             Loaded += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(ScrollToSelection, global::Avalonia.Threading.DispatcherPriority.Background); };
+            DataContextChanged += delegate
+            {
+                if (DataContext is MainViewModel main)
+                    main.RevealSelectionRequested += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(ScrollToSelection, global::Avalonia.Threading.DispatcherPriority.Background); };
+            };
             ModList.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.ModSettingsCommand.CanExecute(null)) m.ModSettingsCommand.Execute(null); };
         }
 

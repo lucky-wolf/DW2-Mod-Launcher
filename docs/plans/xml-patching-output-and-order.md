@@ -6,11 +6,11 @@ Status: not started. Follow-ups to the first XML patching release ([../xml-patch
 
 Patching happens in memory: `XmlPatchHooks.OpenStreamPostfix` loads the game's data file into an `XDocument`, `PatchRunner.Apply` patches it, and the game receives a `MemoryStream`. With three to ten mods patching the same entities there is no file to look at to see what the game really loaded.
 
-What exists today: `patches.log` records every applied change as `old -> new` with the patch file and line, plus per-file tallies. That is the provenance (who changed what, in which order) but not the merged result.
+What exists today: `dw2modlauncher-patches.log` records every applied change as `old -> new` with the patch file and line, plus per-file tallies. That is the provenance (who changed what, in which order) but not the merged result.
 
 Proposal, in order of cost:
 
-1. **Patched-file dump (small).** After a successful `Apply`, save the patched document under a folder next to `patches.log`, keyed by the data file's virtual path (for example `patched/data/Races.xml`). The hook already holds the final `XDocument`, so this is a few lines. Only files that were actually patched are written; clear the folder at the start of each load pass so it never shows stale output. Consider a launcher setting to turn it off, since some data files are large.
+1. **Patched-file dump (small).** After a successful `Apply`, save the patched document under a folder next to `dw2modlauncher-patches.log`, keyed by the data file's virtual path (for example `patched/data/Races.xml`). The hook already holds the final `XDocument`, so this is a few lines. Only files that were actually patched are written; clear the folder at the start of each load pass so it never shows stale output. Consider a launcher setting to turn it off, since some data files are large.
 2. **Offline preview (larger).** `DW2ModLauncher.XmlPatching` has no game dependency except the schema, which `SchemaReflector` builds by reflecting the game's `DistantWorlds.Types`. Run the same `PatchRunner` in the launcher over the game's data and the enabled mods' `patches/` to show the merged result without starting the game (the existing `ValidateAll` is already described as "Check patches"). Open question: load the game's types assembly in the launcher, or dump the schemas once from inside the game and ship them as JSON.
 
 Both views are wanted: the log answers "who set this value", the dump answers "what did the game load".

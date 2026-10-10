@@ -9,6 +9,8 @@ namespace DW2ModLauncher.Core.Models
         public string GameRoot { get; set; }
         public string WorkshopRoot { get; set; }
         public string ManagedModsRoot { get; set; }
+        /// <summary>Folder the in-game loader writes its logs to; blank = the game's data/Logs folder.</summary>
+        public string LogDirectory { get; set; } = "";
         /// <summary>The Play button's remembered mode (run / continue / new game).</summary>
         public LaunchMode LaunchMode { get; set; }
         public string LastWorkshopUpdateCheckUtc { get; set; }

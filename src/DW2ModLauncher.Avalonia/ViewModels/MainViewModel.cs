@@ -367,7 +367,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             populating = true;
             Mods.Clear();
             foreach (ModInfo mod in ModLibrary.OrderForDisplay(AllMods, modOrder))
-                Mods.Add(new ModRowViewModel(mod, RelayCommand.WithParameter(row => { var _ = ToggleAsync((ModRowViewModel)row); })));
+                Mods.Add(new ModRowViewModel(mod, RelayCommand.WithParameter(row => { var _ = ToggleAsync((ModRowViewModel)row); }), settings.ManagedModsRoot));
             populating = false;
             RefreshRowStates();
             ApplySort();
@@ -469,9 +469,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             Analyze();
             RefreshRowStates();
+            // Sorted by load order, enabling a mod gives it a number and unchecking drops it below the last enabled one (unnumbered rows
+            // sort last), so it changes place either way: follow it there and keep it selected.
+            if (sortColumn == 4)
+            {
+                ApplySort();
+                SelectedRow = row;
+                RevealSelectionRequested?.Invoke();
+            }
             UpdateStatus();
             Settings.UpdateCommandPreview();
         }
+
+        /// <summary>Raised when the view should scroll the selected row into view, centred where there is room.</summary>
+        public event Action RevealSelectionRequested;
 
         /// <summary>Moves a row (drag and drop) and writes the new load order. Sorting is dropped: the list now shows the manual order.</summary>
         public void MoveRow(ModRowViewModel row, int toIndex)
@@ -955,6 +966,38 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             SetStatus(T("PropertiesSavedStatus", mod.DisplayName ?? mod.Id));
         }
 
+        /// <summary>
+        /// Writes a smaller copy of the mod's preview image beside the other mod files (never over anything) and points mod.json's
+        /// previewImage at it; <paramref name="metadata"/> follows. Returns the copy's path, or null (after saying why) when the image
+        /// could not be shrunk or saved, in which case nothing has changed.
+        /// </summary>
+        private async Task<string> ShrinkPreviewAsync(ModInfo mod, ModPublishMetadata metadata, string previewFile, string contentRoot)
+        {
+            FittedPreview fitted = await Task.Run(() => PreviewImageResizer.TryFit(previewFile));
+            if (fitted == null)
+            {
+                await Dialogs.ShowMessageAsync(T("PublishPreviewResizeFailed", Path.GetFileName(previewFile)), "DW2 Mod Launcher");
+                return null;
+            }
+            string target = null;
+            string previous = metadata.PreviewImage;
+            try
+            {
+                target = PreviewImageResizer.Save(fitted, contentRoot, Path.GetFileName(PreviewImagePlan.TargetPath(contentRoot, previewFile, fitted.Extension)));
+                metadata.PreviewImage = ModFileImporter.RelativePath(contentRoot, target);
+                ModPublishMetadataEditor.Write(mod.ModJsonPath, metadata);
+                return target;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Shrink preview image for publish", ex);
+                metadata.PreviewImage = previous;
+                try { if (target != null) File.Delete(target); } catch (Exception) { }
+                await Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+                return null;
+            }
+        }
+
         private async Task PublishAsync()
         {
             if (selectedRow == null || publishRunning) return;
@@ -993,16 +1036,31 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string versionBefore = editor.OriginalVersion;
             string versionWritten = metadata.Version;
 
-            // Steam can reject a preview image over 1 MiB; warn, but let the author try anyway.
-            const long MaxPreviewBytes = 1024 * 1024;
+            // Steam can reject a preview image over 1 MiB: offer to fix it with a smaller copy (the original stays, mod.json is pointed at
+            // the copy), or let the author try anyway.
             if (!string.IsNullOrWhiteSpace(metadata.PreviewImage))
             {
-                FileInfo preview = new FileInfo(Path.Combine(mod.ContentRoot ?? mod.Folder, metadata.PreviewImage));
-                if (preview.Exists && preview.Length > MaxPreviewBytes
-                    && !await Dialogs.ConfirmAsync(T("PublishImageTooLarge", metadata.PreviewImage, (preview.Length / 1048576.0).ToString("0.##")), "DW2 Mod Launcher", T("Yes"), T("No")))
+                string previewRoot = mod.ContentRoot ?? mod.Folder;
+                FileInfo preview = new FileInfo(Path.Combine(previewRoot, metadata.PreviewImage));
+                if (preview.Exists && PreviewImagePlan.NeedsResize(preview.Length))
                 {
-                    RollBackVersion(mod, versionBefore, versionWritten);
-                    return;
+                    string size = (preview.Length / 1048576.0).ToString("0.##");
+                    int choice = await Dialogs.ChooseAsync(T("PublishImageTooLargeFix", metadata.PreviewImage, size), "DW2 Mod Launcher",
+                        new[] { T("PublishShrinkAndPublish"), T("PublishAnyway"), T("Cancel") });
+                    if (choice == 0)
+                    {
+                        string shrunk = await ShrinkPreviewAsync(mod, metadata, preview.FullName, previewRoot);
+                        if (shrunk == null && !await Dialogs.ConfirmAsync(T("PublishImageTooLarge", metadata.PreviewImage, size), "DW2 Mod Launcher", T("Yes"), T("No")))
+                        {
+                            RollBackVersion(mod, versionBefore, versionWritten);
+                            return;
+                        }
+                    }
+                    else if (choice != 1)
+                    {
+                        RollBackVersion(mod, versionBefore, versionWritten);
+                        return;
+                    }
                 }
             }
 
@@ -1320,7 +1378,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (!await Settings.ConfirmSaveForLaunchAsync()) return;
             try
             {
-                LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods());
+                LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods(), settings.LogDirectory);
                 Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(LaunchMode, launchManifest.Fonts.LastOrDefault()?.Name)));
                 SetStatus(T("DistantWorlds2Launched"));
                 launchStartedUtc = DateTime.UtcNow;

@@ -71,13 +71,13 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>
-        /// Where the mod comes from, with its folder: "Local\MyMod" (the path under the managed Mod folder, so nested folders show),
-        /// "Steam Workshop\1234567". Just the source name when the folder is unknown.
+        /// Where the mod comes from, with its folder: "mods\MyMod" for a local mod (the path under the managed mods folder, so nested
+        /// folders show, and nothing about where that folder is), "Steam Workshop\1234567". Just the source name when the folder is unknown.
         /// </summary>
         public static string SourceText(ModInfo mod, string managedModsRoot)
         {
-            string source = mod.SourceName ?? "";
-            if (string.IsNullOrWhiteSpace(mod.Folder)) return source;
+            string source = mod.IsWorkshop ? mod.SourceName ?? "" : "mods";
+            if (string.IsNullOrWhiteSpace(mod.Folder)) return mod.SourceName ?? "";
             string folder = Path.GetFileName(mod.Folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             if (!mod.IsWorkshop && !string.IsNullOrWhiteSpace(managedModsRoot) && ModFileImporter.IsInside(managedModsRoot, mod.Folder))
                 folder = Path.GetRelativePath(managedModsRoot, mod.Folder);

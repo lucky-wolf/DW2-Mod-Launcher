@@ -23,23 +23,33 @@ namespace DW2ModLauncher.Loader
             _started = true;
 
             string baseDir = Path.GetDirectoryName(typeof(Entry).Assembly.Location) ?? AppContext.BaseDirectory;
-            _logPath = Path.Combine(LogDirectory(baseDir), "dw2modlauncher.log");
-            Log("Entry.Init() called.");
-
+            // The manifest is read first because it can name the log folder (the launcher's "Log folder" setting).
             string manifestPath = Path.Combine(baseDir, "manifest.json");
-            LoaderManifest manifest;
+            LoaderManifest manifest = null;
+            string manifestError = null;
             try
             {
-                if (!File.Exists(manifestPath))
-                {
-                    Log("ERROR: manifest.json not found at " + manifestPath);
-                    return;
-                }
-                manifest = JsonSerializer.Deserialize<LoaderManifest>(File.ReadAllText(manifestPath));
+                if (!File.Exists(manifestPath)) manifestError = "ERROR: manifest.json not found at " + manifestPath;
+                else manifest = JsonSerializer.Deserialize<LoaderManifest>(File.ReadAllText(manifestPath));
             }
             catch (Exception ex)
             {
-                Log("ERROR: failed to read/parse manifest.json: " + ex);
+                manifestError = "ERROR: failed to read/parse manifest.json: " + ex;
+            }
+
+            string logDir = LogDirectory(baseDir, manifest?.LogDirectory);
+            _logPath = Path.Combine(logDir, "dw2modlauncher.log");
+            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like dw2modlauncher-patches.log
+            Log("Entry.Init() called.");
+            if (!string.IsNullOrWhiteSpace(manifest?.LogDirectory) && logDir != manifest.LogDirectory)
+            {
+                string text = "log folder '" + manifest.LogDirectory + "' does not exist; the loader logs are in " + logDir;
+                Log("ERROR: " + text);
+                HookStatus.Failed("logfolder", text, _logPath);
+            }
+            if (manifestError != null)
+            {
+                Log(manifestError);
                 return;
             }
 
@@ -56,10 +66,10 @@ namespace DW2ModLauncher.Loader
                 Log("ERROR status widget not installed: " + ex);
             }
 
-            InstallXmlPatching(manifest, baseDir);
-            InstallFontBundles(manifest, baseDir);
-            InstallTextFiles(manifest, baseDir);
-            InstallTitleLookup(manifest, baseDir);
+            InstallXmlPatching(manifest, logDir);
+            InstallFontBundles(manifest, logDir);
+            InstallTextFiles(manifest, logDir);
+            InstallTitleLookup(manifest, logDir);
         }
 
         // Kept in its own method so a missing 0Harmony.dll fails here (caught, logged) instead of stopping the mods above from loading:
@@ -70,7 +80,7 @@ namespace DW2ModLauncher.Loader
             try
             {
                 int files = XmlPatchHooks.Install(manifest, baseDir);
-                if (files > 0) Log("XML patching: " + files + " patch file(s) loaded; see patches.log.");
+                if (files > 0) Log("XML patching: " + files + " patch file(s) loaded; see dw2modlauncher-patches.log.");
             }
             catch (Exception ex)
             {
@@ -85,7 +95,7 @@ namespace DW2ModLauncher.Loader
             try
             {
                 int fonts = FontBundleHooks.Install(manifest, baseDir);
-                if (fonts > 0) Log("Font bundles: " + fonts + " declared; see fonts.log.");
+                if (fonts > 0) Log("Font bundles: " + fonts + " declared; see dw2modlauncher-fonts.log.");
             }
             catch (Exception ex)
             {
@@ -100,7 +110,7 @@ namespace DW2ModLauncher.Loader
             try
             {
                 int files = TextFileHooks.Install(manifest, baseDir);
-                if (files > 0) Log("Text files: " + files + " replacement(s) for Hints/dialog/Galactopedia; see textfiles.log.");
+                if (files > 0) Log("Text files: " + files + " replacement(s) for Hints/dialog/Galactopedia; see dw2modlauncher-textfiles.log.");
             }
             catch (Exception ex)
             {
@@ -225,8 +235,11 @@ namespace DW2ModLauncher.Loader
 
         // The game's own log folder, <install>/data/Logs (where SessionLog.txt lives): the game runs from its install folder, so that is
         // the folder of the running exe. Without a data folder (not running in the game) the log stays next to the loader.
-        private static string LogDirectory(string fallback)
+        /// <summary>The folder every loader log goes in: the launcher's setting if set and usable, else the game's data/Logs, else beside the loader DLL.</summary>
+        private static string LogDirectory(string fallback, string configured)
         {
+            // a missing configured folder is reported by Init (the launcher checks it exists, so only a folder deleted since can be missing)
+            if (!string.IsNullOrWhiteSpace(configured) && Directory.Exists(configured)) return configured;
             try
             {
                 string data = Path.Combine(AppContext.BaseDirectory, "data");

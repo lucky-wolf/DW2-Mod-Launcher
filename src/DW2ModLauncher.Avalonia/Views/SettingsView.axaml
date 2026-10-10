@@ -7,7 +7,7 @@
     <StackPanel Margin="26" Spacing="14" Width="830" HorizontalAlignment="Left">
       <TextBlock Classes="heading" Text="{Binding L[PathsAndLaunchSettings]}" />
 
-      <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+      <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="DW2 Game Root" />
         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GameRoot}" />
         <Button Grid.Row="0" Grid.Column="2" Content="…" Command="{Binding BrowseGameCommand}" MinWidth="50" />
@@ -17,6 +17,9 @@
         <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="DW2 Mod Root" />
         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ManagedRoot}" />
         <Button Grid.Row="2" Grid.Column="2" Content="…" Command="{Binding BrowseManagedCommand}" MinWidth="50" />
+        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Log Folder" />
+        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LogFolder}" Watermark="blank = DW2's data/Logs folder" />
+        <Button Grid.Row="3" Grid.Column="2" Content="…" Command="{Binding BrowseLogFolderCommand}" MinWidth="50" />
       </Grid>
 
       <StackPanel Spacing="6">
@@ -24,14 +27,6 @@
         <TextBox Text="{Binding CommandPreview, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
                  MinHeight="70" Foreground="{StaticResource Dw2BlueGlow}" />
       </StackPanel>
-
-      <WrapPanel Orientation="Horizontal">
-        <Button Content="{Binding L[AutoDetect]}" Command="{Binding AutoDetectCommand}" Margin="0,0,12,12" MinWidth="130" />
-        <Button Content="{Binding L[SaveSettings]}" Command="{Binding SaveCommand}" Margin="0,0,12,12" MinWidth="130" />
-        <Button Content="{Binding L[GameFolder]}" Command="{Binding OpenGameCommand}" Margin="0,0,12,12" MinWidth="150" />
-        <Button Content="{Binding L[WorkshopRoot]}" Command="{Binding OpenWorkshopCommand}" Margin="0,0,12,12" MinWidth="150" />
-        <Button Content="{Binding L[ModRoot]}" Command="{Binding OpenManagedCommand}" Margin="0,0,12,12" MinWidth="150" />
-      </WrapPanel>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

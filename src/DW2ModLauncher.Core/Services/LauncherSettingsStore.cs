@@ -12,7 +12,8 @@ namespace DW2ModLauncher.Core.Services
         None,
         GameFolderInvalid,
         WorkshopFolderMissing,
-        ManagedFolderMissing
+        ManagedFolderMissing,
+        LogFolderMissing
     }
 
     /// <summary>Reads and writes launcher_settings.json. No UI: callers decide how to report failures.</summary>
@@ -60,6 +61,7 @@ namespace DW2ModLauncher.Core.Services
             if (settings.GameRoot == null) settings.GameRoot = "";
             if (settings.WorkshopRoot == null) settings.WorkshopRoot = "";
             if (settings.ManagedModsRoot == null) settings.ManagedModsRoot = "";
+            if (settings.LogDirectory == null) settings.LogDirectory = "";
             if (settings.LastWorkshopUpdateCheckUtc == null) settings.LastWorkshopUpdateCheckUtc = "";
             if (settings.ActiveProfile == null) settings.ActiveProfile = "";
             settings.GameRoot = NativePath(settings.GameRoot);
@@ -76,11 +78,12 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>Blank folders are allowed (unset); non-blank ones must exist / look right.</summary>
-        public static SettingsProblem Validate(string gameRoot, string workshopRoot, string managedModsRoot)
+        public static SettingsProblem Validate(string gameRoot, string workshopRoot, string managedModsRoot, string logFolder = "")
         {
             if (!string.IsNullOrWhiteSpace(gameRoot) && !SteamLocator.IsGameRoot(gameRoot)) return SettingsProblem.GameFolderInvalid;
             if (!string.IsNullOrWhiteSpace(workshopRoot) && !Directory.Exists(workshopRoot)) return SettingsProblem.WorkshopFolderMissing;
             if (!string.IsNullOrWhiteSpace(managedModsRoot) && !Directory.Exists(managedModsRoot)) return SettingsProblem.ManagedFolderMissing;
+            if (!string.IsNullOrWhiteSpace(logFolder) && !Directory.Exists(logFolder)) return SettingsProblem.LogFolderMissing;
             return SettingsProblem.None;
         }
     }

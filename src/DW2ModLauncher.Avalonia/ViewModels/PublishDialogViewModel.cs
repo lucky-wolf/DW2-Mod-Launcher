@@ -443,28 +443,84 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private async Task BrowsePreviewAsync()
         {
             string picked = await dialogs.PickFileAsync(L["PublishInfoPreviewImage"], contentFolder, "Image files", "*.jpg", "*.jpeg", "*.png");
-            string relative = await ResolveInsideModAsync(picked);
-            if (relative != null) PreviewImage = relative;
+            if (picked == null) return;
+            string local = await MakeLocalPreviewAsync(picked);
+            if (local != null) PreviewImage = DW2ModLauncher.Core.Services.ModFileImporter.RelativePath(contentFolder, local);
         }
 
         /// <summary>
-        /// mod.json can only point at files inside the mod, so a file picked from elsewhere is copied in (after asking; Yes or Cancel).
-        /// Returns the mod-relative path, or null when nothing was picked, the author declined, or the copy failed.
+        /// mod.json can only point at files inside the mod, and Steam rejects previews over 1 MiB. Turns the picked file into a conformant
+        /// one in the mod folder and returns its full path, or null when the author cancelled (nothing is written then) or saving failed.
+        /// A file already inside the mod and small enough is used as it is. Otherwise the author names the file in the mod folder (the
+        /// picked file's name is offered, selected, so Enter accepts it) and gets either a plain copy or, for a too-big image, a smaller
+        /// copy. The picked file is never changed.
         /// </summary>
-        private async Task<string> ResolveInsideModAsync(string picked)
+        private async Task<string> MakeLocalPreviewAsync(string picked)
         {
-            if (picked == null) return null;
-            if (DW2ModLauncher.Core.Services.ModFileImporter.IsInside(contentFolder, picked))
-                return DW2ModLauncher.Core.Services.ModFileImporter.RelativePath(contentFolder, picked);
-            if (!await dialogs.ConfirmAsync(L.Format("PublishImportFileConfirm", System.IO.Path.GetFileName(picked)), "DW2 Mod Launcher", L["Yes"], L["Cancel"]))
-                return null;
-            try { return DW2ModLauncher.Core.Services.ModFileImporter.CopyIntoMod(contentFolder, picked); }
+            string fileName = System.IO.Path.GetFileName(picked);
+            long bytes;
+            try { bytes = new FileInfo(picked).Length; }
+            catch (Exception) { bytes = 0; }
+            bool inside = DW2ModLauncher.Core.Services.ModFileImporter.IsInside(contentFolder, picked);
+
+            FittedPreview fitted = null;
+            if (PreviewImagePlan.NeedsResize(bytes))
+            {
+                fitted = await Task.Run(() => PreviewImageResizer.TryFit(picked));
+                if (fitted == null)
+                    await dialogs.ShowMessageAsync(L.Format("PublishPreviewResizeFailed", fileName), "DW2 Mod Launcher");
+            }
+
+            try
+            {
+                if (fitted != null)
+                {
+                    string name = await PromptFileNameAsync(
+                        L.Format("PublishPreviewResizeNameLabel", fileName, DW2ModLauncher.Core.Services.ByteSize.Format(bytes), fitted.Width, fitted.Height, DW2ModLauncher.Core.Services.ByteSize.Format(fitted.Data.LongLength)),
+                        System.IO.Path.GetFileName(PreviewImagePlan.TargetPath(contentFolder, picked, fitted.Extension)), fitted.Extension);
+                    return name == null ? null : PreviewImageResizer.Save(fitted, contentFolder, name);
+                }
+
+                // No (usable) resize: the file goes in as it is.
+                if (inside) return picked;
+                string identical = DW2ModLauncher.Core.Services.ModFileImporter.FindIdentical(contentFolder, picked);
+                if (identical != null) return identical;
+                string extension = System.IO.Path.GetExtension(picked);
+                string copyName = await PromptFileNameAsync(L.Format("PublishImportFileNameLabel", fileName),
+                    System.IO.Path.GetFileName(DW2ModLauncher.Core.Services.ModFileImporter.UniquePath(contentFolder, picked)), extension);
+                if (copyName == null) return null;
+                string target = System.IO.Path.Combine(contentFolder, copyName);
+                File.Copy(picked, target);
+                return target;
+            }
             catch (Exception ex)
             {
-                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Copy file into mod", ex);
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Save preview image into mod", ex);
                 await dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Asks what to call a file about to be saved in the mod folder. The extension is fixed (a typed image extension is replaced), and
+        /// a name that is already taken is refused, so nothing is ever overwritten. Returns the file name, or null on Cancel.
+        /// </summary>
+        private async Task<string> PromptFileNameAsync(string label, string defaultName, string extension)
+        {
+            string typed = await dialogs.PromptTextAsync("DW2 Mod Launcher", label, defaultName, L["OK"], L["Cancel"],
+                text =>
+                {
+                    if (string.IsNullOrWhiteSpace(text)) return "";
+                    string name = PreviewImagePlan.FileNameFor(text, extension);
+                    if (name == null) return L["PublishPreviewResizeNameBad"];
+                    return File.Exists(System.IO.Path.Combine(contentFolder, name)) ? L.Format("PublishPreviewResizeNameTaken", name) : L.Format("PublishPreviewResizeNameHint", name);
+                },
+                isInvalid: text =>
+                {
+                    string name = PreviewImagePlan.FileNameFor(text, extension);
+                    return name == null || File.Exists(System.IO.Path.Combine(contentFolder, name));
+                });
+            return typed == null ? null : PreviewImagePlan.FileNameFor(typed, extension);
         }
 
         /// <summary>Opens description.bbcode in the OS's associated editor, first creating it from the box if it doesn't exist yet.</summary>
