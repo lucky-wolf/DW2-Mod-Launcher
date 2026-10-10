@@ -18,7 +18,7 @@ namespace DW2ModLauncher.Tests
                     File.WriteAllText(Path.Combine(root, f), "x");
 
                 Assert.Equal(new[] { "big.png", "Cover (resized).PNG" }, StrayImages.Find(root, "cover.jpg"));
-                Assert.Equal(new[] { "big.png", "Cover (resized).PNG", "cover.jpg" },StrayImages.Find(root, ""));
+                Assert.Equal(new[] { "big.png", "Cover (resized).PNG", "cover.jpg" }, StrayImages.Find(root, ""));
                 Assert.Equal(new[] { "big.png", "Cover (resized).PNG" }, StrayImages.Find(root, "COVER.JPG"));
             }
             finally { Directory.Delete(root, true); }
