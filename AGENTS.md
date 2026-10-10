@@ -6,7 +6,7 @@ Collective directives for anyone (human or AI) working in this repo. This file i
 
 DW2 Mod Launcher is an unofficial, open-source (MIT) community launcher/mod manager for **Distant Worlds 2**. It is a hobby project developed cooperatively; contributions, forks, and continued community development are explicitly welcomed (see [README.md](README.md)).
 
-Current features (implemented): scanning/enabling/disabling Mods from Steam Workshop and the local Mod folder, drag-and-drop load order, mod profiles (the game's own `mods.<name>.json` files), creating and deleting local Mods, duplicate detection, file-conflict checks between enabled Mods, Workshop update checks, Mod info/README/tool discovery, schema-driven JSON settings editing, per-Mod launch args, code-mod loading via an injected loader DLL (see [docs/DLL Injection.md](docs/DLL%20Injection.md)), publishing a local Mod to the Steam Workshop by embedding the Steamworks API directly, EN/JP UI. Runs on Windows and Linux (Avalonia; on Linux the game runs under Proton) — see [docs/archived/linux-support.md](docs/archived/linux-support.md).
+Current features (implemented): scanning/enabling/disabling Mods from Steam Workshop and the local Mod folder, drag-and-drop load order, mod profiles (the game's own `mods.<name>.json` files), creating and deleting local Mods, duplicate detection, file-conflict checks between enabled Mods, Workshop update checks, Mod info/README/tool discovery, schema-driven JSON settings editing, per-Mod launch args, code-mod loading via an injected loader DLL (see [docs/DLL Injection.md](docs/DLL%20Injection.md)), publishing a local Mod to the Steam Workshop by embedding the Steamworks API directly, EN/JP/RU UI. Runs on Windows and Linux (Avalonia; on Linux the game runs under Proton) — see [docs/archived/linux-support.md](docs/archived/linux-support.md).
 
 Not planned: merging Mods into a combined output folder, and automatic conflict resolution (conflicts are reported, never merged).
 
@@ -47,7 +47,7 @@ Not planned: merging Mods into a combined output folder, and automatic conflict 
 - [src/DW2ModLauncher.Avalonia/](src/DW2ModLauncher.Avalonia/) — the launcher (Windows and Linux). MVVM-lite:
   `ViewModels/` hold state and commands (`MainViewModel`, `SettingsViewModel`, `PublishDialogViewModel`, ...),
   `Views/` are thin XAML, `Services/DialogService` is the only code that touches windows/pickers. Bindings to
-  language strings use `{Binding L[Key]}`; the EN/JP packs are in `Languages/`. Run with
+  language strings use `{Binding L[Key]}`; the EN/JP/RU packs are in `Languages/`. Run with
   `dotnet run --project src/DW2ModLauncher.Avalonia`.
 - [src/DW2ModLauncher.Tests/](src/DW2ModLauncher.Tests/) — xUnit tests against `Core` (run with `dotnet test`)
 - [scripts/](scripts/) — Python tooling: `build.py` / `run.py` (cross-platform build, and build+run, of the current OS's launcher; [build.cmd](build.cmd) / [run.cmd](run.cmd) are the Windows batch equivalents), `validate.py` (the CI gate), `new-branch.py` / `open-pr.py` (branch and PR workflow), `release.py` / `release-notes.py` (CI release), `make-icon.py`; shared helpers in `scripts/lib/`

@@ -33,7 +33,7 @@ Steam Workshopから導入したMODと、ゲーム本体のMODフォルダーに
 
 ## 主な機能
 
-- 日本語／English UI
+- 日本語／English／Русский UI
   - 他の言語への翻訳も歓迎します！
 - Windows／Linux ネイティブ対応
 - 有効なMODの管理
