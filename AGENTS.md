@@ -83,6 +83,24 @@ never hand-set a version in a `.csproj`. Full writeup: [docs/CI Releases.md](doc
 - Favor open, cross-platform-friendly tooling where practical, since C# Dev Kit's free-use license (relied on by contributors in VS Code) is conditioned on this project staying open-source/non-commercial.
 - Document non-obvious decisions (mod conflict-detection rules, load-order semantics, DLL-injection launch flags) in [docs/](docs/) rather than only in commit messages, since this shapes contributor and AI-agent understanding going forward.
 
+## No defensive programming - fail loudly, never substitute
+
+Defensive programming is anathema here. **Do not use it.** Code must never quietly swap a plausible-looking value in for a missing or invalid one: that turns an error into a lie, and the lie outlives the bug that caused it.
+
+- No "clever" fallbacks. If `mod.json` names a preview image that does not exist, the preview is *missing* and that is what the user must see (nothing shown, plus a visible warning) - not some other image the code guessed at. The same goes for any name, path, id, setting or file that fails to resolve: report it, don't repair it behind the user's back.
+- No `catch { return null; }` / `catch { }` that swallows an exception to keep going. An empty result must mean "there is none", never "something went wrong".
+- **Local try/catch is wanted - as a reporting point, not a hiding place.** Software must never crash or core-dump on the user. Catch at the boundary where something can fail (file IO, parsing, reflection, a hook running inside the game), capture a string that says what went wrong as precisely as you can (what was being done, to which file/value, and the exception message), and surface it as a safe warning or error indicator through a real channel. Then carry on in the safest way - which may mean skipping that one feature or item, but the user is always told. A catch whose only action is to continue is a bug.
+- **Channels to the user's awareness:** UI code shows a message or status text (`Dialogs.ShowMessageAsync`, `SetStatus`) and logs via `Logger.LogException`. Code running inside the game (the loader and code mods) reports through the mod status line (`ModStatus` / `StatusRegistry`, see [docs/Mod Status Line.md](docs/Mod%20Status%20Line.md); the loader's `HookStatus.Warn` / `HookStatus.Failed`) plus its log file, so it shows in-game instead of only in a log. If a place you are writing has no such channel, add one rather than staying silent.
+- No coercing bad input into something valid-looking (clamping, defaulting, trimming away the problem) unless that normalisation is the documented, intended behaviour and the user can see it happened.
+- A fallback is acceptable only when it is the specified behaviour of a feature (for example a documented convention for a field that was never set), and then it applies to the *unset* case only - never to a value that was set and is wrong.
+- Validate at the boundary, then trust the data. Don't re-check the same thing in every layer "just in case".
+
+When you find existing code that breaks this, say so and fix it rather than building on it.
+
+**The positive rule: sensible defaults, and the user's choices are law.** Make things work friction-free by giving every setting a default that leads to the right outcome. The user can override any default. What they choose is what happens. If a choice is wrong, they hear exactly how it is wrong (a visible warning or error) - it is **never silently fixed**, and never silently ignored.
+
+**Reviews:** whenever you review a PR or anyone else's code (a human's or another agent's), actively look for this and call it out as a finding, not a nit: swallowed or empty `catch` blocks, "return null/empty on error", guessed-at substitutes for a missing or bad value, input quietly clamped or defaulted, and error handling whose real purpose is to avoid deciding what the error means. Say what the failure should do instead (surface it, log it, tell the user), and flag the PR as needing changes when it adds this kind of code.
+
 ## Keeping docs/focus.md current
 
 [docs/focus.md](docs/focus.md) is the running list of what the current branch has accomplished; `scripts/open-pr.py` uses it as the PR description and `scripts/new-branch.py` empties it for new work. When you finish a user-visible change (human or AI), add a one-line `- ` entry below the `---` in the same change. Each line is one short, single-line, fairly high-level accomplishment - never a long run-on sentence smashing several things together. If three things were done in the same subsystem, that is three short lines saying what they were, not one merged line.

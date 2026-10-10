@@ -25,6 +25,19 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Find_PreviewNamingAMissingFile_ReportsNothing_SoTheOnlyImageIsNeverOfferedForDeletion()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "dw2-stray-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                File.WriteAllText(Path.Combine(root, "Independence Day.png"), "x");
+                Assert.Empty(StrayImages.Find(root, "Independence Day (Simple).png"));
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Fact]
         public void Find_MissingFolder_IsEmpty()
         {
             Assert.Empty(StrayImages.Find(Path.Combine(Path.GetTempPath(), "dw2-nope-" + Guid.NewGuid().ToString("N")), "x.png"));

@@ -21,6 +21,9 @@ namespace DW2ModLauncher.Core.Services.Publishing
             List<string> found = new List<string>();
             if (string.IsNullOrWhiteSpace(modFolder) || !Directory.Exists(modFolder)) return found;
             string preview = (previewImage ?? "").Trim().Replace('\\', '/');
+            // A preview that names a file which isn't there (renamed or deleted by hand) leaves no way to tell what the mod means to
+            // use, and the image beside it may be the very one it meant: report nothing rather than offer to delete it.
+            if (preview.Length > 0 && !File.Exists(Path.Combine(modFolder, preview.Replace('/', Path.DirectorySeparatorChar)))) return found;
             foreach (string file in Directory.EnumerateFiles(modFolder))
             {
                 string name = Path.GetFileName(file);

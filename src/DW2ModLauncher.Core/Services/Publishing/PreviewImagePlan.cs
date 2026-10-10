@@ -62,20 +62,5 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 name = name.Substring(0, name.Length - ext.Length).TrimEnd();
             return name.Length == 0 ? null : name + extension;
         }
-
-        /// <summary>
-        /// A path in the mod folder for the resized copy: the source's name with the new extension, or "name (resized).ext",
-        /// "name (resized 2).ext"... when that is taken. Never an existing file, so neither the original nor anything else is overwritten.
-        /// </summary>
-        public static string TargetPath(string modFolder, string sourceFile, string extension)
-        {
-            string name = Path.GetFileNameWithoutExtension(sourceFile);
-            string target = Path.Combine(modFolder, name + extension);
-            if (!File.Exists(target)) return target;
-            target = Path.Combine(modFolder, name + " (resized)" + extension);
-            for (int n = 2; File.Exists(target); n++)
-                target = Path.Combine(modFolder, name + " (resized " + n + ")" + extension);
-            return target;
-        }
     }
 }

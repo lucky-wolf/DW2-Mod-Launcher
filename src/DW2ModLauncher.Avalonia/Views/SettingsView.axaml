@@ -7,7 +7,7 @@
     <StackPanel Margin="26" Spacing="14" Width="830" HorizontalAlignment="Left">
       <TextBlock Classes="heading" Text="{Binding L[PathsAndLaunchSettings]}" />
 
-      <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+      <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="DW2 Game Root" />
         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GameRoot}" />
         <Button Grid.Row="0" Grid.Column="2" Content="…" Command="{Binding BrowseGameCommand}" MinWidth="50" />
@@ -20,6 +20,8 @@
         <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Log Folder" />
         <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LogFolder}" Watermark="blank = DW2's data/Logs folder" />
         <Button Grid.Row="3" Grid.Column="2" Content="…" Command="{Binding BrowseLogFolderCommand}" MinWidth="50" />
+        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsDescriptionExtension]}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
+        <ComboBox Grid.Row="4" Grid.Column="1" IsEditable="True" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
       </Grid>
 
       <StackPanel Spacing="6">

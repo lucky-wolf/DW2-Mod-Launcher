@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using DW2ModLauncher.Core.Diagnostics;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
+using DW2ModLauncher.Core.Services.Publishing;
 
 namespace DW2ModLauncher.Avalonia.ViewModels
 {
@@ -70,6 +71,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string logFolder = "";
         /// <summary>Where the loader writes its logs; blank = the game's data/Logs folder.</summary>
         public string LogFolder { get { return logFolder; } set { Set(ref logFolder, value); } }
+        private string descriptionExtension = ModDescriptionFile.DefaultExtension;
+        /// <summary>Extension for the description file of a mod that names none (a dot is added if missing); typed freely or picked from <see cref="DescriptionExtensions"/>.</summary>
+        public string DescriptionExtension { get { return descriptionExtension; } set { Set(ref descriptionExtension, value); } }
+        public List<string> DescriptionExtensions { get; } = new List<string> { ".bbcode", ".txt" };
         private bool refreshingProfiles;
         /// <summary>
         /// The selected (active) profile; selecting one in the UI switches to it. With no named profile active this is the
@@ -122,6 +127,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             WorkshopRoot = s.WorkshopRoot ?? "";
             ManagedRoot = s.ManagedModsRoot ?? "";
             LogFolder = s.LogDirectory ?? "";
+            DescriptionExtension = ModDescriptionFile.NormalizeExtension(s.DescriptionExtension);
         }
 
         /// <summary>Writes the editable fields into the settings object without validating (used right before launch).</summary>
@@ -153,7 +159,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             string log = (logFolder ?? "").Trim();
             LauncherSettings s = main.LauncherSettings;
-            if (game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory) return true;
+            string extension = ModDescriptionFile.NormalizeExtension(descriptionExtension);
+            DescriptionExtension = extension;
+            bool pathsSame = game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory;
+            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension)) return true;
+            s.DescriptionExtension = extension;
+            if (pathsSame)
+            {
+                main.SaveSettings();
+                return true;
+            }
             s.GameRoot = game;
             s.WorkshopRoot = workshop;
             s.ManagedModsRoot = managed;

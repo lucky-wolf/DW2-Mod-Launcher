@@ -55,19 +55,5 @@ namespace DW2ModLauncher.Tests
         {
             Assert.Equal(expected, PreviewImagePlan.FileNameFor(typed, extension));
         }
-
-        [Fact]
-        public void TargetPath_NeverReusesAnExistingFile()
-        {
-            string source = Path.Combine(dir, "elsewhere", "cover.png");
-
-            Assert.Equal(Path.Combine(dir, "cover.jpg"), PreviewImagePlan.TargetPath(dir, source, ".jpg"));
-
-            File.WriteAllText(Path.Combine(dir, "cover.jpg"), "x");
-            Assert.Equal(Path.Combine(dir, "cover (resized).jpg"), PreviewImagePlan.TargetPath(dir, source, ".jpg"));
-
-            File.WriteAllText(Path.Combine(dir, "cover (resized).jpg"), "x");
-            Assert.Equal(Path.Combine(dir, "cover (resized 2).jpg"), PreviewImagePlan.TargetPath(dir, source, ".jpg"));
-        }
     }
 }

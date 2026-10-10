@@ -961,7 +961,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool isPublished = !string.IsNullOrWhiteSpace(mod.WorkshopId);
             ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder);
+            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension);
             if (!await Dialogs.EditPublishAsync(editor)) { UpdateStatus(); return; }
             // The version policy is launcher-side (launcher_settings.json); it only takes effect at the next publish.
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);
@@ -974,9 +974,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>
-        /// Writes a smaller copy of the mod's preview image beside the other mod files (never over anything) and points mod.json's
-        /// previewImage at it; <paramref name="metadata"/> follows. Returns the copy's path, or null (after saying why) when the image
-        /// could not be shrunk or saved, in which case nothing has changed.
+        /// Replaces the mod's preview image with a smaller version under the same name (the original goes to the recycle bin; only the
+        /// extension can change, e.g. a heavy PNG becomes a JPG) and points mod.json's previewImage at it; <paramref name="metadata"/>
+        /// follows. Returns the new path, or null (after saying why) when the image could not be shrunk or saved, in which case the
+        /// original is still in place.
         /// </summary>
         private async Task<string> ShrinkPreviewAsync(ModInfo mod, ModPublishMetadata metadata, string previewFile, string contentRoot)
         {
@@ -986,11 +987,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await Dialogs.ShowMessageAsync(T("PublishPreviewResizeFailed", Path.GetFileName(previewFile)), "DW2 Mod Launcher");
                 return null;
             }
-            string target = null;
             string previous = metadata.PreviewImage;
             try
             {
-                target = PreviewImageResizer.Save(fitted, contentRoot, Path.GetFileName(PreviewImagePlan.TargetPath(contentRoot, previewFile, fitted.Extension)));
+                string target = PreviewImageResizer.Replace(fitted, previewFile);
                 metadata.PreviewImage = ModFileImporter.RelativePath(contentRoot, target);
                 ModPublishMetadataEditor.Write(mod.ModJsonPath, metadata);
                 return target;
@@ -999,7 +999,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 Logger.LogException("Shrink preview image for publish", ex);
                 metadata.PreviewImage = previous;
-                try { if (target != null) File.Delete(target); } catch (Exception) { }
                 await Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
                 return null;
             }
@@ -1034,7 +1033,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // On an update, ask Steam what the description currently says so the dialog only offers to replace it when it differs.
             string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder);
+            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension);
             if (!await Dialogs.EditPublishAsync(editor)) return;
             // The version policy is remembered per mod in launcher_settings.json (never in the mod itself).
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);
