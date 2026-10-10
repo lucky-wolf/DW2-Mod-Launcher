@@ -10,7 +10,8 @@ namespace DW2ModLauncher.Core.Services
     /// Reads a mod's optional settings.schema.json (shipped by the mod author, describing the
     /// shape of its own settings.json values) into a ModSettingsSchema. Every root key whose value is an
     /// array is a group of fields, in file order; other root keys (e.g. "$schema") are ignored. A field key
-    /// that already appeared in an earlier group is skipped.
+    /// that already appeared in an earlier group is skipped. Returns null only when the mod ships no schema (or an
+    /// empty one); a schema that exists but cannot be read throws InvalidDataException.
     /// </summary>
     public static class ModSettingsSchemaReader
     {
@@ -25,7 +26,8 @@ namespace DW2ModLauncher.Core.Services
             {
                 using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(path, Encoding.UTF8)))
                 {
-                    if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
+                    if (document.RootElement.ValueKind != JsonValueKind.Object)
+                        throw new InvalidDataException("settings.schema.json must be a JSON object: " + path);
                     ModSettingsSchema schema = new ModSettingsSchema();
                     System.Collections.Generic.HashSet<string> seen = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     foreach (JsonProperty property in document.RootElement.EnumerateObject())
@@ -44,9 +46,9 @@ namespace DW2ModLauncher.Core.Services
                     return schema.Groups.Count > 0 ? schema : null;
                 }
             }
-            catch
+            catch (JsonException ex)
             {
-                return null;
+                throw new InvalidDataException("settings.schema.json is not valid: " + path + "\n" + ex.Message, ex);
             }
         }
     }

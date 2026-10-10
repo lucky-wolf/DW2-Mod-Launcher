@@ -74,7 +74,10 @@ namespace DW2ModLauncher.Core.Services
                             loaded[code] = pack;
                             names[code] = string.IsNullOrWhiteSpace(displayName) ? code : displayName;
                         }
-                        catch { }
+                        catch (Exception ex) when (ex is JsonException || ex is IOException || ex is UnauthorizedAccessException)
+                        {
+                            Diagnostics.Logger.LogException("Load language pack: " + file, ex);
+                        }
                     }
                 }
                 if (!loaded.ContainsKey("en")) loaded["en"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

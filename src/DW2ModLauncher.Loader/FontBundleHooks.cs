@@ -28,7 +28,7 @@ namespace DW2ModLauncher.Loader
                 .Where(f => !string.IsNullOrWhiteSpace(f?.Name) && !string.IsNullOrWhiteSpace(f.Folder)).ToList();
             if (_fonts.Count == 0) return 0;
             _logPath = Path.Combine(baseDir, "dw2modlauncher-fonts.log");
-            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like dw2modlauncher-patches.log
+            try { File.WriteAllText(_logPath, string.Empty); } catch (Exception ex) { HookStatus.LogFailed(_logPath, ex); } // one game start per log, like dw2modlauncher-patches.log
 
             Type vfs = Type.GetType("Stride.Core.IO.VirtualFileSystem, Stride.Core.IO", false);
             if (vfs == null)
@@ -113,9 +113,10 @@ namespace DW2ModLauncher.Loader
             {
                 if (_logPath != null) File.AppendAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message + Environment.NewLine);
             }
-            catch
+            catch (Exception ex)
             {
-                // Logging must never crash the game.
+                // Logging must never crash the game, but the status line says the log is lost.
+                HookStatus.LogFailed(_logPath, ex);
             }
         }
     }

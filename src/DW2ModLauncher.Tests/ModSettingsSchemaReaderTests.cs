@@ -91,7 +91,7 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
-        public void Read_ReturnsNull_WhenMalformed()
+        public void Read_Throws_WhenMalformed()
         {
             string dir = Path.Combine(Path.GetTempPath(), "dw2-schema-" + System.Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
@@ -99,7 +99,7 @@ namespace DW2ModLauncher.Tests
             {
                 File.WriteAllText(Path.Combine(dir, "settings.schema.json"), "{ not valid json");
 
-                Assert.Null(ModSettingsSchemaReader.Read(dir));
+                Assert.Throws<InvalidDataException>(() => ModSettingsSchemaReader.Read(dir));
             }
             finally { Directory.Delete(dir, true); }
         }

@@ -11,6 +11,9 @@ namespace DW2ModLauncher.Core.Services
     /// </summary>
     public static class UserDataRoot
     {
+        /// <summary>Why moving the old settings out of the install folder failed, or null.</summary>
+        public static string MigrationError { get; private set; }
+
         public static string Get()
         {
             // SpecialFolderOption.Create: on Unix the default returns "" when ~/.config (or $XDG_CONFIG_HOME) doesn't
@@ -41,7 +44,11 @@ namespace DW2ModLauncher.Core.Services
                 if (Directory.Exists(oldProfiles) && !Directory.Exists(newProfiles))
                     Directory.Move(oldProfiles, newProfiles);
             }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // Can't use Logger (it locates its file through this method); the launcher shows this once its window is up.
+                MigrationError = "Your old launcher settings or profiles could not be moved from " + installDir + " to " + root + ", so they are not in use.\n" + ex.Message;
+            }
             return root;
         }
     }

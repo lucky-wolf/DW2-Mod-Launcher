@@ -97,7 +97,11 @@ namespace DW2ModLauncher.Core.Services
                 FetchRemoteTimes(new List<string> { id }, out Dictionary<string, WorkshopRemoteDetail> details);
                 return details.TryGetValue(id, out WorkshopRemoteDetail detail) ? detail.Description ?? "" : null;
             }
-            catch (Exception) { return null; }
+            catch (Exception ex)
+            {
+                Diagnostics.Logger.LogException("Fetch Workshop description: " + id, ex);
+                return null;
+            }
         }
 
         private static string DictionaryValue(Dictionary<string, object> d, string key)

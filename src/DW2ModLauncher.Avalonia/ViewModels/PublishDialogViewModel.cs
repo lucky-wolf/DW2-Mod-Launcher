@@ -215,11 +215,34 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private static List<InjectedDllRow> BuildInjectedRows(ModInfo mod, LocalizedStrings l)
         {
+            try { return ScanInjectedRows(mod, l); }
+            catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException)
+            {
+                // An unreadable mod folder or DLL must not look like "this mod injects nothing".
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Scan injected DLLs: " + mod.Folder, ex);
+                return new List<InjectedDllRow> { new InjectedDllRow { Dll = mod.ContentRoot ?? mod.Folder, EntryPoint = l["PublishInjectedDllsInvalid"], IsInvalid = true, Tooltip = ex.Message } };
+            }
+        }
+
+        private static List<InjectedDllRow> ScanInjectedRows(ModInfo mod, LocalizedStrings l)
+        {
             List<InjectedDllRow> rows = DW2ModLauncher.Core.Services.InjectionScanner.TargetsFor(mod)
                 .Select(t => new InjectedDllRow { Dll = t.Dll, EntryPoint = t.EntryPoint }).ToList();
             // Incongruous: the mod ships a settings schema, yet none of its DLLs can receive settings (they only have Init()).
             string root = mod.ContentRoot ?? mod.Folder;
-            if (rows.Count > 0 && DW2ModLauncher.Core.Services.ModSettingsSchemaReader.Read(root) != null
+            bool hasSchema;
+            try { hasSchema = DW2ModLauncher.Core.Services.ModSettingsSchemaReader.Read(root) != null; }
+            catch (System.IO.InvalidDataException ex)
+            {
+                // A schema that exists but is broken must not look like "no schema": flag every DLL row with the reason.
+                foreach (InjectedDllRow row in rows)
+                {
+                    row.IsWarning = true;
+                    row.Tooltip = ex.Message;
+                }
+                return rows;
+            }
+            if (rows.Count > 0 && hasSchema
                 && !rows.Any(r => DW2ModLauncher.Core.Services.InjectionScanner.AcceptsOptions(System.IO.Path.Combine(root, r.Dll.Replace('/', System.IO.Path.DirectorySeparatorChar)))))
             {
                 foreach (InjectedDllRow row in rows)

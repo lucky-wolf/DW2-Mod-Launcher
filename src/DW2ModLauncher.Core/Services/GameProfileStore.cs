@@ -18,6 +18,7 @@ namespace DW2ModLauncher.Core.Services
         private static readonly Regex Escaped = new Regex("_([0-9A-Fa-f]{2})_", RegexOptions.Compiled);
 
         private readonly string modsFolder;
+        public string ModsFolder { get { return modsFolder; } }
 
         /// <param name="modsFolder">The folder holding mods.json (null/missing yields no profiles).</param>
         public GameProfileStore(string modsFolder)
@@ -48,6 +49,9 @@ namespace DW2ModLauncher.Core.Services
         /// escaped differently than we would is still found and overwritten rather than duplicated; otherwise the
         /// path we would create.
         /// </summary>
+        /// <summary>Set when the profiles folder could not be read, so an empty list or blank current profile is an error, not a fact. Cleared by the caller.</summary>
+        public string ReadError { get; set; }
+
         public string PathFor(string name)
         {
             try
@@ -60,7 +64,11 @@ namespace DW2ModLauncher.Core.Services
                         if (string.Equals(Unescape(escaped), name, StringComparison.OrdinalIgnoreCase)) return path;
                     }
             }
-            catch { }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Diagnostics.Logger.LogException("Look up profile file: " + modsFolder, ex);
+                ReadError = ex.Message;
+            }
             return Path.Combine(modsFolder ?? "", "mods." + Escape(name) + ".json");
         }
 
@@ -87,7 +95,11 @@ namespace DW2ModLauncher.Core.Services
                     if (escaped.Length > 0) names.Add(Unescape(escaped));
                 }
             }
-            catch { }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Diagnostics.Logger.LogException("List profiles: " + modsFolder, ex);
+                ReadError = ex.Message;
+            }
             names.Sort(StringComparer.CurrentCultureIgnoreCase);
             return names;
         }
@@ -100,7 +112,12 @@ namespace DW2ModLauncher.Core.Services
                 string path = Path.Combine(modsFolder ?? "", CurrentFile);
                 return !string.IsNullOrWhiteSpace(modsFolder) && File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8).Trim() : "";
             }
-            catch { return ""; }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Diagnostics.Logger.LogException("Read current profile: " + modsFolder, ex);
+                ReadError = ex.Message;
+                return "";
+            }
         }
 
         public void WriteCurrent(string name)

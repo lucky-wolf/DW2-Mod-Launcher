@@ -21,6 +21,8 @@ namespace DW2ModLauncher.Core.Services
     {
         public SetEnabledOutcome Outcome { get; set; }
         public Exception Error { get; set; }
+        /// <summary>The mod was enabled, but creating or completing its settings file failed (a broken schema or settings file).</summary>
+        public Exception SettingsError { get; set; }
     }
 
     /// <summary>Scanning, ordering and enabling of the installed mods. No UI.</summary>
@@ -83,7 +85,11 @@ namespace DW2ModLauncher.Core.Services
                     ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
                     if (schema != null) ModSettingsStore.GetOrCreateValues(mod, schema);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Diagnostics.Logger.LogException("Create settings for enabled mod: " + mod.DisplayName, ex);
+                    result.SettingsError = ex;
+                }
             }
             return result;
         }

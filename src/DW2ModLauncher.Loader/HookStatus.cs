@@ -10,6 +10,10 @@ namespace DW2ModLauncher.Loader
 
         public static void Failed(string key, string text, string logFile) => Set(key, text, StatusLevel.Error, logFile);
 
+        // A log that cannot be written would otherwise lose every later message silently; the status line is the one place left to say so.
+        public static void LogFailed(string logPath, Exception ex) =>
+            Failed("log:" + logPath, "A loader log cannot be written (" + ex.Message + "): " + logPath, null);
+
         public static void Warn(string key, string text, string logFile) => Set(key, text, StatusLevel.Warn, logFile);
 
         private static void Set(string key, string text, StatusLevel level, string logFile)

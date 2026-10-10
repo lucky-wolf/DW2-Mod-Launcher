@@ -27,6 +27,7 @@ namespace DW2ModLauncher.Avalonia
             // The online Workshop check waits until the window is up so a Steam or network problem can't break startup.
             Opened += async delegate
             {
+                main.WindowShown();
                 main.CleanUpFinishedUpdate();
                 await main.BeginWorkshopUpdateCheck(false);
                 await main.CheckForLauncherUpdateAsync(false);

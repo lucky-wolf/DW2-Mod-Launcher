@@ -198,6 +198,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     ProfileNames.Insert(i, names[i]);
                 }
                 string current = store.ReadCurrent();
+                if (store.ReadError != null) main.AddProblem("The profiles in " + store.ModsFolder + " could not be read, so none are listed.\n" + store.ReadError);
                 profileName = string.IsNullOrWhiteSpace(current) || IsDefaultProfileLabel(current) ? ""
                     : ProfileNames.FirstOrDefault(n => string.Equals(n, current, StringComparison.OrdinalIgnoreCase)) ?? "";
                 defaultBaseline = HasProfile ? null : defaultBaseline ?? main.ModOrder.Order.ToList();

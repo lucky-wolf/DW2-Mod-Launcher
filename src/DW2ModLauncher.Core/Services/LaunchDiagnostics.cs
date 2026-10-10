@@ -24,6 +24,8 @@ namespace DW2ModLauncher.Core.Services
             {
                 foreach (string required in mod.RequiredMods ?? new List<string>())
                     if (!enabled.Any(m => matches(m, required))) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("MissingRequiredMod") + required);
+                if (mod.ScanError != null) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": its files could not be scanned for conflicts: " + mod.ScanError);
+                if (mod.ModJsonError != null) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": mod.json is not valid JSON, so its dependencies and load order hints were not checked: " + mod.ModJsonError);
                 if (LauncherRequirement.IsUnmet(mod)) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
                 foreach (string incompatible in mod.IncompatibleMods ?? new List<string>())
                     if (enabled.Any(m => m != mod && matches(m, incompatible))) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("IncompatibleModEnabled") + incompatible);
@@ -52,7 +54,10 @@ namespace DW2ModLauncher.Core.Services
                         catch (Exception ex) { issues.Add("⚠ " + t("InvalidXML") + xml + " (" + ex.Message + ")"); }
                     }
                 }
-                catch { }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": its XML files could not be checked: " + ex.Message);
+                }
             }
             foreach (var font in LoaderManifestBuilder.FontIssues(enabled))
             {
@@ -71,7 +76,10 @@ namespace DW2ModLauncher.Core.Services
                         owners.Add(mod.DisplayName ?? mod.Id);
                     }
                 }
-                catch { }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": its DLLs could not be checked for duplicates: " + ex.Message);
+                }
             }
             foreach (KeyValuePair<string, List<string>> pair in dlls.Where(x => x.Value.Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))
                 issues.Add("⚠ " + t("DuplicateDLL") + pair.Key + " — " + string.Join(" / ", pair.Value.Distinct().ToArray()));

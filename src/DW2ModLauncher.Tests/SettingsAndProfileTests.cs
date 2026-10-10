@@ -31,11 +31,20 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
-        public void SettingsStore_CorruptFileGivesDefaults()
+        public void SettingsStore_CorruptFileGivesDefaults_KeepsBackup_AndReportsError()
         {
             string path = Path.Combine(dir, "s.json");
             File.WriteAllText(path, "{ not json");
-            Assert.Equal("en", new LauncherSettingsStore(path).Load().Language);
+            LauncherSettingsStore store = new LauncherSettingsStore(path);
+
+            Assert.Equal("en", store.Load().Language);
+
+            Assert.NotNull(store.LoadError);
+            Assert.Equal("{ not json", File.ReadAllText(path + ".bad"));
+            // A good file afterwards clears the error.
+            store.Save(new LauncherSettings());
+            store.Load();
+            Assert.Null(store.LoadError);
         }
 
         [Fact]

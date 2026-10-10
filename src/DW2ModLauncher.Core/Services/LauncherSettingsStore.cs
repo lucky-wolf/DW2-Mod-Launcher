@@ -28,23 +28,39 @@ namespace DW2ModLauncher.Core.Services
 
         public string Path { get { return path; } }
 
-        /// <summary>Never throws: a missing or unreadable file yields default settings.</summary>
+        /// <summary>Why the last Load() fell back to defaults, or null when it read the file (or there was none).</summary>
+        public string LoadError { get; private set; }
+
+        /// <summary>A missing file yields default settings. A file that exists but cannot be read is copied to a
+        /// ".bad" file (so the next Save cannot destroy it), logged, described in LoadError, and defaults are used.</summary>
         public LauncherSettings Load()
         {
+            LoadError = null;
+            if (!File.Exists(path)) return new LauncherSettings();
             try
             {
-                if (File.Exists(path))
-                {
-                    LauncherSettings s = JsonSerializer.Deserialize<LauncherSettings>(File.ReadAllText(path, Encoding.UTF8));
-                    if (s != null)
-                    {
-                        if (s.SelectedMods == null) s.SelectedMods = new Dictionary<string, bool>();
-                        return s;
-                    }
-                }
+                LauncherSettings s = JsonSerializer.Deserialize<LauncherSettings>(File.ReadAllText(path, Encoding.UTF8));
+                if (s == null) throw new InvalidDataException("The file is empty or contains only null.");
+                if (s.SelectedMods == null) s.SelectedMods = new Dictionary<string, bool>();
+                return s;
             }
-            catch { }
-            return new LauncherSettings();
+            catch (Exception ex) when (ex is JsonException || ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Diagnostics.Logger.LogException("Load launcher settings: " + path, ex);
+                string detail = ex.Message;
+                try
+                {
+                    string bad = path + ".bad";
+                    File.Copy(path, bad, true);
+                    LoadError = "launcher_settings.json could not be read, so default settings are in use. Your original file was kept as " + bad + ".\n" + detail;
+                }
+                catch (Exception copyEx)
+                {
+                    Diagnostics.Logger.LogException("Back up unreadable launcher settings", copyEx);
+                    LoadError = "launcher_settings.json could not be read and could not be backed up (" + copyEx.Message + "); saving will overwrite it.\n" + detail;
+                }
+                return new LauncherSettings();
+            }
         }
 
         /// <summary>Throws on I/O failure.</summary>

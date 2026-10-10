@@ -39,7 +39,12 @@ namespace DW2ModLauncher.Loader
         {
             _logPath = Path.Combine(baseDir, "dw2modlauncher-patches.log");
             try { File.WriteAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] XML patching: reading patch files." + Environment.NewLine); }
-            catch { _logPath = null; }
+            catch (Exception ex)
+            {
+                _logPath = null;
+                Entry.Log("ERROR: XML patching cannot write its log (" + ex.Message + "); patches still apply but their diagnostics will not be recorded.");
+                ModStatus.Error(MenuRegistry.LauncherId, "XML patch log cannot be written: " + ex.Message);
+            }
 
             _modFolders = manifest?.ModFolders ?? new List<string>();
             PatchRunner runner = new PatchRunner(SchemaFor, KeyMap.Default);
@@ -184,7 +189,8 @@ namespace DW2ModLauncher.Loader
             catch (Exception ex)
             {
                 Log("ERROR while patching " + path + " (the data loads unpatched): " + ex);
-                try { if (stream != null && stream.CanSeek) stream.Position = 0; } catch { }
+                try { if (stream != null && stream.CanSeek) stream.Position = 0; }
+                catch (Exception resetEx) { Log("ERROR could not rewind " + path + " after the failed patch, so the game may read it incorrectly: " + resetEx.Message); }
             }
         }
 
@@ -307,9 +313,10 @@ namespace DW2ModLauncher.Loader
                 lock (LogLock)
                     File.AppendAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message + Environment.NewLine);
             }
-            catch
+            catch (Exception ex)
             {
-                // Logging must never crash the game.
+                // Logging must never crash the game, but the status line says the log is lost.
+                HookStatus.LogFailed(_logPath, ex);
             }
         }
     }

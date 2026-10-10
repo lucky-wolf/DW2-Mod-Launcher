@@ -98,7 +98,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 using (MemoryStream ms = new MemoryStream(File.ReadAllBytes(path)))
                     return decodeWidth > 0 ? Bitmap.DecodeToWidth(ms, decodeWidth) : new Bitmap(ms);
             }
-            catch { return null; }
+            catch (System.Exception ex)
+            {
+                // Shows no image; the log says why, for the mod author.
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Load preview image: " + path, ex);
+                return null;
+            }
         }
     }
 }

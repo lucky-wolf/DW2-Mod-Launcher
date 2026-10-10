@@ -9,7 +9,7 @@ namespace DW2ModLauncher.Loader
         public static readonly MenuRegistry Registry = new MenuRegistry();
 
         // Adds (or replaces) the mod's entry under Mods. onClick runs when the player picks it; an exception from it is swallowed.
-        public static void Add(string id, string label, Action onClick) => Safe(() => Registry.Add(id, label, Guard(onClick)));
+        public static void Add(string id, string label, Action onClick) => Safe(() => Registry.Add(id, label, Guard(id, onClick)));
 
         static volatile bool _showRequested;
 
@@ -28,7 +28,7 @@ namespace DW2ModLauncher.Loader
 
         public static void SetEnabled(string id, bool enabled) => Safe(() => Registry.SetEnabled(id, enabled));
 
-        static Action Guard(Action onClick)
+        static Action Guard(string id, Action onClick)
         {
             if (onClick == null) return null;
             return () =>
@@ -37,9 +37,10 @@ namespace DW2ModLauncher.Loader
                 {
                     onClick();
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // a mod's handler must not take the game's input loop down
+                    // a mod's handler must not take the game's input loop down, but the failure is recorded against the mod
+                    Report("menu handler '" + id + "' threw", id, ex);
                 }
             };
         }
@@ -50,8 +51,22 @@ namespace DW2ModLauncher.Loader
             {
                 action();
             }
+            catch (Exception ex)
+            {
+                Report("menu call failed", null, ex);
+            }
+        }
+
+        static void Report(string what, string id, Exception ex)
+        {
+            try
+            {
+                StatusWidget.Log("ERROR mods menu: " + what + ": " + ex);
+                if (id != null) ModStatus.Error(id, what + ": " + ex.Message);
+            }
             catch (Exception)
             {
+                // reporting must not throw into the mod or the game either
             }
         }
     }

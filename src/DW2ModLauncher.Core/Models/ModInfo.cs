@@ -31,6 +31,10 @@ namespace DW2ModLauncher.Core.Models
         public List<string> ConflictMods { get; set; }
         public List<string> ConflictPathCache { get; set; }
         public string ModJsonPath { get; set; }
+        /// <summary>Why mod.json could not be parsed (its dependencies and load order hints were then not read), or null when it parsed.</summary>
+        public string ModJsonError { get; set; }
+        /// <summary>Why the mod's files could not be scanned for conflicts (so none are reported for it), or null.</summary>
+        public string ScanError { get; set; }
         // The "workshopId" field from mod.json, if the Mod author has published it before (see
         // ModPublishCommandBuilder/ModJsonWorkshopIdWriter) - distinct from IsWorkshop, which means
         // "this copy came from a Steam Workshop subscription," not "this Mod has ever been published."

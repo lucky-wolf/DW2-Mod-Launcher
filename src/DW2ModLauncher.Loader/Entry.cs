@@ -39,8 +39,13 @@ namespace DW2ModLauncher.Loader
 
             string logDir = LogDirectory(baseDir, manifest?.LogDirectory);
             _logPath = Path.Combine(logDir, "dw2modlauncher.log");
-            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like dw2modlauncher-patches.log
+            try { File.WriteAllText(_logPath, string.Empty); } catch (Exception ex) { HookStatus.LogFailed(_logPath, ex); } // one game start per log, like dw2modlauncher-patches.log
             Log("Entry.Init() called.");
+            if (_logDirNote != null)
+            {
+                Log("ERROR: " + _logDirNote);
+                HookStatus.Failed("logfolder", _logDirNote, _logPath);
+            }
             if (!string.IsNullOrWhiteSpace(manifest?.LogDirectory) && logDir != manifest.LogDirectory)
             {
                 string text = "log folder '" + manifest.LogDirectory + "' does not exist; the loader logs are in " + logDir;
@@ -248,22 +253,26 @@ namespace DW2ModLauncher.Loader
                 Directory.CreateDirectory(logs);
                 return logs;
             }
-            catch
+            catch (Exception ex)
             {
+                _logDirNote = "the game's log folder could not be created (" + ex.Message + "); the loader logs are in " + fallback;
                 return fallback;
             }
         }
 
-        private static void Log(string message)
+        private static string _logDirNote;
+
+        internal static void Log(string message)
         {
             try
             {
                 if (string.IsNullOrEmpty(_logPath)) return;
                 File.AppendAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message + Environment.NewLine);
             }
-            catch
+            catch (Exception ex)
             {
-                // Logging must never crash the loader.
+                // Logging must never crash the loader, but the status line says the log is lost.
+                HookStatus.LogFailed(_logPath, ex);
             }
         }
     }

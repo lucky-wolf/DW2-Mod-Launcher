@@ -26,7 +26,13 @@ namespace DW2ModLauncher.Core.Services
             if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return cache;
             string[] files;
             try { files = Directory.GetFiles(root, "*", SearchOption.AllDirectories); }
-            catch { return cache; }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // The mod's files are unknown, so conflicts involving it cannot be detected: record that on the mod.
+                Diagnostics.Logger.LogException("Scan mod files: " + root, ex);
+                mod.ScanError = ex.Message;
+                return cache;
+            }
             foreach (string file in files)
             {
                 string rel;
@@ -36,7 +42,12 @@ namespace DW2ModLauncher.Core.Services
                               .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                               .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
                 }
-                catch { continue; }
+                catch (ArgumentException ex)
+                {
+                    Diagnostics.Logger.LogException("Conflict path: " + file, ex);
+                    mod.ScanError = ex.Message;
+                    continue;
+                }
                 if (ConflictRules.IsIgnored(rel)) continue;
                 cache.Add(rel.ToLowerInvariant());
             }
@@ -145,7 +156,12 @@ namespace DW2ModLauncher.Core.Services
                 using (SHA256 sha = SHA256.Create())
                 using (FileStream stream = File.OpenRead(file)) return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
             }
-            catch { return ""; }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // "" makes the file count as differing, so the conflict is still reported; the reason goes to the log.
+                Diagnostics.Logger.LogException("Hash file for conflict check: " + relativePath, ex);
+                return "";
+            }
         }
 
         /// <summary>

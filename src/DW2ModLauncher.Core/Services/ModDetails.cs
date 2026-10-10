@@ -110,6 +110,7 @@ namespace DW2ModLauncher.Core.Services
             if (mod.IdenticalFileCount > 0) lines.Add(t("SamePathAndIdenticalContent") + mod.IdenticalFileCount);
             if (mod.IsWorkshop && mod.UpdateState == "update") lines.Add(t("SteamWorkshopUpdateAvailable"));
             if (LauncherRequirement.IsUnmet(mod)) lines.Add(t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
+            if (mod.ModJsonError != null) lines.Add("mod.json is not valid JSON, so this mod's dependencies and load order hints were not read: " + mod.ModJsonError);
             return lines;
         }
     }

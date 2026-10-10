@@ -321,24 +321,65 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public bool IsSelected(ModInfo mod) { return modOrder.IsSelected(mod, settings); }
 
+        // Problems found while loading or refreshing, shown together in one dialog once the window is up.
+        private readonly List<string> problems = new List<string>();
+        private bool windowShown;
+
+        public void AddProblem(string text)
+        {
+            if (!problems.Contains(text)) problems.Add(text);
+        }
+
+        /// <summary>Called when the main window has opened: from now on problems are shown as they arise, and any found during construction now.</summary>
+        public void WindowShown()
+        {
+            windowShown = true;
+            if (settingsStore.LoadError != null) AddProblem(settingsStore.LoadError);
+            if (UserDataRoot.MigrationError != null) AddProblem(UserDataRoot.MigrationError);
+            ReportProblems();
+        }
+
+        private void ReportProblems()
+        {
+            if (!windowShown || problems.Count == 0) return;
+            string text = string.Join("\n\n", problems);
+            problems.Clear();
+            var _ = Dialogs.ShowMessageAsync(text, "DW2 Mod Launcher");
+        }
+
         public void Refresh()
         {
             NormalizeSettings();
             modOrder = ModOrderStore.Read(ModsJsonPath());
             Dictionary<string, ModInfo> workshopState = ModLibrary.IndexWorkshopById(workshopMods);
             try { managedMods = ModScanner.ScanMods(settings.ManagedModsRoot, false, key => T(key)) ?? new List<ModInfo>(); }
-            catch (Exception ex) { Logger.LogException("Scan managed mods", ex); managedMods = new List<ModInfo>(); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Scan managed mods", ex);
+                AddProblem("The mods folder could not be read, so no local mods are listed: " + settings.ManagedModsRoot + "\n" + ex.Message);
+                managedMods = new List<ModInfo>();
+            }
             try { workshopMods = ModScanner.ScanMods(settings.WorkshopRoot, true, key => T(key)) ?? new List<ModInfo>(); }
-            catch (Exception ex) { Logger.LogException("Scan Workshop mods", ex); workshopMods = new List<ModInfo>(); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Scan Workshop mods", ex);
+                AddProblem("The Workshop folder could not be read, so no Workshop mods are listed: " + settings.WorkshopRoot + "\n" + ex.Message);
+                workshopMods = new List<ModInfo>();
+            }
+            foreach (ModInfo bad in managedMods.Concat(workshopMods).Where(m => m.ModJsonError != null))
+                AddProblem(bad.DisplayName + ": mod.json is not valid JSON, so its dependencies and load order hints were not read.\n" + bad.ModJsonError);
             ModLibrary.RestoreWorkshopRuntimeState(workshopMods, workshopState);
             managedMods = ModLibrary.OrderForDisplay(managedMods, modOrder);
             workshopMods = ModLibrary.OrderForDisplay(workshopMods, modOrder);
 
             Analyze();
+            foreach (ModInfo unscanned in AllMods.Where(m => m.ScanError != null))
+                AddProblem((unscanned.DisplayName ?? unscanned.Id) + ": its files could not be scanned, so conflicts with it cannot be detected.\n" + unscanned.ScanError);
             RebuildRows();
             SyncEnabledModSettings();
             Settings.LoadFromSettings();
             UpdateStatus();
+            ReportProblems();
         }
 
         /// <summary>Completes the settings file of every enabled mod (keys added by a mod update appear at their defaults).</summary>
@@ -352,7 +393,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
                     if (schema != null) ModSettingsStore.GetOrCreateValues(mod, schema);
                 }
-                catch (Exception ex) { Logger.LogException("Sync mod settings", ex); }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Sync mod settings", ex);
+                    AddProblem((mod.DisplayName ?? mod.Id) + ": its settings could not be prepared.\n" + ex.Message);
+                }
             }
         }
 
@@ -472,6 +517,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     break;
                 case SetEnabledOutcome.Saved:
                     SetStatus(T("DW2ModSettingsSaved"));
+                    if (result.SettingsError != null)
+                        await Dialogs.ShowMessageAsync(row.Mod.DisplayName + " was enabled, but its settings could not be prepared.\n" + result.SettingsError.Message, "DW2 Mod Launcher");
                     break;
             }
             Analyze();
@@ -849,7 +896,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private static bool HasModSettings(ModRowViewModel row)
         {
             if (row == null) return false;
-            ModSettingsSchema schema = ModSettingsSchemaReader.Read(row.Mod.ContentRoot ?? row.Mod.Folder);
+            ModSettingsSchema schema;
+            // A broken schema still enables the button: clicking it reports the error instead of the mod silently having no settings.
+            try { schema = ModSettingsSchemaReader.Read(row.Mod.ContentRoot ?? row.Mod.Folder); }
+            catch (InvalidDataException) { return true; }
             return schema != null && schema.VisibleFields(row.Mod).Any(f => !string.IsNullOrWhiteSpace(f.Key));
         }
 
@@ -857,10 +907,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             if (selectedRow == null) return;
             ModInfo mod = selectedRow.Mod;
-            ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
-            if (schema == null || !schema.VisibleFields(mod).Any()) { await Dialogs.ShowMessageAsync(T("NoConfigurableSettings"), "DW2 Mod Launcher"); return; }
             try
             {
+                ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
+                if (schema == null || !schema.VisibleFields(mod).Any()) { await Dialogs.ShowMessageAsync(T("NoConfigurableSettings"), "DW2 Mod Launcher"); return; }
                 JsonObject values = ModSettingsStore.GetOrCreateValues(mod, schema);
                 string modKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
                 if (settings.CollapsedSettingGroups == null) settings.CollapsedSettingGroups = new Dictionary<string, List<string>>();
@@ -961,7 +1011,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool isPublished = !string.IsNullOrWhiteSpace(mod.WorkshopId);
             ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension);
+            PublishDialogViewModel editor;
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension); }
+            catch (IOException ex)
+            {
+                Logger.LogException("Open publish dialog", ex);
+                await Dialogs.ShowMessageAsync("The mod folder could not be read: " + ex.Message, "DW2 Mod Launcher");
+                return;
+            }
             if (!await Dialogs.EditPublishAsync(editor)) { UpdateStatus(); return; }
             // The version policy is launcher-side (launcher_settings.json); it only takes effect at the next publish.
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);
@@ -1033,7 +1090,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // On an update, ask Steam what the description currently says so the dialog only offers to replace it when it differs.
             string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension);
+            PublishDialogViewModel editor;
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension); }
+            catch (IOException ex)
+            {
+                Logger.LogException("Open publish dialog", ex);
+                await Dialogs.ShowMessageAsync("The mod folder could not be read: " + ex.Message, "DW2 Mod Launcher");
+                return;
+            }
             if (!await Dialogs.EditPublishAsync(editor)) return;
             // The version policy is remembered per mod in launcher_settings.json (never in the mod itself).
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);
@@ -1368,8 +1432,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Analyze();
             RefreshRowStates();
             List<ModInfo> enabled = AllMods.Where(IsSelected).ToList();
-            List<string> diagnostics = LaunchDiagnostics.Build(enabled, modOrder, GameLauncher.LoaderDllPath(),
-                LoaderManifestBuilder.Build(OrderedEnabledMods()).Entries, key => T(key));
+            List<string> diagnostics;
+            try
+            {
+                diagnostics = LaunchDiagnostics.Build(enabled, modOrder, GameLauncher.LoaderDllPath(),
+                    LoaderManifestBuilder.Build(OrderedEnabledMods()).Entries, key => T(key));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Pre-launch check", ex);
+                await Dialogs.ShowMessageAsync("The game was not started because a mod's settings could not be read.\n" + ex.Message, "DW2 Mod Launcher");
+                return;
+            }
             if (diagnostics.Count > 0 && !await Dialogs.ConfirmAsync(
                 T("DiagnosticsFoundIssues") + string.Join("\n", diagnostics.Take(30)) + T("LaunchAnyway"),
                 T("PreLaunchDiagnostics"), T("Yes"), T("No"))) return;

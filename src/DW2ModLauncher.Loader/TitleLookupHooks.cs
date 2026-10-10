@@ -99,9 +99,10 @@ namespace DW2ModLauncher.Loader
                     File.AppendAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message + Environment.NewLine);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Logging must never crash the game.
+                // Logging must never crash the game, but the status line says the log is lost.
+                HookStatus.LogFailed(_logPath, ex);
             }
         }
     }

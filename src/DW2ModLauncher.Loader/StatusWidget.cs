@@ -50,6 +50,9 @@ namespace DW2ModLauncher.Loader
         static readonly List<RowAction> _actions = new List<RowAction>();
         enum RowAction { Dismiss, Minimize }
 
+        // For code outside the widget (ModMenu) that needs to put a line in the loader log once the widget is up.
+        internal static void Log(string message) => _log?.Invoke(message);
+
         public static void Install(Action<string> log)
         {
             _log = log;

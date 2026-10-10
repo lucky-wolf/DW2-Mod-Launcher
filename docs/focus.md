@@ -11,3 +11,5 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
+
+- Did a sweep of error handling an improved a great many places
