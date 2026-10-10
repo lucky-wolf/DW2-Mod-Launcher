@@ -9,6 +9,12 @@
   <Grid RowDefinitions="*,Auto">
     <ScrollViewer Grid.Row="0">
       <StackPanel Margin="24" Spacing="14">
+        <Border IsVisible="{Binding HasStrayImages}" BorderBrush="Orange" BorderThickness="1" Padding="10,8" ToolTip.Tip="{Binding StrayImagesTooltip}">
+          <Grid ColumnDefinitions="*,12,Auto">
+            <TextBlock Grid.Column="0" Foreground="Orange" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding StrayImagesWarning, StringFormat='⚠ {0}'}" />
+            <Button Grid.Column="2" Command="{Binding CleanStrayImagesCommand}" Content="{Binding L[PublishStrayImagesClean]}" />
+          </Grid>
+        </Border>
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[PublishInfoTitle]}" />
           <TextBox Text="{Binding Title}" />

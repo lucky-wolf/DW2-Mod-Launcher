@@ -22,7 +22,7 @@ namespace DW2ModLauncher.Core.Services
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
         };
 
-        /// <summary>Turns a display name into a folder name that is valid on Windows and Linux: "My Mod: Part 2" becomes "My_Mod_Part_2".</summary>
+        /// <summary>Turns a display name into a folder name that is valid on Windows and Linux: "My Mod: Part 2" becomes "My Mod Part 2". Spaces are kept (runs collapse to one); only characters the file system rejects are dropped.</summary>
         public static string FolderNameFor(string displayName)
         {
             char[] invalid = Path.GetInvalidFileNameChars();
@@ -35,12 +35,12 @@ namespace DW2ModLauncher.Core.Services
                     pendingSeparator = sb.Length > 0;
                     continue;
                 }
-                if (pendingSeparator) sb.Append('_');
+                if (pendingSeparator) sb.Append(' ');
                 pendingSeparator = false;
                 sb.Append(c);
             }
             // Windows silently drops trailing dots and spaces, which makes the folder impossible to address.
-            string name = sb.ToString().TrimEnd('.', '_');
+            string name = sb.ToString().TrimEnd('.', ' ');
             if (name.Length == 0) return DefaultFolderName;
             string stem = name.Contains('.') ? name.Substring(0, name.IndexOf('.')) : name;
             if (ReservedNames.Contains(stem, StringComparer.OrdinalIgnoreCase)) name = "_" + name;
