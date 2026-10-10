@@ -86,7 +86,7 @@ only files that something else loads **by path** stay loose:
 DW2ModLauncher-vX.Y.Z-win-x64/
   DW2ModLauncher.exe
   Loader/DW2ModLauncher.Loader.dll   injected into the game via --low-level-inject (docs/DLL Injection.md)
-  Languages/en.json, ja.json         UI strings
+  Languages/en.json, ja.json, ru.json     UI strings
   steam_api64.dll, steam_appid.txt   Steamworks (Workshop publish), loaded by the Steam API by name/CWD
   LICENSE, README.md
 ```
