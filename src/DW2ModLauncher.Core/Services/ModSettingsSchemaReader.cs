@@ -17,6 +17,8 @@ namespace DW2ModLauncher.Core.Services
     {
         private static readonly JsonSerializerOptions Options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
+        private static readonly JsonDocumentOptions DocumentOptions = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
+
         public static ModSettingsSchema Read(string modContentRoot)
         {
             if (string.IsNullOrWhiteSpace(modContentRoot)) return null;
@@ -24,7 +26,7 @@ namespace DW2ModLauncher.Core.Services
             if (!File.Exists(path)) return null;
             try
             {
-                using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(path, Encoding.UTF8)))
+                using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(path, Encoding.UTF8), DocumentOptions))
                 {
                     if (document.RootElement.ValueKind != JsonValueKind.Object)
                         throw new InvalidDataException("settings.schema.json must be a JSON object: " + path);

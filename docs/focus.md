@@ -13,3 +13,4 @@ reconstruct it right before opening the PR. Fold several small related lines int
 ---
 
 - Did a sweep of error handling an improved a great many places
+- We now assume JSON with Comments for settings.schema.json files
