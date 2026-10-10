@@ -160,6 +160,7 @@
   "AutoDetect": "Auto Detect",
   "SwitchedModProfile": "Switched Mod profile: ",
   "MissingRequiredMod": "Missing required Mod: ",
+  "LauncherTooOld": "Needs a newer launcher, version at least ",
   "ModConflictWarning": "Mod Conflict Warning",
   "LocalUpdate": "Local update: ",
   "ModsJsonInvalidWarning": "mods.json is invalid or unreadable. The launcher will not overwrite it.",

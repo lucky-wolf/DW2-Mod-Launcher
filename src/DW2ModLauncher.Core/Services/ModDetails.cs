@@ -109,6 +109,7 @@ namespace DW2ModLauncher.Core.Services
             if (mod.EnabledCopyCount > 0) lines.Add(t("EnabledMoreThanOnce"));
             if (mod.IdenticalFileCount > 0) lines.Add(t("SamePathAndIdenticalContent") + mod.IdenticalFileCount);
             if (mod.IsWorkshop && mod.UpdateState == "update") lines.Add(t("SteamWorkshopUpdateAvailable"));
+            if (LauncherRequirement.IsUnmet(mod)) lines.Add(t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
             return lines;
         }
     }

@@ -13,6 +13,9 @@ namespace DW2ModLauncher.Core.Models
 
         /// <summary>"replace": this mod's Galactopedia articles replace those of the game and of the mods before it (instead of being added to them). For translations.</summary>
         public string galactopedia { get; set; }
+
+        /// <summary>The oldest launcher version this mod works with (e.g. "1.0.6"; a leading "v" and any "-dev" suffix are ignored). Older launchers flag the mod before launch.</summary>
+        public string minLauncherVersion { get; set; }
     }
 
     // Optional manual override of injection discovery (normally inferred, see InjectionScanner):

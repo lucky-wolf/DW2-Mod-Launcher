@@ -65,6 +65,12 @@ Manual override (rare): a `dw2modlauncher.json` next to the mod's `mod.json` rep
 }
 ```
 
+`dw2modlauncher.json` also takes `"minLauncherVersion": "1.0.6"`: the oldest launcher the mod works with. A
+launcher that is older marks the mod Caution in the list and details pane and lists it in the pre-launch
+diagnostics (launching anyway is allowed). Only the numeric `major.minor.patch` is compared, so a `-dev` build counts
+as its base version, and an unreadable value is ignored. Launchers from before this key existed ignore it silently, so
+a mod that depends on it should also say so in its description.
+
 `dll` is relative to the mod's content folder; `entryPoint` is the `Namespace.Type.Method` the loader
 invokes. `LoaderManifestBuilder.Build` gathers every enabled mod's targets, in load order,
 de-duplicated by `dll!entryPoint`, into a `DW2ModLauncher.Core.Models.LoaderManifest`.

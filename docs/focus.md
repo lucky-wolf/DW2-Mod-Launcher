@@ -11,4 +11,4 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
-
+- Mods can require a minimum launcher version with `"minLauncherVersion"` in their `dw2modlauncher.json`

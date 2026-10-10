@@ -145,6 +145,7 @@ namespace DW2ModLauncher.Core.Services
             m.DescriptionOverride = ReadDescriptionFile(m.ContentRoot, descriptionFile) ?? ReadDescriptionFile(m.ContentRoot, "description.bbcode") ?? ReadDescriptionFile(m.ContentRoot, "description.txt");
             m.IncludedTools = FindIncludedTools(m.ContentRoot);
             m.IncludedDocuments = FindIncludedDocuments(m.ContentRoot);
+            m.MinLauncherVersion = LauncherMetaReader.Read(m)?.minLauncherVersion?.Trim();
             return m;
         }
 
