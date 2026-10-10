@@ -89,6 +89,49 @@ jobs:
           if [ -f release-notes.md ]; then notes=(--notes-file release-notes.md); else notes=(--generate-notes); fi
           gh release create "${{ steps.release.outputs.tag }}" "${{ steps.package.outputs.zip }}" --title "${{ steps.release.outputs.tag }}" "${notes[@]}"
 
+  # The VS Code extension (tools/vscode-dw2-patch) as a .vsix, versioned like the launcher release it ships with. Runs
+  # after the Windows job so the tag exists; a manual run only uploads the .vsix as a workflow artifact.
+  release-extension:
+    name: Creating VS Code Extension
+    needs: release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/vscode-dw2-patch
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/vscode-dw2-patch/package-lock.json
+
+      - run: npm ci
+
+      # vsce runs the tests and the build first (vscode:prepublish). The extension takes the launcher's version
+      # (the tag without its "v"); a manual run has no tag and keeps the version in package.json.
+      - name: Package
+        id: package
+        run: |
+          tag="${{ needs.release.outputs.tag }}"
+          if [ -n "$tag" ]; then version="${tag#v}"; else version=$(node -p "require('./package.json').version"); fi
+          name="dw2-xml-patch-${version}"
+          npx vsce package "$version" --no-update-package-json --skip-license -o "${name}.vsix"
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "vsix=tools/vscode-dw2-patch/${name}.vsix" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: ${{ steps.package.outputs.vsix }}
+
+      - name: Attach to GitHub Release
+        if: needs.release.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.release.outputs.tag }}" "${{ steps.package.outputs.name }}.vsix"
+
   # The Linux build: the Avalonia launcher, self-contained, as a tar.gz (keeps the executable bit). It runs
   # after the Windows job so that job's tag exists; it attaches to the same GitHub Release.
   release-linux:

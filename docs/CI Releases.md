@@ -7,7 +7,7 @@ How the launcher is validated, versioned, and shipped. Modeled on critical-mass-
 
 | Workflow                                        | Runs on                                                                                                                     | Does                                                                                           |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [ci.yml](../.github/workflows/ci.yml)           | every PR                                                                                                                    | `scripts/validate.py`: restore, `dotnet format --verify-no-changes`, build (Release), unit tests. `windows-latest` and `ubuntu-latest`. |
+| [ci.yml](../.github/workflows/ci.yml)           | every PR                                                                                                                    | `scripts/validate.py`: restore, `dotnet format --verify-no-changes`, build (Release), unit tests. `windows-latest` and `ubuntu-latest`. Also a `vscode-extension` job: `npm ci`, `npm test`, `npm run build` in `tools/vscode-dw2-patch` (Node 24). |
 | [release.yml](../.github/workflows/release.yml) | push to `main` touching `src/`, `Directory.Build.props`, or `.version` (editing the workflow alone does not release); same-path PRs; manual dispatch | tests → tag → publish → package → GitHub Release (tag and release only on push to `main`)      |
 
 Run `build.cmd` or `python scripts/validate.py` locally; both run the same checks as `ci.yml`.
@@ -56,6 +56,12 @@ and are imported as `from lib import ...`. Every script has `--help` and, if it 
    A second job (`release-linux`, on `ubuntu-latest`, after the first so the tag exists) publishes the Avalonia
    launcher for `linux-x64` (self-contained, not single-file: Skia and the Steam library are native `.so`s), packages
    `DW2ModLauncher-vX.Y.Z-linux-x64.tar.gz`, and attaches it to the same release.
+   A third job (`release-extension`, also after the first) packages the VS Code extension from `tools/vscode-dw2-patch`
+   as `dw2-xml-patch-X.Y.Z.vsix` (tests and build run first; the version is the release tag's, injected at packaging so
+   `package.json` is untouched) and attaches it to the same release. A manual run keeps the version in `package.json`
+   and only uploads the `.vsix` as an artifact. `tools/**` is deliberately not a release trigger: an extension-only
+   change would otherwise cut a new launcher version (and an update prompt) for an identical launcher, so the `.vsix`
+   ships with the next launcher release. Not yet run in CI: check the first release that includes it.
 6. `gh release create` attaches the zip to a GitHub Release with generated notes (push to `main` only).
 
 **Pull requests do not run this workflow** (`ci.yml` validates them; packaging is only exercised on merge to `main`,
@@ -80,7 +86,7 @@ only files that something else loads **by path** stay loose:
 DW2ModLauncher-vX.Y.Z-win-x64/
   DW2ModLauncher.exe
   Loader/DW2ModLauncher.Loader.dll   injected into the game via --low-level-inject (docs/DLL Injection.md)
-  Languages/en.json, ja.json         UI strings
+  Languages/en.json, ja.json, ru.json     UI strings
   steam_api64.dll, steam_appid.txt   Steamworks (Workshop publish), loaded by the Steam API by name/CWD
   LICENSE, README.md
 ```
