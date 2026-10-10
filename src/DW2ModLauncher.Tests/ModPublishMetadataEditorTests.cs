@@ -72,7 +72,7 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
-        public void Write_DropsInlineDescription_KeepsCustomDescriptionFile_AndDropsTheDefaultOne()
+        public void Write_DropsInlineDescription_KeepsCustomDescriptionFile_AndWritesTheDefaultOneToo()
         {
             string path = MakeModJson("{ \"displayName\": \"XL\", \"shortDescription\": \"short\", \"description\": \"old\", \"descriptionFile\": \"docs/about.md\", \"workshopId\": 7 }");
             try
@@ -90,8 +90,12 @@ namespace DW2ModLauncher.Tests
                 metadata.ShortDescription = "  ";
                 ModPublishMetadataEditor.Write(path, metadata);
                 text = File.ReadAllText(path);
-                Assert.DoesNotContain("descriptionFile", text);
+                Assert.Contains("\"descriptionFile\": \"description.bbcode\"", text);
                 Assert.DoesNotContain("shortDescription", text);
+
+                metadata.DescriptionFile = "";
+                ModPublishMetadataEditor.Write(path, metadata);
+                Assert.DoesNotContain("descriptionFile", File.ReadAllText(path));
             }
             finally { File.Delete(path); }
         }
@@ -114,6 +118,41 @@ namespace DW2ModLauncher.Tests
                 // ...until a description.bbcode exists, which wins.
                 File.WriteAllText(Path.Combine(dir, "description.bbcode"), "new");
                 Assert.Equal("description.bbcode", ModDescriptionFile.NameFor(dir, ""));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Theory]
+        [InlineData(null, ".bbcode")]
+        [InlineData("", ".bbcode")]
+        [InlineData("  ", ".bbcode")]
+        [InlineData(".", ".bbcode")]
+        [InlineData("txt", ".txt")]
+        [InlineData(" .md ", ".md")]
+        [InlineData("..bb code", ".bbcode")]
+        [InlineData("a/b", ".ab")]
+        public void ModDescriptionFile_NormalizeExtension_AlwaysOneLeadingDot(string typed, string expected)
+        {
+            Assert.Equal(expected, ModDescriptionFile.NormalizeExtension(typed));
+        }
+
+        [Fact]
+        public void ModDescriptionFile_NameFor_UsesThePreferredExtensionForNewFiles_ButHonorsWhatExists()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "dw2-descext-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                Assert.Equal("description.md", ModDescriptionFile.NameFor(dir, "", ".md"));
+                Assert.Equal("description.bbcode", ModDescriptionFile.NameFor(dir, "", null));
+                // An explicit name always wins over the preference.
+                Assert.Equal("docs/about.md", ModDescriptionFile.NameFor(dir, "docs/about.md", ".txt"));
+                // An existing file is honored whatever the preference says...
+                File.WriteAllText(Path.Combine(dir, "description.bbcode"), "x");
+                Assert.Equal("description.bbcode", ModDescriptionFile.NameFor(dir, "", ".md"));
+                // ...unless the preferred one exists too.
+                File.WriteAllText(Path.Combine(dir, "description.md"), "y");
+                Assert.Equal("description.md", ModDescriptionFile.NameFor(dir, "", ".md"));
             }
             finally { Directory.Delete(dir, true); }
         }

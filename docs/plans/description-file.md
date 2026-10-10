@@ -16,7 +16,7 @@ legacy and go away.
 - Migration is automatic when the dialog opens/saves: if that file does not exist, its first content comes from
   the legacy inline mod.json `description`.
 - Conflict (file exists AND mod.json has `description`): the file wins; the mod.json value is discarded.
-- Save / publish writes the box to `description.bbcode`, then removes the inline `description` from mod.json (`descriptionFile` stays when custom, is dropped when it is the default)
+- Save / publish writes the box to `description.bbcode`, then removes the inline `description` from mod.json (`descriptionFile` is always written, default name included, as the explicit mod.json contract; no file means no key)
   (the file is written first, so a failed write never loses text).
 - "Open in editor" button opens `description.bbcode` (creating it from the box if missing). The dialog watches the file and
   reflects external edits into the box.

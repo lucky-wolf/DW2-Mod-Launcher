@@ -33,6 +33,8 @@ namespace DW2ModLauncher.Core.Models
         public bool ShowHiddenSettings { get; set; }
         /// <summary>ActiveToken of the mod selected in the list when the launcher last closed; reselected (and scrolled into view) at startup.</summary>
         public string LastSelectedMod { get; set; }
+        /// <summary>Extension of the description file a mod gets when it names none of its own (".bbcode", ".txt", or anything typed); see ModDescriptionFile.</summary>
+        public string DescriptionExtension { get; set; } = ".bbcode";
         /// <summary>The folder the last preview image was picked from (outside any mod), offered when the next pick starts from a blank image field.</summary>
         public string LastArtFolder { get; set; }
         /// <summary>Per mod (id, else folder name): headings of the settings editor groups the user collapsed.</summary>

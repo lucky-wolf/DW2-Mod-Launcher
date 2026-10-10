@@ -87,7 +87,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null)
         {
             this.dialogs = dialogs;
             this.lastArtFolder = lastArtFolder;
@@ -123,9 +123,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             IsSemver = ModVersion.TryParseSemver(version, out _, out _, out _);
             previewImage = metadata.PreviewImage;
             // The long description is always description.bbcode (seeded from the legacy mod.json fields if the file doesn't exist yet).
-            // A mod that already names its own description file keeps it; otherwise it is description.bbcode.
-            descriptionFileName = ModDescriptionFile.NameFor(contentFolder, metadata.DescriptionFile);
-            description = ModDescriptionFile.Load(contentFolder, metadata);
+            // A mod that already names its own description file keeps it; otherwise the existing description file, or one with the preferred extension (default .bbcode).
+            descriptionFileName = ModDescriptionFile.NameFor(contentFolder, metadata.DescriptionFile, descriptionExtension);
+            description = ModDescriptionFile.Load(contentFolder, metadata, descriptionExtension);
             // When we know what Steam has, only offer (and by default do) the replacement if the text really differs.
             if (this.steamDescription != null) replaceDescription = DescriptionDiffersFromSteam;
             lastFileText = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName);
@@ -265,7 +265,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>Something in the dialog differs from what it opened with.</summary>
-        public bool IsModified { get { return FieldsSnapshot() != savedFields || !ModDescriptionFile.SameText(description, savedDescription) || HasStrayImages; } }
+        public bool IsModified { get { return FieldsSnapshot() != savedFields || !ModDescriptionFile.SameText(description, savedDescription) || HasStrayImages || MissingDescriptionFileKey; } }
+
+        /// <summary>
+        /// mod.json has no "descriptionFile" yet the mod has (or, once saved, will have) a description file: saving writes the key, so the
+        /// dialog counts it as a pending change. This is what brings older mods up to the explicit contract.
+        /// </summary>
+        private bool MissingDescriptionFileKey
+        {
+            get
+            {
+                return string.IsNullOrWhiteSpace(metadata.DescriptionFile)
+                    && (!string.IsNullOrWhiteSpace(description) || ModDescriptionFile.ReadFile(contentFolder, descriptionFileName) != null);
+            }
+        }
         /// <summary>The primary button: publishing is always allowed; the Properties "Save" only once something changed.</summary>
         public bool CanPrimary { get { return !propertiesOnly || IsModified; } }
         private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanPrimary)); }
@@ -380,6 +393,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     string name = (previewImage ?? "").Trim();
                     FileInfo file = name.Length == 0 ? null : new FileInfo(System.IO.Path.Combine(contentFolder, name));
                     if (file != null && file.Exists) return DW2ModLauncher.Core.Services.ByteSize.Format(file.Length);
+                    if (file != null) return L["PublishPreviewMissing"];
                 }
                 catch (Exception) { }
                 return "";
@@ -674,11 +688,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // The long description goes to description.bbcode first; only then does Write drop the legacy mod.json keys, so a failed
             // file write can't lose the text. An untouched, never-written description (nothing in the box, no file) creates no file.
             metadata.Description = "";
-            metadata.DescriptionFile = descriptionFileName == ModDescriptionFile.FileName ? "" : descriptionFileName;
             try
             {
                 if (!string.IsNullOrWhiteSpace(description) || ModDescriptionFile.ReadFile(contentFolder, descriptionFileName) != null)
                     ModDescriptionFile.Save(contentFolder, descriptionFileName, description);
+                // Named in mod.json whenever the file exists (the default name too); no file, no key.
+                metadata.DescriptionFile = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName) != null ? descriptionFileName : "";
             }
             catch (Exception ex)
             {

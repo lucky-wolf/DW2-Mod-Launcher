@@ -94,6 +94,7 @@ namespace DW2ModLauncher.Core.Services
             m.ModJsonPath = modJson;
 
             string preview = null;
+            bool previewNamed = false;
             string descriptionFile = "";
             if (!string.IsNullOrEmpty(modJson) && File.Exists(modJson))
             {
@@ -131,6 +132,8 @@ namespace DW2ModLauncher.Core.Services
                 {
                     string baseDir = Path.GetDirectoryName(modJson);
                     string p = Path.Combine(baseDir, preview.Replace('/', Path.DirectorySeparatorChar));
+                    // The mod named a preview: either it is there, or the mod has none. Never show some other image instead.
+                    previewNamed = true;
                     if (File.Exists(p)) m.PreviewImage = p;
                 }
             }
@@ -140,7 +143,8 @@ namespace DW2ModLauncher.Core.Services
                 if (workshop) m.Folder = m.ContentRoot;
             }
             if (workshop) m.ActiveToken = "steam/" + m.Id;
-            if (string.IsNullOrEmpty(m.PreviewImage)) m.PreviewImage = FindFallbackImage(m.ContentRoot);
+            // Only a mod that names no preview at all gets the by-convention image (preview/thumb/icon, else any top-level image).
+            if (!previewNamed) m.PreviewImage = FindFallbackImage(m.ContentRoot);
             // The file mod.json names in "descriptionFile" is the long description; without one, description.bbcode in the mod root is by convention.
             m.DescriptionOverride = ReadDescriptionFile(m.ContentRoot, descriptionFile) ?? ReadDescriptionFile(m.ContentRoot, "description.bbcode") ?? ReadDescriptionFile(m.ContentRoot, "description.txt");
             m.IncludedTools = FindIncludedTools(m.ContentRoot);

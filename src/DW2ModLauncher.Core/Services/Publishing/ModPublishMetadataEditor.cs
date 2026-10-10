@@ -61,9 +61,10 @@ namespace DW2ModLauncher.Core.Services.Publishing
 
             SetString(root, "displayName", metadata.DisplayName);
             // The long description lives in a file (ModDescriptionFile), written by the caller before this, so the legacy inline
-            // "description" is dropped. "descriptionFile" stays when the mod names its own file; the default needs no key.
+            // "description" is dropped. "descriptionFile" is always written when the mod has a description file, even the default name:
+            // it is the mod.json contract for where the description lives. Blank means there is no file, so no key.
             RemoveKey(root, "description");
-            if (string.IsNullOrWhiteSpace(metadata.DescriptionFile) || metadata.DescriptionFile.Trim().Equals(ModDescriptionFile.FileName, StringComparison.OrdinalIgnoreCase)) RemoveKey(root, "descriptionFile");
+            if (string.IsNullOrWhiteSpace(metadata.DescriptionFile)) RemoveKey(root, "descriptionFile");
             else SetString(root, "descriptionFile", metadata.DescriptionFile.Trim());
             // Blank means "not used", not an empty key.
             if (string.IsNullOrWhiteSpace(metadata.ShortDescription)) RemoveKey(root, "shortDescription");
