@@ -24,6 +24,9 @@ Requires the DW2 Mod Launcher (the game must be started through it).
 The file is a trimmed copy of the game's data: copy an entity out of the game's `data` folder, delete everything you
 are not changing, and replace its key element (`<RaceId>0</RaceId>`) with `id="0"` on the entity tag.
 
+In VS Code the [DW2 XML Patch extension](../tools/vscode-dw2-patch/README.md) does this for you: put the cursor on a line of the
+game's data file and run **DW2: Patch this**.
+
 Two rules to remember:
 - The **root element** says which data you are patching (`ArrayOfRace`, `ArrayOfComponentDefinition`, ...), the same as in the game's files.
 - Put patches in **`patches/`**, never in the mod root: root XML files are loaded by the game as full data.

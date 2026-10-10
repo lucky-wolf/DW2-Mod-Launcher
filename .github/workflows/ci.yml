@@ -24,6 +24,28 @@ jobs:
             exit 1
           }
 
+  # The VS Code extension in tools/ (not part of the solution): its tests (which also check its key map against
+  # XmlPatching/KeyMap.cs) and a type-checked build. Node 24: the tests run TypeScript directly.
+  vscode-extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/vscode-dw2-patch
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/vscode-dw2-patch/package-lock.json
+
+      - run: npm ci
+
+      - run: npm test
+
+      - run: npm run build
+
   build-and-test:
     # Both OSes build the whole solution and run the tests (Windows ships the win-x64 Avalonia build,
     # Ubuntu the linux-x64 one).

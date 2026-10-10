@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "node16",
+    "moduleResolution": "node16",
+    "lib": ["ES2022"],
+    "outDir": "out",
+    "rootDir": "src",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noImplicitReturns": true,
+    "isolatedModules": true,
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true,
+    "sourceMap": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}

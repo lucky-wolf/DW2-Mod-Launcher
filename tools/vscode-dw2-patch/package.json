@@ -1,0 +1,96 @@
+{
+  "name": "dw2-xml-patch",
+  "displayName": "DW2 XML Patch",
+  "description": "Select a line in a Distant Worlds 2 data file and add a patch for it to your mod's patches folder (DW2 Mod Launcher XML patching).",
+  "version": "0.1.0",
+  "publisher": "dw2-mod-launcher",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lucky-wolf/DW2-Mod-Launcher.git",
+    "directory": "tools/vscode-dw2-patch"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:xml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dw2Patch.patchHere",
+        "title": "DW2: Patch this"
+      },
+      {
+        "command": "dw2Patch.patchHereChoose",
+        "title": "DW2: Patch this… (choose what to do)"
+      },
+      {
+        "command": "dw2Patch.selectModFolder",
+        "title": "DW2: Choose the mod folder for patches"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "dw2Patch.patchHere",
+          "when": "resourceExtname == .xml",
+          "group": "dw2patch@1"
+        },
+        {
+          "command": "dw2Patch.patchHereChoose",
+          "when": "resourceExtname == .xml",
+          "group": "dw2patch@2"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "dw2Patch.patchHere",
+        "key": "ctrl+alt+p",
+        "when": "editorTextFocus && resourceExtname == .xml"
+      }
+    ],
+    "configuration": {
+      "title": "DW2 XML Patch",
+      "properties": {
+        "dw2Patch.modFolder": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The mod folder (the one with `mod.json`) whose `patches` folder receives the patches. Leave empty to find it in the workspace: a folder with `mod.json` or `dw2modlauncher.json`, at the workspace root or one level below."
+        },
+        "dw2Patch.patchFile": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Write every patch to this one file, relative to the mod folder (for example `patches/my-tweaks.xml`). Leave empty to use `patches/<name of the data file>`, so patches for `Races.xml` go to `patches/Races.xml`. A file only takes patches for one data file, so a fixed name suits a mod that only touches one."
+        },
+        "dw2Patch.indent": {
+          "type": "string",
+          "default": "  ",
+          "markdownDescription": "One level of indentation in patch files you create or add to (two spaces by default; use `\\t` for a tab)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -p . --watch",
+    "test": "node --test test/core.test.ts",
+    "vscode:prepublish": "npm test && npm run build",
+    "package": "vsce package --skip-license -o dw2-xml-patch.vsix",
+    "install:local": "npm run package && code --install-extension dw2-xml-patch.vsix --force",
+    "publish:marketplace": "vsce publish --skip-license"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^4.0.0",
+    "typescript": "^5.8.0"
+  }
+}

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- net8.0 like the XmlPatching project it reuses. Not part of DW2ModLauncher.sln: run by hand (see README.md). -->
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>ExportSchema</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DW2ModLauncher.XmlPatching\DW2ModLauncher.XmlPatching.csproj" />
+  </ItemGroup>
+
+</Project>

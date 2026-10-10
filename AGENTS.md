@@ -51,6 +51,7 @@ Not planned: merging Mods into a combined output folder, and automatic conflict 
   `dotnet run --project src/DW2ModLauncher.Avalonia`.
 - [src/DW2ModLauncher.Tests/](src/DW2ModLauncher.Tests/) — xUnit tests against `Core` (run with `dotnet test`)
 - [scripts/](scripts/) — Python tooling: `build.py` / `run.py` (cross-platform build, and build+run, of the current OS's launcher; [build.cmd](build.cmd) / [run.cmd](run.cmd) are the Windows batch equivalents), `validate.py` (the CI gate), `new-branch.py` / `open-pr.py` (branch and PR workflow), `release.py` / `release-notes.py` (CI release), `make-icon.py`; shared helpers in `scripts/lib/`
+- [tools/](tools/) — author tooling outside the launcher build (not in the solution). `vscode-dw2-patch/` is a VS Code extension (TypeScript, own `package.json`) that writes XML patches from the cursor position in a data file; its logic in `src/core` is `vscode`-free and tested with `npm test`, and it mirrors `XmlPatching/KeyMap.cs` (a test fails on drift). `export-schema/` (net8 console) dumps the game's patch schema to `vscode-dw2-patch/schema/schema.json`; re-run it after a game update
 - [docs/](docs/) — design notes, feature specs, and other documentation too long-lived for a PR description or issue thread
 
 ## Build & run
