@@ -32,7 +32,7 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
 
 ## Main Features
 
-- Japanese & English
+- Japanese, English & Russian
   - Translations for more languages are welcome!
 - Windows & Linux native support
 - Drag & drop your active mods
