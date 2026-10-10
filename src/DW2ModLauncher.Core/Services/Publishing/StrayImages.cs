@@ -23,8 +23,14 @@ namespace DW2ModLauncher.Core.Services.Publishing
             string preview = (previewImage ?? "").Trim().Replace('\\', '/');
             // A preview that names a file which isn't there (renamed or deleted by hand) leaves no way to tell what the mod means to
             // use, and the image beside it may be the very one it meant: report nothing rather than offer to delete it.
-            if (preview.Length > 0 && !File.Exists(Path.Combine(modFolder, preview.Replace('/', Path.DirectorySeparatorChar)))) return found;
-            foreach (string file in Directory.EnumerateFiles(modFolder))
+            // Names are compared case-insensitively below (the game and Steam run on Windows), so the existence check must be too:
+            // File.Exists is case-sensitive on Linux.
+            List<string> files = Directory.EnumerateFiles(modFolder).ToList();
+            bool previewExists = preview.Contains('/')
+                ? File.Exists(Path.Combine(modFolder, preview.Replace('/', Path.DirectorySeparatorChar)))
+                : files.Any(f => string.Equals(Path.GetFileName(f), preview, StringComparison.OrdinalIgnoreCase));
+            if (preview.Length > 0 && !previewExists) return found;
+            foreach (string file in files)
             {
                 string name = Path.GetFileName(file);
                 if (!Extensions.Contains(Path.GetExtension(name), StringComparer.OrdinalIgnoreCase)) continue;
