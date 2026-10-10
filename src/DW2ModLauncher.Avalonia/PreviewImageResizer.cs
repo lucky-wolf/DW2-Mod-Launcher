@@ -60,6 +60,22 @@ namespace DW2ModLauncher.Avalonia
             return target;
         }
 
+        /// <summary>
+        /// Replaces an image that is already in the mod: the original goes to the recycle bin, then the fitted image is saved under the
+        /// original's name (its extension may change, e.g. a heavy PNG becomes a JPG). Returns the new full path. If the recycle fails
+        /// nothing is written, so the original is never lost.
+        /// </summary>
+        public static string Replace(FittedPreview fitted, string original)
+        {
+            string target = Path.Combine(Path.GetDirectoryName(original), Path.GetFileNameWithoutExtension(original) + fitted.Extension);
+            // Another file already holds the new name (a "x.jpg" next to a heavy "x.png"): refuse rather than overwrite it.
+            if (!string.Equals(target, original, StringComparison.OrdinalIgnoreCase) && File.Exists(target))
+                throw new IOException(Path.GetFileName(target) + " already exists next to " + Path.GetFileName(original) + ".");
+            DW2ModLauncher.Core.Services.RecycleBin.Send(original);
+            File.WriteAllBytes(target, fitted.Data);
+            return target;
+        }
+
         private static bool HasTransparency(SKBitmap bitmap)
         {
             ReadOnlySpan<byte> pixels = bitmap.GetPixelSpan();

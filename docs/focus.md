@@ -11,3 +11,9 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
+
+- New local mods keep spaces in their folder name ("My Mod" instead of "My_Mod"); only characters the file system rejects are replaced.
+- Shrinking an oversized preview image that is already in the mod now replaces it in place (original to the recycle bin) instead of leaving a heavy copy beside it.
+- A preview image picked from outside the mod is offered under the mod's own name (it is the cover art) rather than the source file's name.
+- The publish / edit-properties dialog warns about loose image files in the mod folder that the mod doesn't use (only the preview is) but that would be uploaded to Steam; Save and Publish offer to move them to the recycle bin, and carry on regardless if declined.
+- The preview image picker remembers the folder art was last picked from (used when the image field is blank); a field that already names a file opens in that file's folder instead.

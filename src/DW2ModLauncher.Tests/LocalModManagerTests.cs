@@ -16,11 +16,11 @@ namespace DW2ModLauncher.Tests
         }
 
         [Theory]
-        [InlineData("My Mod", "My_Mod")]
-        [InlineData("  My   Cool  Mod  ", "My_Cool_Mod")]
-        [InlineData("Part 2: The Return?", "Part_2_The_Return")]
-        [InlineData("a/b\\c", "a_b_c")]
-        [InlineData("Ends with dot.", "Ends_with_dot")]
+        [InlineData("My Mod", "My Mod")]
+        [InlineData("  My   Cool  Mod  ", "My Cool Mod")]
+        [InlineData("Part 2: The Return?", "Part 2 The Return")]
+        [InlineData("a/b\\c", "a b c")]
+        [InlineData("Ends with dot.", "Ends with dot")]
         [InlineData("GalCivMusic", "GalCivMusic")]
         [InlineData("", "NewMod")]
         [InlineData("   ", "NewMod")]
@@ -40,7 +40,7 @@ namespace DW2ModLauncher.Tests
             {
                 string folder = LocalModManager.Create(root, "My Mod: Part 2");
 
-                Assert.Equal(Path.Combine(root, "My_Mod_Part_2"), folder);
+                Assert.Equal(Path.Combine(root, "My Mod Part 2"), folder);
                 string text = File.ReadAllText(Path.Combine(folder, "mod.json"));
                 Assert.Contains("\"displayName\": \"My Mod: Part 2\"", text);
                 Assert.Contains("\"version\": \"1.0.0\"", text);
@@ -58,7 +58,7 @@ namespace DW2ModLauncher.Tests
 
                 ModInfo mod = Assert.Single(ModScanner.ScanMods(root, false, key => key));
                 Assert.Equal("Scan Me", mod.DisplayName);
-                Assert.Equal("mods/Scan_Me", mod.ActiveToken);
+                Assert.Equal("mods/Scan Me", mod.ActiveToken);
             }
             finally { Directory.Delete(root, true); }
         }

@@ -310,6 +310,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex) { SetStatus("Settings save error: " + ex.Message); }
         }
 
+        /// <summary>Stored the moment a preview image is picked, so the folder is remembered even if the publish dialog is then cancelled.</summary>
+        private void RememberArtFolder(string folder)
+        {
+            settings.LastArtFolder = folder;
+            SaveSettings();
+        }
+
         public string ModsJsonPath() { return ModOrderStore.PathFor(settings.ManagedModsRoot, settings.GameRoot); }
 
         public bool IsSelected(ModInfo mod) { return modOrder.IsSelected(mod, settings); }
@@ -954,7 +961,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool isPublished = !string.IsNullOrWhiteSpace(mod.WorkshopId);
             ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey));
+            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder);
             if (!await Dialogs.EditPublishAsync(editor)) { UpdateStatus(); return; }
             // The version policy is launcher-side (launcher_settings.json); it only takes effect at the next publish.
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);
@@ -1027,7 +1034,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // On an update, ask Steam what the description currently says so the dialog only offers to replace it when it differs.
             string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey));
+            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder);
             if (!await Dialogs.EditPublishAsync(editor)) return;
             // The version policy is remembered per mod in launcher_settings.json (never in the mod itself).
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);

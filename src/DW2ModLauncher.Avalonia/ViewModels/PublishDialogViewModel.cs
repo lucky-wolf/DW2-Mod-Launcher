@@ -82,10 +82,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly List<string> detectedBundles;
         private readonly List<string> missingBundles = new List<string>();
         private string proposedVersion;
+        private List<string> strayImages = new List<string>();
+        // Where the last preview image came from (outside the mod), and how to store a new one; see BrowsePreviewAsync.
+        private string lastArtFolder;
+        private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null)
         {
             this.dialogs = dialogs;
+            this.lastArtFolder = lastArtFolder;
+            this.rememberArtFolder = rememberArtFolder;
             this.metadata = metadata;
             L = l;
             modJsonPath = mod.ModJsonPath;
@@ -142,6 +148,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             PullSteamDescriptionCommand = new RelayCommand(PullSteamDescriptionAsync);
             PushSteamDescriptionCommand = new RelayCommand(PushSteamDescriptionAsync);
             BrowsePreviewCommand = new RelayCommand(BrowsePreviewAsync);
+            CleanStrayImagesCommand = new RelayCommand(OfferStrayImageCleanupAsync);
+            strayImages = StrayImages.Find(contentFolder, previewImage);
             EditDescriptionFileCommand = new RelayCommand(EditDescriptionFileAsync);
             StartWatchingDescriptionFile();
             savedFields = FieldsSnapshot();
@@ -257,7 +265,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>Something in the dialog differs from what it opened with.</summary>
-        public bool IsModified { get { return FieldsSnapshot() != savedFields || !ModDescriptionFile.SameText(description, savedDescription); } }
+        public bool IsModified { get { return FieldsSnapshot() != savedFields || !ModDescriptionFile.SameText(description, savedDescription) || HasStrayImages; } }
         /// <summary>The primary button: publishing is always allowed; the Properties "Save" only once something changed.</summary>
         public bool CanPrimary { get { return !propertiesOnly || IsModified; } }
         private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanPrimary)); }
@@ -324,7 +332,44 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (version == proposedVersion) Version = next;
             proposedVersion = next;
         }
-        public string PreviewImage { get { return previewImage; } set { if (Set(ref previewImage, value)) { Raise(nameof(PreviewImageSize)); RaiseModified(); } } }
+        public string PreviewImage { get { return previewImage; } set { if (Set(ref previewImage, value)) { Raise(nameof(PreviewImageSize)); RefreshStrayImages(); RaiseModified(); } } }
+
+        /// <summary>Loose images in the mod folder other than the preview: unused by the mod, yet uploaded with it.</summary>
+        public bool HasStrayImages { get { return strayImages.Count > 0; } }
+        public string StrayImagesWarning { get { return L.Format("PublishStrayImagesWarning", strayImages.Count); } }
+        public string StrayImagesTooltip { get { return string.Join("\n", strayImages); } }
+        public RelayCommand CleanStrayImagesCommand { get; }
+
+        private void RefreshStrayImages()
+        {
+            strayImages = StrayImages.Find(contentFolder, previewImage);
+            Raise(nameof(HasStrayImages));
+            Raise(nameof(StrayImagesWarning));
+            Raise(nameof(StrayImagesTooltip));
+        }
+
+        /// <summary>
+        /// Offers to move the stray images to the recycle bin. Declining (or a failure) changes nothing and is not an error: the author
+        /// has the last say, so saving or publishing carries on either way. Returns whether anything was removed.
+        /// </summary>
+        public async Task<bool> OfferStrayImageCleanupAsync()
+        {
+            RefreshStrayImages();
+            if (strayImages.Count == 0) return false;
+            if (!await dialogs.ConfirmAsync(L.Format("PublishStrayImagesQuestion", string.Join("\n", strayImages)), "DW2 Mod Launcher", L["Yes"], L["No"])) return false;
+            try
+            {
+                foreach (string name in strayImages) DW2ModLauncher.Core.Services.RecycleBin.Send(System.IO.Path.Combine(contentFolder, name));
+            }
+            catch (Exception ex)
+            {
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Clean stray images", ex);
+                await dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+            }
+            RefreshStrayImages();
+            RaiseModified();
+            return true;
+        }
         /// <summary>The preview file's size once the box names a file that exists (Steam rejects previews over 1 MiB); blank otherwise.</summary>
         public string PreviewImageSize
         {
@@ -442,8 +487,27 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private async Task BrowsePreviewAsync()
         {
-            string picked = await dialogs.PickFileAsync(L["PublishInfoPreviewImage"], contentFolder, "Image files", "*.jpg", "*.jpeg", "*.png");
+            // A blank field opens where art was last picked from; one that already names a file opens in that file's folder (which never
+            // becomes the remembered folder).
+            string current = (previewImage ?? "").Trim();
+            string start = contentFolder;
+            if (current.Length > 0)
+            {
+                try
+                {
+                    string dir = System.IO.Path.GetDirectoryName(System.IO.Path.Combine(contentFolder, current));
+                    if (Directory.Exists(dir)) start = dir;
+                }
+                catch (Exception) { }
+            }
+            else if (!string.IsNullOrWhiteSpace(lastArtFolder) && Directory.Exists(lastArtFolder)) start = lastArtFolder;
+            string picked = await dialogs.PickFileAsync(L["PublishInfoPreviewImage"], start, "Image files", "*.jpg", "*.jpeg", "*.png");
             if (picked == null) return;
+            if (current.Length == 0 && !DW2ModLauncher.Core.Services.ModFileImporter.IsInside(contentFolder, picked))
+            {
+                lastArtFolder = System.IO.Path.GetDirectoryName(picked);
+                rememberArtFolder?.Invoke(lastArtFolder);
+            }
             string local = await MakeLocalPreviewAsync(picked);
             if (local != null) PreviewImage = DW2ModLauncher.Core.Services.ModFileImporter.RelativePath(contentFolder, local);
         }
@@ -473,11 +537,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
             try
             {
+                if (fitted != null && inside)
+                {
+                    // Already in the mod: replace it in place (original to the recycle bin) so no oversized copy is left to be uploaded.
+                    bool replace = await dialogs.ConfirmAsync(
+                        L.Format("PublishPreviewReplaceLabel", fileName, DW2ModLauncher.Core.Services.ByteSize.Format(bytes), fitted.Width, fitted.Height, DW2ModLauncher.Core.Services.ByteSize.Format(fitted.Data.LongLength)),
+                        "DW2 Mod Launcher", L["Yes"], L["Cancel"]);
+                    return replace ? PreviewImageResizer.Replace(fitted, picked) : null;
+                }
                 if (fitted != null)
                 {
                     string name = await PromptFileNameAsync(
                         L.Format("PublishPreviewResizeNameLabel", fileName, DW2ModLauncher.Core.Services.ByteSize.Format(bytes), fitted.Width, fitted.Height, DW2ModLauncher.Core.Services.ByteSize.Format(fitted.Data.LongLength)),
-                        System.IO.Path.GetFileName(PreviewImagePlan.TargetPath(contentFolder, picked, fitted.Extension)), fitted.Extension);
+                        CoverFileName(fitted.Extension), fitted.Extension);
                     return name == null ? null : PreviewImageResizer.Save(fitted, contentFolder, name);
                 }
 
@@ -487,7 +559,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (identical != null) return identical;
                 string extension = System.IO.Path.GetExtension(picked);
                 string copyName = await PromptFileNameAsync(L.Format("PublishImportFileNameLabel", fileName),
-                    System.IO.Path.GetFileName(DW2ModLauncher.Core.Services.ModFileImporter.UniquePath(contentFolder, picked)), extension);
+                    CoverFileName(extension), extension);
                 if (copyName == null) return null;
                 string target = System.IO.Path.Combine(contentFolder, copyName);
                 File.Copy(picked, target);
@@ -499,6 +571,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// The name offered for a preview image brought in from outside the mod: the mod's own name (it is the mod's cover art), with
+        /// " (2)", " (3)"... added when that file already exists in the mod folder.
+        /// </summary>
+        private string CoverFileName(string extension)
+        {
+            string stem = DW2ModLauncher.Core.Services.LocalModManager.FolderNameFor(string.IsNullOrWhiteSpace(title) ? System.IO.Path.GetFileName(contentFolder.TrimEnd('/', (char)92)) : title);
+            string name = stem + extension;
+            for (int n = 2; File.Exists(System.IO.Path.Combine(contentFolder, name)); n++)
+                name = stem + " (" + n + ")" + extension;
+            return name;
         }
 
         /// <summary>
