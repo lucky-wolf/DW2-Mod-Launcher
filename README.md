@@ -44,7 +44,7 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
 - Manage any mods for DW2 of your own
   - Create new mods
   - Upload or update your mods to steam directly
-  - Test your mods tha use DLL injection
+  - Test your mods that use DLL injection
   - Create a specification that users can easily configure your mod to their tastes
 
 ## Requirements
