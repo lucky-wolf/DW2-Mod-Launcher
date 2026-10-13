@@ -11,5 +11,3 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
-- Launcher flyout (Continue / New Game) now only sets the main button; you press it to launch
-- Stale keys are dropped from a mod's saved settings when its schema no longer lists them
