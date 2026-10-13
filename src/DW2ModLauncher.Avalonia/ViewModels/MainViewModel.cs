@@ -92,7 +92,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             SetLaunchModeCommand = RelayCommand.WithParameter(mode =>
             {
                 LaunchMode = (LaunchMode)Enum.Parse(typeof(LaunchMode), (string)mode);
-                if (gameState == GameState.Idle) { var _ = PlayAsync(); }
             });
             gameWatchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             gameWatchTimer.Tick += delegate { var _ = WatchGameAsync(); };
