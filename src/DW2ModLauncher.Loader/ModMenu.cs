@@ -40,7 +40,7 @@ namespace DW2ModLauncher.Loader
                 catch (Exception ex)
                 {
                     // a mod's handler must not take the game's input loop down, but the failure is recorded against the mod
-                    Report("menu handler '" + id + "' threw", id, ex);
+                    Report("menu handler '" + id + "' threw", StatusStrings.Get("WidgetMenuHandlerThrew", id), id, ex);
                 }
             };
         }
@@ -53,16 +53,17 @@ namespace DW2ModLauncher.Loader
             }
             catch (Exception ex)
             {
-                Report("menu call failed", null, ex);
+                Report("menu call failed", StatusStrings.Get("WidgetMenuCallFailed"), null, ex);
             }
         }
 
-        static void Report(string what, string id, Exception ex)
+        // what goes in the log (English); status is the same in the player's language for the widget
+        static void Report(string what, string status, string id, Exception ex)
         {
             try
             {
                 StatusWidget.Log("ERROR mods menu: " + what + ": " + ex);
-                if (id != null) ModStatus.Error(id, what + ": " + ex.Message);
+                if (id != null) ModStatus.Error(id, status + ": " + ex.Message);
             }
             catch (Exception)
             {

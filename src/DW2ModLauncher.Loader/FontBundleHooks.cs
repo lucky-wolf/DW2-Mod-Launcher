@@ -34,7 +34,7 @@ namespace DW2ModLauncher.Loader
             if (vfs == null)
             {
                 Log("ERROR: Stride VirtualFileSystem not found; font bundles will not be found by the game.");
-                HookStatus.Failed("font", "font hook failed: the game's file system was not found, so the mod's font will not load", _logPath);
+                HookStatus.Failed("font", StatusStrings.Get("WidgetFontNoFileSystem"), _logPath);
                 return 0;
             }
             Harmony harmony = new Harmony("dw2modlauncher.loader.fontbundle");
@@ -44,7 +44,7 @@ namespace DW2ModLauncher.Loader
             else
             {
                 Log("ERROR: VirtualFileSystem.FileExists not found.");
-                HookStatus.Failed("font", "font hook failed: VirtualFileSystem.FileExists not found (game update?)", _logPath);
+                HookStatus.Failed("font", StatusStrings.Get("WidgetFontNoFileExists"), _logPath);
             }
 
             MethodInfo pre = typeof(FontBundleHooks).GetMethod(nameof(OpenStreamPrefix), BindingFlags.Static | BindingFlags.NonPublic);
@@ -59,7 +59,7 @@ namespace DW2ModLauncher.Loader
             if (opened == 0)
             {
                 Log("ERROR: VirtualFileSystem.OpenStream not found.");
-                HookStatus.Failed("font", "font hook failed: VirtualFileSystem.OpenStream not found (game update?)", _logPath);
+                HookStatus.Failed("font", StatusStrings.Get("WidgetFontNoOpenStream"), _logPath);
             }
             foreach (LoaderManifestFont f in _fonts) Log("font bundle '" + f.Name + "' from " + f.Folder + " (" + f.DisplayName + ")");
             return _fonts.Count;

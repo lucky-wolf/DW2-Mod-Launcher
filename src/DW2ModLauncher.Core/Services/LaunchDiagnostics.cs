@@ -19,11 +19,11 @@ namespace DW2ModLauncher.Core.Services
             issues.AddRange(ModChannels.Problems(enabled.OrderBy(m => order.IndexOf(m.ActiveToken) < 0 ? int.MaxValue : order.IndexOf(m.ActiveToken)).ToList()));
             foreach (LoaderManifestEntry entry in manifestEntries ?? new List<LoaderManifestEntry>())
                 if (entry.Files != null && entry.Files.Count > 0 && !InjectionScanner.AcceptsFiles(entry.HostDllPath ?? entry.DllPath))
-                    issues.Add("⚠ " + entry.DisplayName + ": asks for files of other mods, but its Entry has no InitWithOptions(string, IReadOnlyDictionary<string, string>) to receive them");
+                    issues.Add("⚠ " + string.Format(t("LaunchDiagFilesNotAccepted"), entry.DisplayName));
             foreach (ModInfo mod in enabled)
             {
-                if (mod.ScanError != null) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": its files could not be scanned for conflicts: " + mod.ScanError);
-                if (mod.ModJsonError != null) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": mod.json is not valid JSON: " + mod.ModJsonError);
+                if (mod.ScanError != null) issues.Add("⚠ " + string.Format(t("LaunchDiagScanError"), mod.DisplayName ?? mod.Id, mod.ScanError));
+                if (mod.ModJsonError != null) issues.Add("⚠ " + string.Format(t("LaunchDiagModJson"), mod.DisplayName ?? mod.Id, mod.ModJsonError));
                 if (LauncherRequirement.IsUnmet(mod)) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
                 ValidateJsonFile(mod.ModJsonPath, issues, t);
                 ValidateJsonFile(Path.Combine(mod.Folder ?? "", "dw2modlauncher.json"), issues, t);
@@ -37,7 +37,7 @@ namespace DW2ModLauncher.Core.Services
                 }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
                 {
-                    issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": its XML files could not be checked: " + ex.Message);
+                    issues.Add("⚠ " + string.Format(t("LaunchDiagXmlUnchecked"), mod.DisplayName ?? mod.Id, ex.Message));
                 }
             }
             foreach (var font in LoaderManifestBuilder.FontIssues(enabled))
@@ -59,7 +59,7 @@ namespace DW2ModLauncher.Core.Services
                 }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
                 {
-                    issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": its DLLs could not be checked for duplicates: " + ex.Message);
+                    issues.Add("⚠ " + string.Format(t("LaunchDiagDllUnchecked"), mod.DisplayName ?? mod.Id, ex.Message));
                 }
             }
             foreach (KeyValuePair<string, List<string>> pair in dlls.Where(x => x.Value.Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))

@@ -129,7 +129,7 @@ For each manifest entry, in order, `DW2ModLauncher.Loader.Entry` resolves the de
 
 1. Looks for `public static void InitWithOptions(string json, IReadOnlyDictionary<string, string> files)` first (the settings plus the data other mods supply on the channels it receives, see "Channels" above). Otherwise looks for `public static void InitWithOptions(string json)`. If present, calls it with
    the mod's settings as a raw JSON string (see "Settings schema" below), or `"{}"` if the mod
-   has no stored settings.
+   has no stored settings. The JSON also always carries a reserved `"Language"` key, whether or not the mod has a schema (below).
 2. Otherwise falls back to calling the declared method (typically `Init()`) with no arguments -
    this is why existing mods that only implement `Init()` (e.g. `NoStarField`) keep working
    unmodified.
@@ -138,6 +138,12 @@ One mod failing to load (missing DLL, exception during `Init`, etc.) is logged t
 next to the manifest and does not stop the rest from loading - see `Entry.LoadOne`. The same outcome is
 recorded in the loader's status registry and shown by the in-game status line (red when a mod failed
 to load), which mods can add to; see [Mod Status Line.md](Mod%20Status%20Line.md).
+
+### The `Language` option
+
+At launch the launcher adds `"Language": "<code>"` (`en`, `ja`, `ru`, the code of a launcher language pack) to the options JSON of every code mod. It is the **in-game language**, the same value the in-game widget uses (`WidgetLanguage.Choose`): the language the enabled translation mod declares, or the launcher's own language when Settings > *In-game widget language* is set to that; English when neither applies. It is not the language of the settings dialog, which always follows the launcher.
+
+A mod that wants to speak it reads the key and translates the text it shows in the game (its status-widget lines, for instance); a mod that does not care ignores it. The key is reserved: a schema field of the same name is overridden. The mod's settings values on disk never contain it.
 
 ## Settings schema
 
@@ -182,6 +188,32 @@ Per field:
 | `hidden` | no | `true` hides the field for Steam Workshop copies of the mod, so developer controls (logging, output folders) show only for the author's local copy, in place within their group. Hidden fields still get their defaults. `localOnly` is the older name and still works |
 
 A mod's declared schema and `ModSettingsStore` values feed the launcher's settings editor (`ModSettingsEditorViewModel`).
+
+### Translating the settings dialog
+
+The schema is written in whatever language its author uses; that text is the base. Another language is a **sidecar file** next to
+`settings.schema.json`, named `settings.schema.<language code>.json` (`settings.schema.ja.json`, the code of a launcher language
+pack). The settings dialog is the launcher's own window, so it uses the launcher's language. The sidecar only supplies display text,
+looked up by the schema's own keys; anything it leaves out is shown as the schema has it, so a translator can do just the labels.
+Limits, defaults and types never go in it.
+
+```json
+{
+  "groups": { "Speed penalties": "速度ペナルティ" },
+  "fields": {
+    "Enabled": "有効",
+    "NebulaPercent": { "label": "星雲での速度低下 (%)", "description": "星雲の中で失う速度です。" },
+    "Mode": { "label": "モード", "options": { "a": "標準", "b": "高速" } }
+  }
+}
+```
+
+- `groups` maps a group's name (its root key) to the heading to show.
+- `fields` maps a field `key` to its translation: an object with any of `label`, `description` and `options` (the schema's option text to the
+  text shown; the stored value stays the schema's option), or just a string, which translates only the label.
+- Keys are matched ignoring case. A sidecar for the base language is used like any other, so a mod written in Japanese can ship
+  `settings.schema.en.json`.
+- A sidecar that exists but is not valid is reported when the dialog is opened, rather than silently ignored.
 
 The actual **values** for these fields are stored under the current user's AppData folder
 (`%AppData%\DW2ModLauncher\ModSettings\<mod token>.json`, via `DW2ModLauncher.Core.Services.

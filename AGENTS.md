@@ -47,7 +47,7 @@ Not planned: merging Mods into a combined output folder, and automatic conflict 
 - [src/DW2ModLauncher.Avalonia/](src/DW2ModLauncher.Avalonia/) — the launcher (Windows and Linux). MVVM-lite:
   `ViewModels/` hold state and commands (`MainViewModel`, `SettingsViewModel`, `PublishDialogViewModel`, ...),
   `Views/` are thin XAML, `Services/DialogService` is the only code that touches windows/pickers. Bindings to
-  language strings use `{Binding L[Key]}`; the EN/JP/RU packs are in `Languages/`. Run with
+  language strings use `{Binding L[Key]}`; the EN/JP/RU packs are in `Languages/` (how packs, the in-game widget's language and the docs translations work: [docs/Localization.md](docs/Localization.md); any new user-facing text gets a key in every pack, and a new `Widget*` key also goes into `StatusStrings` in the loader). Run with
   `dotnet run --project src/DW2ModLauncher.Avalonia`.
 - [src/DW2ModLauncher.Tests/](src/DW2ModLauncher.Tests/) — xUnit tests against `Core` (run with `dotnet test`)
 - [scripts/](scripts/) — Python tooling: `build.py` / `run.py` (cross-platform build, and build+run, of the current OS's launcher; [build.cmd](build.cmd) / [run.cmd](run.cmd) are the Windows batch equivalents), `validate.py` (the CI gate), `new-branch.py` / `open-pr.py` (branch and PR workflow), `release.py` / `release-notes.py` (CI release), `make-icon.py`; shared helpers in `scripts/lib/`

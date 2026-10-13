@@ -538,7 +538,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 catch (Exception) { }
             }
             else if (!string.IsNullOrWhiteSpace(lastArtFolder) && Directory.Exists(lastArtFolder)) start = lastArtFolder;
-            string picked = await dialogs.PickFileAsync(L["PublishInfoPreviewImage"], start, "Image files", "*.jpg", "*.jpeg", "*.png");
+            string picked = await dialogs.PickFileAsync(L["PublishInfoPreviewImage"], start, L["FilterImageFiles"], "*.jpg", "*.jpeg", "*.png");
             if (picked == null) return;
             if (current.Length == 0 && !DW2ModLauncher.Core.Services.ModFileImporter.IsInside(contentFolder, picked))
             {

@@ -13,6 +13,9 @@ namespace DW2ModLauncher.Core.Models
         /// </summary>
         public string font { get; set; }
 
+        /// <summary>The language code of a translation mod (the name of a launcher language pack, e.g. "ru"). The in-game widget and Mods menu use the pack of the last enabled mod that declares one.</summary>
+        public string language { get; set; }
+
         /// <summary>Who made the mod, as a name shown in the launcher's Author column. The launcher stamps it from the user's Author setting when they create or publish a mod.</summary>
         public string author { get; set; }
 

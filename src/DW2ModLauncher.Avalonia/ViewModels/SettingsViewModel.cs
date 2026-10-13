@@ -74,6 +74,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string descriptionExtension = ModDescriptionFile.DefaultExtension;
         /// <summary>Extension for the description file of a mod that names none (a dot is added if missing); typed freely or picked from <see cref="DescriptionExtensions"/>.</summary>
         public string DescriptionExtension { get { return descriptionExtension; } set { Set(ref descriptionExtension, value); } }
+        /// <summary>Whether the in-game widget follows the enabled translation mod (true) or the launcher's own language (false).</summary>
+        public bool WidgetLanguageFromMods
+        {
+            get { return main.WidgetLanguageFromMods; }
+            set { if (!value) return; main.WidgetLanguageFromMods = true; Raise(); Raise(nameof(WidgetLanguageFromLauncher)); }
+        }
+
+        /// <summary>The other radio button of the pair: the widget uses the launcher's own language.</summary>
+        public bool WidgetLanguageFromLauncher
+        {
+            get { return !main.WidgetLanguageFromMods; }
+            set { if (!value) return; main.WidgetLanguageFromMods = false; Raise(); Raise(nameof(WidgetLanguageFromMods)); }
+        }
         private string authorName = "";
         /// <summary>The user's author name, stamped into mods they create or publish.</summary>
         public string AuthorName { get { return authorName; } set { Set(ref authorName, value); } }
@@ -205,7 +218,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     ProfileNames.Insert(i, names[i]);
                 }
                 string current = store.ReadCurrent();
-                if (store.ReadError != null) main.AddProblem("The profiles in " + store.ModsFolder + " could not be read, so none are listed.\n" + store.ReadError);
+                if (store.ReadError != null) main.AddProblem(main.T("ProfilesUnreadable", store.ModsFolder, store.ReadError));
                 profileName = string.IsNullOrWhiteSpace(current) || IsDefaultProfileLabel(current) ? ""
                     : ProfileNames.FirstOrDefault(n => string.Equals(n, current, StringComparison.OrdinalIgnoreCase)) ?? "";
                 defaultBaseline = HasProfile ? null : defaultBaseline ?? main.ModOrder.Order.ToList();

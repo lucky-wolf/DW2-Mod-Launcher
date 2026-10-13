@@ -15,6 +15,7 @@ namespace DW2ModLauncher.Loader
         public bool GalactopediaReplacesVanilla { get; set; }
         public List<string> ChannelProblems { get; set; } = new List<string>();
         public string LogDirectory { get; set; }
+        public Dictionary<string, string> Strings { get; set; } = new Dictionary<string, string>();
     }
 
     public class LoaderManifestTextFile

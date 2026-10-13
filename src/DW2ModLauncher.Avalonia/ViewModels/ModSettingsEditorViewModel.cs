@@ -9,6 +9,21 @@ using DW2ModLauncher.Core.Services;
 
 namespace DW2ModLauncher.Avalonia.ViewModels
 {
+    /// <summary>One entry of a choice field: the text stored in the settings (the schema's option) and the text shown (possibly translated).</summary>
+    public class ChoiceOption
+    {
+        public ChoiceOption(string value, string display)
+        {
+            Value = value;
+            Display = display;
+        }
+
+        public string Value { get; }
+        public string Display { get; }
+
+        public override string ToString() { return Display; }
+    }
+
     /// <summary>One editable value from a mod's settings.schema.json. Exactly one of the typed properties is used, per Kind.</summary>
     public class SettingFieldViewModel : ViewModelBase
     {
@@ -20,15 +35,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly string defaultJson;
         private readonly string savedJson;
 
-        public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs, LocalizedStrings l)
+        public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs, LocalizedStrings l, ModSettingsTranslation translation = null)
         {
+            translation = translation ?? ModSettingsTranslation.None;
             schemaField = field;
             this.dialogs = dialogs;
             this.l = l;
             Kind = ModSettingsValues.KindOf(field);
-            Label = string.IsNullOrWhiteSpace(field.Label) ? field.Key : field.Label;
-            Description = field.Description ?? "";
-            Options = field.Options ?? new List<string>();
+            Label = translation.Label(field.Key, string.IsNullOrWhiteSpace(field.Label) ? field.Key : field.Label);
+            Description = translation.Description(field.Key, field.Description ?? "");
+            ChoiceOptions = (field.Options ?? new List<string>()).Select(o => new ChoiceOption(o, translation.Option(field.Key, o))).ToList();
             MinValue = (decimal)(field.Min ?? -1000000);
             MaxValue = (decimal)(field.Max ?? 1000000);
             // Remember what the schema's default looks like once it has passed through the same conversions as an edited value,
@@ -54,7 +70,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string Description { get; }
         /// <summary>Row tooltip: the description, or null (no tooltip) when the schema gives none.</summary>
         public string Tooltip { get { return string.IsNullOrWhiteSpace(Description) ? null : Description; } }
-        public List<string> Options { get; }
+        public List<ChoiceOption> ChoiceOptions { get; }
+        /// <summary>The selected entry of a choice field; the stored value stays the schema's option text whatever is shown.</summary>
+        public ChoiceOption SelectedChoice
+        {
+            get { return ChoiceOptions.FirstOrDefault(o => o.Value == textValue); }
+            set { if (value != null) TextValue = value.Value; }
+        }
         public decimal MinValue { get; }
         public decimal MaxValue { get; }
         public decimal Increment { get { return Kind == ModSettingKind.Integer ? 1 : 0.1m; } }
@@ -83,7 +105,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch { start = null; }
             string picked = Kind == ModSettingKind.Folder
                 ? await dialogs.PickFolderAsync(Label, start)
-                : await dialogs.PickFileAsync(Label, start, "All files", "*");
+                : await dialogs.PickFileAsync(Label, start, l["FilterAllFiles"], "*");
             if (picked != null) TextValue = picked;
         }
 
@@ -121,6 +143,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Load(defaultNode);
             Raise(nameof(BoolValue));
             Raise(nameof(TextValue));
+            Raise(nameof(SelectedChoice));
             Raise(nameof(NumberValue));
             Raise(nameof(IsInvalid));
             Raise(nameof(CanReset));
@@ -131,7 +154,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool BoolValue { get { return boolValue; } set { if (Set(ref boolValue, value)) { Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
         private string textValue = "";
-        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) { Raise(nameof(IsInvalid)); Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
+        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) { Raise(nameof(SelectedChoice)); Raise(nameof(IsInvalid)); Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
         private decimal? numberValue = 0;
         public decimal? NumberValue { get { return numberValue; } set { if (Set(ref numberValue, value)) { Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
@@ -157,9 +180,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly List<SettingFieldViewModel> allFields;
         private bool isExpanded = true;
 
-        public SettingGroupViewModel(string heading, bool hasHeading, List<SettingFieldViewModel> fields, LocalizedStrings l = null)
+        public SettingGroupViewModel(string heading, bool hasHeading, List<SettingFieldViewModel> fields, LocalizedStrings l = null, string displayHeading = null)
         {
             Heading = heading;
+            DisplayHeading = string.IsNullOrWhiteSpace(displayHeading) ? heading : displayHeading;
             HasHeading = hasHeading;
             allFields = fields;
             ResetTooltip = l?["ModSettingsResetGroup"];
@@ -170,7 +194,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Refresh(false);
         }
 
+        /// <summary>The schema's group name; also what the launcher remembers collapsed groups by.</summary>
         public string Heading { get; }
+        /// <summary>What the dialog shows as the heading: the translation if the mod ships one, else <see cref="Heading"/>.</summary>
+        public string DisplayHeading { get; }
         public bool HasHeading { get; }
         public RelayCommand ToggleCommand { get; }
         public RelayCommand ResetGroupCommand { get; }
@@ -209,8 +236,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly JsonObject values;
         private bool showHidden;
 
-        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, ModInfo mod, JsonObject values, LocalizedStrings l, IDialogService dialogs, bool showHidden = false, IEnumerable<string> collapsedGroups = null)
+        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, ModInfo mod, JsonObject values, LocalizedStrings l, IDialogService dialogs, bool showHidden = false, IEnumerable<string> collapsedGroups = null, ModSettingsTranslation translation = null)
         {
+            translation = translation ?? ModSettingsTranslation.None;
             HashSet<string> collapsed = new HashSet<string>(collapsedGroups ?? Enumerable.Empty<string>());
             Title = title;
             L = l;
@@ -221,7 +249,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 foreach (ModSettingsField field in group.Fields)
                 {
                     if (string.IsNullOrWhiteSpace(field.Key)) continue;
-                    SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs, l);
+                    SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs, l, translation);
                     row.PropertyChanged += (s, e) =>
                     {
                         if (e.PropertyName == nameof(SettingFieldViewModel.IsInvalid)) { Raise(nameof(AllValid)); Raise(nameof(CanSave)); }
@@ -230,7 +258,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     rows.Add(row);
                 }
                 if (rows.Count == 0) continue;
-                SettingGroupViewModel g = new SettingGroupViewModel(group.Name, group.HasHeading, rows, l);
+                SettingGroupViewModel g = new SettingGroupViewModel(group.Name, group.HasHeading, rows, l, translation.Heading(group.Name, group.Name));
                 if (g.HasHeading && collapsed.Contains(g.Heading ?? "")) g.IsExpanded = false;
                 Groups.Add(g);
             }

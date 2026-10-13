@@ -24,3 +24,7 @@ reconstruct it right before opening the PR. Fold several small related lines int
 - The enabled checkbox and load-order number share one column (no number = not enabled), sorted by load order
 - The details pane can be collapsed with an arrow beside it and brought back with the same arrow
 - A file a mod promised on a data channel but the launcher could not hand over is now an error on the in-game status widget, not only a warning before launch
+- The in-game status widget no longer overflows with many mods: a compact list with a details flyout per mod, paged to fit the screen
+- A mod can translate its settings dialog with `settings.schema.<language>.json` sidecars (labels, descriptions, headings, option text; anything missing shows the author's text)
+- The in-game status widget and Mods menu are translated: they follow the enabled translation mod's declared language, or the launcher's language by a setting
+- Every code mod now receives the in-game language as a `Language` option (`en`, `ja`, `ru`), so a mod can translate its own status-widget text

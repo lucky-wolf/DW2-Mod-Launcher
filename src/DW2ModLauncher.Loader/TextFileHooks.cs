@@ -61,7 +61,7 @@ namespace DW2ModLauncher.Loader
             else
             {
                 Log("Stride FileSystemProvider not found.");
-                HookStatus.Failed("textfiles", "text file hook failed: the game's data provider was not found (Hints, dialog, Galactopedia stay unreplaced)", _logPath);
+                HookStatus.Failed("textfiles", StatusStrings.Get("WidgetTextNoProvider"), _logPath);
             }
             foreach (string name in new[] { "ReadAllText", "ReadAllLines", "ReadLines", "ReadAllBytes", "OpenRead", "OpenText", "Exists" })
             {
@@ -74,7 +74,7 @@ namespace DW2ModLauncher.Loader
             }
             foreach (KeyValuePair<string, string> f in _files) Log("replacing data/" + f.Key + " with " + f.Value);
             Log(hooked + " file API(s) hooked.");
-            if (hooked == 0) HookStatus.Failed("textfiles", "text file hook failed: no file API could be hooked", _logPath);
+            if (hooked == 0) HookStatus.Failed("textfiles", StatusStrings.Get("WidgetTextNoApi"), _logPath);
             return _files.Count;
         }
 

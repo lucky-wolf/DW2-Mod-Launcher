@@ -123,6 +123,49 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Build_AddsLanguageToOptions_WithAndWithoutSchema()
+        {
+            string plain = MakeModDir("Plain.dll");
+            string withSchema = MakeModDir("Schema.dll");
+            string token = "test/manifest-" + Guid.NewGuid().ToString("N");
+            ModInfo schemaMod = ModAt(withSchema);
+            schemaMod.Id = token;
+            schemaMod.ActiveToken = token;
+            string settingsPath = ModSettingsStore.GetSettingsPath(schemaMod);
+            try
+            {
+                File.WriteAllText(Path.Combine(withSchema, "settings.schema.json"), @"{
+                    ""fields"": [ { ""key"": ""Enabled"", ""type"": ""bool"", ""default"": true } ]
+                }");
+
+                LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(plain), schemaMod }, "ja");
+
+                Assert.Equal(2, manifest.Entries.Count);
+                Assert.Equal("ja", System.Text.Json.Nodes.JsonNode.Parse(manifest.Entries[0].SettingsJson)["Language"].GetValue<string>());
+                System.Text.Json.Nodes.JsonNode options = System.Text.Json.Nodes.JsonNode.Parse(manifest.Entries[1].SettingsJson);
+                Assert.Equal("ja", options["Language"].GetValue<string>());
+                Assert.NotNull(options["Enabled"]);
+            }
+            finally
+            {
+                Directory.Delete(plain, true);
+                Directory.Delete(withSchema, true);
+                if (File.Exists(settingsPath)) File.Delete(settingsPath);
+            }
+        }
+
+        [Fact]
+        public void Build_WithoutLanguage_LeavesOptionsAlone()
+        {
+            string dir = MakeModDir("Plain.dll");
+            try
+            {
+                Assert.Null(LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(dir) }).Entries[0].SettingsJson);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
         public void Build_InlinesSettingsJson_WhenModHasSchema()
         {
             string dir = MakeModDir("SomeMod.dll");

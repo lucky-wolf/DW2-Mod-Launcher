@@ -46,8 +46,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
         public string StateGlyph { get { return enabled ? "☑" : "☐"; } }
 
-        private string health = "";
-        public string Health { get { return health; } set { Set(ref health, value); } }
+        private string healthTip;
+        /// <summary>What is wrong with an enabled mod, for the tooltip on its checkbox: Caution or Conflict, then the problems. Null when there is nothing to say.</summary>
+        public string HealthTip { get { return healthTip; } set { Set(ref healthTip, value); } }
 
         private int healthSeverity;
         public int HealthSeverity

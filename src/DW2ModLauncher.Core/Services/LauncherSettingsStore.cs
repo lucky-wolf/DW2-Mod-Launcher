@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -21,9 +22,19 @@ namespace DW2ModLauncher.Core.Services
     {
         private readonly string path;
 
-        public LauncherSettingsStore(string path)
+        private readonly CultureInfo systemCulture;
+
+        /// <param name="systemCulture">The language the system speaks, which picks the launcher language when there are no saved settings (default: the current UI culture).</param>
+        public LauncherSettingsStore(string path, CultureInfo systemCulture = null)
         {
             this.path = path;
+            this.systemCulture = systemCulture ?? CultureInfo.CurrentUICulture;
+        }
+
+        /// <summary>Settings for a first run: the defaults, in the system's language when the launcher has a pack for it.</summary>
+        private LauncherSettings FirstRun()
+        {
+            return new LauncherSettings { Language = Localization.ForCulture(systemCulture) };
         }
 
         public string Path { get { return path; } }
@@ -36,7 +47,7 @@ namespace DW2ModLauncher.Core.Services
         public LauncherSettings Load()
         {
             LoadError = null;
-            if (!File.Exists(path)) return new LauncherSettings();
+            if (!File.Exists(path)) return FirstRun();
             try
             {
                 LauncherSettings s = JsonSerializer.Deserialize<LauncherSettings>(File.ReadAllText(path, Encoding.UTF8));
@@ -59,7 +70,7 @@ namespace DW2ModLauncher.Core.Services
                     Diagnostics.Logger.LogException("Back up unreadable launcher settings", copyEx);
                     LoadError = "launcher_settings.json could not be read and could not be backed up (" + copyEx.Message + "); saving will overwrite it.\n" + detail;
                 }
-                return new LauncherSettings();
+                return FirstRun();
             }
         }
 

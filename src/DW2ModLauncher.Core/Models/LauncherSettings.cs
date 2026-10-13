@@ -6,6 +6,8 @@ namespace DW2ModLauncher.Core.Models
     public class LauncherSettings
     {
         public string Language { get; set; }
+        /// <summary>True: the in-game widget's language is the one an enabled translation mod declares (dw2modlauncher.json "language"), English if none does. False: it follows <see cref="Language"/>, the launcher's own.</summary>
+        public bool WidgetLanguageFromMods { get; set; } = true;
         public string GameRoot { get; set; }
         public string WorkshopRoot { get; set; }
         public string ManagedModsRoot { get; set; }
@@ -31,6 +33,12 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Main window's client size in device-independent pixels when it last closed.</summary>
         public double? WindowWidth { get; set; }
         public double? WindowHeight { get; set; }
+        /// <summary>The order of the mod list's columns (ids from ModListColumns), as the user dragged them; null = the default order.</summary>
+        public List<string> ModListColumnOrder { get; set; }
+        /// <summary>The details pane's share (0 to 1) of the width the mod list and details pane split; null until the user drags the splitter.</summary>
+        public double? DetailsFraction { get; set; }
+        /// <summary>The details pane is hidden (a state of its own: collapsing never changes <see cref="DetailsFraction"/>).</summary>
+        public bool DetailsCollapsed { get; set; }
         /// <summary>The mod settings editor's "Show hidden" checkbox, restored the next time it opens.</summary>
         public bool ShowHiddenSettings { get; set; }
         /// <summary>ActiveToken of the mod selected in the list when the launcher last closed; reselected (and scrolled into view) at startup.</summary>

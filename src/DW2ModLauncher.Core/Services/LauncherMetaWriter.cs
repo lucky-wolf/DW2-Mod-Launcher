@@ -21,7 +21,18 @@ namespace DW2ModLauncher.Core.Services
         /// </summary>
         public static void StampAuthor(string modFolder, string author, bool overwrite)
         {
-            string name = (author ?? "").Trim();
+            Stamp(modFolder, "author", author, overwrite);
+        }
+
+        /// <summary>Records the language code of a translation mod (see LauncherMeta.language); the same rules as <see cref="StampAuthor"/>.</summary>
+        public static void StampLanguage(string modFolder, string languageCode, bool overwrite)
+        {
+            Stamp(modFolder, "language", languageCode, overwrite);
+        }
+
+        private static void Stamp(string modFolder, string field, string value, bool overwrite)
+        {
+            string name = (value ?? "").Trim();
             if (name.Length == 0) return;
             string path = Path.Combine(modFolder, FileName);
             JsonObject root = new JsonObject();
@@ -30,13 +41,13 @@ namespace DW2ModLauncher.Core.Services
                 JsonNode node = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8), null, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
                 root = node as JsonObject ?? throw new InvalidDataException(path + " is not a JSON object.");
             }
-            string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals("author", StringComparison.OrdinalIgnoreCase));
+            string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(field, StringComparison.OrdinalIgnoreCase));
             if (key != null)
             {
                 if (!overwrite && !string.IsNullOrWhiteSpace(root[key]?.ToString())) return;
                 root.Remove(key);
             }
-            root["author"] = name;
+            root[field] = name;
             File.WriteAllText(path, root.ToJsonString(Indented), new UTF8Encoding(false));
         }
     }

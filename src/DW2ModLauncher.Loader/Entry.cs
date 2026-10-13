@@ -38,6 +38,9 @@ namespace DW2ModLauncher.Loader
                 manifestError = "ERROR: failed to read/parse manifest.json: " + ex;
             }
 
+            // before anything reports to the widget, so the first messages are already in the player's language
+            StatusStrings.Use(manifest?.Strings);
+
             string logDir = LogDirectory(baseDir, manifest?.LogDirectory);
             _logPath = Path.Combine(logDir, "dw2modlauncher.log");
             try { File.WriteAllText(_logPath, string.Empty); } catch (Exception ex) { HookStatus.LogFailed(_logPath, ex); } // one game start per log, like dw2modlauncher-patches.log
@@ -45,13 +48,12 @@ namespace DW2ModLauncher.Loader
             if (_logDirNote != null)
             {
                 Log("ERROR: " + _logDirNote);
-                HookStatus.Failed("logfolder", _logDirNote, _logPath);
+                HookStatus.Failed("logfolder", _logDirStatus, _logPath);
             }
             if (!string.IsNullOrWhiteSpace(manifest?.LogDirectory) && logDir != manifest.LogDirectory)
             {
-                string text = "log folder '" + manifest.LogDirectory + "' does not exist; the loader logs are in " + logDir;
-                Log("ERROR: " + text);
-                HookStatus.Failed("logfolder", text, _logPath);
+                Log("ERROR: log folder '" + manifest.LogDirectory + "' does not exist; the loader logs are in " + logDir);
+                HookStatus.Failed("logfolder", StatusStrings.Get("WidgetLogFolderMissing", manifest.LogDirectory, logDir), _logPath);
             }
             if (manifestError != null)
             {
@@ -89,7 +91,7 @@ namespace DW2ModLauncher.Loader
             {
                 string text = problem.TrimStart('⚠', ' ');
                 Log("ERROR mod data channel: " + text);
-                HookStatus.Failed("channel:" + i++, "Mod data channel: " + text, _logPath);
+                HookStatus.Failed("channel:" + i++, StatusStrings.Get("WidgetChannelProblem", text), _logPath);
             }
         }
 
@@ -166,13 +168,13 @@ namespace DW2ModLauncher.Loader
                 if (entry == null || string.IsNullOrWhiteSpace(entry.DllPath) || string.IsNullOrWhiteSpace(entry.EntryType))
                 {
                     Log("SKIP " + label + ": incomplete manifest entry.");
-                    ModStatus.Registry.ReportLoad(id, id, null, null, "incomplete manifest entry");
+                    ModStatus.Registry.ReportLoad(id, id, null, null, StatusStrings.Get("WidgetLoadIncomplete"));
                     return;
                 }
                 if (!File.Exists(entry.DllPath))
                 {
                     Log("SKIP " + label + ": DLL not found at " + entry.DllPath);
-                    ModStatus.Registry.ReportLoad(id, id, null, null, "DLL not found at " + entry.DllPath);
+                    ModStatus.Registry.ReportLoad(id, id, null, null, StatusStrings.Get("WidgetLoadDllMissing", entry.DllPath));
                     return;
                 }
 
@@ -183,7 +185,7 @@ namespace DW2ModLauncher.Loader
                 if (split <= 0)
                 {
                     Log("SKIP " + label + ": entry type '" + entry.EntryType + "' is not Namespace.Type.Method form.");
-                    ModStatus.Registry.ReportLoad(id, id, version, built, "entry type '" + entry.EntryType + "' is not Namespace.Type.Method form");
+                    ModStatus.Registry.ReportLoad(id, id, version, built, StatusStrings.Get("WidgetLoadEntryForm", entry.EntryType));
                     return;
                 }
                 string typeName = entry.EntryType.Substring(0, split);
@@ -192,7 +194,7 @@ namespace DW2ModLauncher.Loader
                 if (type == null)
                 {
                     Log("SKIP " + label + ": type '" + typeName + "' not found in " + entry.DllPath);
-                    ModStatus.Registry.ReportLoad(id, id, version, built, "type '" + typeName + "' not found");
+                    ModStatus.Registry.ReportLoad(id, id, version, built, StatusStrings.Get("WidgetLoadTypeMissing", typeName));
                     return;
                 }
 
@@ -218,7 +220,7 @@ namespace DW2ModLauncher.Loader
                 if (plain == null)
                 {
                     Log("SKIP " + label + ": no matching '" + methodName + "()' or 'InitWithOptions(string)' found on " + typeName);
-                    ModStatus.Registry.ReportLoad(id, id, version, built, "no '" + methodName + "()' or 'InitWithOptions(string)' on " + typeName);
+                    ModStatus.Registry.ReportLoad(id, id, version, built, StatusStrings.Get("WidgetLoadNoMethod", methodName, typeName));
                     return;
                 }
                 plain.Invoke(null, null);
@@ -281,11 +283,13 @@ namespace DW2ModLauncher.Loader
             catch (Exception ex)
             {
                 _logDirNote = "the game's log folder could not be created (" + ex.Message + "); the loader logs are in " + fallback;
+                _logDirStatus = StatusStrings.Get("WidgetLogFolderCreate", ex.Message, fallback);
                 return fallback;
             }
         }
 
         private static string _logDirNote;
+        private static string _logDirStatus;
 
         internal static void Log(string message)
         {

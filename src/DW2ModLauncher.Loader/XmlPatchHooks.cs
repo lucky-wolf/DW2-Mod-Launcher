@@ -43,7 +43,7 @@ namespace DW2ModLauncher.Loader
             {
                 _logPath = null;
                 Entry.Log("ERROR: XML patching cannot write its log (" + ex.Message + "); patches still apply but their diagnostics will not be recorded.");
-                ModStatus.Error(MenuRegistry.LauncherId, "XML patch log cannot be written: " + ex.Message);
+                ModStatus.Error(MenuRegistry.LauncherId, StatusStrings.Get("WidgetPatchLogUnwritable", ex.Message));
             }
 
             _modFolders = manifest?.ModFolders ?? new List<string>();
@@ -88,7 +88,7 @@ namespace DW2ModLauncher.Loader
             if (vfs == null)
             {
                 Log("ERROR: Stride VirtualFileSystem not found; patches will not be applied.");
-                HookStatus.Failed("patches", "XML patches are not applied: the game's file system was not found", _logPath);
+                HookStatus.Failed("patches", StatusStrings.Get("WidgetPatchesNoFileSystem"), _logPath);
                 return;
             }
             MethodInfo post = typeof(XmlPatchHooks).GetMethod(nameof(OpenStreamPostfix), BindingFlags.Static | BindingFlags.NonPublic);
@@ -103,7 +103,7 @@ namespace DW2ModLauncher.Loader
                 catch (Exception ex)
                 {
                     Log("ERROR: could not hook OpenStream(" + string.Join(", ", ps.Select(p => p.Name)) + "): " + ex.Message);
-                    HookStatus.Failed("patches", "XML patches are not applied: OpenStream could not be hooked", _logPath);
+                    HookStatus.Failed("patches", StatusStrings.Get("WidgetPatchesNoOpenStream"), _logPath);
                 }
             }
         }
@@ -122,7 +122,7 @@ namespace DW2ModLauncher.Loader
                 catch (Exception ex)
                 {
                     Log("WARNING: could not hook the data provider's OpenStream (tour items will not be patched): " + ex.Message);
-                    HookStatus.Warn("tours", "tutorial tours are not patched: the data provider could not be hooked", _logPath);
+                    HookStatus.Warn("tours", StatusStrings.Get("WidgetToursNotPatched"), _logPath);
                 }
             }
         }
@@ -225,7 +225,7 @@ namespace DW2ModLauncher.Loader
             int errors = runner.Report.Entries.Count(e => e.Severity == Severity.Error);
             int warnings = runner.Report.Entries.Count(e => e.Severity == Severity.Warning);
             if (errors + warnings == 0) return;
-            HookStatus.Warn("patch-problems", "XML patches: " + errors + " item(s) skipped, " + warnings + " warning(s) - see dw2modlauncher-patches.log", _logPath);
+            HookStatus.Warn("patch-problems", StatusStrings.Get("WidgetPatchProblems", errors, warnings), _logPath);
         }
 
         // ---- helpers ----

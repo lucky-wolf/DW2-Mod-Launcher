@@ -31,6 +31,9 @@ namespace DW2ModLauncher.Core.Models
 
         /// <summary>Where the loader writes its logs (as the game process sees the path); blank = the game's data/Logs folder.</summary>
         public string LogDirectory { get; set; } = "";
+
+        /// <summary>The widget's and Mods menu's own words in the chosen language (the Widget* keys of the launcher's language pack); empty = the loader's built-in English.</summary>
+        public Dictionary<string, string> Strings { get; set; } = new Dictionary<string, string>();
     }
 
     /// <summary>One mod's XML patch files (see docs/plans/xml-patching.md), in the order they apply.</summary>

@@ -143,6 +143,12 @@ To build and run from source on Linux (needs only the .NET 10 SDK):
 dotnet run --project src/DW2ModLauncher.Avalonia
 ```
 
+## Localization
+
+The launcher comes in English, Japanese and Russian. On first run it speaks your system's language if a language pack exists for it; you can change it any time in the main window.
+A language pack is a single JSON file, so adding a language needs no code. The mod status line and Mods menu shown inside the game follow your translation mod, or the launcher's language if you choose that in Settings.
+See [Localization](docs/Localization.md) for how it all works and how to add a language.
+
 ## Contributing
 
 Community development is welcome.

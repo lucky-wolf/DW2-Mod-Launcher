@@ -73,7 +73,7 @@ namespace DW2ModLauncher.Loader
             _menuPanel = panel;
             _grownFor = 0f;
             _seedText = null;
-            _modsButton = m.NewButton(ModsButtonName, "Mods");
+            _modsButton = m.NewButton(ModsButtonName, StatusStrings.Get("WidgetMenuMods"));
             _seedButton = m.NewButton(SeedButtonName, "");
             m.AddControl.Invoke(panel, new[] { _modsButton });
             m.AddControl.Invoke(panel, new[] { _seedButton });
@@ -112,7 +112,7 @@ namespace DW2ModLauncher.Loader
 
             bool copied = _copiedAt != 0 && Environment.TickCount64 - _copiedAt < CopiedMs;
             if (_copiedAt != 0 && !copied) _copiedAt = 0;
-            string seedButtonText = copied ? "Copied to clipboard" : string.IsNullOrEmpty(_seedText) ? "Random Seed" : _seedText;
+            string seedButtonText = copied ? StatusStrings.Get("WidgetMenuCopied") : string.IsNullOrEmpty(_seedText) ? StatusStrings.Get("WidgetMenuSeed") : _seedText;
             if (!string.Equals((string)g.Text.Get(_seedButton), seedButtonText, StringComparison.Ordinal))
             {
                 g.Text.Set(_seedButton, seedButtonText);
@@ -190,9 +190,7 @@ namespace DW2ModLauncher.Loader
                 string version = loader.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? loader.GetName().Version?.ToString() ?? "unknown";
                 int plus = version.IndexOf('+');
                 if (plus > 0) version = version.Substring(0, plus);
-                int mods = ModStatus.Registry.Snapshot().Count;
-                string text = "Version " + version + "\n\n" + mods + " code mod" + (mods == 1 ? "" : "s")
-                    + " loaded. The line at the lower left of the screen lists them; click it for details.\n\nLog: data/Logs/dw2modlauncher.log";
+                string text = StatusStrings.Get("WidgetAbout", version, ModStatus.Registry.Snapshot().Count);
                 _m.ShowAbout("DW2 MOD LAUNCHER", text, _m.ScreenWidth(), _m.ScreenHeight());
             }
             catch (Exception ex)
@@ -363,7 +361,7 @@ namespace DW2ModLauncher.Loader
                 _renderedBorder.Set(d, true);
                 _overlay.Set(d, true);
                 _closeInHeader.Set(d, true);
-                _headerText.Set(d, "MODS");
+                _headerText.Set(d, StatusStrings.Get("WidgetMenuHeader"));
                 _modal.Set(d, true);
                 _setFeatureDefaults.Invoke(d, null);
                 _backColor.Set(d, _backColorValue);
@@ -391,7 +389,7 @@ namespace DW2ModLauncher.Loader
                     y += rowHeight + gap;
                 }
                 y += gap * 4f;
-                object close = NewButton(ModsCloseName, "Close");
+                object close = NewButton(ModsCloseName, StatusStrings.Get("WidgetMenuClose"));
                 g.SetSizeAndPosition.Invoke(close, new object[] { innerSize, g.Vec2(x, y) });
                 AddControl.Invoke(d, new[] { close });
                 y += rowHeight + gap;

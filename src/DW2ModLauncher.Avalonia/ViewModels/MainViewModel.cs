@@ -62,8 +62,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             settingsStore = new LauncherSettingsStore(Path.Combine(appRoot, "launcher_settings.json"));
             settings = settingsStore.Load();
             NormalizeSettings();
-            // A saved 2 was the old separate "enabled" column, which is now part of column 4.
-            sortColumn = settings.SortColumn == 2 ? 4 : settings.SortColumn >= 0 && settings.SortColumn <= 5 ? settings.SortColumn : -1;
+            Views.ModColumnLayout.Set(settings.ModListColumnOrder);
+            // A saved 2 was the old separate "enabled" column, which is now part of column 4; a saved 3 was the Health column, which is gone (the checkbox carries it).
+            sortColumn = settings.SortColumn == 2 || settings.SortColumn == 3 ? 4 : settings.SortColumn >= 0 && settings.SortColumn <= 5 ? settings.SortColumn : -1;
             sortAscending = settings.SortAscending;
             if (string.IsNullOrWhiteSpace(settings.ManagedModsRoot))
                 settings.ManagedModsRoot = string.IsNullOrWhiteSpace(settings.GameRoot) ? "" : Path.Combine(settings.GameRoot, "mods");
@@ -318,7 +319,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public void SaveSettings()
         {
             try { settingsStore.Save(settings); }
-            catch (Exception ex) { SetStatus("Settings save error: " + ex.Message); }
+            catch (Exception ex) { SetStatus(T("SettingsSaveError", ex.Message)); }
         }
 
         /// <summary>Stored the moment a preview image is picked, so the folder is remembered even if the publish dialog is then cancelled.</summary>
@@ -367,7 +368,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Scan managed mods", ex);
-                AddProblem("The mods folder could not be read, so no local mods are listed: " + settings.ManagedModsRoot + "\n" + ex.Message);
+                AddProblem(T("ModsFolderUnreadable", settings.ManagedModsRoot, ex.Message));
                 managedMods = new List<ModInfo>();
             }
             try { workshopMods = ModScanner.ScanMods(settings.WorkshopRoot, true, key => T(key)) ?? new List<ModInfo>(); }
@@ -449,7 +450,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 row.Enabled = enabled;
                 int severity = ModHealth.Severity(row.Mod, enabled);
                 row.HealthSeverity = severity;
-                row.Health = severity == 3 ? T("HealthConflict") : severity == 2 ? T("HealthCaution") : severity == 1 ? T("HealthOk") : T("ModDisabled");
+                List<string> problems = severity >= 2 ? ModDetails.BuildProblems(row.Mod, severity, key => T(key)) : new List<string>();
+                row.HealthTip = problems.Count == 0 ? null : (severity == 3 ? T("HealthConflict") : T("HealthCaution")) + "\n" + string.Join("\n", problems);
                 row.LoadOrderIndex = present.FindIndex(t => string.Equals(t, row.Mod.ActiveToken, StringComparison.OrdinalIgnoreCase));
                 row.RefreshFromMod();
             }
@@ -523,13 +525,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     return;
                 case SetEnabledOutcome.WriteFailed:
                     Logger.LogException("Write DW2 mods.json", result.Error);
-                    await Dialogs.ShowMessageAsync("Failed to save mods.json.\n" + result.Error.Message, "DW2 Mod Launcher");
+                    await Dialogs.ShowMessageAsync(T("ModsJsonSaveFailed", result.Error.Message), "DW2 Mod Launcher");
                     modOrder = ModOrderStore.Read(ModsJsonPath());
                     break;
                 case SetEnabledOutcome.Saved:
                     SetStatus(T("DW2ModSettingsSaved"));
                     if (result.SettingsError != null)
-                        await Dialogs.ShowMessageAsync(row.Mod.DisplayName + " was enabled, but its settings could not be prepared.\n" + result.SettingsError.Message, "DW2 Mod Launcher");
+                        await Dialogs.ShowMessageAsync(T("ModEnabledSettingsFailed", row.Mod.DisplayName, result.SettingsError.Message), "DW2 Mod Launcher");
                     break;
             }
             Analyze();
@@ -579,7 +581,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Write load order", ex);
-                var _ = Dialogs.ShowMessageAsync("Could not save load order.\n" + ex.Message, "DW2 Mod Launcher");
+                var _ = Dialogs.ShowMessageAsync(T("LoadOrderSaveFailed", ex.Message), "DW2 Mod Launcher");
             }
         }
 
@@ -808,12 +810,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string targetLabel = targetMod == null ? null : targetMod.DisplayName ?? targetMod.Id ?? Path.GetFileName(targetMod.Folder);
 
             string name;
+            string typedLanguage = null;
             if (localization)
             {
                 Func<string, string> modName = lang => targetLabel == null ? T("LocalizationModName", lang.Trim()) : T("LocalizationModNameFor", lang.Trim(), targetLabel);
                 string language = await Dialogs.PromptTextAsync(T("CreateModKindLocalization"), T("LocalizationLanguagePrompt"), "", T("OK"), T("Cancel"),
                     text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", LocalModManager.FolderNameFor(modName(text))));
                 if (language == null) return;
+                typedLanguage = language;
                 name = modName(language);
             }
             else
@@ -826,6 +830,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 string folder = LocalModManager.Create(settings.ManagedModsRoot, name, localization ? T("LocalizationModDescription") : "");
                 LauncherMetaWriter.StampAuthor(folder, settings.AuthorName, true);
+                // A language the launcher has a pack for is recorded, so the in-game widget speaks it while this mod is enabled.
+                if (localization) LauncherMetaWriter.StampLanguage(folder, Localization.CodeFor(typedLanguage), true);
                 if (localization)
                 {
                     IsBusy = true;
@@ -930,7 +936,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (settings.CollapsedSettingGroups == null) settings.CollapsedSettingGroups = new Dictionary<string, List<string>>();
                 List<string> collapsedGroups = settings.CollapsedSettingGroups.TryGetValue(modKey, out List<string> saved0) ? saved0 : new List<string>();
                 ModSettingsEditorViewModel editor = new ModSettingsEditorViewModel(
-                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs, settings.ShowHiddenSettings, collapsedGroups);
+                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs, settings.ShowHiddenSettings, collapsedGroups,
+                    // the dialog is the launcher's own window, so a mod's sidecar is picked by the launcher's language
+                    ModSettingsTranslation.Read(mod.ContentRoot ?? mod.Folder, settings.Language));
                 bool saved = await Dialogs.EditModSettingsAsync(editor);
                 bool dirty = false;
                 if (editor.CanShowHidden && editor.ShowHidden != settings.ShowHiddenSettings)
@@ -1030,7 +1038,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
-                await Dialogs.ShowMessageAsync("The mod folder could not be read: " + ex.Message, "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ex.Message), "DW2 Mod Launcher");
                 return;
             }
             if (!await Dialogs.EditPublishAsync(editor)) { UpdateStatus(); return; }
@@ -1109,7 +1117,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
-                await Dialogs.ShowMessageAsync("The mod folder could not be read: " + ex.Message, "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ex.Message), "DW2 Mod Launcher");
                 return;
             }
             if (!await Dialogs.EditPublishAsync(editor)) return;
@@ -1270,6 +1278,48 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         // ---- Launcher self-update
 
         private string UpdateWorkDir { get { return Path.Combine(appRoot, "Updates"); } }
+
+        /// <summary>Drags a mod list column to a new place (<paramref name="index"/> columns before it, not counting itself) and remembers the order.</summary>
+        public void MoveColumn(string id, int index)
+        {
+            List<string> order = ModListColumns.Move(Views.ModColumnLayout.Order, id, index);
+            settings.ModListColumnOrder = order;
+            Views.ModColumnLayout.Set(order);
+            SaveSettings();
+        }
+
+        /// <summary>The details pane's share of the list-and-details width (0 to 1), or null for the default split.</summary>
+        public double? DetailsFraction { get { return settings.DetailsFraction; } }
+
+        /// <summary>Whether the details pane was hidden when the launcher last closed. Independent of <see cref="DetailsFraction"/>.</summary>
+        public bool DetailsCollapsed { get { return settings.DetailsCollapsed; } }
+
+        public void SetDetailsFraction(double fraction)
+        {
+            if (settings.DetailsFraction == fraction) return;
+            settings.DetailsFraction = fraction;
+            SaveSettings();
+        }
+
+        public void SetDetailsCollapsed(bool collapsed)
+        {
+            if (settings.DetailsCollapsed == collapsed) return;
+            settings.DetailsCollapsed = collapsed;
+            SaveSettings();
+        }
+
+        /// <summary>The settings box choosing whether the in-game widget follows the translation mod (true) or the launcher's language.</summary>
+        public bool WidgetLanguageFromMods
+        {
+            get { return settings.WidgetLanguageFromMods; }
+            set
+            {
+                if (settings.WidgetLanguageFromMods == value) return;
+                settings.WidgetLanguageFromMods = value;
+                SaveSettings();
+                Raise();
+            }
+        }
 
         /// <summary>The About box's "Check for updates at startup" box.</summary>
         public bool CheckForLauncherUpdates
@@ -1468,11 +1518,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 diagnostics = LaunchDiagnostics.Build(enabled, modOrder, GameLauncher.LoaderDllPath(),
                     LoaderManifestBuilder.Build(OrderedEnabledMods()).Entries, key => T(key));
                 diagnostics.AddRange(dependencyOrder.Problems.Select(p => "⚠ " + p));
+                WidgetLanguage.Choose(OrderedEnabledMods(), settings, out string unknownLanguage);
+                if (unknownLanguage != null) diagnostics.Add("⚠ " + T("LaunchWidgetLanguageUnknown", unknownLanguage));
             }
             catch (Exception ex)
             {
                 Logger.LogException("Pre-launch check", ex);
-                await Dialogs.ShowMessageAsync("The game was not started because a mod's settings could not be read.\n" + ex.Message, "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("LaunchSettingsUnreadable", ex.Message), "DW2 Mod Launcher");
                 return;
             }
             if (diagnostics.Count > 0 && !await Dialogs.ConfirmAsync(
@@ -1490,7 +1542,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             try
             {
                 foreach (string line in ModChannels.Describe(OrderedEnabledMods())) Logger.Log("Channel data", line);
-                LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods(), settings.LogDirectory);
+                string inGameLanguage = WidgetLanguage.Choose(OrderedEnabledMods(), settings, out _);
+                LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods(), settings.LogDirectory,
+                    WidgetLanguage.Strings(inGameLanguage), inGameLanguage);
                 Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(LaunchMode, launchManifest.Fonts.LastOrDefault()?.Name)));
                 SetStatus(T("DistantWorlds2Launched") + (dependencyOrder.Written ? " (load order adjusted to meet mod dependencies: " + string.Join("; ", dependencyOrder.Moves) + ")" : ""));
                 launchStartedUtc = DateTime.UtcNow;
