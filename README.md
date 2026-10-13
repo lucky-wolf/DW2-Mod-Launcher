@@ -16,6 +16,7 @@ The project is developed as a hobby project, and contributions, improvements, fo
   - [Building](#building)
   - [Initial Setup](#initial-setup)
   - [Linux](#linux)
+  - [Localization](#localization)
   - [Contributing](#contributing)
   - [License](#license)
   - [Disclaimer](#disclaimer)
@@ -45,7 +46,7 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
   - Create new mods
   - Upload or update your mods to steam directly
   - See at a glance which published mods have changed since their last publish
-  - Test your mods tha use DLL injection
+  - Test your mods that use DLL injection
   - Create a specification that users can easily configure your mod to their tastes
 
 ## Requirements
