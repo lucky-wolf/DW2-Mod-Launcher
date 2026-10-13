@@ -28,7 +28,9 @@ namespace DW2ModLauncher.Loader
         const string LineName = "DW2ML_StatusLine";
         const string RowPrefix = "DW2ML_StatusRow_";
         const string BackdropName = "DW2ML_StatusBackdrop";
-        const float IndentX = 10f;
+        const string FlyoutName = "DW2ML_StatusFlyout";
+        // in from the left of the screen; 5 past the old 10 to line up with the game's focus widget above it (matched by eye)
+        const float IndentX = 23f;
         const long RefreshMs = 500;
 
         static Action<string> _log;
@@ -46,9 +48,19 @@ namespace DW2ModLauncher.Loader
         // The collapsed line can be shrunk to its marker, and the problems it shows can be dismissed until something new is reported.
         static bool _minimized;
         static string _dismissedSignature;
+        // Rows before the actions: the header plus one per mod. Clicking a mod row opens its details in a flyout beside the list.
         static int _textRows;
+        static readonly List<string> _modRowIds = new List<string>();
+        static string _selectedId;
+        static object _flyout;
+        static bool _flyoutShown;
+        static long _flyCopiedAt;
         static readonly List<RowAction> _actions = new List<RowAction>();
-        enum RowAction { Dismiss, Minimize }
+        enum RowAction { Dismiss, Minimize, PreviousPage, NextPage }
+        static int _page;
+
+        // For code outside the widget (ModMenu) that needs to put a line in the loader log once the widget is up.
+        internal static void Log(string message) => _log?.Invoke(message);
 
         public static void Install(Action<string> log)
         {
@@ -71,6 +83,7 @@ namespace DW2ModLauncher.Loader
             {
                 if (_line == null) _line = NewButton(LineName, Kind.Line);
                 if (_backdrop == null) _backdrop = NewButton(BackdropName, Kind.Backdrop);
+                if (_flyout == null) _flyout = NewButton(FlyoutName, Kind.Row);
 
                 StatusRegistry registry = ModStatus.Registry;
                 long now = Environment.TickCount64;
@@ -95,10 +108,12 @@ namespace DW2ModLauncher.Loader
                 {
                     EnsurePresent(_backdrop);
                     foreach (object row in _rows) EnsurePresent(row);
+                    if (_flyoutShown) EnsurePresent(_flyout); else EnsureAbsent(_flyout);
                 }
                 else
                 {
                     EnsureAbsent(_backdrop);
+                    EnsureAbsent(_flyout);
                     foreach (object row in _rows) EnsureAbsent(row);
                 }
                 EnsurePresent(_line);
@@ -126,7 +141,7 @@ namespace DW2ModLauncher.Loader
             if (dismissed) worst = StatusLevel.Ok;
 
             string marker = _expanded ? "[-]" : "[+]";
-            string line = dismissed ? "DW2 mods: " + mods.Count + " loaded (problems dismissed)" : StatusText.Line(mods);
+            string line = dismissed ? StatusStrings.Get("WidgetDismissedLine", mods.Count) : StatusText.Line(mods);
             string text = _minimized && !_expanded
                 ? marker + (worst == StatusLevel.Error ? " /!\\" : worst == StatusLevel.Warn ? " !" : "")
                 : marker + (worst == StatusLevel.Error ? " /!\\ " : " ") + line;
@@ -144,17 +159,48 @@ namespace DW2ModLauncher.Loader
                 return;
             }
 
-            List<PanelRow> panel = StatusText.Rows(mods);
-            panel.Insert(0, new PanelRow { Level = StatusLevel.Ok, Text = "DW2 Mod Launcher: " + mods.Count + " code mod" + (mods.Count == 1 ? "" : "s") + " loaded. Click anywhere to close." });
+            // The list is one short row per mod; the details of the selected mod open in a single flyout beside it, so the height
+            // depends on the number of mods only and never on how much each mod reports.
+            List<ModStatusSnapshot> all = StatusText.Ordered(mods);
+
+            // Only as many mods as fit above the line are listed at once; the rest are on further pages (Previous / Next rows below).
+            // The fixed rows are the header, up to two actions and up to two pager rows.
+            g.MeasureSize("Ag", screenWidth, out _, out float sampleHeight);
+            float rowHeight = sampleHeight + g.Margin.Get<float>(_line) * 2f + 4f;
+            int perPage = Math.Max(3, (int)((lineTop - 8f) / rowHeight) - 5);
+            int pages = Math.Max(1, (all.Count + perPage - 1) / perPage);
+            if (_page >= pages) _page = pages - 1;
+            List<ModStatusSnapshot> ordered = pages == 1 ? all : all.GetRange(_page * perPage, Math.Min(perPage, all.Count - _page * perPage));
+            if (_selectedId != null && !ordered.Exists(m => m.Id == _selectedId)) _selectedId = null;
+            var panel = new List<PanelRow>
+            {
+                new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetHeader", mods.Count) }
+            };
+            _modRowIds.Clear();
+            foreach (ModStatusSnapshot m in ordered)
+            {
+                _modRowIds.Add(m.Id);
+                panel.Add(new PanelRow { Level = m.Level, Id = m.Id, Text = (m.Id == _selectedId ? "> " : "   ") + StatusText.Entry(m) });
+            }
             _textRows = panel.Count;
             _actions.Clear();
             if (signature != null && !dismissed)
             {
                 _actions.Add(RowAction.Dismiss);
-                panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = "[Dismiss warnings and errors]  (the line stops showing them until something new is reported)" });
+                panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetDismiss") });
+            }
+            if (_page > 0)
+            {
+                _actions.Add(RowAction.PreviousPage);
+                panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetPreviousPage", _page, pages) });
+            }
+            if (_page < pages - 1)
+            {
+                _actions.Add(RowAction.NextPage);
+                panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetNextPage", _page + 2, pages, all.Count) });
             }
             _actions.Add(RowAction.Minimize);
-            panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = _minimized ? "[Show the full status line]" : "[Minimize the status line]" });
+            panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get(_minimized ? "WidgetShowLine" : "WidgetMinimize") });
             if (_rows.Count != panel.Count)
             {
                 foreach (object row in _rows) EnsureAbsent(row);
@@ -172,16 +218,39 @@ namespace DW2ModLauncher.Loader
 
             // blocks are stacked with no gaps; the first (worst) is at the top and the last sits directly on the line
             float bottom = lineTop;
+            float selectedBottom = 0f;
             for (int i = panel.Count - 1; i >= 0; i--)
             {
                 object rowColor = panel[i].Level == StatusLevel.Error ? g.Bad : panel[i].Level == StatusLevel.Warn ? g.Warn : g.Dim;
+                if (panel[i].Id != null && panel[i].Id == _selectedId) selectedBottom = bottom;
                 bottom = PlaceAboveEdge(_rows[i], panel[i].Text, rowColor, maxWidth, width, bottom);
+            }
+
+            _flyoutShown = _selectedId != null;
+            if (!_flyoutShown)
+            {
+                return;
+            }
+
+            // The flyout sits right of the list with its bottom level with the selected row, pushed down if that would leave the screen.
+            ModStatusSnapshot selected = ordered.Find(m => m.Id == _selectedId);
+            float flyX = IndentX + width + g.Margin.Get<float>(_rows[0]) * 4f + 8f + 2f;
+            float flyWidth = Math.Max(screenWidth * 0.2f, Math.Min(screenWidth * 0.5f, screenWidth - flyX - IndentX));
+            object flyColor = selected.Level == StatusLevel.Error ? g.Bad : selected.Level == StatusLevel.Warn ? g.Warn : g.Dim;
+            // clicking the flyout copies its text; a first line says so for a couple of seconds
+            bool copied = _flyCopiedAt != 0 && Environment.TickCount64 - _flyCopiedAt < CopiedMs;
+            if (!copied) _flyCopiedAt = 0;
+            string flyText = (copied ? StatusStrings.Get("WidgetCopied") + "\n" : "") + StatusText.Block(selected);
+            float flyTop = PlaceAboveEdge(_flyout, flyText, flyColor, flyWidth, 0f, selectedBottom, flyX);
+            if (flyTop < 0f)
+            {
+                PlaceAboveEdge(_flyout, flyText, flyColor, flyWidth, 0f, selectedBottom - flyTop, flyX);
             }
         }
 
         // Sets text and colour and puts the control's bottom edge at bottomY, IndentX in from the left of the screen. Returns the top edge.
         // fixedWidth 0 = fit the text.
-        static float PlaceAboveEdge(object button, string text, object color, float maxWidth, float fixedWidth, float bottomY)
+        static float PlaceAboveEdge(object button, string text, object color, float maxWidth, float fixedWidth, float bottomY, float x = IndentX)
         {
             Game g = _g;
             float margin = g.Margin.Get<float>(button);
@@ -196,7 +265,7 @@ namespace DW2ModLauncher.Loader
             g.ButtonColor.Set(button, g.PanelBack);
             g.ButtonColorHover.Set(button, g.PanelBackHover);
             float top = bottomY - h;
-            g.SetSizeAndPosition.Invoke(button, new object[] { g.Vec2(w, h), g.Vec2(IndentX, top) });
+            g.SetSizeAndPosition.Invoke(button, new object[] { g.Vec2(w, h), g.Vec2(x, top) });
             return top;
         }
 
@@ -264,14 +333,52 @@ namespace DW2ModLauncher.Loader
                 OnMenuClick(name);
                 return;
             }
+            if (name == FlyoutName)
+            {
+                CopyFlyout();
+                return;
+            }
+            if (name != null && name.StartsWith(RowPrefix, StringComparison.Ordinal)
+                && int.TryParse(name.Substring(RowPrefix.Length), out int modRow) && modRow >= 1 && modRow <= _modRowIds.Count)
+            {
+                string id = _modRowIds[modRow - 1];
+                _selectedId = id == _selectedId ? null : id;
+                _shownRevision = -1;
+                return;
+            }
             if (name != null && name.StartsWith(RowPrefix, StringComparison.Ordinal)
                 && int.TryParse(name.Substring(RowPrefix.Length), out int index) && index >= _textRows && index - _textRows < _actions.Count)
             {
-                if (_actions[index - _textRows] == RowAction.Minimize) _minimized = !_minimized;
+                RowAction action = _actions[index - _textRows];
+                if (action == RowAction.PreviousPage || action == RowAction.NextPage)
+                {
+                    // paging keeps the dialog open; the flyout belongs to a row on the old page, so it closes
+                    _page += action == RowAction.NextPage ? 1 : -1;
+                    _selectedId = null;
+                    _shownRevision = -1;
+                    return;
+                }
+                if (action == RowAction.Minimize) _minimized = !_minimized;
                 else _dismissedSignature = Signature(ModStatus.Registry.Snapshot());
             }
             _expanded = !_expanded;
             _shownRevision = -1;
+        }
+
+        // Puts the selected mod's details on the clipboard (for a bug report) and lets the next Refresh show the confirmation.
+        static void CopyFlyout()
+        {
+            ModStatusSnapshot selected = StatusText.Ordered(ModStatus.Registry.Snapshot()).Find(m => m.Id == _selectedId);
+            if (selected == null) return;
+            if (Clipboard.SetText(StatusText.Block(selected)))
+            {
+                _flyCopiedAt = Environment.TickCount64;
+                _shownRevision = -1;
+            }
+            else
+            {
+                _log("WARN status widget: could not copy the mod details to the clipboard.");
+            }
         }
 
         static bool IsPresent(object control)

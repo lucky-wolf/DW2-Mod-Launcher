@@ -28,17 +28,27 @@ AVALONIA = Ui("avalonia", "src/DW2ModLauncher.Avalonia/DW2ModLauncher.Avalonia.c
 UIS = {ui.name: ui for ui in (AVALONIA,)}
 
 
-def launcher_is_running() -> bool:
-    """True while a DW2ModLauncher process is alive. A running launcher locks its own exe, which breaks the release build."""
+def _process_is_running(windows_image: str, unix_pattern: str) -> bool:
+    """True while a process with that name is alive (tasklist on Windows; pgrep elsewhere, where Wine/Proton cut names to 15 characters)."""
     try:
         if sys.platform == "win32":
             result = subprocess.run(
-                ["tasklist", "/FI", "IMAGENAME eq DW2ModLauncher.exe", "/FO", "CSV", "/NH"], capture_output=True, text=True
+                ["tasklist", "/FI", f"IMAGENAME eq {windows_image}", "/FO", "CSV", "/NH"], capture_output=True, text=True
             )
-            return "DW2ModLauncher.exe" in result.stdout
-        return subprocess.run(["pgrep", "-x", "DW2ModLauncher"], capture_output=True).returncode == 0
+            return windows_image in result.stdout
+        return subprocess.run(["pgrep", "-f", unix_pattern], capture_output=True).returncode == 0
     except OSError:
         return False  # no tasklist/pgrep to ask: don't block the PR on a check we can't make
+
+
+def launcher_is_running() -> bool:
+    """True while a DW2ModLauncher process is alive. A running launcher locks its own exe, which breaks the release build."""
+    return _process_is_running("DW2ModLauncher.exe", "^(.*/)?DW2ModLauncher$")
+
+
+def game_is_running() -> bool:
+    """True while Distant Worlds 2 is alive. The tests refuse to save a load order while it runs, and it keeps mod DLLs locked."""
+    return _process_is_running("DistantWorlds2.exe", "DistantWorlds2")
 
 
 def require_launcher_closed() -> None:
@@ -48,6 +58,14 @@ def require_launcher_closed() -> None:
     if launcher_is_running():
         output.fail("DW2 Mod Launcher is running - close it first (it locks its own exe and breaks the build), then re-run")
     output.ok("launcher is closed")
+
+
+def require_game_closed() -> None:
+    """Fail immediately if Distant Worlds 2 is running: it locks mod DLLs and makes the load-order tests fail."""
+    output.step("game not running")
+    if game_is_running():
+        output.fail("Distant Worlds 2 is running (it locks mod DLLs and fails the load-order tests) - exit the game first, then re-run")
+    output.ok("game is closed")
 
 
 def default_ui() -> Ui:
@@ -87,6 +105,8 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
         return repo_root / Path(ui.project).parent / "bin" / config
 
     require_launcher_closed()
+    if validate:
+        require_game_closed()
 
     output.step("restore")
     dotnet_checks.run_dotnet_restore(repo_root)

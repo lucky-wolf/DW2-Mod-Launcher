@@ -37,10 +37,10 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return Call(new SteamWorkerCall { Op = "visibility", AppId = appId, WorkshopId = workshopId }, CancellationToken.None, out _)?.Visibility;
         }
 
-        public List<long> FindDeletedItems(IReadOnlyList<long> workshopIds)
+        public List<SteamItemStatus> QueryItems(IReadOnlyList<long> workshopIds)
         {
-            // A failed worker must never read as "everything was deleted".
-            return Call(new SteamWorkerCall { Op = "deleted", AppId = appId, Ids = new List<long>(workshopIds) }, CancellationToken.None, out _)?.Deleted ?? new List<long>();
+            // A failed worker must never read as "everything was deleted": no answer is an empty list.
+            return Call(new SteamWorkerCall { Op = "items", AppId = appId, Ids = new List<long>(workshopIds) }, CancellationToken.None, out _)?.Items ?? new List<SteamItemStatus>();
         }
 
         private static SteamWorkerReply Call(SteamWorkerCall call, CancellationToken cancel, out string error)

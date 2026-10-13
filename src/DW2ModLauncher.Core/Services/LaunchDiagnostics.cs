@@ -14,34 +14,17 @@ namespace DW2ModLauncher.Core.Services
         public static List<string> Build(IList<ModInfo> enabled, ModOrderState order, string loaderDllPath, IEnumerable<LoaderManifestEntry> manifestEntries, Func<string, string> t)
         {
             List<string> issues = new List<string>();
-            Func<ModInfo, string, bool> matches = delegate (ModInfo m, string identity)
-            {
-                if (m == null || string.IsNullOrWhiteSpace(identity)) return false;
-                string folder = Path.GetFileName(m.Folder ?? "");
-                return new string[] { m.Id, m.DisplayName, m.ActiveToken, folder }.Any(x => string.Equals(x, identity, StringComparison.OrdinalIgnoreCase));
-            };
+            issues.AddRange(ModDependencies.Problems(enabled));
+            // providers are merged in load order, so the checks of what they supply need the mods in that order
+            issues.AddRange(ModChannels.Problems(enabled.OrderBy(m => order.IndexOf(m.ActiveToken) < 0 ? int.MaxValue : order.IndexOf(m.ActiveToken)).ToList()));
+            foreach (LoaderManifestEntry entry in manifestEntries ?? new List<LoaderManifestEntry>())
+                if (entry.Files != null && entry.Files.Count > 0 && !InjectionScanner.AcceptsFiles(entry.HostDllPath ?? entry.DllPath))
+                    issues.Add("⚠ " + string.Format(t("LaunchDiagFilesNotAccepted"), entry.DisplayName));
             foreach (ModInfo mod in enabled)
             {
-                foreach (string required in mod.RequiredMods ?? new List<string>())
-                    if (!enabled.Any(m => matches(m, required))) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("MissingRequiredMod") + required);
+                if (mod.ScanError != null) issues.Add("⚠ " + string.Format(t("LaunchDiagScanError"), mod.DisplayName ?? mod.Id, mod.ScanError));
+                if (mod.ModJsonError != null) issues.Add("⚠ " + string.Format(t("LaunchDiagModJson"), mod.DisplayName ?? mod.Id, mod.ModJsonError));
                 if (LauncherRequirement.IsUnmet(mod)) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
-                foreach (string incompatible in mod.IncompatibleMods ?? new List<string>())
-                    if (enabled.Any(m => m != mod && matches(m, incompatible))) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("IncompatibleModEnabled") + incompatible);
-                int ownIndex = order.IndexOf(mod.ActiveToken);
-                foreach (string before in mod.LoadBefore ?? new List<string>())
-                {
-                    ModInfo target = enabled.FirstOrDefault(m => matches(m, before));
-                    int targetIndex = target == null ? -1 : order.IndexOf(target.ActiveToken);
-                    if (target != null && ownIndex >= 0 && targetIndex >= 0 && ownIndex > targetIndex)
-                        issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + t("MustLoadBefore") + before);
-                }
-                foreach (string after in mod.LoadAfter ?? new List<string>())
-                {
-                    ModInfo target = enabled.FirstOrDefault(m => matches(m, after));
-                    int targetIndex = target == null ? -1 : order.IndexOf(target.ActiveToken);
-                    if (target != null && ownIndex >= 0 && targetIndex >= 0 && ownIndex < targetIndex)
-                        issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + t("MustLoadAfter") + after);
-                }
                 ValidateJsonFile(mod.ModJsonPath, issues, t);
                 ValidateJsonFile(Path.Combine(mod.Folder ?? "", "dw2modlauncher.json"), issues, t);
                 try
@@ -52,7 +35,10 @@ namespace DW2ModLauncher.Core.Services
                         catch (Exception ex) { issues.Add("⚠ " + t("InvalidXML") + xml + " (" + ex.Message + ")"); }
                     }
                 }
-                catch { }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    issues.Add("⚠ " + string.Format(t("LaunchDiagXmlUnchecked"), mod.DisplayName ?? mod.Id, ex.Message));
+                }
             }
             foreach (var font in LoaderManifestBuilder.FontIssues(enabled))
             {
@@ -71,7 +57,10 @@ namespace DW2ModLauncher.Core.Services
                         owners.Add(mod.DisplayName ?? mod.Id);
                     }
                 }
-                catch { }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    issues.Add("⚠ " + string.Format(t("LaunchDiagDllUnchecked"), mod.DisplayName ?? mod.Id, ex.Message));
+                }
             }
             foreach (KeyValuePair<string, List<string>> pair in dlls.Where(x => x.Value.Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))
                 issues.Add("⚠ " + t("DuplicateDLL") + pair.Key + " — " + string.Join(" / ", pair.Value.Distinct().ToArray()));

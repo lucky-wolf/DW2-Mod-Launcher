@@ -57,15 +57,40 @@ namespace DW2ModLauncher.Tests
             ModInfo workshop = new ModInfo { SourceName = "Steam Workshop", Folder = Path.Combine(dir, "workshop", "123"), IsWorkshop = true, Id = "123" };
             char sep = Path.DirectorySeparatorChar;
 
-            Assert.Equal("mods" + sep + "junk", ModDetails.SourceText(local, root));
-            Assert.Equal("mods" + sep + "pack" + sep + "inner", ModDetails.SourceText(nested, root));
-            Assert.Equal("Steam Workshop" + sep + "123", ModDetails.SourceText(workshop, root));
+            Assert.Equal("junk", ModDetails.SourceText(local, root));
+            Assert.Equal("pack" + sep + "inner", ModDetails.SourceText(nested, root));
+            Assert.Equal("Steam Workshop", ModDetails.SourceText(workshop, root));
             Assert.Equal("Local", ModDetails.SourceText(new ModInfo { SourceName = "Local" }, root));
 
             Assert.Equal("123", ModDetails.WorkshopId(workshop));
             Assert.Null(ModDetails.WorkshopId(local));
             local.WorkshopId = " 456 ";
             Assert.Equal("456", ModDetails.WorkshopId(local));
+        }
+
+        [Fact]
+        public void BuildLinks_NamesWhoIsOnTheOtherEnd_AmongTheEnabledMods()
+        {
+            ModInfo xl = new ModInfo { Id = "xl", DisplayName = "XL" };
+            xl.Provides.Add(new LauncherProvision { channel = "a.channel", files = new Dictionary<string, string> { ["one.json"] = "p/one.json", ["two.json"] = "p/two.json" } });
+            ModInfo cr = new ModInfo { Id = "cr", DisplayName = "CR" };
+            cr.Receives.Add("A.Channel");
+            cr.Receives.Add("lonely.channel");
+            cr.Dependencies.Add(new LauncherDependency { mod = "XL", required = true, minVersion = "1.36.0", loadAfter = true });
+            cr.Dependencies.Add(new LauncherDependency { mod = "ghost" });
+
+            string receiver = ModDetails.BuildLinks(cr, new[] { xl, cr });
+            string provider = ModDetails.BuildLinks(xl, new[] { xl, cr });
+            string providerAlone = ModDetails.BuildLinks(xl, new[] { xl });
+
+            Assert.Contains("Receives: A.Channel\nProviders: XL", receiver);
+            Assert.Contains("Receives: lonely.channel\nProviders: none enabled", receiver);
+            Assert.Contains("Depends on: XL (required, min 1.36.0, loads after)\nStatus: enabled", receiver);
+            Assert.Contains("Depends on: ghost (optional)\nStatus: not enabled", receiver);
+            Assert.Contains("Provides: a.channel\nReceivers: CR", provider);
+            Assert.DoesNotContain("one.json", provider);
+            Assert.Contains("Receivers: none enabled", providerAlone);
+            Assert.Equal("", ModDetails.BuildLinks(new ModInfo { Id = "plain" }, new ModInfo[0]));
         }
 
         [Fact]

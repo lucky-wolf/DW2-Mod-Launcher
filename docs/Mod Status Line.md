@@ -1,6 +1,6 @@
 # Mod status widget (in-game)
 
-When the game is started through the launcher, the loader draws one line of text in the lower left of the screen. It says how many injected code mods loaded and, in red, any problem it knows of. Click it and a dialog opens: the screen dims, and a panel above the line shows one block per code mod.
+When the game is started through the launcher, the loader draws one line of text in the lower left of the screen. It says how many injected code mods loaded and, in red, any problem it knows of. Click it and a dialog opens: the screen dims, and a short list above the line has one row per code mod, and clicking a row opens that mod's details in a flyout beside it.
 
 ```
 [+] DW2 mods: 4 loaded
@@ -10,8 +10,6 @@ When the game is started through the launcher, the loader draws one line of text
 The loader claims only what it knows: the mods loaded (or one failed to: a missing DLL, or an exception from `Init`, shows in red on its own). It does not claim a mod is running or healthy. Anything more in a mod's block is what that mod chose to report (below); a block with nothing extra means the mod is not wired to the widget, which is fine.
 
 Mods can also add entries to the Game Menu: [Mod Menu.md](<Mod Menu.md>).
-
-Design history and open questions: [plans/mod-status-line.md](plans/mod-status-line.md).
 
 ## What the loader reports by itself
 
@@ -120,9 +118,24 @@ A mod is identified by its assembly name, which is also what the loader register
 
 ## Using it
 
-- Click the line to open the dialog; click anywhere (the line, a block, or the dimmed screen) to close it. Nothing underneath can be clicked while it is open. Blocks list mods with problems first.
+- Click the line to open the dialog. It lists one row per mod (name, version, build time, state), mods with problems first. Click a row to open that mod's details in a flyout to the right of the list, level with the row; click the row again to close the flyout, or another row to switch. Click anywhere else (the line, the header, the dimmed screen) to close the dialog. Nothing underneath can be clicked while it is open.
+- The list height depends on the number of mods only. When they do not all fit above the line (small monitors), the list pages: `[More mods]` and `[Previous mods]` rows at the bottom turn pages and keep the dialog open.
+- Click the flyout to copy the mod's details to the clipboard (for a bug report); its first line reads `[Copied to clipboard]` for two seconds.
+- The flyout is at most half the screen wide, wraps its text, and is pushed down if it would leave the top of the screen.
 - The widget hides with the rest of the game's interface.
 - `[+]` / `[-]` on the line shows whether the dialog is closed or open; `/!\` means at least one mod has an error.
+
+## Language
+
+The widget's and the Mods menu's own words (not what mods report) are translated. The game has no language setting of its own; a game is in French because a translation mod replaces its text. So by default the widget follows the enabled translation mod:
+
+- A translation mod declares its language in its `dw2modlauncher.json`: `{ "language": "ru" }`, the name of a launcher language pack. The Localization Mod shortcut writes it when the language you type is the code or display name of a pack. The last enabled mod in load order that declares one wins; if none does, the widget is English.
+- A declared language the launcher has no pack for leaves the widget English, and the launcher says so before launch.
+- Settings has **In-game widget language**, two radio buttons: *Follow the translation mod* (the default) or *Use the launcher's language* (for a translation mod that declares nothing, or none at all).
+- This covers the loader's own entries too (the red "Mod Launcher (loader)" row, mod load failures, font, text-file and XML-patch hook problems). Its log files stay English, and so does anything the game itself reports (exception messages); what a mod reports is in the mod's own language (next point).
+- The words are the `Widget*` keys of `Languages/*.json`. Add them to a community pack like any other key; a missing key shows as its own name in the game. Keep the `{0}`-style placeholders. The launcher writes the chosen language's keys into the loader manifest (`Strings`); the loader has English built in (`StatusStrings`) for use without the launcher, and a test keeps that equal to `en.json`.
+- A mod's own status text (its `Detail`, `Installed` and `SetLevel` strings) is the mod's to translate. The language it should use arrives in its options JSON as `Language` (the language chosen here, see [DLL Injection.md](<DLL Injection.md>#the-language-option)); the loader does not translate what mods report.
+- Non-Latin text needs a font the game can draw: the translation mod's `font` (see [xml-patching.md](xml-patching.md)), which the launcher passes as `--font`.
 
 ## How it is built
 
@@ -132,3 +145,10 @@ A mod is identified by its assembly name, which is also what the loader register
 - The game clears its custom controls when the interface is rebuilt (scaling change, new game), so the per-frame hook adds the controls back whenever they are missing.
 
 If a game update renames one of the members the widget uses, `dw2modlauncher.log` will say which, and the widget is the only thing lost.
+
+## Design notes
+
+- **Dialog, not a floating panel.** Opening it dims the screen with a full-screen layer, and both the layer and the controls take clicks, so nothing underneath is reachable.
+- **Loader owns the line; mods only contribute data.** Mods never draw, so two mods never fight over a corner. The loader reports every mod it loads (loaded or not, and the exception text on a failed load) with no cooperation from the mod.
+- **Soft dependency by reflection.** Mods must keep working when the launcher is not used, so the contract has no compile-time reference (see the snippet above).
+- **One list, one flyout.** Details of every mod at once do not fit a screen, so the list is one row per mod and only the selected mod's details open, beside it. The list pages when the mods do not fit above the line.

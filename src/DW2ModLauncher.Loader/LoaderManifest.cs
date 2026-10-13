@@ -13,7 +13,9 @@ namespace DW2ModLauncher.Loader
         public List<LoaderManifestFont> Fonts { get; set; } = new List<LoaderManifestFont>();
         public List<LoaderManifestTextFile> TextFiles { get; set; } = new List<LoaderManifestTextFile>();
         public bool GalactopediaReplacesVanilla { get; set; }
+        public List<string> ChannelProblems { get; set; } = new List<string>();
         public string LogDirectory { get; set; }
+        public Dictionary<string, string> Strings { get; set; } = new Dictionary<string, string>();
     }
 
     public class LoaderManifestTextFile
@@ -41,6 +43,7 @@ namespace DW2ModLauncher.Loader
         public string DllPath { get; set; }
         public string EntryType { get; set; }
         public string SettingsJson { get; set; }
+        public Dictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
         public string DisplayName { get; set; }
     }
 }

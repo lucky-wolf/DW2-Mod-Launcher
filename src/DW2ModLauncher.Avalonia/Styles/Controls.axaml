@@ -1,5 +1,6 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:DW2ModLauncher.Avalonia.Views">
   <Style Selector="Window">
     <Setter Property="Background" Value="{StaticResource Dw2Deep}" />
     <Setter Property="Foreground" Value="{StaticResource Dw2Text}" />
@@ -75,6 +76,10 @@
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{StaticResource Dw2Gold}" />
   </Style>
+  <!-- A mod that is not enabled: its thumbnail, name, source and author drop to a dimmer display (the state and health columns keep their own colours). -->
+  <Style Selector="views|ColumnRowPanel.off > :is(Control).dim">
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
   <Style Selector="TextBlock.muted">
     <Setter Property="Foreground" Value="{StaticResource Dw2Muted}" />
   </Style>
@@ -123,15 +128,15 @@
   <Style Selector="Button.glyph.on">
     <Setter Property="Foreground" Value="{StaticResource Dw2Green}" />
   </Style>
+  <Style Selector="Button.glyph.on.caution">
+    <Setter Property="Foreground" Value="{StaticResource Dw2Gold}" />
+  </Style>
+  <Style Selector="Button.glyph.on.conflict">
+    <Setter Property="Foreground" Value="{StaticResource Dw2Red}" />
+  </Style>
   <Style Selector="Button.glyph:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{StaticResource Dw2Steel}" />
   </Style>
-
-  <!-- Health text colours. -->
-  <Style Selector="TextBlock.health"><Setter Property="Foreground" Value="{StaticResource Dw2Muted}" /></Style>
-  <Style Selector="TextBlock.health.ok"><Setter Property="Foreground" Value="{StaticResource Dw2Green}" /></Style>
-  <Style Selector="TextBlock.health.caution"><Setter Property="Foreground" Value="{StaticResource Dw2Gold}" /></Style>
-  <Style Selector="TextBlock.health.conflict"><Setter Property="Foreground" Value="{StaticResource Dw2Red}" /></Style>
 
   <!-- The coloured problems callout in the details panel: gold normally, red for conflicts. -->
   <Style Selector="Border.problems">

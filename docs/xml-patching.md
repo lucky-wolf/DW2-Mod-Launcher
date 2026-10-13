@@ -191,6 +191,10 @@ when the game asks for the translated title and the data still has the English o
 Not translatable this way: the introduction text shown when a game starts ("Our faction is known as the ...") is built from
 English fragments inside the game's code, so no text file reaches it.
 
+### Declaring the language
+
+Add `"language": "<code>"` to the mod's `dw2modlauncher.json` (the code of a launcher language pack, such as `ru` or `ja`) and the launcher's in-game widget and Mods menu speak that language while the mod is enabled. The Localization Mod shortcut writes it for you when the language you type matches a pack. See [Mod Status Line.md](Mod%20Status%20Line.md).
+
 ### Fonts for non-Latin languages
 
 The game's default font has no Cyrillic, CJK and similar glyphs, and the game only uses another font when it is started with

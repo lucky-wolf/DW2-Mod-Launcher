@@ -14,14 +14,13 @@ namespace DW2ModLauncher.Core.Services
     /// </summary>
     public static class ModScanner
     {
+        /// <exception cref="IOException">The mods folder exists but cannot be listed.</exception>
         /// <param name="t">Localization key lookup, matching MainForm.T.</param>
         public static List<ModInfo> ScanMods(string root, bool workshop, Func<string, string> t)
         {
             List<ModInfo> result = new List<ModInfo>();
             if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return result;
-            string[] dirs;
-            try { dirs = Directory.GetDirectories(root); }
-            catch { return result; }
+            string[] dirs = Directory.GetDirectories(root);
 
             foreach (string dir in dirs)
             {
@@ -32,7 +31,14 @@ namespace DW2ModLauncher.Core.Services
                     ModInfo mod = ReadModInfo(dir, modJson, workshop, t);
                     result.Add(mod);
                 }
-                catch (Exception ex) { Logger.LogException("Read Mod: " + dir, ex); }
+                catch (Exception ex)
+                {
+                    // The mod stays in the list, flagged, instead of vanishing.
+                    Logger.LogException("Read Mod: " + dir, ex);
+                    ModInfo broken = ReadModInfo(dir, null, workshop, t);
+                    broken.ModJsonError = "This mod folder could not be read: " + ex.Message;
+                    result.Add(broken);
+                }
             }
             return result.OrderBy(m => m.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
         }
@@ -41,31 +47,23 @@ namespace DW2ModLauncher.Core.Services
         {
             string direct = FindDirectModJson(dir);
             if (!string.IsNullOrWhiteSpace(direct) || !workshop) return direct;
-            try
+            foreach (string child in Directory.GetDirectories(dir))
             {
-                foreach (string child in Directory.GetDirectories(dir))
+                string nested = FindDirectModJson(child);
+                if (!string.IsNullOrWhiteSpace(nested)) return nested;
+                foreach (string grandchild in Directory.GetDirectories(child))
                 {
-                    string nested = FindDirectModJson(child);
+                    nested = FindDirectModJson(grandchild);
                     if (!string.IsNullOrWhiteSpace(nested)) return nested;
-                    foreach (string grandchild in Directory.GetDirectories(child))
-                    {
-                        nested = FindDirectModJson(grandchild);
-                        if (!string.IsNullOrWhiteSpace(nested)) return nested;
-                    }
                 }
             }
-            catch { }
             return null;
         }
 
         public static string FindDirectModJson(string dir)
         {
-            try
-            {
-                foreach (string f in Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly))
-                    if (Path.GetFileName(f).Equals("mod.json", StringComparison.OrdinalIgnoreCase)) return f;
-            }
-            catch { }
+            foreach (string f in Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly))
+                if (Path.GetFileName(f).Equals("mod.json", StringComparison.OrdinalIgnoreCase)) return f;
             return null;
         }
 
@@ -84,11 +82,6 @@ namespace DW2ModLauncher.Core.Services
             m.UpdateState = workshop ? "unknown" : "na";
             m.ConflictFiles = new List<string>();
             m.ConflictMods = new List<string>();
-            m.RequiredMods = new List<string>();
-            m.OptionalMods = new List<string>();
-            m.IncompatibleMods = new List<string>();
-            m.LoadBefore = new List<string>();
-            m.LoadAfter = new List<string>();
             m.IncludedTools = new List<string>();
             m.IncludedDocuments = new List<string>();
             m.ModJsonPath = modJson;
@@ -105,23 +98,21 @@ namespace DW2ModLauncher.Core.Services
                     Dictionary<string, object> d = rootObj as Dictionary<string, object>;
                     if (d != null)
                     {
-                        m.DisplayName = LooseJson.GetString(d, new string[] { "displayName", "name", "title" }, m.DisplayName);
-                        m.Description = LooseJson.GetString(d, new string[] { "description", "shortDescription", "summary" }, "");
+                        m.DisplayName = LooseJson.GetString(d, new string[] { "displayName" }, m.DisplayName);
+                        m.Description = LooseJson.GetString(d, new string[] { "description", "shortDescription" }, "");
                         descriptionFile = LooseJson.GetString(d, new string[] { "descriptionFile" }, "");
-                        m.Version = LooseJson.GetString(d, new string[] { "version", "modVersion" }, "");
-                        preview = LooseJson.GetString(d, new string[] { "previewImage", "preview", "thumbnail", "icon" }, "");
-                        string wid = LooseJson.GetString(d, new string[] { "workshopId", "workshopID" }, "");
+                        m.Version = LooseJson.GetString(d, new string[] { "version" }, "");
+                        preview = LooseJson.GetString(d, new string[] { "previewImage" }, "");
+                        string wid = LooseJson.GetString(d, new string[] { "workshopId" }, "");
                         if (!string.IsNullOrWhiteSpace(wid)) m.WorkshopId = wid;
                         if (workshop && !Regex.IsMatch(m.Id ?? "", "^\\d+$") && !string.IsNullOrWhiteSpace(wid)) m.Id = wid;
-                        m.RequiredMods = LooseJson.GetStringList(d, new string[] { "Required", "required", "requires" });
-                        m.OptionalMods = LooseJson.GetStringList(d, new string[] { "Optional", "optional" });
-                        m.IncompatibleMods = LooseJson.GetStringList(d, new string[] { "Incompatible", "incompatible", "conflicts" });
-                        m.LoadBefore = LooseJson.GetStringList(d, new string[] { "LoadBefore", "loadBefore" });
-                        m.LoadAfter = LooseJson.GetStringList(d, new string[] { "LoadAfter", "loadAfter" });
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    // Names are still recovered so the mod can be identified, but its dependency lists are unknown: say so.
+                    Logger.LogException("Parse mod.json: " + modJson, ex);
+                    m.ModJsonError = ex.Message;
                     m.DisplayName = LooseJson.ReadJsonStringLoose(text, "displayName", m.DisplayName);
                     m.Description = LooseJson.ReadJsonStringLoose(text, "description", LooseJson.ReadJsonStringLoose(text, "shortDescription", ""));
                     descriptionFile = LooseJson.ReadJsonStringLoose(text, "descriptionFile", "");
@@ -149,7 +140,12 @@ namespace DW2ModLauncher.Core.Services
             m.DescriptionOverride = ReadDescriptionFile(m.ContentRoot, descriptionFile) ?? ReadDescriptionFile(m.ContentRoot, "description.bbcode") ?? ReadDescriptionFile(m.ContentRoot, "description.txt");
             m.IncludedTools = FindIncludedTools(m.ContentRoot);
             m.IncludedDocuments = FindIncludedDocuments(m.ContentRoot);
-            m.MinLauncherVersion = LauncherMetaReader.Read(m)?.minLauncherVersion?.Trim();
+            LauncherMeta launcherMeta = LauncherMetaReader.Read(m);
+            m.MinLauncherVersion = launcherMeta?.minLauncherVersion?.Trim();
+            m.Author = launcherMeta?.author?.Trim();
+            m.Dependencies = launcherMeta?.dependencies ?? new List<LauncherDependency>();
+            m.Provides = launcherMeta?.provides ?? new List<LauncherProvision>();
+            m.Receives = launcherMeta?.receives ?? new List<string>();
             return m;
         }
 
@@ -169,7 +165,11 @@ namespace DW2ModLauncher.Core.Services
                 string text = File.ReadAllText(file, Encoding.UTF8).Trim();
                 return text.Length == 0 ? null : text;
             }
-            catch { return null; }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.LogException("Read description file: " + descriptionFile, ex);
+                return null;
+            }
         }
 
         public static List<string> FindIncludedDocuments(string root)
@@ -195,7 +195,10 @@ namespace DW2ModLauncher.Core.Services
                     result.Add(relative);
                 }
             }
-            catch { }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.LogException("List mod files: " + root, ex);
+            }
             return result.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.CurrentCultureIgnoreCase).ToList();
         }
 
@@ -215,7 +218,10 @@ namespace DW2ModLauncher.Core.Services
                     result.Add(relative);
                 }
             }
-            catch { }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.LogException("List mod files: " + root, ex);
+            }
             return result.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.CurrentCultureIgnoreCase).ToList();
         }
 

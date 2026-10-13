@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -37,15 +38,22 @@ namespace DW2ModLauncher.Loader
                 manifestError = "ERROR: failed to read/parse manifest.json: " + ex;
             }
 
+            // before anything reports to the widget, so the first messages are already in the player's language
+            StatusStrings.Use(manifest?.Strings);
+
             string logDir = LogDirectory(baseDir, manifest?.LogDirectory);
             _logPath = Path.Combine(logDir, "dw2modlauncher.log");
-            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like dw2modlauncher-patches.log
+            try { File.WriteAllText(_logPath, string.Empty); } catch (Exception ex) { HookStatus.LogFailed(_logPath, ex); } // one game start per log, like dw2modlauncher-patches.log
             Log("Entry.Init() called.");
+            if (_logDirNote != null)
+            {
+                Log("ERROR: " + _logDirNote);
+                HookStatus.Failed("logfolder", _logDirStatus, _logPath);
+            }
             if (!string.IsNullOrWhiteSpace(manifest?.LogDirectory) && logDir != manifest.LogDirectory)
             {
-                string text = "log folder '" + manifest.LogDirectory + "' does not exist; the loader logs are in " + logDir;
-                Log("ERROR: " + text);
-                HookStatus.Failed("logfolder", text, _logPath);
+                Log("ERROR: log folder '" + manifest.LogDirectory + "' does not exist; the loader logs are in " + logDir);
+                HookStatus.Failed("logfolder", StatusStrings.Get("WidgetLogFolderMissing", manifest.LogDirectory, logDir), _logPath);
             }
             if (manifestError != null)
             {
@@ -55,6 +63,8 @@ namespace DW2ModLauncher.Loader
 
             foreach (LoaderManifestEntry entry in manifest?.Entries ?? new System.Collections.Generic.List<LoaderManifestEntry>())
                 LoadOne(entry);
+
+            ReportChannelProblems(manifest);
 
             // After the mods, so the panel already lists all of them; a widget that cannot install changes nothing for the mods.
             try
@@ -70,6 +80,19 @@ namespace DW2ModLauncher.Loader
             InstallFontBundles(manifest, logDir);
             InstallTextFiles(manifest, logDir);
             InstallTitleLookup(manifest, logDir);
+        }
+
+        // A mod promised a file on a channel and the launcher could not hand it over (missing, unreadable, not JSON): the receiving mod runs without it,
+        // so each problem is an error on the status widget as well as in the log, in the mod's name for the loader row.
+        private static void ReportChannelProblems(LoaderManifest manifest)
+        {
+            int i = 0;
+            foreach (string problem in manifest?.ChannelProblems ?? new System.Collections.Generic.List<string>())
+            {
+                string text = problem.TrimStart('⚠', ' ');
+                Log("ERROR mod data channel: " + text);
+                HookStatus.Failed("channel:" + i++, StatusStrings.Get("WidgetChannelProblem", text), _logPath);
+            }
         }
 
         // Kept in its own method so a missing 0Harmony.dll fails here (caught, logged) instead of stopping the mods above from loading:
@@ -145,13 +168,13 @@ namespace DW2ModLauncher.Loader
                 if (entry == null || string.IsNullOrWhiteSpace(entry.DllPath) || string.IsNullOrWhiteSpace(entry.EntryType))
                 {
                     Log("SKIP " + label + ": incomplete manifest entry.");
-                    ModStatus.Registry.ReportLoad(id, id, null, null, "incomplete manifest entry");
+                    ModStatus.Registry.ReportLoad(id, id, null, null, StatusStrings.Get("WidgetLoadIncomplete"));
                     return;
                 }
                 if (!File.Exists(entry.DllPath))
                 {
                     Log("SKIP " + label + ": DLL not found at " + entry.DllPath);
-                    ModStatus.Registry.ReportLoad(id, id, null, null, "DLL not found at " + entry.DllPath);
+                    ModStatus.Registry.ReportLoad(id, id, null, null, StatusStrings.Get("WidgetLoadDllMissing", entry.DllPath));
                     return;
                 }
 
@@ -162,7 +185,7 @@ namespace DW2ModLauncher.Loader
                 if (split <= 0)
                 {
                     Log("SKIP " + label + ": entry type '" + entry.EntryType + "' is not Namespace.Type.Method form.");
-                    ModStatus.Registry.ReportLoad(id, id, version, built, "entry type '" + entry.EntryType + "' is not Namespace.Type.Method form");
+                    ModStatus.Registry.ReportLoad(id, id, version, built, StatusStrings.Get("WidgetLoadEntryForm", entry.EntryType));
                     return;
                 }
                 string typeName = entry.EntryType.Substring(0, split);
@@ -171,7 +194,16 @@ namespace DW2ModLauncher.Loader
                 if (type == null)
                 {
                     Log("SKIP " + label + ": type '" + typeName + "' not found in " + entry.DllPath);
-                    ModStatus.Registry.ReportLoad(id, id, version, built, "type '" + typeName + "' not found");
+                    ModStatus.Registry.ReportLoad(id, id, version, built, StatusStrings.Get("WidgetLoadTypeMissing", typeName));
+                    return;
+                }
+
+                MethodInfo withFiles = type.GetMethod("InitWithOptions", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(string), typeof(IReadOnlyDictionary<string, string>) }, null);
+                if (withFiles != null)
+                {
+                    withFiles.Invoke(null, new object[] { entry.SettingsJson ?? "{}", entry.Files ?? new Dictionary<string, string>() });
+                    Log("OK " + label + ": called InitWithOptions(string, IReadOnlyDictionary<string, string>) with " + (entry.Files == null ? 0 : entry.Files.Count) + " file(s).");
+                    ModStatus.Registry.ReportLoad(id, id, version, built, null);
                     return;
                 }
 
@@ -188,7 +220,7 @@ namespace DW2ModLauncher.Loader
                 if (plain == null)
                 {
                     Log("SKIP " + label + ": no matching '" + methodName + "()' or 'InitWithOptions(string)' found on " + typeName);
-                    ModStatus.Registry.ReportLoad(id, id, version, built, "no '" + methodName + "()' or 'InitWithOptions(string)' on " + typeName);
+                    ModStatus.Registry.ReportLoad(id, id, version, built, StatusStrings.Get("WidgetLoadNoMethod", methodName, typeName));
                     return;
                 }
                 plain.Invoke(null, null);
@@ -248,22 +280,28 @@ namespace DW2ModLauncher.Loader
                 Directory.CreateDirectory(logs);
                 return logs;
             }
-            catch
+            catch (Exception ex)
             {
+                _logDirNote = "the game's log folder could not be created (" + ex.Message + "); the loader logs are in " + fallback;
+                _logDirStatus = StatusStrings.Get("WidgetLogFolderCreate", ex.Message, fallback);
                 return fallback;
             }
         }
 
-        private static void Log(string message)
+        private static string _logDirNote;
+        private static string _logDirStatus;
+
+        internal static void Log(string message)
         {
             try
             {
                 if (string.IsNullOrEmpty(_logPath)) return;
                 File.AppendAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message + Environment.NewLine);
             }
-            catch
+            catch (Exception ex)
             {
-                // Logging must never crash the loader.
+                // Logging must never crash the loader, but the status line says the log is lost.
+                HookStatus.LogFailed(_logPath, ex);
             }
         }
     }

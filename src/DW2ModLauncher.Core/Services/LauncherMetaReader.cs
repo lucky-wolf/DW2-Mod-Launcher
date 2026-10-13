@@ -6,7 +6,7 @@ using DW2ModLauncher.Core.Models;
 
 namespace DW2ModLauncher.Core.Services
 {
-    /// <summary>Reads a mod's optional dw2modlauncher.json (injection).</summary>
+    /// <summary>Reads a mod's optional dw2modlauncher.json (injection, dependencies, ...).</summary>
     public static class LauncherMetaReader
     {
         public static LauncherMeta Read(ModInfo mod)
@@ -16,7 +16,7 @@ namespace DW2ModLauncher.Core.Services
                 if (mod == null || string.IsNullOrWhiteSpace(mod.Folder)) return null;
                 string path = Path.Combine(mod.Folder, "dw2modlauncher.json");
                 if (!File.Exists(path)) return null;
-                return JsonSerializer.Deserialize<LauncherMeta>(File.ReadAllText(path, Encoding.UTF8));
+                return JsonSerializer.Deserialize<LauncherMeta>(File.ReadAllText(path, Encoding.UTF8), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             }
             catch (Exception)
             {

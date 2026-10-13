@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -43,6 +45,146 @@ namespace DW2ModLauncher.Avalonia.Views
                     main.RevealSelectionRequested += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(ScrollToSelection, global::Avalonia.Threading.DispatcherPriority.Background); };
             };
             ModList.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.ModSettingsCommand.CanExecute(null)) m.ModSettingsCommand.Execute(null); };
+            DetailsToggle.Click += delegate { SetDetailsCollapsed(DetailsPane.IsVisible); RememberCollapsed(); };
+            ToolbarGrid.SizeChanged += delegate { PlaceSplitter(); };
+            // The split is remembered when a drag ends; collapsed / open is a separate flag, so hiding the pane never overwrites the width.
+            DetailsSplitter.DragCompleted += delegate { RememberSplit(); };
+            Loaded += delegate { ApplySavedLayout(); };
+            HeaderPanel.AddHandler(PointerPressedEvent, OnHeaderPressed, RoutingStrategies.Tunnel);
+            HeaderPanel.AddHandler(PointerMovedEvent, OnHeaderMoved, RoutingStrategies.Tunnel);
+            HeaderPanel.AddHandler(PointerReleasedEvent, OnHeaderReleased, RoutingStrategies.Tunnel);
+            // Taking the capture from the pressed header button raises a capture-lost on the button first; only the panel's own counts.
+            HeaderPanel.AddHandler(PointerCaptureLostEvent, delegate (object s, PointerCaptureLostEventArgs e) { if (e.Source == HeaderPanel) EndColumnDrag(); }, RoutingStrategies.Tunnel);
+        }
+
+        // ---- Dragging a column header to reorder the mod list's columns (the order is saved with the settings).
+
+        private string draggedColumn;
+        private Point columnPress;
+        private bool columnDragging;
+        private int columnTarget;
+
+        private void OnHeaderPressed(object sender, PointerPressedEventArgs e)
+        {
+            draggedColumn = null;
+            if (!e.GetCurrentPoint(HeaderPanel).Properties.IsLeftButtonPressed) return;
+            Button header = (e.Source as Visual)?.FindAncestorOfType<Button>(true);
+            if (header == null) return;
+            draggedColumn = ColumnRowPanel.GetColumnId(header);
+            columnPress = e.GetPosition(HeaderPanel);
+        }
+
+        private void OnHeaderMoved(object sender, PointerEventArgs e)
+        {
+            if (draggedColumn == null) return;
+            Point at = e.GetPosition(HeaderPanel);
+            if (!columnDragging)
+            {
+                if (Math.Abs(at.X - columnPress.X) < DragThreshold) return;
+                columnDragging = true;
+                e.Pointer.Capture(HeaderPanel);
+                foreach (Control cell in HeaderPanel.InLayoutOrder())
+                {
+                    if (ColumnRowPanel.GetColumnId(cell) == draggedColumn) cell.Opacity = 0.5;
+                }
+            }
+            List<Control> others = HeaderPanel.InLayoutOrder().Where(c => ColumnRowPanel.GetColumnId(c) != draggedColumn).ToList();
+            columnTarget = others.Count(c => c.Bounds.X + c.Bounds.Width / 2 < at.X);
+            double lineX = others.Count == 0 ? 0 : columnTarget < others.Count ? others[columnTarget].Bounds.X : others[others.Count - 1].Bounds.Right;
+            ColumnDropLine.Margin = new Thickness(Math.Max(0, lineX - 1), 0, 0, 0);
+            ColumnDropLine.IsVisible = true;
+        }
+
+        private void OnHeaderReleased(object sender, PointerReleasedEventArgs e)
+        {
+            if (!columnDragging)
+            {
+                draggedColumn = null;
+                return;
+            }
+            // a drag is not a click on the header (sorting)
+            e.Handled = true;
+            string id = draggedColumn;
+            int index = columnTarget;
+            EndColumnDrag();
+            if (DataContext is MainViewModel main) main.MoveColumn(id, index);
+        }
+
+        private void EndColumnDrag()
+        {
+            columnDragging = false;
+            draggedColumn = null;
+            ColumnDropLine.IsVisible = false;
+            foreach (Control cell in HeaderPanel.Children) cell.Opacity = 1;
+        }
+
+        private bool layoutApplied;
+        private const double MinDetailsFraction = 0.15;
+        private const double MaxDetailsFraction = 0.7;
+
+        /// <summary>Puts the split and the collapsed state back as they were when the launcher last closed.</summary>
+        private void ApplySavedLayout()
+        {
+            if (layoutApplied || DataContext is not MainViewModel main) return;
+            layoutApplied = true;
+            if (main.DetailsFraction is double saved)
+            {
+                double f = Math.Clamp(saved, MinDetailsFraction, MaxDetailsFraction);
+                RootGrid.ColumnDefinitions[0].Width = new GridLength(1 - f, GridUnitType.Star);
+                RootGrid.ColumnDefinitions[2].Width = new GridLength(f, GridUnitType.Star);
+            }
+            PlaceSplitter();
+            if (main.DetailsCollapsed) SetDetailsCollapsed(true);
+        }
+
+        /// <summary>The splitter starts level with the list, below the toolbar row (which the details pane shares).</summary>
+        private void PlaceSplitter()
+        {
+            DetailsSplitter.Margin = new Thickness(0, ToolbarGrid.Bounds.Height + ToolbarGrid.Margin.Bottom, 0, 0);
+        }
+
+        private void RememberSplit()
+        {
+            if (DataContext is not MainViewModel main || !DetailsPane.IsVisible) return;
+            double list = RootGrid.ColumnDefinitions[0].ActualWidth;
+            double details = RootGrid.ColumnDefinitions[2].ActualWidth;
+            if (list + details <= 0) return;
+            main.SetDetailsFraction(details / (list + details));
+        }
+
+        private void RememberCollapsed()
+        {
+            if (DataContext is MainViewModel main) main.SetDetailsCollapsed(!DetailsPane.IsVisible);
+        }
+
+        private const double DetailsMinWidth = 220;
+        private GridLength listWidthBeforeCollapse = new GridLength(7, GridUnitType.Star);
+        private GridLength detailsWidthBeforeCollapse = new GridLength(3, GridUnitType.Star);
+
+        /// <summary>Hides the details pane and gives its room to the list, or brings it back at the width it had.</summary>
+        private void SetDetailsCollapsed(bool collapsed)
+        {
+            ColumnDefinition ListColumn = RootGrid.ColumnDefinitions[0];
+            ColumnDefinition DetailsColumn = RootGrid.ColumnDefinitions[2];
+            if (collapsed)
+            {
+                listWidthBeforeCollapse = ListColumn.Width;
+                detailsWidthBeforeCollapse = DetailsColumn.Width;
+                ListColumn.Width = new GridLength(1, GridUnitType.Star);
+                DetailsColumn.MinWidth = 0;
+                DetailsColumn.Width = new GridLength(0);
+            }
+            else
+            {
+                ListColumn.Width = listWidthBeforeCollapse;
+                DetailsColumn.MinWidth = DetailsMinWidth;
+                DetailsColumn.Width = detailsWidthBeforeCollapse;
+            }
+            DetailsPane.IsVisible = !collapsed;
+            DetailsSplitter.IsVisible = !collapsed;
+            // The toggle sits over the right end of the row; with the pane gone the list's toolbar makes room for it.
+            ToolbarGrid.Margin = new Thickness(0, 0, collapsed ? DetailsToggle.Bounds.Width + 10 : 0, 10);
+            DetailsToggleIcon.Data = Geometry.Parse(collapsed ? "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" : "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z");
         }
 
         private void ScrollToSelection()

@@ -100,6 +100,30 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void GetOrCreateValues_Throws_AndLeavesFileUntouched_WhenFileIsCorrupt()
+        {
+            ModInfo mod = MakeMod("test/store-corrupt-" + Guid.NewGuid().ToString("N"));
+            string path = ModSettingsStore.GetSettingsPath(mod);
+            ModSettingsSchema schema = new ModSettingsSchema
+            {
+                Groups = new List<ModSettingsGroup>
+                {
+                    new ModSettingsGroup { Name = "fields", Fields = new List<ModSettingsField> { new ModSettingsField { Key = "Enabled", Type = "bool", Default = true } } }
+                }
+            };
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, "{ \"Enabled\": fals");
+
+                Assert.Throws<InvalidDataException>(() => ModSettingsStore.GetOrCreateValues(mod, schema));
+
+                Assert.Equal("{ \"Enabled\": fals", File.ReadAllText(path));
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        [Fact]
         public void SaveValues_RoundTrips()
         {
             ModInfo mod = MakeMod("test/store-roundtrip-" + Guid.NewGuid().ToString("N"));

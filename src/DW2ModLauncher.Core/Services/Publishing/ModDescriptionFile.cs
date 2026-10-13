@@ -35,7 +35,11 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 StringComparison comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
                 return full.StartsWith(fullRoot, comparison) && !Directory.Exists(full) ? name : DefaultFor(contentRoot, defaultExtension);
             }
-            catch (Exception) { return DefaultFor(contentRoot, defaultExtension); }
+            catch (Exception ex) when (ex is ArgumentException || ex is IOException || ex is NotSupportedException)
+            {
+                Diagnostics.Logger.LogException("Resolve description file name: " + descriptionFile, ex);
+                return DefaultFor(contentRoot, defaultExtension);
+            }
         }
 
         /// <summary>
@@ -80,7 +84,11 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 string path = PathFor(contentRoot, fileName);
                 return File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8) : null;
             }
-            catch (IOException) { return null; }
+            catch (IOException ex)
+            {
+                Diagnostics.Logger.LogException("Read description file: " + fileName, ex);
+                return null;
+            }
         }
 
         /// <summary>

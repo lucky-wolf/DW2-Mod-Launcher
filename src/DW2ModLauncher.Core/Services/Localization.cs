@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -49,6 +50,42 @@ namespace DW2ModLauncher.Core.Services
             return key;
         }
 
+        /// <summary>
+        /// The launcher language for a person whose system speaks <paramref name="culture"/>: the pack named exactly like it (pt-BR), else
+        /// the pack for its language (ja for ja-JP), else English.
+        /// </summary>
+        public static string ForCulture(CultureInfo culture)
+        {
+            EnsureLoaded();
+            if (culture == null) return "en";
+            string match = languages.Keys.FirstOrDefault(c => string.Equals(c, culture.Name, StringComparison.OrdinalIgnoreCase))
+                ?? languages.Keys.FirstOrDefault(c => string.Equals(c, culture.TwoLetterISOLanguageName, StringComparison.OrdinalIgnoreCase));
+            return match ?? "en";
+        }
+
+        /// <summary>The language pack whose code or display name is the given text (case-insensitive), else null.</summary>
+        public static string CodeFor(string text)
+        {
+            EnsureLoaded();
+            string typed = (text ?? "").Trim();
+            if (typed.Length == 0) return null;
+            return languages.Keys.FirstOrDefault(c => string.Equals(c, typed, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(displayNames.TryGetValue(c, out string name) ? name : null, typed, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Every key of the canonical English pack that starts with <paramref name="prefix"/>, with its text in the given language.
+        /// A key the language's pack lacks comes back as the raw key name, like <see cref="Get"/>.
+        /// </summary>
+        public static Dictionary<string, string> Prefixed(string languageCode, string prefix)
+        {
+            EnsureLoaded();
+            Dictionary<string, string> result = new Dictionary<string, string>();
+            foreach (string key in languages["en"].Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)))
+                result[key] = Get(languageCode, key);
+            return result;
+        }
+
         private static void EnsureLoaded()
         {
             if (languages != null) return;
@@ -74,7 +111,10 @@ namespace DW2ModLauncher.Core.Services
                             loaded[code] = pack;
                             names[code] = string.IsNullOrWhiteSpace(displayName) ? code : displayName;
                         }
-                        catch { }
+                        catch (Exception ex) when (ex is JsonException || ex is IOException || ex is UnauthorizedAccessException)
+                        {
+                            Diagnostics.Logger.LogException("Load language pack: " + file, ex);
+                        }
                     }
                 }
                 if (!loaded.ContainsKey("en")) loaded["en"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

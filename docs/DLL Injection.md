@@ -71,6 +71,54 @@ diagnostics (launching anyway is allowed). Only the numeric `major.minor.patch` 
 as its base version, and an unreadable value is ignored. Launchers from before this key existed ignore it silently, so
 a mod that depends on it should also say so in its description.
 
+## Dependencies (`dependencies` in `dw2modlauncher.json`)
+
+A mod says what it needs from other mods in its `dw2modlauncher.json` (never in `mod.json`, which is the game's file). One entry per mod; every field except `mod` is optional (names are matched ignoring case):
+
+```json
+{
+  "dependencies": [
+    {
+      "mod": "XL",
+      "required": false,
+      "minVersion": "1.36.0",
+      "loadAfter": true
+    }
+  ]
+}
+```
+
+- `mod`: the other mod, matched against its id, display name, folder name or token.
+- `required`: true lists a pre-launch warning when the mod is not installed or not enabled. False (default) means the entry applies only when the other mod is enabled.
+- `minVersion`: the oldest version of the other mod that works, compared with the `version` in its `mod.json`. A mod that states no usable version cannot meet it, and that is reported (never guessed). A mod that is too old is warned about.
+- `loadAfter` / `loadBefore`: order against the other mod, applied only when it is enabled. The launcher enforces them when you press Play: the enabled mods are put in an order that meets every rule (disturbing your order as little as it can), `mods.json` is rewritten to match, and the status line says so. Rules that contradict each other are reported and the order is left alone.
+There is deliberately no "incompatible" field: no mod author can know for all time which other mods (or versions) clash with theirs. Code: `ModDependencies`, `ModLibrary.ApplyDependencyOrder`. Design notes: [plans/mod-dependencies.md](plans/mod-dependencies.md).
+
+## Channels (`provides` / `receives` in `dw2modlauncher.json`)
+
+A mod's DLL can be handed data by other mods, without naming them or being named by them. The DLL declares the channels it receives; any mod, at its own choice, provides files to a channel:
+
+```json
+{ "receives": ["coherent-research.profiles"] }
+```
+```json
+{ "provides": [ { "channel": "coherent-research.profiles",
+                  "files": { "extended race profiles.json": "profiles/extended race profiles.json" } } ] }
+```
+
+- A channel is a contract owned by the mod that receives on it: its name, its slot names (the keys of `files`) and each slot's format are that mod's to document. A provider maps a slot to wherever the file sits in its own folder.
+- The launcher reads the provided files itself (never a folder path) and passes them to the receiving DLL in a separate argument of its entry point, not in the settings JSON:
+
+```csharp
+public static void InitWithOptions(string json, IReadOnlyDictionary<string, string> files)
+// files["coherent-research.profiles/extended race profiles.json"] == "<the merged text>"
+```
+
+  The loader prefers this two-argument overload when the Entry class has it; the one-argument and `Init()` forms still work (a mod with only those that is handed files is reported before launch).
+- **Merging, in load order.** Each enabled provider's file for a slot is merged into the result of the providers before it, so the first provider supplies the full set and a later mod adds to it or overrides parts of it (a new race, say) without replacing it. A slot whose name ends in `.json` is merged as a JSON merge patch (RFC 7396): objects merge key by key, a later value replaces an earlier one (arrays included), and `null` removes a key. Comments and trailing commas are allowed in provided JSON; the merged text has none. Any other slot's file is replaced as a whole by the later provider. If providers give different top-level `version` values for a slot it is reported before launch (the merged data takes the later one), so a format change is never merged silently. The launcher's log names, per slot, the mods that supplied it.
+- A path that is absolute, leaves the mod's folder (`..`), is a link, is missing, is larger than 1 MB or is not UTF-8 text is reported before launch and left out; so is a `.json` slot that does not parse. With no provider enabled the DLL simply receives no keys and decides for itself what to do.
+- This narrows what the DLL is told; it is not a sandbox, since a code mod runs with the user's rights.
+
 `dll` is relative to the mod's content folder; `entryPoint` is the `Namespace.Type.Method` the loader
 invokes. `LoaderManifestBuilder.Build` gathers every enabled mod's targets, in load order,
 de-duplicated by `dll!entryPoint`, into a `DW2ModLauncher.Core.Models.LoaderManifest`.
@@ -79,9 +127,9 @@ de-duplicated by `dll!entryPoint`, into a `DW2ModLauncher.Core.Models.LoaderMani
 
 For each manifest entry, in order, `DW2ModLauncher.Loader.Entry` resolves the declared type and:
 
-1. Looks for `public static void InitWithOptions(string json)` first. If present, calls it with
+1. Looks for `public static void InitWithOptions(string json, IReadOnlyDictionary<string, string> files)` first (the settings plus the data other mods supply on the channels it receives, see "Channels" above). Otherwise looks for `public static void InitWithOptions(string json)`. If present, calls it with
    the mod's settings as a raw JSON string (see "Settings schema" below), or `"{}"` if the mod
-   has no stored settings.
+   has no stored settings. The JSON also always carries a reserved `"Language"` key, whether or not the mod has a schema (below).
 2. Otherwise falls back to calling the declared method (typically `Init()`) with no arguments -
    this is why existing mods that only implement `Init()` (e.g. `NoStarField`) keep working
    unmodified.
@@ -90,6 +138,12 @@ One mod failing to load (missing DLL, exception during `Init`, etc.) is logged t
 next to the manifest and does not stop the rest from loading - see `Entry.LoadOne`. The same outcome is
 recorded in the loader's status registry and shown by the in-game status line (red when a mod failed
 to load), which mods can add to; see [Mod Status Line.md](Mod%20Status%20Line.md).
+
+### The `Language` option
+
+At launch the launcher adds `"Language": "<code>"` (`en`, `ja`, `ru`, the code of a launcher language pack) to the options JSON of every code mod. It is the **in-game language**, the same value the in-game widget uses (`WidgetLanguage.Choose`): the language the enabled translation mod declares, or the launcher's own language when Settings > *In-game widget language* is set to that; English when neither applies. It is not the language of the settings dialog, which always follows the launcher.
+
+A mod that wants to speak it reads the key and translates the text it shows in the game (its status-widget lines, for instance); a mod that does not care ignores it. The key is reserved: a schema field of the same name is overridden. The mod's settings values on disk never contain it.
 
 ## Settings schema
 
@@ -134,6 +188,32 @@ Per field:
 | `hidden` | no | `true` hides the field for Steam Workshop copies of the mod, so developer controls (logging, output folders) show only for the author's local copy, in place within their group. Hidden fields still get their defaults. `localOnly` is the older name and still works |
 
 A mod's declared schema and `ModSettingsStore` values feed the launcher's settings editor (`ModSettingsEditorViewModel`).
+
+### Translating the settings dialog
+
+The schema is written in whatever language its author uses; that text is the base. Another language is a **sidecar file** next to
+`settings.schema.json`, named `settings.schema.<language code>.json` (`settings.schema.ja.json`, the code of a launcher language
+pack). The settings dialog is the launcher's own window, so it uses the launcher's language. The sidecar only supplies display text,
+looked up by the schema's own keys; anything it leaves out is shown as the schema has it, so a translator can do just the labels.
+Limits, defaults and types never go in it.
+
+```json
+{
+  "groups": { "Speed penalties": "速度ペナルティ" },
+  "fields": {
+    "Enabled": "有効",
+    "NebulaPercent": { "label": "星雲での速度低下 (%)", "description": "星雲の中で失う速度です。" },
+    "Mode": { "label": "モード", "options": { "a": "標準", "b": "高速" } }
+  }
+}
+```
+
+- `groups` maps a group's name (its root key) to the heading to show.
+- `fields` maps a field `key` to its translation: an object with any of `label`, `description` and `options` (the schema's option text to the
+  text shown; the stored value stays the schema's option), or just a string, which translates only the label.
+- Keys are matched ignoring case. A sidecar for the base language is used like any other, so a mod written in Japanese can ship
+  `settings.schema.en.json`.
+- A sidecar that exists but is not valid is reported when the dialog is opened, rather than silently ignored.
 
 The actual **values** for these fields are stored under the current user's AppData folder
 (`%AppData%\DW2ModLauncher\ModSettings\<mod token>.json`, via `DW2ModLauncher.Core.Services.

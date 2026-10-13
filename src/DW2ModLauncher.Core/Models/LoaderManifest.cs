@@ -26,8 +26,14 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>True when a mod asked (dw2modlauncher.json "galactopedia": "replace") for the game's own Galactopedia articles to be dropped.</summary>
         public bool GalactopediaReplacesVanilla { get; set; }
 
+        /// <summary>Why a file an enabled mod promised to supply on a channel could not be handed over (ModChannels.Problems); the loader raises each as an error on the status widget.</summary>
+        public List<string> ChannelProblems { get; set; } = new List<string>();
+
         /// <summary>Where the loader writes its logs (as the game process sees the path); blank = the game's data/Logs folder.</summary>
         public string LogDirectory { get; set; } = "";
+
+        /// <summary>The widget's and Mods menu's own words in the chosen language (the Widget* keys of the launcher's language pack); empty = the loader's built-in English.</summary>
+        public Dictionary<string, string> Strings { get; set; } = new Dictionary<string, string>();
     }
 
     /// <summary>One mod's XML patch files (see docs/plans/xml-patching.md), in the order they apply.</summary>
@@ -68,6 +74,8 @@ namespace DW2ModLauncher.Core.Models
         public string HostDllPath { get; set; }
         public string EntryType { get; set; }
         public string SettingsJson { get; set; }
+        /// <summary>Text files of the mods this mod depends on that it asked for (dw2modlauncher.json "dependencies" "needs"), keyed "mod/file name" as the mod wrote them; passed as the second argument of InitWithOptions(string, IReadOnlyDictionary).</summary>
+        public Dictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
         public string DisplayName { get; set; }
     }
 }

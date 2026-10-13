@@ -47,14 +47,13 @@ namespace DW2ModLauncher.Core.Services
             return Scan(mod.ContentRoot ?? mod.Folder);
         }
 
-        /// <summary>Targets in ordinal path order (that order is the load order within a mod).</summary>
+        /// <summary>Targets in ordinal path order (that order is the load order within a mod). Throws IOException /
+        /// UnauthorizedAccessException when the folder or a DLL cannot be read: an unreadable mod is not a mod with no DLLs.</summary>
         public static List<InjectionTarget> Scan(string modRoot)
         {
             List<InjectionTarget> found = new List<InjectionTarget>();
             if (string.IsNullOrWhiteSpace(modRoot) || !Directory.Exists(modRoot)) return found;
-            string[] files;
-            try { files = Directory.GetFiles(modRoot, "*.dll", SearchOption.AllDirectories); }
-            catch { return found; }
+            string[] files = Directory.GetFiles(modRoot, "*.dll", SearchOption.AllDirectories);
 
             List<string> relative = new List<string>();
             foreach (string file in files)
@@ -82,9 +81,7 @@ namespace DW2ModLauncher.Core.Services
             if (meta?.injection != null && !string.IsNullOrWhiteSpace(meta.injection.dll)) return invalid;
             string modRoot = mod.ContentRoot ?? mod.Folder;
             if (string.IsNullOrWhiteSpace(modRoot) || !Directory.Exists(modRoot)) return invalid;
-            string[] files;
-            try { files = Directory.GetFiles(modRoot, "*.dll", SearchOption.AllDirectories); }
-            catch { return invalid; }
+            string[] files = Directory.GetFiles(modRoot, "*.dll", SearchOption.AllDirectories);
             List<string> relative = new List<string>();
             foreach (string file in files)
                 relative.Add(Path.GetRelativePath(modRoot, file).Replace('\\', '/'));
@@ -124,8 +121,6 @@ namespace DW2ModLauncher.Core.Services
                 }
             }
             catch (BadImageFormatException) { }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
             return EntryProblem.NotManaged;
         }
 
@@ -154,8 +149,6 @@ namespace DW2ModLauncher.Core.Services
                 }
             }
             catch (BadImageFormatException) { }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
             return null;
         }
 
@@ -179,19 +172,45 @@ namespace DW2ModLauncher.Core.Services
                         TypeAttributes attrs = type.Attributes;
                         if ((attrs & TypeAttributes.VisibilityMask) != TypeAttributes.Public) continue;
                         if ((attrs & TypeAttributes.Abstract) == 0 || (attrs & TypeAttributes.Sealed) == 0) continue;
-                        if (HasPublicStaticMethod(md, type, "InitWithOptions", 1)) return true;
+                        if (HasPublicStaticMethod(md, type, "InitWithOptions", 1) || HasPublicStaticMethod(md, type, "InitWithOptions", 2)) return true;
                     }
                 }
             }
             catch (BadImageFormatException) { }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
+            return false;
+        }
+
+        /// <summary>
+        /// True when the DLL's qualifying Entry class has InitWithOptions(string, IReadOnlyDictionary&lt;string, string&gt;), the one that receives
+        /// the files a mod asked of the mods it depends on. (Only the parameter count is checked; the loader looks for the exact types.)
+        /// </summary>
+        public static bool AcceptsFiles(string dllPath)
+        {
+            try
+            {
+                using (FileStream stream = File.OpenRead(dllPath))
+                using (PEReader pe = new PEReader(stream))
+                {
+                    if (!pe.HasMetadata) return false;
+                    MetadataReader md = pe.GetMetadataReader();
+                    foreach (TypeDefinitionHandle handle in md.TypeDefinitions)
+                    {
+                        TypeDefinition type = md.GetTypeDefinition(handle);
+                        if (md.GetString(type.Name) != EntryTypeName) continue;
+                        TypeAttributes attrs = type.Attributes;
+                        if ((attrs & TypeAttributes.VisibilityMask) != TypeAttributes.Public) continue;
+                        if ((attrs & TypeAttributes.Abstract) == 0 || (attrs & TypeAttributes.Sealed) == 0) continue;
+                        if (HasPublicStaticMethod(md, type, "InitWithOptions", 2)) return true;
+                    }
+                }
+            }
+            catch (BadImageFormatException) { }
             return false;
         }
 
         private static bool HasInitMethod(MetadataReader md, TypeDefinition type)
         {
-            return HasPublicStaticMethod(md, type, "Init", 0) || HasPublicStaticMethod(md, type, "InitWithOptions", 1);
+            return HasPublicStaticMethod(md, type, "Init", 0) || HasPublicStaticMethod(md, type, "InitWithOptions", 1) || HasPublicStaticMethod(md, type, "InitWithOptions", 2);
         }
 
         private static bool HasPublicStaticMethod(MetadataReader md, TypeDefinition type, string name, int parameters)

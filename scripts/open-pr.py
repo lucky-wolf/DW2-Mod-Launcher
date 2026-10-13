@@ -72,6 +72,7 @@ def main() -> int:
         output.fail(f"already on '{target}' - switch to a feature branch first")
 
     launcher_build.require_launcher_closed()
+    launcher_build.require_game_closed()
 
     output.step("gh readiness")
     github.require_gh_auth()

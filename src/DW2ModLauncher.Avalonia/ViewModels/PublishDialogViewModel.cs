@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DW2ModLauncher.Avalonia.Services;
 using DW2ModLauncher.Core.Models;
+using DW2ModLauncher.Core.Services;
 using DW2ModLauncher.Core.Services.Publishing;
 
 namespace DW2ModLauncher.Avalonia.ViewModels
@@ -64,6 +65,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private bool replaceDescription;
         private readonly string workshopId;
         private bool pullingDescription;
+        private bool canPushVisibility;
+        private bool revertingVisibility;
         // The item's current Steam description when this is an update and Steam could be asked; null otherwise.
         private readonly string steamDescription;
         private bool replaceTouched;
@@ -97,6 +100,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             modJsonPath = mod.ModJsonPath;
             contentFolder = mod.ContentRoot ?? mod.Folder;
             CanEditVisibility = !propertiesOnly;
+            string statusShort = ModDetails.PublishStatusShort(mod, key => l[key]);
+            PublishStatusLine = statusShort.Length == 0 ? "" : statusShort + ". " + ModDetails.PublishStatusTooltip(mod, key => l[key]);
             this.propertiesOnly = propertiesOnly;
             // A first publish has no Steam text to protect, so it sends the description; an update leaves the Steam page alone unless asked.
             this.steamDescription = isUpdate && !propertiesOnly ? steamDescription : null;
@@ -144,6 +149,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             InjectedDlls = BuildInjectedRows(mod, l);
 
             workshopId = long.TryParse(mod.WorkshopId, out long _) ? mod.WorkshopId.Trim() : null;
+            // On a published item the visibility box acts at once, like the description upload: choosing a value sends it to Steam and nothing else.
+            canPushVisibility = workshopId != null && (propertiesOnly ? currentVisibility.HasValue : isUpdate);
+            VisibilityEnabled = !propertiesOnly || canPushVisibility;
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage);
             PullSteamDescriptionCommand = new RelayCommand(PullSteamDescriptionAsync);
             PushSteamDescriptionCommand = new RelayCommand(PushSteamDescriptionAsync);
@@ -157,7 +165,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
             if (propertiesOnly)
             {
-                // Visibility lives on Steam and is only changed by publishing: show what it is (read-only) when we could ask.
+                // Visibility lives on Steam: show what it is when we could ask (changing it applies at once, see the Visibility setter).
                 if (currentVisibility.HasValue)
                 {
                     foreach (ModVisibility v in ModPublisherFactory.SupportedVisibilities())
@@ -193,14 +201,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         public LocalizedStrings L { get; }
+
+        /// <summary>The mod's change-since-publish status, shown at the top of the dialog: the short status, a sentence of detail and the changed files. Empty for a mod that was never published.</summary>
+        public string PublishStatusLine { get; }
+        public bool HasPublishStatus { get { return PublishStatusLine.Length > 0; } }
         /// <summary>The mod.json version before this dialog proposed anything, for rolling back a publish that did not happen.</summary>
         public string OriginalVersion { get; }
         public string WindowTitle { get; }
         public string Note { get; }
         /// <summary>"Publish to Workshop", or "Save" when the dialog only edits mod.json.</summary>
         public string PrimaryButtonText { get; }
-        /// <summary>False when only editing properties: visibility is Steam's to hold, shown read-only.</summary>
+        /// <summary>False when only editing properties (nothing is being published, so no description-replacement offer). The visibility box has its own <see cref="VisibilityEnabled"/>.</summary>
         public bool CanEditVisibility { get; }
+        /// <summary>Whether the visibility box can be changed: always in the publish dialog; in edit properties only for a published item whose visibility Steam told us.</summary>
+        public bool VisibilityEnabled { get; }
         /// <summary>The "replace the Steam description" checkbox only applies to publishing, not to editing properties.</summary>
         public bool ShowReplaceDescription { get { return CanEditVisibility && (steamDescription == null || DescriptionDiffersFromSteam); } }
         /// <summary>True when Steam's text is known and differs from the box; the dialog says so next to the checkbox.</summary>
@@ -215,11 +229,34 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private static List<InjectedDllRow> BuildInjectedRows(ModInfo mod, LocalizedStrings l)
         {
+            try { return ScanInjectedRows(mod, l); }
+            catch (Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException)
+            {
+                // An unreadable mod folder or DLL must not look like "this mod injects nothing".
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Scan injected DLLs: " + mod.Folder, ex);
+                return new List<InjectedDllRow> { new InjectedDllRow { Dll = mod.ContentRoot ?? mod.Folder, EntryPoint = l["PublishInjectedDllsInvalid"], IsInvalid = true, Tooltip = ex.Message } };
+            }
+        }
+
+        private static List<InjectedDllRow> ScanInjectedRows(ModInfo mod, LocalizedStrings l)
+        {
             List<InjectedDllRow> rows = DW2ModLauncher.Core.Services.InjectionScanner.TargetsFor(mod)
                 .Select(t => new InjectedDllRow { Dll = t.Dll, EntryPoint = t.EntryPoint }).ToList();
             // Incongruous: the mod ships a settings schema, yet none of its DLLs can receive settings (they only have Init()).
             string root = mod.ContentRoot ?? mod.Folder;
-            if (rows.Count > 0 && DW2ModLauncher.Core.Services.ModSettingsSchemaReader.Read(root) != null
+            bool hasSchema;
+            try { hasSchema = DW2ModLauncher.Core.Services.ModSettingsSchemaReader.Read(root) != null; }
+            catch (System.IO.InvalidDataException ex)
+            {
+                // A schema that exists but is broken must not look like "no schema": flag every DLL row with the reason.
+                foreach (InjectedDllRow row in rows)
+                {
+                    row.IsWarning = true;
+                    row.Tooltip = ex.Message;
+                }
+                return rows;
+            }
+            if (rows.Count > 0 && hasSchema
                 && !rows.Any(r => DW2ModLauncher.Core.Services.InjectionScanner.AcceptsOptions(System.IO.Path.Combine(root, r.Dll.Replace('/', System.IO.Path.DirectorySeparatorChar)))))
             {
                 foreach (InjectedDllRow row in rows)
@@ -414,7 +451,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
         public string ShortDescription { get { return shortDescription; } set { if (Set(ref shortDescription, value)) RaiseModified(); } }
-        public VisibilityOption Visibility { get { return visibility; } set { if (value != null) Set(ref visibility, value); } }
+        public VisibilityOption Visibility
+        {
+            get { return visibility; }
+            set
+            {
+                if (value == null || value == visibility) return;
+                VisibilityOption previous = visibility;
+                Set(ref visibility, value);
+                if (!revertingVisibility && canPushVisibility && value.Value.HasValue) { var _ = PushVisibilityAsync(previous); }
+            }
+        }
 
         public ModPublishMetadata Metadata { get { return metadata; } }
         public ModVisibility? SelectedVisibility { get { return visibility.Value; } }
@@ -499,6 +546,39 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             finally { pullingDescription = false; }
         }
 
+        /// <summary>Sends the chosen visibility to the item's Steam page and nothing else (no content, title, preview or description). Puts the box back if Steam does not take it.</summary>
+        private async Task PushVisibilityAsync(VisibilityOption previous)
+        {
+            ModVisibility chosen = visibility.Value.Value;
+            string problem = null;
+            try
+            {
+                ModPublishRequest request = new ModPublishRequest
+                {
+                    VisibilityOnly = true,
+                    Visibility = chosen,
+                    ExistingWorkshopId = long.Parse(workshopId)
+                };
+                CancellationTokenSource cancel = new CancellationTokenSource();
+                request.Cancel = cancel.Token;
+                ModPublishResult result;
+                using (dialogs.ShowBusy(L["PublishPushVisibilityRunning"], "DW2 Mod Launcher", L["Cancel"], TimeSpan.FromSeconds(15), cancel))
+                    result = await Task.Run(() => ModPublisherFactory.Create(uint.Parse(DW2ModLauncher.Core.Services.SteamLocator.AppId)).Publish(request));
+                if (cancel.IsCancellationRequested) problem = "";
+                else if (!string.IsNullOrEmpty(result.ErrorMessage)) problem = result.ErrorMessage;
+            }
+            catch (Exception ex)
+            {
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Push Steam visibility", ex);
+                problem = ex.Message;
+            }
+            if (problem == null) return;
+            revertingVisibility = true;
+            Visibility = previous;
+            revertingVisibility = false;
+            if (problem.Length > 0) await dialogs.ShowMessageAsync(L.Format("PublishPushVisibilityFailed", problem), "DW2 Mod Launcher");
+        }
+
         private async Task BrowsePreviewAsync()
         {
             // A blank field opens where art was last picked from; one that already names a file opens in that file's folder (which never
@@ -515,7 +595,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 catch (Exception) { }
             }
             else if (!string.IsNullOrWhiteSpace(lastArtFolder) && Directory.Exists(lastArtFolder)) start = lastArtFolder;
-            string picked = await dialogs.PickFileAsync(L["PublishInfoPreviewImage"], start, "Image files", "*.jpg", "*.jpeg", "*.png");
+            string picked = await dialogs.PickFileAsync(L["PublishInfoPreviewImage"], start, L["FilterImageFiles"], "*.jpg", "*.jpeg", "*.png");
             if (picked == null) return;
             if (current.Length == 0 && !DW2ModLauncher.Core.Services.ModFileImporter.IsInside(contentFolder, picked))
             {

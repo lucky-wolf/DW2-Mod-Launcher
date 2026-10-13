@@ -17,13 +17,10 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public static List<string> Detect(string contentFolder)
         {
             List<string> found = new List<string>();
-            try
-            {
-                if (string.IsNullOrWhiteSpace(contentFolder) || !Directory.Exists(contentFolder)) return found;
-                foreach (string file in Directory.EnumerateFiles(contentFolder, "*.bundle", SearchOption.AllDirectories))
-                    if (!IsPart(file)) found.Add(Path.GetRelativePath(contentFolder, file).Replace('\\', '/'));
-            }
-            catch (Exception) { }
+            if (string.IsNullOrWhiteSpace(contentFolder) || !Directory.Exists(contentFolder)) return found;
+            // An unreadable folder throws: "no bundles found" would make publishing drop the mod's bundles from mod.json.
+            foreach (string file in Directory.EnumerateFiles(contentFolder, "*.bundle", SearchOption.AllDirectories))
+                if (!IsPart(file)) found.Add(Path.GetRelativePath(contentFolder, file).Replace('\\', '/'));
             found.Sort(StringComparer.OrdinalIgnoreCase);
             return found;
         }

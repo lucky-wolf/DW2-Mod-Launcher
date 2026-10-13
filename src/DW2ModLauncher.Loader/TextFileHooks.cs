@@ -34,7 +34,7 @@ namespace DW2ModLauncher.Loader
             _replaceVanilla = manifest?.GalactopediaReplacesVanilla ?? false;
             if (_files.Count == 0 && !_replaceVanilla) return 0;
             _logPath = Path.Combine(baseDir, "dw2modlauncher-textfiles.log");
-            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like dw2modlauncher-patches.log
+            try { File.WriteAllText(_logPath, string.Empty); } catch (Exception ex) { HookStatus.LogFailed(_logPath, ex); } // one game start per log, like dw2modlauncher-patches.log
 
             Harmony harmony = new Harmony("dw2modlauncher.loader.textfiles");
             HarmonyMethod prefix = new HarmonyMethod(typeof(TextFileHooks).GetMethod(nameof(PathPrefix), BindingFlags.Static | BindingFlags.NonPublic));
@@ -61,7 +61,7 @@ namespace DW2ModLauncher.Loader
             else
             {
                 Log("Stride FileSystemProvider not found.");
-                HookStatus.Failed("textfiles", "text file hook failed: the game's data provider was not found (Hints, dialog, Galactopedia stay unreplaced)", _logPath);
+                HookStatus.Failed("textfiles", StatusStrings.Get("WidgetTextNoProvider"), _logPath);
             }
             foreach (string name in new[] { "ReadAllText", "ReadAllLines", "ReadLines", "ReadAllBytes", "OpenRead", "OpenText", "Exists" })
             {
@@ -74,7 +74,7 @@ namespace DW2ModLauncher.Loader
             }
             foreach (KeyValuePair<string, string> f in _files) Log("replacing data/" + f.Key + " with " + f.Value);
             Log(hooked + " file API(s) hooked.");
-            if (hooked == 0) HookStatus.Failed("textfiles", "text file hook failed: no file API could be hooked", _logPath);
+            if (hooked == 0) HookStatus.Failed("textfiles", StatusStrings.Get("WidgetTextNoApi"), _logPath);
             return _files.Count;
         }
 
@@ -213,9 +213,10 @@ namespace DW2ModLauncher.Loader
             {
                 if (_logPath != null) File.AppendAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message + Environment.NewLine);
             }
-            catch
+            catch (Exception ex)
             {
-                // Logging must never crash the game.
+                // Logging must never crash the game, but the status line says the log is lost.
+                HookStatus.LogFailed(_logPath, ex);
             }
         }
     }

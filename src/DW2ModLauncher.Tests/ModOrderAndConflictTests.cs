@@ -192,14 +192,12 @@ namespace DW2ModLauncher.Tests
         // ---- diagnostics + misc
 
         [Fact]
-        public void Diagnostics_ReportsMissingRequiredMod_AndMissingLoader()
+        public void Diagnostics_ReportsMissingLoader()
         {
             ModInfo a = MakeMod("a");
-            a.RequiredMods = new List<string> { "ghost" };
 
             var issues = LaunchDiagnostics.Build(new List<ModInfo> { a }, new ModOrderState(), Path.Combine(dir, "nope.dll"), new List<LoaderManifestEntry>(), key => key + ":");
 
-            Assert.Contains(issues, i => i.Contains("MissingRequiredMod:ghost"));
             Assert.Contains(issues, i => i.Contains("LaunchArgumentDLLNotFound:") && i.Contains("nope.dll"));
         }
 

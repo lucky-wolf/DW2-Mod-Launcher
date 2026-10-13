@@ -4,31 +4,64 @@
              x:Class="DW2ModLauncher.Avalonia.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
   <ScrollViewer>
-    <StackPanel Margin="26" Spacing="14" Width="830" HorizontalAlignment="Left">
-      <TextBlock Classes="heading" Text="{Binding L[PathsAndLaunchSettings]}" />
+    <StackPanel Margin="26" Spacing="22" Width="830" HorizontalAlignment="Left">
 
-      <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
-        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="DW2 Game Root" />
-        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GameRoot}" />
-        <Button Grid.Row="0" Grid.Column="2" Content="…" Command="{Binding BrowseGameCommand}" MinWidth="50" />
-        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Workshop Root" />
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WorkshopRoot}" />
-        <Button Grid.Row="1" Grid.Column="2" Content="…" Command="{Binding BrowseWorkshopCommand}" MinWidth="50" />
-        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="DW2 Mod Root" />
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ManagedRoot}" />
-        <Button Grid.Row="2" Grid.Column="2" Content="…" Command="{Binding BrowseManagedCommand}" MinWidth="50" />
-        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Log Folder" />
-        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LogFolder}" Watermark="blank = DW2's data/Logs folder" />
-        <Button Grid.Row="3" Grid.Column="2" Content="…" Command="{Binding BrowseLogFolderCommand}" MinWidth="50" />
-        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsDescriptionExtension]}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
-        <ComboBox Grid.Row="4" Grid.Column="1" IsEditable="True" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
-      </Grid>
-
-      <StackPanel Spacing="6">
-        <TextBlock Text="{Binding L[EffectiveLaunchCommand]}" />
-        <TextBox Text="{Binding CommandPreview, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
-                 MinHeight="70" Foreground="{StaticResource Dw2BlueGlow}" />
+      <!-- Where things are -->
+      <StackPanel Spacing="10">
+        <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Classes="subheading" VerticalAlignment="Center" Text="{Binding L[SettingsSectionPaths]}" />
+            <Button Grid.Column="1" Content="{Binding L[AutoDetect]}" Command="{Binding AutoDetectCommand}" ToolTip.Tip="{Binding L[AutoDetectTooltip]}" MinWidth="125" />
+          </Grid>
+        </Border>
+        <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+          <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsGameRoot]}" />
+          <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GameRoot}" />
+          <Button Grid.Row="0" Grid.Column="2" Content="…" Command="{Binding BrowseGameCommand}" MinWidth="50" />
+          <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsWorkshopRoot]}" />
+          <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WorkshopRoot}" />
+          <Button Grid.Row="1" Grid.Column="2" Content="…" Command="{Binding BrowseWorkshopCommand}" MinWidth="50" />
+          <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsModRoot]}" />
+          <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ManagedRoot}" />
+          <Button Grid.Row="2" Grid.Column="2" Content="…" Command="{Binding BrowseManagedCommand}" MinWidth="50" />
+          <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsLogFolder]}" />
+          <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LogFolder}" PlaceholderText="{Binding L[SettingsLogFolderPlaceholder]}" />
+          <Button Grid.Row="3" Grid.Column="2" Content="…" Command="{Binding BrowseLogFolderCommand}" MinWidth="50" />
+        </Grid>
       </StackPanel>
+
+      <!-- How the game is started -->
+      <StackPanel Spacing="10">
+        <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
+          <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionLaunch]}" />
+        </Border>
+        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto" ColumnSpacing="10">
+          <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsWidgetLanguage]}" ToolTip.Tip="{Binding L[SettingsWidgetLanguageTooltip]}" />
+          <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+            <RadioButton GroupName="WidgetLanguage" IsChecked="{Binding WidgetLanguageFromMods}" Content="{Binding L[SettingsWidgetLanguageFromMods]}" ToolTip.Tip="{Binding L[SettingsWidgetLanguageTooltip]}" />
+            <RadioButton GroupName="WidgetLanguage" IsChecked="{Binding WidgetLanguageFromLauncher}" Content="{Binding L[SettingsWidgetLanguageFromLauncher]}" ToolTip.Tip="{Binding L[SettingsWidgetLanguageTooltip]}" />
+          </StackPanel>
+        </Grid>
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding L[EffectiveLaunchCommand]}" />
+          <TextBox Text="{Binding CommandPreview, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                   MinHeight="70" Foreground="{StaticResource Dw2BlueGlow}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- For people who make mods -->
+      <StackPanel Spacing="10">
+        <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
+          <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionAuthoring]}" />
+        </Border>
+        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+          <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsAuthorName]}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
+          <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" Width="300" Text="{Binding AuthorName}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
+          <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsDescriptionExtension]}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
+          <ComboBox Grid.Row="1" Grid.Column="1" IsEditable="True" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
+        </Grid>
+      </StackPanel>
+
     </StackPanel>
   </ScrollViewer>
 </UserControl>

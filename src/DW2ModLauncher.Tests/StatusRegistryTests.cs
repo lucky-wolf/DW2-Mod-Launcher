@@ -5,6 +5,7 @@ using Xunit;
 
 namespace DW2ModLauncher.Tests
 {
+    [Collection("StatusStrings")]
     public class StatusRegistryTests
     {
         static StatusRegistry NewRegistry() => new StatusRegistry();

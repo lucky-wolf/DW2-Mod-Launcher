@@ -25,7 +25,8 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>Reads existing stored values and fills in any schema key the file lacks with its default
-        /// (no file, or an unreadable one, counts as all keys lacking). If anything was filled in the file is
+        /// (no file counts as all keys lacking). A file that exists but is not a JSON object throws and is left
+        /// untouched, so the user's values are never overwritten by defaults. If anything was filled in the file is
         /// rewritten at once, so what the editor shows is exactly what is on disk and only a user edit makes
         /// the values differ from the file.</summary>
         public static JsonObject GetOrCreateValues(ModInfo mod, ModSettingsSchema schema)
@@ -38,7 +39,12 @@ namespace DW2ModLauncher.Core.Services
                 {
                     values = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)) as JsonObject;
                 }
-                catch { }
+                catch (JsonException ex)
+                {
+                    throw new InvalidDataException("The settings file for " + (mod?.DisplayName ?? mod?.Id) + " is not valid JSON, so it was left as it is: " + path + "\n" + ex.Message, ex);
+                }
+                if (values == null)
+                    throw new InvalidDataException("The settings file for " + (mod?.DisplayName ?? mod?.Id) + " is not a JSON object, so it was left as it is: " + path);
             }
 
             bool changed = values == null;

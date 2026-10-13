@@ -28,13 +28,13 @@ namespace DW2ModLauncher.Loader
                 .Where(f => !string.IsNullOrWhiteSpace(f?.Name) && !string.IsNullOrWhiteSpace(f.Folder)).ToList();
             if (_fonts.Count == 0) return 0;
             _logPath = Path.Combine(baseDir, "dw2modlauncher-fonts.log");
-            try { File.WriteAllText(_logPath, string.Empty); } catch { } // one game start per log, like dw2modlauncher-patches.log
+            try { File.WriteAllText(_logPath, string.Empty); } catch (Exception ex) { HookStatus.LogFailed(_logPath, ex); } // one game start per log, like dw2modlauncher-patches.log
 
             Type vfs = Type.GetType("Stride.Core.IO.VirtualFileSystem, Stride.Core.IO", false);
             if (vfs == null)
             {
                 Log("ERROR: Stride VirtualFileSystem not found; font bundles will not be found by the game.");
-                HookStatus.Failed("font", "font hook failed: the game's file system was not found, so the mod's font will not load", _logPath);
+                HookStatus.Failed("font", StatusStrings.Get("WidgetFontNoFileSystem"), _logPath);
                 return 0;
             }
             Harmony harmony = new Harmony("dw2modlauncher.loader.fontbundle");
@@ -44,7 +44,7 @@ namespace DW2ModLauncher.Loader
             else
             {
                 Log("ERROR: VirtualFileSystem.FileExists not found.");
-                HookStatus.Failed("font", "font hook failed: VirtualFileSystem.FileExists not found (game update?)", _logPath);
+                HookStatus.Failed("font", StatusStrings.Get("WidgetFontNoFileExists"), _logPath);
             }
 
             MethodInfo pre = typeof(FontBundleHooks).GetMethod(nameof(OpenStreamPrefix), BindingFlags.Static | BindingFlags.NonPublic);
@@ -59,7 +59,7 @@ namespace DW2ModLauncher.Loader
             if (opened == 0)
             {
                 Log("ERROR: VirtualFileSystem.OpenStream not found.");
-                HookStatus.Failed("font", "font hook failed: VirtualFileSystem.OpenStream not found (game update?)", _logPath);
+                HookStatus.Failed("font", StatusStrings.Get("WidgetFontNoOpenStream"), _logPath);
             }
             foreach (LoaderManifestFont f in _fonts) Log("font bundle '" + f.Name + "' from " + f.Folder + " (" + f.DisplayName + ")");
             return _fonts.Count;
@@ -113,9 +113,10 @@ namespace DW2ModLauncher.Loader
             {
                 if (_logPath != null) File.AppendAllText(_logPath, "[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] " + message + Environment.NewLine);
             }
-            catch
+            catch (Exception ex)
             {
-                // Logging must never crash the game.
+                // Logging must never crash the game, but the status line says the log is lost.
+                HookStatus.LogFailed(_logPath, ex);
             }
         }
     }

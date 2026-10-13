@@ -19,6 +19,18 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void UnparseableModJson_IsReportedOnTheMod_AndStillIdentifiable()
+        {
+            ModInfo mod = Scan("{ \"displayName\": \"Broken\", \"Required\": [ oops ", out string root);
+            try
+            {
+                Assert.NotNull(mod.ModJsonError);
+                Assert.Equal("Broken", mod.DisplayName);
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Fact]
         public void PreviewNamingAMissingFile_HasNoPreview_NotSomeOtherImage()
         {
             ModInfo mod = Scan("{ \"displayName\": \"M\", \"previewImage\": \"Gone.png\" }", out string root);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
@@ -17,7 +18,7 @@ namespace DW2ModLauncher.Tests
         [Fact]
         public void SettingsStore_RoundTrips_AndMissingFileGivesDefaults()
         {
-            LauncherSettingsStore store = new LauncherSettingsStore(Path.Combine(dir, "s.json"));
+            LauncherSettingsStore store = new LauncherSettingsStore(Path.Combine(dir, "s.json"), CultureInfo.InvariantCulture);
             Assert.Equal("en", store.Load().Language);
 
             LauncherSettings s = new LauncherSettings { Language = "ja", GameRoot = "/g" };
@@ -30,12 +31,43 @@ namespace DW2ModLauncher.Tests
             Assert.True(loaded.SelectedMods["a"]);
         }
 
+        [Theory]
+        [InlineData("ja-JP", "ja")]
+        [InlineData("ru-RU", "ru")]
+        [InlineData("ru", "ru")]
+        [InlineData("en-US", "en")]
+        [InlineData("fr-FR", "en")]
+        public void SettingsStore_FirstRunSpeaksTheSystemLanguageWhenThereIsAPackForIt(string culture, string expected)
+        {
+            LauncherSettingsStore store = new LauncherSettingsStore(Path.Combine(dir, "s.json"), new CultureInfo(culture));
+
+            Assert.Equal(expected, store.Load().Language);
+        }
+
         [Fact]
-        public void SettingsStore_CorruptFileGivesDefaults()
+        public void SettingsStore_SavedLanguageBeatsTheSystemLanguage()
+        {
+            string path = Path.Combine(dir, "s.json");
+            new LauncherSettingsStore(path, CultureInfo.InvariantCulture).Save(new LauncherSettings { Language = "en" });
+
+            Assert.Equal("en", new LauncherSettingsStore(path, new CultureInfo("ja-JP")).Load().Language);
+        }
+
+        [Fact]
+        public void SettingsStore_CorruptFileGivesDefaults_KeepsBackup_AndReportsError()
         {
             string path = Path.Combine(dir, "s.json");
             File.WriteAllText(path, "{ not json");
-            Assert.Equal("en", new LauncherSettingsStore(path).Load().Language);
+            LauncherSettingsStore store = new LauncherSettingsStore(path, CultureInfo.InvariantCulture);
+
+            Assert.Equal("en", store.Load().Language);
+
+            Assert.NotNull(store.LoadError);
+            Assert.Equal("{ not json", File.ReadAllText(path + ".bad"));
+            // A good file afterwards clears the error.
+            store.Save(new LauncherSettings());
+            store.Load();
+            Assert.Null(store.LoadError);
         }
 
         [Fact]

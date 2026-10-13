@@ -10,13 +10,17 @@ namespace DW2ModLauncher.Loader
 
         public static void Failed(string key, string text, string logFile) => Set(key, text, StatusLevel.Error, logFile);
 
+        // A log that cannot be written would otherwise lose every later message silently; the status line is the one place left to say so.
+        public static void LogFailed(string logPath, Exception ex) =>
+            Failed("log:" + logPath, StatusStrings.Get("WidgetLogCannotBeWritten", ex.Message, logPath), null);
+
         public static void Warn(string key, string text, string logFile) => Set(key, text, StatusLevel.Warn, logFile);
 
         private static void Set(string key, string text, StatusLevel level, string logFile)
         {
             try
             {
-                ModStatus.Registry.Register(Id, "Mod Launcher (loader)", null, null);
+                ModStatus.Registry.Register(Id, StatusStrings.Get("WidgetLoaderName"), null, null);
                 ModStatus.Registry.Detail(Id, key, text, level);
                 if (!string.IsNullOrEmpty(logFile)) ModStatus.Registry.SetLog(Id, logFile);
             }

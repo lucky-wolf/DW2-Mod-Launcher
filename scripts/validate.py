@@ -21,6 +21,7 @@ def main() -> int:
     parser.parse_args()
 
     launcher_build.require_launcher_closed()
+    launcher_build.require_game_closed()
 
     output.step("translations")
     problems = translation_checks.check_all(REPO_ROOT)

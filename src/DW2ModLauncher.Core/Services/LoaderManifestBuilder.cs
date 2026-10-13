@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json.Nodes;
 using DW2ModLauncher.Core.Models;
 
 namespace DW2ModLauncher.Core.Services
@@ -14,7 +15,15 @@ namespace DW2ModLauncher.Core.Services
     /// </summary>
     public static class LoaderManifestBuilder
     {
-        public static LoaderManifest Build(List<ModInfo> orderedEnabledMods)
+        /// <summary>The key added to every code mod's options JSON: the language the mod's in-game text should speak.</summary>
+        public const string LanguageKey = "Language";
+
+        /// <summary>
+        /// <paramref name="language"/> is the resolved in-game language code (<see cref="WidgetLanguage.Choose"/>). When given, every code mod's
+        /// options JSON carries it as <see cref="LanguageKey"/>, whether or not the mod has a settings schema; a schema field of the
+        /// same name is overridden. Null leaves the options as they were.
+        /// </summary>
+        public static LoaderManifest Build(List<ModInfo> orderedEnabledMods, string language = null)
         {
             LoaderManifest manifest = new LoaderManifest();
             HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -23,12 +32,13 @@ namespace DW2ModLauncher.Core.Services
                 string modRoot = mod.ContentRoot ?? mod.Folder;
                 manifest.ModFolders.Add(LeafName(mod.Folder ?? modRoot));
                 foreach (InjectionTarget target in InjectionScanner.TargetsFor(mod))
-                    AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint);
+                    AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint, orderedEnabledMods, language);
                 AddPatches(manifest, mod, modRoot, manifest.ModFolders.Count - 1);
             }
             manifest.Fonts.AddRange(FontsOf(orderedEnabledMods));
             manifest.TextFiles.AddRange(TextFilesOf(orderedEnabledMods));
             manifest.GalactopediaReplacesVanilla = (orderedEnabledMods ?? new List<ModInfo>()).Any(ReplacesGalactopedia);
+            manifest.ChannelProblems.AddRange(ModChannels.Problems(orderedEnabledMods ?? new List<ModInfo>()));
             return manifest;
         }
 
@@ -161,7 +171,7 @@ namespace DW2ModLauncher.Core.Services
             manifest.Patches.Add(set);
         }
 
-        private static void AddEntry(LoaderManifest manifest, HashSet<string> seen, ModInfo mod, string modRoot, string dllRelative, string entryPoint)
+        private static void AddEntry(LoaderManifest manifest, HashSet<string> seen, ModInfo mod, string modRoot, string dllRelative, string entryPoint, IList<ModInfo> enabled, string language)
         {
             if (string.IsNullOrWhiteSpace(modRoot) || string.IsNullOrWhiteSpace(dllRelative) || string.IsNullOrWhiteSpace(entryPoint)) return;
             string full = Path.GetFullPath(Path.Combine(modRoot, dllRelative.Replace('/', Path.DirectorySeparatorChar)));
@@ -171,6 +181,12 @@ namespace DW2ModLauncher.Core.Services
             ModSettingsSchema schema = ModSettingsSchemaReader.Read(modRoot);
             if (schema != null)
                 settingsJson = ModSettingsStore.GetOrCreateValues(mod, schema).ToJsonString();
+            if (!string.IsNullOrWhiteSpace(language))
+            {
+                JsonObject options = settingsJson == null ? new JsonObject() : JsonNode.Parse(settingsJson).AsObject();
+                options[LanguageKey] = language.Trim();
+                settingsJson = options.ToJsonString();
+            }
 
             manifest.Entries.Add(new LoaderManifestEntry
             {
@@ -178,6 +194,7 @@ namespace DW2ModLauncher.Core.Services
                 HostDllPath = full,
                 EntryType = entryPoint,
                 SettingsJson = settingsJson,
+                Files = ModChannels.FilesFor(mod, enabled),
                 DisplayName = mod.DisplayName ?? mod.Id
             });
         }

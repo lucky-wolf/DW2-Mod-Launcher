@@ -22,6 +22,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public string Description { get; set; }
         /// <summary>Sends only <see cref="Description"/> to an existing item: no title, content, preview image or visibility is touched (and none is needed).</summary>
         public bool DescriptionOnly { get; set; }
+        /// <summary>Sends only <see cref="Visibility"/> to an existing item: nothing else (title, content, preview image, description) is touched.</summary>
+        public bool VisibilityOnly { get; set; }
         public string PreviewImagePath { get; set; }
         public long? ExistingWorkshopId { get; set; }
         /// <summary>Null leaves visibility alone: a new item stays private (Steam's default), an existing one keeps what it has.</summary>

@@ -49,11 +49,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string detailText = "";
         private string detailSource = "";
         private string detailWorkshopId = "";
-        private bool verifyingPublishedIds;
+        private bool refreshingSteamStatus;
         private string problemsText = "";
         private bool problemsIsConflict;
         private Bitmap preview;
         private bool publishRunning;
+        // Steam visibility of published local mods by Workshop id, filled by the startup / Refresh sweep (or when a mod is selected, if the sweep missed it) and kept for the session.
+        private readonly Dictionary<string, ModVisibility> visibilityCache = new Dictionary<string, ModVisibility>();
+        private readonly HashSet<string> visibilityLookups = new HashSet<string>();
+        // Set when Steam gave no answer at all (not running, not logged in): no more lookups until the next sweep (startup or Refresh) finds it back.
+        private bool steamUnavailable;
 
         public MainViewModel(IDialogService dialogs, string appRoot)
         {
@@ -62,7 +67,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             settingsStore = new LauncherSettingsStore(Path.Combine(appRoot, "launcher_settings.json"));
             settings = settingsStore.Load();
             NormalizeSettings();
-            sortColumn = settings.SortColumn >= 0 && settings.SortColumn <= 4 ? settings.SortColumn : -1;
+            Views.ModColumnLayout.Set(settings.ModListColumnOrder);
+            // A saved 2 was the old separate "enabled" column, which is now part of column 4; a saved 3 was the Health column, which is gone (the checkbox carries it).
+            sortColumn = settings.SortColumn == 2 || settings.SortColumn == 3 ? 4 : settings.SortColumn >= 0 && settings.SortColumn <= 5 ? settings.SortColumn : -1;
             sortAscending = settings.SortAscending;
             if (string.IsNullOrWhiteSpace(settings.ManagedModsRoot))
                 settings.ManagedModsRoot = string.IsNullOrWhiteSpace(settings.GameRoot) ? "" : Path.Combine(settings.GameRoot, "mods");
@@ -78,11 +85,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Settings = new SettingsViewModel(this);
             OpenSettingsCommand = new RelayCommand(() => Dialogs.ShowSettingsAsync(Settings));
             OpenAboutCommand = new RelayCommand(() => Dialogs.ShowAboutAsync(this));
-            RefreshCommand = new RelayCommand(() => { Refresh(); var _ = VerifyPublishedIdsAsync(); });
+            RefreshCommand = new RelayCommand(() => { Refresh(); var _ = RefreshSteamStatusAsync(); });
             ClearCommand = new RelayCommand(ClearAsync);
             EnableAllCommand = new RelayCommand(EnableAllAsync);
             PlayCommand = new RelayCommand(PlayOrStopAsync, () => gameState != GameState.Launching);
-            SetLaunchModeCommand = RelayCommand.WithParameter(mode => LaunchMode = (LaunchMode)Enum.Parse(typeof(LaunchMode), (string)mode));
+            SetLaunchModeCommand = RelayCommand.WithParameter(mode =>
+            {
+                LaunchMode = (LaunchMode)Enum.Parse(typeof(LaunchMode), (string)mode);
+                if (gameState == GameState.Idle) { var _ = PlayAsync(); }
+            });
             gameWatchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             gameWatchTimer.Tick += delegate { var _ = WatchGameAsync(); };
             gameWatchTimer.Start();
@@ -105,7 +116,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // Reselect what was selected last time; the Mods view scrolls it into view when it loads.
             if (!string.IsNullOrEmpty(settings.LastSelectedMod))
                 SelectedRow = Mods.FirstOrDefault(r => string.Equals(r.Mod.ActiveToken, settings.LastSelectedMod, StringComparison.OrdinalIgnoreCase)) ?? selectedRow;
-            var verify = VerifyPublishedIdsAsync();
+            var verify = RefreshSteamStatusAsync();
         }
 
         public IDialogService Dialogs { get; }
@@ -155,7 +166,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get { return T(gameState == GameState.Launching ? "LaunchingButton" : gameState == GameState.Running ? "StopButton" : LaunchMode == LaunchMode.Continue ? "PlayContinueButton" : LaunchMode == LaunchMode.NewGame ? "PlayNewGameButton" : "PlayButton"); }
         }
 
-        /// <summary>The Play button's remembered mode; picking one from the drop-down changes what the button does until another is picked.</summary>
+        /// <summary>The Play button's remembered mode; picking one from the drop-down launches in that mode right away and remembers it for the button.</summary>
         public LaunchMode LaunchMode
         {
             get { return Enum.IsDefined(settings.LaunchMode) ? settings.LaunchMode : LaunchMode.Run; }
@@ -251,7 +262,25 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string DetailTitle { get { return detailTitle; } private set { Set(ref detailTitle, value); } }
         public string DetailText { get { return detailText; } private set { Set(ref detailText, value); } }
         public string DetailSource { get { return detailSource; } private set { Set(ref detailSource, value); } }
+        private string detailVisibility = "";
+        /// <summary>"Visibility: Private (only you)" for a published local mod once Steam has been asked; empty before that.</summary>
+        public string DetailVisibility { get { return detailVisibility; } private set { if (Set(ref detailVisibility, value)) Raise(nameof(HasVisibility)); } }
+        public bool HasVisibility { get { return !string.IsNullOrEmpty(detailVisibility); } }
+
+        private string detailPublishState = "";
+        /// <summary>The selected local mod's change-since-publish line and file list (empty when there is nothing to say).</summary>
+        public string DetailPublishState { get { return detailPublishState; } private set { if (Set(ref detailPublishState, value)) Raise(nameof(HasPublishState)); } }
+        /// <summary>Longer explanation of the status line, shown as its tooltip.</summary>
+        private string detailPublishTip;
+        public string DetailPublishTip { get { return detailPublishTip; } private set { Set(ref detailPublishTip, value); } }
+        public bool HasPublishState { get { return !string.IsNullOrEmpty(detailPublishState); } }
         public string DetailWorkshopId { get { return detailWorkshopId; } private set { Set(ref detailWorkshopId, value); } }
+
+        private string detailLinks = "";
+        /// <summary>What the selected mod provides, receives and depends on, with who is on the other end (ModDetails.BuildLinks).</summary>
+        public string DetailLinks { get { return detailLinks; } private set { if (Set(ref detailLinks, value)) Raise(nameof(HasLinks)); } }
+        public bool HasLinks { get { return !string.IsNullOrEmpty(detailLinks); } }
+
         public string ProblemsText { get { return problemsText; } private set { Set(ref problemsText, value); Raise(nameof(HasProblems)); } }
         public bool HasProblems { get { return !string.IsNullOrEmpty(problemsText); } }
         public bool ProblemsIsConflict { get { return problemsIsConflict; } private set { Set(ref problemsIsConflict, value); } }
@@ -307,7 +336,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public void SaveSettings()
         {
             try { settingsStore.Save(settings); }
-            catch (Exception ex) { SetStatus("Settings save error: " + ex.Message); }
+            catch (Exception ex) { SetStatus(T("SettingsSaveError", ex.Message)); }
         }
 
         /// <summary>Stored the moment a preview image is picked, so the folder is remembered even if the publish dialog is then cancelled.</summary>
@@ -321,24 +350,65 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public bool IsSelected(ModInfo mod) { return modOrder.IsSelected(mod, settings); }
 
+        // Problems found while loading or refreshing, shown together in one dialog once the window is up.
+        private readonly List<string> problems = new List<string>();
+        private bool windowShown;
+
+        public void AddProblem(string text)
+        {
+            if (!problems.Contains(text)) problems.Add(text);
+        }
+
+        /// <summary>Called when the main window has opened: from now on problems are shown as they arise, and any found during construction now.</summary>
+        public void WindowShown()
+        {
+            windowShown = true;
+            if (settingsStore.LoadError != null) AddProblem(settingsStore.LoadError);
+            if (UserDataRoot.MigrationError != null) AddProblem(UserDataRoot.MigrationError);
+            ReportProblems();
+        }
+
+        private void ReportProblems()
+        {
+            if (!windowShown || problems.Count == 0) return;
+            string text = string.Join("\n\n", problems);
+            problems.Clear();
+            var _ = Dialogs.ShowMessageAsync(text, "DW2 Mod Launcher");
+        }
+
         public void Refresh()
         {
             NormalizeSettings();
             modOrder = ModOrderStore.Read(ModsJsonPath());
             Dictionary<string, ModInfo> workshopState = ModLibrary.IndexWorkshopById(workshopMods);
             try { managedMods = ModScanner.ScanMods(settings.ManagedModsRoot, false, key => T(key)) ?? new List<ModInfo>(); }
-            catch (Exception ex) { Logger.LogException("Scan managed mods", ex); managedMods = new List<ModInfo>(); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Scan managed mods", ex);
+                AddProblem(T("ModsFolderUnreadable", settings.ManagedModsRoot, ex.Message));
+                managedMods = new List<ModInfo>();
+            }
             try { workshopMods = ModScanner.ScanMods(settings.WorkshopRoot, true, key => T(key)) ?? new List<ModInfo>(); }
-            catch (Exception ex) { Logger.LogException("Scan Workshop mods", ex); workshopMods = new List<ModInfo>(); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Scan Workshop mods", ex);
+                AddProblem("The Workshop folder could not be read, so no Workshop mods are listed: " + settings.WorkshopRoot + "\n" + ex.Message);
+                workshopMods = new List<ModInfo>();
+            }
+            foreach (ModInfo bad in managedMods.Concat(workshopMods).Where(m => m.ModJsonError != null))
+                AddProblem(bad.DisplayName + ": mod.json is not valid JSON.\n" + bad.ModJsonError);
             ModLibrary.RestoreWorkshopRuntimeState(workshopMods, workshopState);
             managedMods = ModLibrary.OrderForDisplay(managedMods, modOrder);
             workshopMods = ModLibrary.OrderForDisplay(workshopMods, modOrder);
 
             Analyze();
+            foreach (ModInfo unscanned in AllMods.Where(m => m.ScanError != null))
+                AddProblem((unscanned.DisplayName ?? unscanned.Id) + ": its files could not be scanned, so conflicts with it cannot be detected.\n" + unscanned.ScanError);
             RebuildRows();
             SyncEnabledModSettings();
             Settings.LoadFromSettings();
             UpdateStatus();
+            ReportProblems();
         }
 
         /// <summary>Completes the settings file of every enabled mod (keys added by a mod update appear at their defaults).</summary>
@@ -352,7 +422,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
                     if (schema != null) ModSettingsStore.GetOrCreateValues(mod, schema);
                 }
-                catch (Exception ex) { Logger.LogException("Sync mod settings", ex); }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Sync mod settings", ex);
+                    AddProblem((mod.DisplayName ?? mod.Id) + ": its settings could not be prepared.\n" + ex.Message);
+                }
             }
         }
 
@@ -371,10 +445,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void RebuildRows()
         {
             ModInfo keepSelected = selectedRow == null ? null : selectedRow.Mod;
+            foreach (ModInfo mod in AllMods)
+            {
+                EvaluatePublishState(mod);
+                string id = mod.IsWorkshop ? null : ModDetails.WorkshopId(mod);
+                mod.Visibility = id != null && visibilityCache.TryGetValue(id, out ModVisibility known) ? known : (ModVisibility?)null;
+            }
             populating = true;
             Mods.Clear();
             foreach (ModInfo mod in ModLibrary.OrderForDisplay(AllMods, modOrder))
-                Mods.Add(new ModRowViewModel(mod, RelayCommand.WithParameter(row => { var _ = ToggleAsync((ModRowViewModel)row); }), settings.ManagedModsRoot));
+                Mods.Add(new ModRowViewModel(mod, RelayCommand.WithParameter(row => { var _ = ToggleAsync((ModRowViewModel)row); }), settings.ManagedModsRoot) { Strings = key => T(key) });
             populating = false;
             RefreshRowStates();
             ApplySort();
@@ -393,7 +473,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 row.Enabled = enabled;
                 int severity = ModHealth.Severity(row.Mod, enabled);
                 row.HealthSeverity = severity;
-                row.Health = severity == 3 ? T("HealthConflict") : severity == 2 ? T("HealthCaution") : severity == 1 ? T("HealthOk") : T("ModDisabled");
+                List<string> problems = severity >= 2 ? ModDetails.BuildProblems(row.Mod, severity, key => T(key)) : new List<string>();
+                row.HealthTip = problems.Count == 0 ? null : (severity == 3 ? T("HealthConflict") : T("HealthCaution")) + "\n" + string.Join("\n", problems);
                 row.LoadOrderIndex = present.FindIndex(t => string.Equals(t, row.Mod.ActiveToken, StringComparison.OrdinalIgnoreCase));
                 row.RefreshFromMod();
             }
@@ -401,7 +482,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ShowDetails();
         }
 
-        // ---- sorting (column numbers match the header buttons: 0 name, 1 source, 2 state, 3 health, 4 load order)
+        // ---- sorting (column numbers match the header buttons: 0 name, 1 source, 3 health, 4 enabled + load order, 5 author; 2 was a separate state column, now merged into 4)
 
         private void SortBy(int column)
         {
@@ -425,8 +506,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             switch (sortColumn)
             {
                 case 1: key = r => r.Source; break;
-                case 2: key = r => r.Enabled ? 1 : 0; break;
                 case 3: key = r => r.HealthSeverity; break;
+                case 5: key = r => r.Author; break;
                 case 4: key = r => r.LoadOrderIndex < 0 ? int.MaxValue : r.LoadOrderIndex; break;
                 default: key = r => r.Name; break;
             }
@@ -467,11 +548,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     return;
                 case SetEnabledOutcome.WriteFailed:
                     Logger.LogException("Write DW2 mods.json", result.Error);
-                    await Dialogs.ShowMessageAsync("Failed to save mods.json.\n" + result.Error.Message, "DW2 Mod Launcher");
+                    await Dialogs.ShowMessageAsync(T("ModsJsonSaveFailed", result.Error.Message), "DW2 Mod Launcher");
                     modOrder = ModOrderStore.Read(ModsJsonPath());
                     break;
                 case SetEnabledOutcome.Saved:
                     SetStatus(T("DW2ModSettingsSaved"));
+                    if (result.SettingsError != null)
+                        await Dialogs.ShowMessageAsync(T("ModEnabledSettingsFailed", row.Mod.DisplayName, result.SettingsError.Message), "DW2 Mod Launcher");
                     break;
             }
             Analyze();
@@ -521,7 +604,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Write load order", ex);
-                var _ = Dialogs.ShowMessageAsync("Could not save load order.\n" + ex.Message, "DW2 Mod Launcher");
+                var _ = Dialogs.ShowMessageAsync(T("LoadOrderSaveFailed", ex.Message), "DW2 Mod Launcher");
             }
         }
 
@@ -537,21 +620,102 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 DetailText = "";
                 DetailSource = "";
                 DetailWorkshopId = "";
+                DetailPublishState = "";
+                DetailPublishTip = null;
+                DetailVisibility = "";
+                DetailLinks = "";
                 ProblemsText = "";
                 Preview = null;
                 return;
             }
             ReloadLocalFiles(mod);
+            // The author edits a local mod's folder at any time, so the selected mod is compared again each time its details are shown.
+            EvaluatePublishState(mod);
+            selectedRow.RefreshPublishState();
+            DetailPublishState = ModDetails.PublishStatusShort(mod, key => T(key));
+            DetailPublishTip = ModDetails.PublishStatusTooltip(mod, key => T(key));
+            DetailVisibility = VisibilityLine(mod);
+            StartVisibilityLookup(mod);
             bool selected = IsSelected(mod);
             int severity = ModHealth.Severity(mod, selected);
             DetailTitle = (mod.DisplayName ?? "") + (string.IsNullOrWhiteSpace(mod.Version) ? "" : "  v" + mod.Version);
             DetailText = ModDetails.BuildText(mod, selected, key => T(key));
             DetailSource = T("Source") + ": " + ModDetails.SourceText(mod, settings.ManagedModsRoot);
-            DetailWorkshopId = T("PublishWorkshopId") + ": " + (ModDetails.WorkshopId(mod) ?? T("PublishWorkshopIdUnpublished"));
+            DetailWorkshopId = T("PublishWorkshopId") + ": " + (ModDetails.WorkshopId(mod) ?? "—");
+            DetailLinks = ModDetails.BuildLinks(mod, OrderedEnabledMods());
             List<string> problems = ModDetails.BuildProblems(mod, severity, key => T(key));
             ProblemsIsConflict = severity == 3;
             ProblemsText = problems.Count == 0 ? "" : (severity == 3 ? T("HealthConflict") : T("HealthCaution")) + "\n" + string.Join("\n", problems);
             Preview = ImageLoader.Load(mod.PreviewImage, 0);
+        }
+
+        private string VisibilityLine(ModInfo mod)
+        {
+            return mod.Visibility.HasValue ? T("PublishVisibility") + ": " + T(PublishDialogViewModel.LabelKey(mod.Visibility.Value)) : "";
+        }
+
+        /// <summary>
+        /// Asks Steam, once per session per item, what visibility a published local mod has, and fills it into the list and details pane when the
+        /// answer arrives. Only runs for the selected mod, so the list fills in as the author clicks through it. No answer (Steam not running)
+        /// leaves it blank and the next selection tries again.
+        /// </summary>
+        private void StartVisibilityLookup(ModInfo mod)
+        {
+            string id = mod.IsWorkshop ? null : ModDetails.WorkshopId(mod);
+            if (id == null || !long.TryParse(id, out long itemId) || mod.Visibility.HasValue || publishRunning || steamUnavailable || !visibilityLookups.Add(id)) return;
+            var _ = LookupVisibilityAsync(id, itemId);
+        }
+
+        private async Task LookupVisibilityAsync(string id, long itemId)
+        {
+            ModVisibility? found = null;
+            try
+            {
+                IModPublisher reader = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
+                found = await Task.Run(() => reader.GetVisibility(itemId));
+            }
+            catch (Exception ex) { Logger.LogException("Look up Steam visibility of " + id, ex); }
+            visibilityLookups.Remove(id);
+            if (!found.HasValue)
+            {
+                steamUnavailable = true;
+                return;
+            }
+            ApplyVisibility(id, found.Value);
+        }
+
+        /// <summary>Remembers an item's Steam visibility and shows it on every row of that item and in the details pane if it is selected.</summary>
+        private void ApplyVisibility(string id, ModVisibility visibility)
+        {
+            visibilityCache[id] = visibility;
+            foreach (ModRowViewModel row in Mods)
+            {
+                if (row.Mod.IsWorkshop || ModDetails.WorkshopId(row.Mod) != id) continue;
+                row.Mod.Visibility = visibility;
+                row.RefreshPublishState();
+            }
+            if (selectedRow != null && !selectedRow.Mod.IsWorkshop && ModDetails.WorkshopId(selectedRow.Mod) == id) DetailVisibility = VisibilityLine(selectedRow.Mod);
+        }
+
+        /// <summary>Forgets what Steam last said about a mod's visibility (a dialog or publish may have changed it) and shows the details again, which asks afresh.</summary>
+        private void ForgetVisibility(ModInfo mod)
+        {
+            string id = mod == null || mod.IsWorkshop ? null : ModDetails.WorkshopId(mod);
+            if (id != null) visibilityCache.Remove(id);
+            if (mod != null) mod.Visibility = null;
+            ShowDetails();
+        }
+
+        /// <summary>Compares a published local mod's folder with its record. An unreadable record or folder is logged and leaves the mod's state unknown.</summary>
+        private void EvaluatePublishState(ModInfo mod)
+        {
+            try { PublishedState.Evaluate(mod); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Compare " + (mod.DisplayName ?? mod.Id) + " with its last publish", ex);
+                mod.PublishStatus = PublishStatus.Unknown;
+                mod.UnpublishedChanges = new List<string>();
+            }
         }
 
         /// <summary>
@@ -748,12 +912,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string targetLabel = targetMod == null ? null : targetMod.DisplayName ?? targetMod.Id ?? Path.GetFileName(targetMod.Folder);
 
             string name;
+            string typedLanguage = null;
             if (localization)
             {
                 Func<string, string> modName = lang => targetLabel == null ? T("LocalizationModName", lang.Trim()) : T("LocalizationModNameFor", lang.Trim(), targetLabel);
                 string language = await Dialogs.PromptTextAsync(T("CreateModKindLocalization"), T("LocalizationLanguagePrompt"), "", T("OK"), T("Cancel"),
                     text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", LocalModManager.FolderNameFor(modName(text))));
                 if (language == null) return;
+                typedLanguage = language;
                 name = modName(language);
             }
             else
@@ -765,6 +931,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             try
             {
                 string folder = LocalModManager.Create(settings.ManagedModsRoot, name, localization ? T("LocalizationModDescription") : "");
+                LauncherMetaWriter.StampAuthor(folder, settings.AuthorName, true);
+                // A language the launcher has a pack for is recorded, so the in-game widget speaks it while this mod is enabled.
+                if (localization) LauncherMetaWriter.StampLanguage(folder, Localization.CodeFor(typedLanguage), true);
                 if (localization)
                 {
                     IsBusy = true;
@@ -849,7 +1018,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private static bool HasModSettings(ModRowViewModel row)
         {
             if (row == null) return false;
-            ModSettingsSchema schema = ModSettingsSchemaReader.Read(row.Mod.ContentRoot ?? row.Mod.Folder);
+            ModSettingsSchema schema;
+            // A broken schema still enables the button: clicking it reports the error instead of the mod silently having no settings.
+            try { schema = ModSettingsSchemaReader.Read(row.Mod.ContentRoot ?? row.Mod.Folder); }
+            catch (InvalidDataException) { return true; }
             return schema != null && schema.VisibleFields(row.Mod).Any(f => !string.IsNullOrWhiteSpace(f.Key));
         }
 
@@ -857,16 +1029,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             if (selectedRow == null) return;
             ModInfo mod = selectedRow.Mod;
-            ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
-            if (schema == null || !schema.VisibleFields(mod).Any()) { await Dialogs.ShowMessageAsync(T("NoConfigurableSettings"), "DW2 Mod Launcher"); return; }
             try
             {
+                ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
+                if (schema == null || !schema.VisibleFields(mod).Any()) { await Dialogs.ShowMessageAsync(T("NoConfigurableSettings"), "DW2 Mod Launcher"); return; }
                 JsonObject values = ModSettingsStore.GetOrCreateValues(mod, schema);
                 string modKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
                 if (settings.CollapsedSettingGroups == null) settings.CollapsedSettingGroups = new Dictionary<string, List<string>>();
                 List<string> collapsedGroups = settings.CollapsedSettingGroups.TryGetValue(modKey, out List<string> saved0) ? saved0 : new List<string>();
                 ModSettingsEditorViewModel editor = new ModSettingsEditorViewModel(
-                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs, settings.ShowHiddenSettings, collapsedGroups);
+                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs, settings.ShowHiddenSettings, collapsedGroups,
+                    // the dialog is the launcher's own window, so a mod's sidecar is picked by the launcher's language
+                    ModSettingsTranslation.Read(mod.ContentRoot ?? mod.Folder, settings.Language));
                 bool saved = await Dialogs.EditModSettingsAsync(editor);
                 bool dirty = false;
                 if (editor.CanShowHidden && editor.ShowHidden != settings.ShowHiddenSettings)
@@ -896,22 +1070,28 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         // ---- Workshop publishing
 
         /// <summary>
-        /// Asks Steam whether each local Mod's Workshop item still exists and erases the id of any that were
-        /// deleted there, so the list shows the truth and the Mod can be published as new. Silent if Steam can't be asked.
-        /// Runs in the Steam helper process, so DW2 only looks "running" to Steam for the second or so it takes.
+        /// One background sweep over every published local mod, in a single Steam query (nothing waits on it; the list fills in as it answers):
+        /// erases the id of any item deleted on Steam, so the list shows the truth and the Mod can be published as new, and learns each
+        /// item's visibility. Silent if Steam can't be asked. Runs at startup and on Refresh. New per-item facts belong in
+        /// <see cref="SteamItemStatus"/> and are applied here. Runs in the Steam helper process, so DW2 only looks "running" to Steam
+        /// for the second or so it takes.
         /// </summary>
-        private async Task VerifyPublishedIdsAsync()
+        private async Task RefreshSteamStatusAsync()
         {
-            if (publishRunning || verifyingPublishedIds) return;
+            if (publishRunning || refreshingSteamStatus) return;
             List<ModInfo> published = managedMods.Where(m => !string.IsNullOrWhiteSpace(m.WorkshopId) && !string.IsNullOrWhiteSpace(m.ModJsonPath)).ToList();
             List<long> ids = published.Select(m => long.TryParse(m.WorkshopId, out long id) ? id : 0).Where(id => id != 0).Distinct().ToList();
             if (ids.Count == 0) return;
-            verifyingPublishedIds = true;
+            refreshingSteamStatus = true;
             try
             {
                 IModPublisher publisher = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
-                List<long> deleted = await Task.Run(() => publisher.FindDeletedItems(ids));
-                if (deleted.Count == 0 || publishRunning) return;
+                List<SteamItemStatus> items = await Task.Run(() => publisher.QueryItems(ids));
+                if (publishRunning) return;
+                steamUnavailable = items.Count == 0;
+                foreach (SteamItemStatus item in items.Where(i => i.Visibility.HasValue))
+                    ApplyVisibility(item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), item.Visibility.Value);
+                HashSet<long> deleted = new HashSet<long>(items.Where(i => i.Deleted).Select(i => i.Id));
                 int cleared = 0;
                 foreach (ModInfo mod in published)
                 {
@@ -928,8 +1108,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 Refresh();
                 SetStatus(T("WorkshopItemsDeletedStatus", cleared));
             }
-            catch (Exception ex) { Logger.LogException("Verify published Workshop ids", ex); }
-            finally { verifyingPublishedIds = false; }
+            catch (Exception ex) { Logger.LogException("Refresh Steam status of published mods", ex); }
+            finally { refreshingSteamStatus = false; }
         }
 
         /// <summary>The item's visibility on Steam, or null when it isn't published or Steam can't be asked.</summary>
@@ -946,7 +1126,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             return await Task.Run(() => reader.GetVisibility(publishedId));
         }
 
-        /// <summary>The publish dialog without the publishing: edits the Mod's mod.json fields and saves them. Visibility is shown read-only.</summary>
+        /// <summary>The publish dialog without the publishing: edits the Mod's mod.json fields and saves them. Choosing a different visibility there applies it to Steam at once.</summary>
         private async Task EditPropertiesAsync(ModInfo mod)
         {
             if (mod == null || mod.IsWorkshop || string.IsNullOrWhiteSpace(mod.ModJsonPath)) return;
@@ -961,8 +1141,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool isPublished = !string.IsNullOrWhiteSpace(mod.WorkshopId);
             ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension);
-            if (!await Dialogs.EditPublishAsync(editor)) { UpdateStatus(); return; }
+            PublishDialogViewModel editor;
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension); }
+            catch (IOException ex)
+            {
+                Logger.LogException("Open publish dialog", ex);
+                await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ex.Message), "DW2 Mod Launcher");
+                return;
+            }
+            bool accepted = await Dialogs.EditPublishAsync(editor);
+            ForgetVisibility(mod);
+            if (!accepted) { UpdateStatus(); return; }
             // The version policy is launcher-side (launcher_settings.json); it only takes effect at the next publish.
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);
             SaveSettings();
@@ -1025,7 +1214,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 // The item may have been deleted on Steam since the last check; if so the id is erased and this becomes a new publish.
                 string folder = mod.Folder;
-                await VerifyPublishedIdsAsync();
+                await RefreshSteamStatusAsync();
                 mod = managedMods.FirstOrDefault(m => string.Equals(m.Folder, folder, StringComparison.OrdinalIgnoreCase)) ?? mod;
             }
             bool isUpdate = !string.IsNullOrWhiteSpace(mod.WorkshopId);
@@ -1033,8 +1222,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // On an update, ask Steam what the description currently says so the dialog only offers to replace it when it differs.
             string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
-            PublishDialogViewModel editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension);
-            if (!await Dialogs.EditPublishAsync(editor)) return;
+            PublishDialogViewModel editor;
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension); }
+            catch (IOException ex)
+            {
+                Logger.LogException("Open publish dialog", ex);
+                await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ex.Message), "DW2 Mod Launcher");
+                return;
+            }
+            bool accepted = await Dialogs.EditPublishAsync(editor);
+            ForgetVisibility(mod);
+            if (!accepted) return;
             // The version policy is remembered per mod in launcher_settings.json (never in the mod itself).
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);
             SaveSettings();
@@ -1098,6 +1296,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
             }
 
+            try { LauncherMetaWriter.StampAuthor(mod.Folder, settings.AuthorName, true); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Stamp author in " + mod.Folder, ex);
+                RollBackVersion(mod, versionBefore, versionWritten);
+                await Dialogs.ShowMessageAsync(T("AuthorStampFailed", ex.Message), "DW2 Mod Launcher");
+                return;
+            }
+
             publishRunning = true;
             PublishCommand.RaiseCanExecuteChanged();
             SetStatus(T("PublishRunning"));
@@ -1138,9 +1345,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     return;
                 }
                 ModJsonWorkshopIdWriter.Write(mod.ModJsonPath, result.WorkshopId.Value);
+                // After every write the publish itself makes to the folder (version bump, author stamp, the id just written), so it starts clean.
+                string recordProblem = null;
+                try { PublishedState.Record(result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), contentFolder); }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Record published state of " + mod.DisplayName, ex);
+                    recordProblem = T("PublishStateRecordFailed", ex.Message);
+                }
                 string url = "https://steamcommunity.com/sharedfiles/filedetails/?id=" + result.WorkshopId.Value;
                 string message = T("PublishCapturedIdMessage", result.WorkshopId.Value, url);
                 if (result.NeedsWorkshopAgreement) message += "\n\n" + T("PublishNeedsWorkshopAgreement");
+                if (recordProblem != null) message += "\n\n" + recordProblem;
                 // Steam can quietly hold an item private (e.g. until the Workshop agreement is accepted), so check it took the setting.
                 ModVisibility? requested = editor.SelectedVisibility;
                 ModVisibility? actual = requested.HasValue ? await ReadVisibilityAsync(result.WorkshopId.Value) : null;
@@ -1162,6 +1378,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 publishRunning = false;
                 PublishCommand.RaiseCanExecuteChanged();
+                ForgetVisibility(mod);
             }
         }
 
@@ -1183,6 +1400,48 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         // ---- Launcher self-update
 
         private string UpdateWorkDir { get { return Path.Combine(appRoot, "Updates"); } }
+
+        /// <summary>Drags a mod list column to a new place (<paramref name="index"/> columns before it, not counting itself) and remembers the order.</summary>
+        public void MoveColumn(string id, int index)
+        {
+            List<string> order = ModListColumns.Move(Views.ModColumnLayout.Order, id, index);
+            settings.ModListColumnOrder = order;
+            Views.ModColumnLayout.Set(order);
+            SaveSettings();
+        }
+
+        /// <summary>The details pane's share of the list-and-details width (0 to 1), or null for the default split.</summary>
+        public double? DetailsFraction { get { return settings.DetailsFraction; } }
+
+        /// <summary>Whether the details pane was hidden when the launcher last closed. Independent of <see cref="DetailsFraction"/>.</summary>
+        public bool DetailsCollapsed { get { return settings.DetailsCollapsed; } }
+
+        public void SetDetailsFraction(double fraction)
+        {
+            if (settings.DetailsFraction == fraction) return;
+            settings.DetailsFraction = fraction;
+            SaveSettings();
+        }
+
+        public void SetDetailsCollapsed(bool collapsed)
+        {
+            if (settings.DetailsCollapsed == collapsed) return;
+            settings.DetailsCollapsed = collapsed;
+            SaveSettings();
+        }
+
+        /// <summary>The settings box choosing whether the in-game widget follows the translation mod (true) or the launcher's language.</summary>
+        public bool WidgetLanguageFromMods
+        {
+            get { return settings.WidgetLanguageFromMods; }
+            set
+            {
+                if (settings.WidgetLanguageFromMods == value) return;
+                settings.WidgetLanguageFromMods = value;
+                SaveSettings();
+                Raise();
+            }
+        }
 
         /// <summary>The About box's "Check for updates at startup" box.</summary>
         public bool CheckForLauncherUpdates
@@ -1367,9 +1626,29 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Settings.CommitToSettings();
             Analyze();
             RefreshRowStates();
+            // dw2modlauncher.json dependency rules decide the load order: put the enabled mods in an order that meets them (and mods.json with it)
+            ModLibrary.DependencyOrderResult dependencyOrder = ModLibrary.ApplyDependencyOrder(OrderedEnabledMods(), settings, modOrder);
+            if (dependencyOrder.Written)
+            {
+                Logger.Log("Load order", "Moved to meet dependency rules: " + string.Join("; ", dependencyOrder.Moves));
+                RebuildRows();
+            }
             List<ModInfo> enabled = AllMods.Where(IsSelected).ToList();
-            List<string> diagnostics = LaunchDiagnostics.Build(enabled, modOrder, GameLauncher.LoaderDllPath(),
-                LoaderManifestBuilder.Build(OrderedEnabledMods()).Entries, key => T(key));
+            List<string> diagnostics;
+            try
+            {
+                diagnostics = LaunchDiagnostics.Build(enabled, modOrder, GameLauncher.LoaderDllPath(),
+                    LoaderManifestBuilder.Build(OrderedEnabledMods()).Entries, key => T(key));
+                diagnostics.AddRange(dependencyOrder.Problems.Select(p => "⚠ " + p));
+                WidgetLanguage.Choose(OrderedEnabledMods(), settings, out string unknownLanguage);
+                if (unknownLanguage != null) diagnostics.Add("⚠ " + T("LaunchWidgetLanguageUnknown", unknownLanguage));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Pre-launch check", ex);
+                await Dialogs.ShowMessageAsync(T("LaunchSettingsUnreadable", ex.Message), "DW2 Mod Launcher");
+                return;
+            }
             if (diagnostics.Count > 0 && !await Dialogs.ConfirmAsync(
                 T("DiagnosticsFoundIssues") + string.Join("\n", diagnostics.Take(30)) + T("LaunchAnyway"),
                 T("PreLaunchDiagnostics"), T("Yes"), T("No"))) return;
@@ -1384,9 +1663,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (!await Settings.ConfirmSaveForLaunchAsync()) return;
             try
             {
-                LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods(), settings.LogDirectory);
+                foreach (string line in ModChannels.Describe(OrderedEnabledMods())) Logger.Log("Channel data", line);
+                string inGameLanguage = WidgetLanguage.Choose(OrderedEnabledMods(), settings, out _);
+                LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods(), settings.LogDirectory,
+                    WidgetLanguage.Strings(inGameLanguage), inGameLanguage);
                 Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(LaunchMode, launchManifest.Fonts.LastOrDefault()?.Name)));
-                SetStatus(T("DistantWorlds2Launched"));
+                SetStatus(T("DistantWorlds2Launched") + (dependencyOrder.Written ? " (load order adjusted to meet mod dependencies: " + string.Join("; ", dependencyOrder.Moves) + ")" : ""));
                 launchStartedUtc = DateTime.UtcNow;
                 SetGameState(GameState.Launching);
             }
