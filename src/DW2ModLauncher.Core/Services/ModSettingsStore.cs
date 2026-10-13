@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -25,7 +26,7 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>Reads existing stored values and fills in any schema key the file lacks with its default
-        /// (no file counts as all keys lacking). A file that exists but is not a JSON object throws and is left
+        /// (no file counts as all keys lacking) and drops any stored key the schema no longer declares. A file that exists but is not a JSON object throws and is left
         /// untouched, so the user's values are never overwritten by defaults. If anything was filled in the file is
         /// rewritten at once, so what the editor shows is exactly what is on disk and only a user edit makes
         /// the values differ from the file.</summary>
@@ -49,11 +50,23 @@ namespace DW2ModLauncher.Core.Services
 
             bool changed = values == null;
             if (values == null) values = new JsonObject();
-            foreach (ModSettingsField field in schema?.Fields ?? new System.Collections.Generic.List<ModSettingsField>())
+            var fields = schema?.Fields ?? new System.Collections.Generic.List<ModSettingsField>();
+            foreach (ModSettingsField field in fields)
             {
                 if (string.IsNullOrWhiteSpace(field.Key) || values.ContainsKey(field.Key)) continue;
                 values[field.Key] = ToJsonNode(field.Default);
                 changed = true;
+            }
+            // A key the schema no longer declares (the mod dropped or renamed the setting) is stale: remove it. Only when a
+            // schema was given, so a read without one (null) never strips anything.
+            if (schema != null)
+            {
+                var known = new System.Collections.Generic.HashSet<string>(fields.Select(f => f.Key).Where(k => !string.IsNullOrWhiteSpace(k)));
+                foreach (string stale in values.Select(p => p.Key).Where(k => !known.Contains(k)).ToList())
+                {
+                    values.Remove(stale);
+                    changed = true;
+                }
             }
             if (changed) SaveValues(mod, values);
             return values;

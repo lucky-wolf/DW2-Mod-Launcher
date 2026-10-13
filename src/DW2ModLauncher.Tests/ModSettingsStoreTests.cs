@@ -100,6 +100,36 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void GetOrCreateValues_RemovesAndPersists_KeysTheSchemaNoLongerDeclares()
+        {
+            ModInfo mod = MakeMod("test/store-stale-" + Guid.NewGuid().ToString("N"));
+            ModSettingsSchema schema = new ModSettingsSchema
+            {
+                Groups = new List<ModSettingsGroup>
+                {
+                    new ModSettingsGroup
+                    {
+                        Name = "fields",
+                        Fields = new List<ModSettingsField> { new ModSettingsField { Key = "Enabled", Type = "bool", Default = true } }
+                    }
+                }
+            };
+            string path = ModSettingsStore.GetSettingsPath(mod);
+            try
+            {
+                ModSettingsStore.SaveValues(mod, new JsonObject { ["Enabled"] = false, ["Dropped"] = true });
+
+                JsonObject values = ModSettingsStore.GetOrCreateValues(mod, schema);
+
+                Assert.False(values.ContainsKey("Dropped"));
+                JsonObject onDisk = ModSettingsStore.GetOrCreateValues(mod, null);
+                Assert.False(onDisk.ContainsKey("Dropped"));
+                Assert.False(onDisk["Enabled"].GetValue<bool>());
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        [Fact]
         public void GetOrCreateValues_Throws_AndLeavesFileUntouched_WhenFileIsCorrupt()
         {
             ModInfo mod = MakeMod("test/store-corrupt-" + Guid.NewGuid().ToString("N"));
