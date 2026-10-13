@@ -93,9 +93,20 @@
                 <StackPanel views:ColumnRowPanel.ColumnId="name" Classes="dim" Orientation="Horizontal" Spacing="8" Margin="4,0">
                   <Image Source="{Binding Thumbnail}" Width="72" Height="48" Stretch="Uniform" />
                   <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" IsVisible="{Binding HasUnpublishedChanges}" ToolTip.Tip="{Binding UnpublishedTip}" />
                 </StackPanel>
                 <StackPanel views:ColumnRowPanel.ColumnId="source" Classes="dim" Margin="6,0" VerticalAlignment="Center">
-                  <TextBlock Text="{Binding Source}" TextTrimming="CharacterEllipsis" />
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{Binding Source}" TextTrimming="CharacterEllipsis" />
+                    <Panel IsVisible="{Binding HasVisibility}" VerticalAlignment="Center" ToolTip.Tip="{Binding VisibilityTip}">
+                      <!-- Visibility icons, Material Design Icons, Apache-2.0: eye = public, eye with slash = private, people = friends only, link = unlisted, cloud with slash = not published -->
+                      <PathIcon IsVisible="{Binding IsVisPublic}" Width="14" Height="14" Data="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+                      <PathIcon IsVisible="{Binding IsVisPrivate}" Width="14" Height="14" Data="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z" />
+                      <PathIcon IsVisible="{Binding IsVisFriends}" Width="14" Height="14" Data="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                      <PathIcon IsVisible="{Binding IsVisUnlisted}" Width="14" Height="14" Data="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" />
+                      <PathIcon IsVisible="{Binding IsNotPublished}" Width="14" Height="14" Data="M19.35 10.04C18.67 6.59 15.64 4 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46C10.21 6.23 11.08 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3 0 1.13-.64 2.11-1.56 2.62l1.45 1.45C23.16 18.16 24 16.68 24 15c0-2.64-2.05-4.78-4.65-4.96zM3 5.27l2.75 2.74C2.56 8.15 0 10.77 0 14c0 3.31 2.69 6 6 6h11.73l2 2L21 20.73 4.27 4 3 5.27zM7.73 10l8 8H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h1.73z" />
+                    </Panel>
+                  </StackPanel>
                   <TextBlock Classes="muted" FontSize="11" Text="{Binding FolderPath}" IsVisible="{Binding HasFolderPath}" TextTrimming="PathSegmentEllipsis" />
                 </StackPanel>
                 <TextBlock views:ColumnRowPanel.ColumnId="author" Classes="dim" Margin="6,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Author}" />
@@ -141,6 +152,8 @@
         <StackPanel Grid.Row="2" Spacing="2" Margin="0,0,0,10">
           <SelectableTextBlock Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailWorkshopId}" />
           <SelectableTextBlock Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailSource}" />
+          <SelectableTextBlock IsVisible="{Binding HasPublishState}" Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailPublishState}" ToolTip.Tip="{Binding DetailPublishTip}" />
+          <SelectableTextBlock IsVisible="{Binding HasVisibility}" Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailVisibility}" />
         </StackPanel>
         <Border Grid.Row="3" IsVisible="{Binding HasProblems}" Classes="problems" Classes.conflict="{Binding ProblemsIsConflict}" Padding="10,8" Margin="0,0,0,8">
           <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding ProblemsText}" Foreground="{Binding $parent[Border].Tag}" />

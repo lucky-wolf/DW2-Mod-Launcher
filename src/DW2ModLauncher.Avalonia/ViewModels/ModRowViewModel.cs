@@ -31,11 +31,48 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string Source { get { return Mod.SourceName ?? ""; } }
         public string Author { get { return Mod.Author ?? ""; } }
 
+        /// <summary>Whether a published local mod's folder differs from its last publish: the dot beside its name.</summary>
+        public bool HasUnpublishedChanges { get { return Mod.PublishStatus == PublishStatus.Changed; } }
+        public string UnpublishedTip { get { return HasUnpublishedChanges && Strings != null ? Strings("PublishStateBadgeTip") : null; } }
+        public System.Func<string, string> Strings { get; set; }
+
+        /// <summary>The visibility icon beside the source, once looked up (see MainViewModel.StartVisibilityLookup).</summary>
+        public bool IsVisPublic { get { return Mod.Visibility == DW2ModLauncher.Core.Services.Publishing.ModVisibility.Public; } }
+        public bool IsVisPrivate { get { return Mod.Visibility == DW2ModLauncher.Core.Services.Publishing.ModVisibility.Private; } }
+        public bool IsVisFriends { get { return Mod.Visibility == DW2ModLauncher.Core.Services.Publishing.ModVisibility.FriendsOnly; } }
+        public bool IsVisUnlisted { get { return Mod.Visibility == DW2ModLauncher.Core.Services.Publishing.ModVisibility.Unlisted; } }
+        /// <summary>A local mod that was never published gets a cloud-with-slash instead, so the column is never empty for a mod we know about.</summary>
+        public bool IsNotPublished { get { return Mod.PublishStatus == PublishStatus.Unpublished; } }
+        public bool HasVisibility { get { return Mod.Visibility.HasValue || IsNotPublished; } }
+        public string VisibilityTip
+        {
+            get
+            {
+                if (Strings == null) return null;
+                if (IsNotPublished) return Strings("PublishStateUnpublishedDetail");
+                return Mod.Visibility.HasValue ? Strings(PublishDialogViewModel.LabelKey(Mod.Visibility.Value)) : null;
+            }
+        }
+
+        public void RefreshPublishState()
+        {
+            Raise(nameof(IsVisPublic));
+            Raise(nameof(IsVisPrivate));
+            Raise(nameof(IsVisFriends));
+            Raise(nameof(IsVisUnlisted));
+            Raise(nameof(IsNotPublished));
+            Raise(nameof(HasVisibility));
+            Raise(nameof(VisibilityTip));
+            Raise(nameof(HasUnpublishedChanges));
+            Raise(nameof(UnpublishedTip));
+        }
+
         /// <summary>Re-reads fields the Workshop check or a language change can alter on the underlying mod.</summary>
         public void RefreshFromMod()
         {
             Raise(nameof(Name));
             Raise(nameof(Source));
+            RefreshPublishState();
         }
 
         private bool enabled;

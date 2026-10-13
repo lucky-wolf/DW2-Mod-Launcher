@@ -40,7 +40,13 @@ namespace DW2ModLauncher.Core.Services.Publishing
                     result.ErrorMessage = "A description-only update needs an existing Workshop item and a non-blank description.";
                     return result;
                 }
-                string problem = request.DescriptionOnly ? null : Preflight(request);
+                if (request.VisibilityOnly && (!request.ExistingWorkshopId.HasValue || !request.Visibility.HasValue))
+                {
+                    result.ErrorMessage = "A visibility-only update needs an existing Workshop item and a visibility.";
+                    return result;
+                }
+                bool metadataOnly = request.DescriptionOnly || request.VisibilityOnly;
+                string problem = metadataOnly ? null : Preflight(request);
                 if (problem != null)
                 {
                     result.ErrorMessage = problem;
@@ -87,20 +93,20 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 stage = "preparing the update (SteamUGC.StartItemUpdate)";
                 UGCUpdateHandle_t update = SteamUGC.StartItemUpdate((AppId_t)appId, fileId);
                 stage = "setting the title (SteamUGC.SetItemTitle)";
-                if (!request.DescriptionOnly && !SteamUGC.SetItemTitle(update, request.Title ?? ""))
+                if (!metadataOnly && !SteamUGC.SetItemTitle(update, request.Title ?? ""))
                     return Fail(result, stage, "Steam rejected the title " + Quote(request.Title) + " (too long or invalid).", request);
                 // Only send a description the author supplied: leaving it out keeps whatever the Steam page already has (an empty one would wipe it).
                 stage = "setting the description (SteamUGC.SetItemDescription)";
                 if (!string.IsNullOrWhiteSpace(request.Description) && !SteamUGC.SetItemDescription(update, request.Description))
                     return Fail(result, stage, "Steam rejected the description (" + request.Description.Length + " characters; too long?).", request);
                 stage = "setting the content folder (SteamUGC.SetItemContent)";
-                if (!request.DescriptionOnly && !SteamUGC.SetItemContent(update, request.ContentFolder))
+                if (!metadataOnly && !SteamUGC.SetItemContent(update, request.ContentFolder))
                     return Fail(result, stage, "Steam rejected the content folder " + Quote(request.ContentFolder) + ".", request);
                 stage = "setting the visibility (SteamUGC.SetItemVisibility)";
                 if (!request.DescriptionOnly && request.Visibility.HasValue && !SteamUGC.SetItemVisibility(update, ToSteam(request.Visibility.Value)))
                     return Fail(result, stage, "Steam rejected visibility " + request.Visibility.Value + ".", request);
                 stage = "setting the preview image (SteamUGC.SetItemPreview)";
-                if (!request.DescriptionOnly && !string.IsNullOrWhiteSpace(request.PreviewImagePath) && !SteamUGC.SetItemPreview(update, request.PreviewImagePath))
+                if (!metadataOnly && !string.IsNullOrWhiteSpace(request.PreviewImagePath) && !SteamUGC.SetItemPreview(update, request.PreviewImagePath))
                     return Fail(result, stage, "Steam could not add the preview image " + Quote(request.PreviewImagePath) + " (" + DescribeFile(request.PreviewImagePath) + ").", request);
 
                 stage = "uploading the content and metadata (SteamUGC.SubmitItemUpdate)";
@@ -159,16 +165,16 @@ namespace DW2ModLauncher.Core.Services.Publishing
             }
         }
 
-        public List<long> FindDeletedItems(IReadOnlyList<long> workshopIds)
+        public List<SteamItemStatus> QueryItems(IReadOnlyList<long> workshopIds)
         {
-            List<long> deleted = new List<long>();
-            if (workshopIds == null || workshopIds.Count == 0) return deleted;
+            List<SteamItemStatus> items = new List<SteamItemStatus>();
+            if (workshopIds == null || workshopIds.Count == 0) return items;
             bool initialized = false;
             try
             {
-                if (!SteamAPI.Init()) return deleted;
+                if (!SteamAPI.Init()) return items;
                 initialized = true;
-                if (!SteamUser.BLoggedOn()) return deleted;
+                if (!SteamUser.BLoggedOn()) return items;
 
                 const int PageSize = 50; // Steam's cap on ids per details query
                 for (int start = 0; start < workshopIds.Count; start += PageSize)
@@ -179,38 +185,47 @@ namespace DW2ModLauncher.Core.Services.Publishing
                     {
                         SteamUGCQueryCompleted_t completed;
                         if (!Await(SteamUGC.SendQueryUGCRequest(query), out completed, new ModPublishResult(), CancellationToken.None, QueryTimeout)) continue;
-                        // Only a live, successful answer counts; cached or failed queries must never read as "deleted".
-                        if (completed.m_eResult != EResult.k_EResultOK || completed.m_bCachedData) continue;
+                        if (completed.m_eResult != EResult.k_EResultOK) continue;
                         // Results come back in request order; a deleted item has a per-item k_EResultFileNotFound.
-                        List<long> pageDeleted = new List<long>();
+                        List<SteamItemStatus> pageItems = new List<SteamItemStatus>();
+                        int missing = 0;
                         for (uint i = 0; i < completed.m_unNumResultsReturned && i < page.Length; i++)
                         {
                             SteamUGCDetails_t details;
-                            if (SteamUGC.GetQueryUGCResult(query, i, out details) && details.m_eResult == EResult.k_EResultFileNotFound)
-                                pageDeleted.Add((long)page[i].m_PublishedFileId);
+                            if (!SteamUGC.GetQueryUGCResult(query, i, out details)) continue;
+                            long id = (long)page[i].m_PublishedFileId;
+                            if (details.m_eResult == EResult.k_EResultFileNotFound)
+                            {
+                                // Only a live answer counts as a deletion; cached data must never read as "deleted".
+                                if (completed.m_bCachedData) continue;
+                                pageItems.Add(new SteamItemStatus { Id = id, Deleted = true });
+                                missing++;
+                            }
+                            else if (details.m_eResult == EResult.k_EResultOK)
+                                pageItems.Add(new SteamItemStatus { Id = id, Visibility = FromSteam(details.m_eVisibility) });
                         }
                         // Every item "missing" at once looks like Steam being unwell rather than a mass deletion
                         // (a single item can't tell, so that one is trusted).
-                        if (page.Length > 1 && pageDeleted.Count == page.Length)
+                        if (page.Length > 1 && missing == page.Length)
                         {
-                            Logger.Log("Workshop existence check", "Steam reported all " + page.Length + " items missing; ignoring as unreliable.");
+                            Logger.Log("Workshop item check", "Steam reported all " + page.Length + " items missing; ignoring as unreliable.");
                             continue;
                         }
-                        deleted.AddRange(pageDeleted);
+                        items.AddRange(pageItems);
                     }
                     finally { SteamUGC.ReleaseQueryUGCRequest(query); }
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogException("Check Workshop items still exist", ex);
-                return new List<long>();
+                Logger.LogException("Check Workshop items", ex);
+                return new List<SteamItemStatus>();
             }
             finally
             {
                 if (initialized) { try { SteamAPI.Shutdown(); } catch { } }
             }
-            return deleted;
+            return items;
         }
 
         private static ModVisibility FromSteam(ERemoteStoragePublishedFileVisibility visibility)

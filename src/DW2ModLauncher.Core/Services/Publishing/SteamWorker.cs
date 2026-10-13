@@ -23,7 +23,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
     {
         public ModPublishResult Publish { get; set; }
         public ModVisibility? Visibility { get; set; }
-        public List<long> Deleted { get; set; }
+        public List<SteamItemStatus> Items { get; set; }
     }
 
     /// <summary>
@@ -65,8 +65,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
                     case "visibility":
                         reply.Visibility = publisher.GetVisibility(call.WorkshopId);
                         break;
-                    case "deleted":
-                        reply.Deleted = publisher.FindDeletedItems(call.Ids ?? new List<long>());
+                    case "items":
+                        reply.Items = publisher.QueryItems(call.Ids ?? new List<long>());
                         break;
                     default:
                         throw new InvalidOperationException("Unknown Steam worker operation: " + call.Op);
@@ -76,7 +76,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
             {
                 Logger.LogException("Steam worker", ex);
                 reply.Publish = new ModPublishResult { ErrorMessage = ex.Message };
-                reply.Deleted = new List<long>();
+                reply.Items = new List<SteamItemStatus>();
             }
             output.WriteLine(ResultPrefix + JsonSerializer.Serialize(reply));
             return 0;

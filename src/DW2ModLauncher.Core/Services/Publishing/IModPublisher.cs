@@ -17,9 +17,9 @@ namespace DW2ModLauncher.Core.Services.Publishing
         ModVisibility? GetVisibility(long workshopId);
 
         /// <summary>
-        /// The subset of <paramref name="workshopIds"/> that Steam positively reports as no longer existing
-        /// (deleted on Steam). Empty when Steam can't be asked, so a failure never looks like a deletion.
+        /// Asks Steam about many items in one go (one Steam round trip per 50). Items Steam did not answer for are left out, and the list is
+        /// empty when Steam can't be asked, so a failure never looks like a deletion.
         /// </summary>
-        System.Collections.Generic.List<long> FindDeletedItems(System.Collections.Generic.IReadOnlyList<long> workshopIds);
+        System.Collections.Generic.List<SteamItemStatus> QueryItems(System.Collections.Generic.IReadOnlyList<long> workshopIds);
     }
 }

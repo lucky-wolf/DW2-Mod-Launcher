@@ -49,11 +49,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string detailText = "";
         private string detailSource = "";
         private string detailWorkshopId = "";
-        private bool verifyingPublishedIds;
+        private bool refreshingSteamStatus;
         private string problemsText = "";
         private bool problemsIsConflict;
         private Bitmap preview;
         private bool publishRunning;
+        // Steam visibility of published local mods by Workshop id, filled by the startup / Refresh sweep (or when a mod is selected, if the sweep missed it) and kept for the session.
+        private readonly Dictionary<string, ModVisibility> visibilityCache = new Dictionary<string, ModVisibility>();
+        private readonly HashSet<string> visibilityLookups = new HashSet<string>();
+        // Set when Steam gave no answer at all (not running, not logged in): no more lookups until the next sweep (startup or Refresh) finds it back.
+        private bool steamUnavailable;
 
         public MainViewModel(IDialogService dialogs, string appRoot)
         {
@@ -80,7 +85,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Settings = new SettingsViewModel(this);
             OpenSettingsCommand = new RelayCommand(() => Dialogs.ShowSettingsAsync(Settings));
             OpenAboutCommand = new RelayCommand(() => Dialogs.ShowAboutAsync(this));
-            RefreshCommand = new RelayCommand(() => { Refresh(); var _ = VerifyPublishedIdsAsync(); });
+            RefreshCommand = new RelayCommand(() => { Refresh(); var _ = RefreshSteamStatusAsync(); });
             ClearCommand = new RelayCommand(ClearAsync);
             EnableAllCommand = new RelayCommand(EnableAllAsync);
             PlayCommand = new RelayCommand(PlayOrStopAsync, () => gameState != GameState.Launching);
@@ -111,7 +116,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // Reselect what was selected last time; the Mods view scrolls it into view when it loads.
             if (!string.IsNullOrEmpty(settings.LastSelectedMod))
                 SelectedRow = Mods.FirstOrDefault(r => string.Equals(r.Mod.ActiveToken, settings.LastSelectedMod, StringComparison.OrdinalIgnoreCase)) ?? selectedRow;
-            var verify = VerifyPublishedIdsAsync();
+            var verify = RefreshSteamStatusAsync();
         }
 
         public IDialogService Dialogs { get; }
@@ -257,6 +262,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string DetailTitle { get { return detailTitle; } private set { Set(ref detailTitle, value); } }
         public string DetailText { get { return detailText; } private set { Set(ref detailText, value); } }
         public string DetailSource { get { return detailSource; } private set { Set(ref detailSource, value); } }
+        private string detailVisibility = "";
+        /// <summary>"Visibility: Private (only you)" for a published local mod once Steam has been asked; empty before that.</summary>
+        public string DetailVisibility { get { return detailVisibility; } private set { if (Set(ref detailVisibility, value)) Raise(nameof(HasVisibility)); } }
+        public bool HasVisibility { get { return !string.IsNullOrEmpty(detailVisibility); } }
+
+        private string detailPublishState = "";
+        /// <summary>The selected local mod's change-since-publish line and file list (empty when there is nothing to say).</summary>
+        public string DetailPublishState { get { return detailPublishState; } private set { if (Set(ref detailPublishState, value)) Raise(nameof(HasPublishState)); } }
+        /// <summary>Longer explanation of the status line, shown as its tooltip.</summary>
+        private string detailPublishTip;
+        public string DetailPublishTip { get { return detailPublishTip; } private set { Set(ref detailPublishTip, value); } }
+        public bool HasPublishState { get { return !string.IsNullOrEmpty(detailPublishState); } }
         public string DetailWorkshopId { get { return detailWorkshopId; } private set { Set(ref detailWorkshopId, value); } }
 
         private string detailLinks = "";
@@ -428,10 +445,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void RebuildRows()
         {
             ModInfo keepSelected = selectedRow == null ? null : selectedRow.Mod;
+            foreach (ModInfo mod in AllMods)
+            {
+                EvaluatePublishState(mod);
+                string id = mod.IsWorkshop ? null : ModDetails.WorkshopId(mod);
+                mod.Visibility = id != null && visibilityCache.TryGetValue(id, out ModVisibility known) ? known : (ModVisibility?)null;
+            }
             populating = true;
             Mods.Clear();
             foreach (ModInfo mod in ModLibrary.OrderForDisplay(AllMods, modOrder))
-                Mods.Add(new ModRowViewModel(mod, RelayCommand.WithParameter(row => { var _ = ToggleAsync((ModRowViewModel)row); }), settings.ManagedModsRoot));
+                Mods.Add(new ModRowViewModel(mod, RelayCommand.WithParameter(row => { var _ = ToggleAsync((ModRowViewModel)row); }), settings.ManagedModsRoot) { Strings = key => T(key) });
             populating = false;
             RefreshRowStates();
             ApplySort();
@@ -597,23 +620,102 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 DetailText = "";
                 DetailSource = "";
                 DetailWorkshopId = "";
+                DetailPublishState = "";
+                DetailPublishTip = null;
+                DetailVisibility = "";
                 DetailLinks = "";
                 ProblemsText = "";
                 Preview = null;
                 return;
             }
             ReloadLocalFiles(mod);
+            // The author edits a local mod's folder at any time, so the selected mod is compared again each time its details are shown.
+            EvaluatePublishState(mod);
+            selectedRow.RefreshPublishState();
+            DetailPublishState = ModDetails.PublishStatusShort(mod, key => T(key));
+            DetailPublishTip = ModDetails.PublishStatusTooltip(mod, key => T(key));
+            DetailVisibility = VisibilityLine(mod);
+            StartVisibilityLookup(mod);
             bool selected = IsSelected(mod);
             int severity = ModHealth.Severity(mod, selected);
             DetailTitle = (mod.DisplayName ?? "") + (string.IsNullOrWhiteSpace(mod.Version) ? "" : "  v" + mod.Version);
             DetailText = ModDetails.BuildText(mod, selected, key => T(key));
             DetailSource = T("Source") + ": " + ModDetails.SourceText(mod, settings.ManagedModsRoot);
-            DetailWorkshopId = T("PublishWorkshopId") + ": " + (ModDetails.WorkshopId(mod) ?? T("PublishWorkshopIdUnpublished"));
+            DetailWorkshopId = T("PublishWorkshopId") + ": " + (ModDetails.WorkshopId(mod) ?? "—");
             DetailLinks = ModDetails.BuildLinks(mod, OrderedEnabledMods());
             List<string> problems = ModDetails.BuildProblems(mod, severity, key => T(key));
             ProblemsIsConflict = severity == 3;
             ProblemsText = problems.Count == 0 ? "" : (severity == 3 ? T("HealthConflict") : T("HealthCaution")) + "\n" + string.Join("\n", problems);
             Preview = ImageLoader.Load(mod.PreviewImage, 0);
+        }
+
+        private string VisibilityLine(ModInfo mod)
+        {
+            return mod.Visibility.HasValue ? T("PublishVisibility") + ": " + T(PublishDialogViewModel.LabelKey(mod.Visibility.Value)) : "";
+        }
+
+        /// <summary>
+        /// Asks Steam, once per session per item, what visibility a published local mod has, and fills it into the list and details pane when the
+        /// answer arrives. Only runs for the selected mod, so the list fills in as the author clicks through it. No answer (Steam not running)
+        /// leaves it blank and the next selection tries again.
+        /// </summary>
+        private void StartVisibilityLookup(ModInfo mod)
+        {
+            string id = mod.IsWorkshop ? null : ModDetails.WorkshopId(mod);
+            if (id == null || !long.TryParse(id, out long itemId) || mod.Visibility.HasValue || publishRunning || steamUnavailable || !visibilityLookups.Add(id)) return;
+            var _ = LookupVisibilityAsync(id, itemId);
+        }
+
+        private async Task LookupVisibilityAsync(string id, long itemId)
+        {
+            ModVisibility? found = null;
+            try
+            {
+                IModPublisher reader = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
+                found = await Task.Run(() => reader.GetVisibility(itemId));
+            }
+            catch (Exception ex) { Logger.LogException("Look up Steam visibility of " + id, ex); }
+            visibilityLookups.Remove(id);
+            if (!found.HasValue)
+            {
+                steamUnavailable = true;
+                return;
+            }
+            ApplyVisibility(id, found.Value);
+        }
+
+        /// <summary>Remembers an item's Steam visibility and shows it on every row of that item and in the details pane if it is selected.</summary>
+        private void ApplyVisibility(string id, ModVisibility visibility)
+        {
+            visibilityCache[id] = visibility;
+            foreach (ModRowViewModel row in Mods)
+            {
+                if (row.Mod.IsWorkshop || ModDetails.WorkshopId(row.Mod) != id) continue;
+                row.Mod.Visibility = visibility;
+                row.RefreshPublishState();
+            }
+            if (selectedRow != null && !selectedRow.Mod.IsWorkshop && ModDetails.WorkshopId(selectedRow.Mod) == id) DetailVisibility = VisibilityLine(selectedRow.Mod);
+        }
+
+        /// <summary>Forgets what Steam last said about a mod's visibility (a dialog or publish may have changed it) and shows the details again, which asks afresh.</summary>
+        private void ForgetVisibility(ModInfo mod)
+        {
+            string id = mod == null || mod.IsWorkshop ? null : ModDetails.WorkshopId(mod);
+            if (id != null) visibilityCache.Remove(id);
+            if (mod != null) mod.Visibility = null;
+            ShowDetails();
+        }
+
+        /// <summary>Compares a published local mod's folder with its record. An unreadable record or folder is logged and leaves the mod's state unknown.</summary>
+        private void EvaluatePublishState(ModInfo mod)
+        {
+            try { PublishedState.Evaluate(mod); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Compare " + (mod.DisplayName ?? mod.Id) + " with its last publish", ex);
+                mod.PublishStatus = PublishStatus.Unknown;
+                mod.UnpublishedChanges = new List<string>();
+            }
         }
 
         /// <summary>
@@ -968,22 +1070,28 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         // ---- Workshop publishing
 
         /// <summary>
-        /// Asks Steam whether each local Mod's Workshop item still exists and erases the id of any that were
-        /// deleted there, so the list shows the truth and the Mod can be published as new. Silent if Steam can't be asked.
-        /// Runs in the Steam helper process, so DW2 only looks "running" to Steam for the second or so it takes.
+        /// One background sweep over every published local mod, in a single Steam query (nothing waits on it; the list fills in as it answers):
+        /// erases the id of any item deleted on Steam, so the list shows the truth and the Mod can be published as new, and learns each
+        /// item's visibility. Silent if Steam can't be asked. Runs at startup and on Refresh. New per-item facts belong in
+        /// <see cref="SteamItemStatus"/> and are applied here. Runs in the Steam helper process, so DW2 only looks "running" to Steam
+        /// for the second or so it takes.
         /// </summary>
-        private async Task VerifyPublishedIdsAsync()
+        private async Task RefreshSteamStatusAsync()
         {
-            if (publishRunning || verifyingPublishedIds) return;
+            if (publishRunning || refreshingSteamStatus) return;
             List<ModInfo> published = managedMods.Where(m => !string.IsNullOrWhiteSpace(m.WorkshopId) && !string.IsNullOrWhiteSpace(m.ModJsonPath)).ToList();
             List<long> ids = published.Select(m => long.TryParse(m.WorkshopId, out long id) ? id : 0).Where(id => id != 0).Distinct().ToList();
             if (ids.Count == 0) return;
-            verifyingPublishedIds = true;
+            refreshingSteamStatus = true;
             try
             {
                 IModPublisher publisher = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
-                List<long> deleted = await Task.Run(() => publisher.FindDeletedItems(ids));
-                if (deleted.Count == 0 || publishRunning) return;
+                List<SteamItemStatus> items = await Task.Run(() => publisher.QueryItems(ids));
+                if (publishRunning) return;
+                steamUnavailable = items.Count == 0;
+                foreach (SteamItemStatus item in items.Where(i => i.Visibility.HasValue))
+                    ApplyVisibility(item.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), item.Visibility.Value);
+                HashSet<long> deleted = new HashSet<long>(items.Where(i => i.Deleted).Select(i => i.Id));
                 int cleared = 0;
                 foreach (ModInfo mod in published)
                 {
@@ -1000,8 +1108,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 Refresh();
                 SetStatus(T("WorkshopItemsDeletedStatus", cleared));
             }
-            catch (Exception ex) { Logger.LogException("Verify published Workshop ids", ex); }
-            finally { verifyingPublishedIds = false; }
+            catch (Exception ex) { Logger.LogException("Refresh Steam status of published mods", ex); }
+            finally { refreshingSteamStatus = false; }
         }
 
         /// <summary>The item's visibility on Steam, or null when it isn't published or Steam can't be asked.</summary>
@@ -1018,7 +1126,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             return await Task.Run(() => reader.GetVisibility(publishedId));
         }
 
-        /// <summary>The publish dialog without the publishing: edits the Mod's mod.json fields and saves them. Visibility is shown read-only.</summary>
+        /// <summary>The publish dialog without the publishing: edits the Mod's mod.json fields and saves them. Choosing a different visibility there applies it to Steam at once.</summary>
         private async Task EditPropertiesAsync(ModInfo mod)
         {
             if (mod == null || mod.IsWorkshop || string.IsNullOrWhiteSpace(mod.ModJsonPath)) return;
@@ -1041,7 +1149,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ex.Message), "DW2 Mod Launcher");
                 return;
             }
-            if (!await Dialogs.EditPublishAsync(editor)) { UpdateStatus(); return; }
+            bool accepted = await Dialogs.EditPublishAsync(editor);
+            ForgetVisibility(mod);
+            if (!accepted) { UpdateStatus(); return; }
             // The version policy is launcher-side (launcher_settings.json); it only takes effect at the next publish.
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);
             SaveSettings();
@@ -1104,7 +1214,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 // The item may have been deleted on Steam since the last check; if so the id is erased and this becomes a new publish.
                 string folder = mod.Folder;
-                await VerifyPublishedIdsAsync();
+                await RefreshSteamStatusAsync();
                 mod = managedMods.FirstOrDefault(m => string.Equals(m.Folder, folder, StringComparison.OrdinalIgnoreCase)) ?? mod;
             }
             bool isUpdate = !string.IsNullOrWhiteSpace(mod.WorkshopId);
@@ -1120,7 +1230,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ex.Message), "DW2 Mod Launcher");
                 return;
             }
-            if (!await Dialogs.EditPublishAsync(editor)) return;
+            bool accepted = await Dialogs.EditPublishAsync(editor);
+            ForgetVisibility(mod);
+            if (!accepted) return;
             // The version policy is remembered per mod in launcher_settings.json (never in the mod itself).
             settings.SetVersionBump(bumpKey, editor.BumpPolicy);
             SaveSettings();
@@ -1233,9 +1345,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     return;
                 }
                 ModJsonWorkshopIdWriter.Write(mod.ModJsonPath, result.WorkshopId.Value);
+                // After every write the publish itself makes to the folder (version bump, author stamp, the id just written), so it starts clean.
+                string recordProblem = null;
+                try { PublishedState.Record(result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), contentFolder); }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Record published state of " + mod.DisplayName, ex);
+                    recordProblem = T("PublishStateRecordFailed", ex.Message);
+                }
                 string url = "https://steamcommunity.com/sharedfiles/filedetails/?id=" + result.WorkshopId.Value;
                 string message = T("PublishCapturedIdMessage", result.WorkshopId.Value, url);
                 if (result.NeedsWorkshopAgreement) message += "\n\n" + T("PublishNeedsWorkshopAgreement");
+                if (recordProblem != null) message += "\n\n" + recordProblem;
                 // Steam can quietly hold an item private (e.g. until the Workshop agreement is accepted), so check it took the setting.
                 ModVisibility? requested = editor.SelectedVisibility;
                 ModVisibility? actual = requested.HasValue ? await ReadVisibilityAsync(result.WorkshopId.Value) : null;
@@ -1257,6 +1378,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 publishRunning = false;
                 PublishCommand.RaiseCanExecuteChanged();
+                ForgetVisibility(mod);
             }
         }
 

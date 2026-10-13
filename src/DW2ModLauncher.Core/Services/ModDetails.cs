@@ -104,6 +104,51 @@ namespace DW2ModLauncher.Core.Services
             return b.ToString();
         }
 
+        /// <summary>The short status line for a published local mod ("Status: up to date"), or "" when the mod has no publish state.</summary>
+        public static string PublishStatusShort(ModInfo mod, Func<string, string> t)
+        {
+            switch (mod.PublishStatus)
+            {
+                case PublishStatus.Unpublished: return t("PublishStateUnpublished");
+                case PublishStatus.Unknown: return t("PublishStateUnknown");
+                case PublishStatus.Current: return string.Format(t("PublishStateCurrent"), PublishedWhen(mod));
+                case PublishStatus.Changed: return t("PublishStateChanged");
+                default: return "";
+            }
+        }
+
+        /// <summary>When the last publish happened: the date, plus the time if that was today. Empty when unknown.</summary>
+        public static string PublishedWhen(ModInfo mod)
+        {
+            if (!mod.PublishedUtc.HasValue) return "";
+            DateTime local = mod.PublishedUtc.Value.ToLocalTime();
+            return local.ToString(local.Date == DateTime.Today ? "g" : "d", System.Globalization.CultureInfo.CurrentCulture);
+        }
+
+        /// <summary>What the status means in a sentence ("3 files changed since the last publish on ..."), or "" when there is no publish state.</summary>
+        public static string PublishStatusSentence(ModInfo mod, Func<string, string> t)
+        {
+            string when = PublishedWhen(mod);
+            switch (mod.PublishStatus)
+            {
+                case PublishStatus.Unpublished: return t("PublishStateUnpublishedDetail");
+                case PublishStatus.Unknown: return t("PublishStateUnknownDetail");
+                case PublishStatus.Current: return string.Format(t("PublishStateCurrentDetail"), when);
+                case PublishStatus.Changed: return string.Format(t("PublishStateChangedDetail"), mod.UnpublishedChanges.Count, when);
+                default: return "";
+            }
+        }
+
+        /// <summary>The sentence plus (when files changed) up to <paramref name="maxFiles"/> of them, one per line; for a tooltip.</summary>
+        public static string PublishStatusTooltip(ModInfo mod, Func<string, string> t, int maxFiles = 12)
+        {
+            string text = PublishStatusSentence(mod, t);
+            if (mod.PublishStatus != PublishStatus.Changed) return text;
+            text += "\n" + string.Join("\n", mod.UnpublishedChanges.Take(maxFiles).Select(c => "  " + c));
+            if (mod.UnpublishedChanges.Count > maxFiles) text += "\n  ... +" + (mod.UnpublishedChanges.Count - maxFiles);
+            return text;
+        }
+
         /// <summary>
         /// Where the mod comes from: "MyMod" for a local mod (the path under the managed mods folder, so nested folders show, and
         /// nothing about where that folder is), "Steam Workshop" for a Workshop item. The source name when the folder is unknown.

@@ -28,3 +28,6 @@ reconstruct it right before opening the PR. Fold several small related lines int
 - A mod can translate its settings dialog with `settings.schema.<language>.json` sidecars (labels, descriptions, headings, option text; anything missing shows the author's text)
 - The in-game status widget and Mods menu are translated: they follow the enabled translation mod's declared language, or the launcher's language by a setting
 - Every code mod now receives the in-game language as a `Language` option (`en`, `ja`, `ru`), so a mod can translate its own status-widget text
+- We now track whether a local mod is modified or up to date with steam
+- You can change the publish status of your mods without re-publishing them
+- We show the published status of your local mods on the list and in details

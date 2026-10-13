@@ -2,6 +2,19 @@ using System.Collections.Generic;
 
 namespace DW2ModLauncher.Core.Models
 {
+    /// <summary>Whether a local mod's folder differs from what its last publish uploaded.</summary>
+    public enum PublishStatus
+    {
+        /// <summary>A Workshop copy: nothing to compare.</summary>
+        NotApplicable,
+        /// <summary>A local mod that was never published.</summary>
+        Unpublished,
+        /// <summary>Published, but no record was taken (published before change tracking existed).</summary>
+        Unknown,
+        Current,
+        Changed
+    }
+
     public class ModInfo
     {
         public string Id { get; set; }
@@ -39,6 +52,13 @@ namespace DW2ModLauncher.Core.Models
         // ModPublishCommandBuilder/ModJsonWorkshopIdWriter) - distinct from IsWorkshop, which means
         // "this copy came from a Steam Workshop subscription," not "this Mod has ever been published."
         public string WorkshopId { get; set; }
+        public PublishStatus PublishStatus { get; set; }
+        /// <summary>The item's visibility on Steam, once Steam has been asked (the startup / Refresh sweep, or when the mod is selected); null until then and for mods that are not published.</summary>
+        public DW2ModLauncher.Core.Services.Publishing.ModVisibility? Visibility { get; set; }
+        /// <summary>When the last recorded publish happened (UTC), or null when there is no record.</summary>
+        public System.DateTime? PublishedUtc { get; set; }
+        /// <summary>When <see cref="PublishStatus"/> is Changed, the changed files, each marked + (added), - (removed) or ~ (modified).</summary>
+        public List<string> UnpublishedChanges { get; set; } = new List<string>();
         public List<string> IncludedTools { get; set; }
         public List<string> IncludedDocuments { get; set; }
         /// <summary>dw2modlauncher.json "minLauncherVersion", or null/empty when the mod names no floor.</summary>

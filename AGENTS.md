@@ -30,7 +30,7 @@ Not planned: merging Mods into a combined output folder, and automatic conflict 
     on Linux), `GamePaths` (host path -> `Z:\...` as the game sees it under Proton), `PlatformShell`
     (explorer / xdg-open), `GameProcess`, `Localization`
   - `Services/Publishing/` — Steam Workshop publish.
-    `IModPublisher`/`ModPublishRequest`/`ModPublishResult`/`ModVersion` (next-version proposal)/`ModPublishMetadataEditor` (reads/writes
+    `IModPublisher`/`ModPublishRequest`/`ModPublishResult`/`ModVersion` (next-version proposal)/`PublishedState` (per-file record of what the last publish uploaded, kept in `<data root>/PublishedState/<workshop id>.json`; drives the "changed since last publish" status; the same sweep that checks for deleted items also learns each item's Steam visibility via the batched `IModPublisher.QueryItems`/`SteamItemStatus`; plan in [docs/plans/unpublished-changes-indicator.md](docs/plans/unpublished-changes-indicator.md))/`ModPublishMetadataEditor` (reads/writes
     mod.json's displayName/description/previewImage/version/bundles) are the stable surface;
     `SteamworksNetModPublisher` embeds the Steamworks API directly (Steamworks.NET, MIT, vendored per OS in
     [third_party/steamworks/](third_party/steamworks/README.md)) so publishing piggybacks on the locally
@@ -50,7 +50,7 @@ Not planned: merging Mods into a combined output folder, and automatic conflict 
   language strings use `{Binding L[Key]}`; the EN/JP/RU packs are in `Languages/` (how packs, the in-game widget's language and the docs translations work: [docs/Localization.md](docs/Localization.md); any new user-facing text gets a key in every pack, and a new `Widget*` key also goes into `StatusStrings` in the loader). Run with
   `dotnet run --project src/DW2ModLauncher.Avalonia`.
 - [src/DW2ModLauncher.Tests/](src/DW2ModLauncher.Tests/) — xUnit tests against `Core` (run with `dotnet test`)
-- [scripts/](scripts/) — Python tooling: `build.py` / `run.py` (cross-platform build, and build+run, of the current OS's launcher; [build.cmd](build.cmd) / [run.cmd](run.cmd) are the Windows batch equivalents), `validate.py` (the CI gate), `new-branch.py` / `open-pr.py` (branch and PR workflow), `release.py` / `release-notes.py` (CI release), `make-icon.py`; shared helpers in `scripts/lib/`
+- [scripts/](scripts/) — Python tooling: `build.py` / `run.py` (cross-platform build, and build+run, of the current OS's launcher; [build.cmd](build.cmd) / [run.cmd](run.cmd) are the Windows batch equivalents), `validate.py` (the CI gate; locally it stops at once if the launcher or Distant Worlds 2 is running, since they lock files and fail the load-order tests), `new-branch.py` / `open-pr.py` (branch and PR workflow), `release.py` / `release-notes.py` (CI release), `make-icon.py`; shared helpers in `scripts/lib/`
 - [docs/](docs/) — design notes, feature specs, and other documentation too long-lived for a PR description or issue thread
 
 ## Build & run
