@@ -1,0 +1,32 @@
+name: Path guard
+
+# Runs from the base branch's copy of this file (pull_request_target), so a PR cannot edit its own guard. It never checks out or
+# runs the PR's code: it only reads the list of changed files through the API. Not a required check - it is a warning that shows
+# on the PR (and to the contributor) that the PR touches CI, scripts or build files, which only the owner changes.
+# Keep PROTECTED in step with scripts/check-pr-paths.py, the same list for a local look before approving a workflow run.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  protected-paths:
+    # the owner changes these files all the time
+    if: ${{ github.event.pull_request.author_association != 'OWNER' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail when the PR touches CI, scripts or build files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_FILES_URL: repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files
+        run: |
+          files=$(gh api --paginate "$PR_FILES_URL" --jq '.[] | .filename, (.previous_filename // empty)')
+          protected=$(echo "$files" | grep -E '^(\.github/|scripts/|\.config/|\.editorconfig$|Directory\.(Build|Packages)\.(props|targets)$|global\.json$|[Nn]u[Gg]et\.[Cc]onfig$)|\.(csproj|props|targets|sln|slnx|sh|ps1|bat|cmd|py)$' || true)
+          if [ -n "$protected" ]; then
+            echo "$protected" | while read -r f; do echo "::error file=$f::This PR touches a protected file. CI, scripts and build files are changed only by the maintainer; please remove it from the PR."; done
+            exit 1
+          fi
+          echo "No protected paths touched."

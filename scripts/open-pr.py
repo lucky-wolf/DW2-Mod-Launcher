@@ -6,6 +6,9 @@ docs/CI Releases.md), or "Housekeeping (no release)" when the branch changes no 
 workflow watches. Its description is the list in docs/focus.md
 (falling back to this branch's commit subjects when that is empty).
 
+Merges here are rebases, so it first checks the branch is on top of origin/<target> and offers to rebase it (aborting the
+whole run if the rebase conflicts).
+
 Usage:
   scripts/open-pr.py
   scripts/open-pr.py --target main --draft
@@ -53,6 +56,33 @@ def handle_format_check(repo_root: Path) -> None:
         print("  continuing with formatting issues present")
 
 
+def ensure_rebased(repo_root: Path, target: str, dry_run: bool) -> bool:
+    """Merges here are rebases, so the branch has to sit on top of origin/<target>. When it doesn't, offers to rebase it
+    (autostashing uncommitted changes); a rebase that conflicts is aborted and so is the whole run. Returns whether the
+    branch was rebased, which means a branch already on origin has to be pushed with --force-with-lease."""
+    proc.run(repo_root, f"git fetch origin {target}", ["git", "fetch", "origin", target])
+    behind = int(proc.git(repo_root, "rev-list", "--count", f"HEAD..origin/{target}").stdout.strip())
+    if behind == 0:
+        output.ok(f"on top of origin/{target}")
+        return False
+
+    print(f"  This branch is {behind} commit(s) behind origin/{target}.")
+    if dry_run:
+        print(f"  [dry-run] would offer to rebase onto origin/{target}")
+        return False
+    if not output.confirm(f"  Rebase onto origin/{target} now?", default=True):
+        output.fail(f"aborted - rebase onto origin/{target} first (merges here are rebases)")
+
+    result = proc.run(repo_root, f"git rebase origin/{target}", ["git", "rebase", "--autostash", f"origin/{target}"], check=False)
+    if result.returncode != 0:
+        proc.run(repo_root, "git rebase --abort", ["git", "rebase", "--abort"], check=False)
+        output.fail(f"rebase onto origin/{target} failed (conflicts) and was aborted - resolve it by hand, then run this again")
+    if proc.git(repo_root, "diff", "--name-only", "--diff-filter=U").stdout.strip():
+        output.fail("rebased, but re-applying your uncommitted changes conflicted - resolve them (git stash list has the copy), then run this again")
+    output.ok(f"rebased onto origin/{target}")
+    return True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--target", default="main")
@@ -77,6 +107,10 @@ def main() -> int:
     output.step("gh readiness")
     github.require_gh_auth()
     output.ok("gh logged in")
+
+    # Before the checks, so they test the code that will actually merge.
+    output.step("up to date with " + target)
+    rebased = ensure_rebased(repo_root, target, args.dry_run)
 
     if not args.skip_checks:
         output.step("code quality")
@@ -145,7 +179,11 @@ def main() -> int:
             proc.run(repo_root, "git commit", ["git", "commit", "-m", "Clear docs/focus.md (its list is in the PR description)"])
             output.ok("docs/focus.md cleared (committed with the PR)")
 
-    proc.run(repo_root, f"git push {current_branch}", ["git", "push", "-u", "origin", current_branch])
+    # A rebased branch that is already on origin has different commits there, so a plain push would be rejected.
+    push = ["git", "push", "-u", "origin", current_branch]
+    if rebased:
+        push.insert(2, "--force-with-lease")
+    proc.run(repo_root, f"git push {current_branch}", push)
     output.ok("pushed")
 
     try:
