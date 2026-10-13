@@ -73,14 +73,59 @@ def ensure_rebased(repo_root: Path, target: str, dry_run: bool) -> bool:
     if not output.confirm(f"  Rebase onto origin/{target} now?", default=True):
         output.fail(f"aborted - rebase onto origin/{target} first (merges here are rebases)")
 
+    # docs/focus.md is this branch's own list, but main can carry lines in it (merged outside contributors' PRs leave theirs), and
+    # both sides adding lines under the '---' always conflicts. So the branch's own entries are set aside, the file is taken
+    # from main, and the list is rebuilt from just those entries after the rebase.
+    focus_file = repo_root / focus.FOCUS_PATH
+    original_focus = focus_file.read_bytes() if focus_file.exists() else None
+    base = proc.git(repo_root, "merge-base", "HEAD", f"origin/{target}").stdout.strip()
+    mine = focus.entries_added_since(repo_root, base)
+    proc.git(repo_root, "checkout", "HEAD", "--", str(focus.FOCUS_PATH))
+
+    def give_up(message: str) -> None:
+        if original_focus is not None:
+            focus_file.write_bytes(original_focus)
+        output.fail(message)
+
     result = proc.run(repo_root, f"git rebase origin/{target}", ["git", "rebase", "--autostash", f"origin/{target}"], check=False)
-    if result.returncode != 0:
-        proc.run(repo_root, "git rebase --abort", ["git", "rebase", "--abort"], check=False)
-        output.fail(f"rebase onto origin/{target} failed (conflicts) and was aborted - resolve it by hand, then run this again")
+    while result.returncode != 0:
+        unmerged = proc.git(repo_root, "diff", "--name-only", "--diff-filter=U").stdout.split()
+        if unmerged != [focus.FOCUS_PATH.as_posix()]:
+            proc.run(repo_root, "git rebase --abort", ["git", "rebase", "--abort"], check=False)
+            give_up(f"rebase onto origin/{target} failed (conflicts in {', '.join(unmerged) or 'unknown files'}) and was aborted - resolve it by hand, then run this again")
+        # in a rebase "ours" is the branch being rebased onto, i.e. main's list; ours is rebuilt below
+        proc.run(repo_root, "take main's docs/focus.md", ["git", "checkout", "--ours", "--", str(focus.FOCUS_PATH)])
+        proc.run(repo_root, "git add docs/focus.md", ["git", "add", "--", str(focus.FOCUS_PATH)])
+        result = proc.run(repo_root, "git rebase --continue", ["git", "-c", "core.editor=true", "rebase", "--continue"], check=False)
     if proc.git(repo_root, "diff", "--name-only", "--diff-filter=U").stdout.strip():
-        output.fail("rebased, but re-applying your uncommitted changes conflicted - resolve them (git stash list has the copy), then run this again")
+        give_up("rebased, but re-applying your uncommitted changes conflicted - resolve them (git stash list has the copy), then run this again")
+
+    on_main = focus.read_entries(repo_root)
+    focus.reset(repo_root)
+    focus.append(repo_root, mine)
+    if on_main:
+        print(f"  note: docs/focus.md on origin/{target} carried {len(on_main)} entr{'y' if len(on_main) == 1 else 'ies'} from merged work;")
+        print("        they are left out of this branch's list, and this PR clears them from main")
     output.ok(f"rebased onto origin/{target}")
     return True
+
+
+def choose_stale_focus_action() -> str:
+    """What to do about a docs/focus.md that is identical to the last release's list: "reuse" it, describe the PR by its
+    "commits" instead (the stale list is still cleared in the PR's last commit), or "abort" the whole run. Letters, not
+    digits, and anything else is re-asked - like output.confirm, so a stray key never picks an action."""
+    print("    [r] reuse the list as the PR description")
+    print("    [c] ignore the list: describe the PR by its commit subjects (the stale list is cleared in the PR)")
+    print("    [a] abort: nothing is pushed, so you can edit docs/focus.md first")
+    while True:
+        answer = input("  Stale docs/focus.md - what now? [r/c/a] ").strip().lower()
+        if answer in ("r", "reuse"):
+            return "reuse"
+        if answer in ("c", "commits"):
+            return "commits"
+        if answer in ("a", "abort", "n", "no", "q"):
+            return "abort"
+        print("  please answer r, c or a")
 
 
 def main() -> int:
@@ -150,8 +195,10 @@ def main() -> int:
     elif focus.same_as_last_release(repo_root, target):
         print("  WARNING: docs/focus.md is identical to the last release's list - stale entries from earlier work?")
         print("           (the release notes come from this description)")
-        if not output.confirm("  Reuse anyway? (No: open the PR without it, describing it by its commit subjects)", default=False):
-            use_focus = False
+        choice = choose_stale_focus_action()
+        if choice == "abort":
+            output.fail("aborted - nothing pushed (edit docs/focus.md, then run this again)")
+        use_focus = choice == "reuse"
     pr_description = compute_pr_description(repo_root, target, use_focus)
     # Re-running for an open PR whose list was already cleared by an earlier run: the description written then is the
     # real one; rebuilding it from commit subjects would overwrite it with a worse one.

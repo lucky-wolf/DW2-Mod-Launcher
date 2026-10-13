@@ -63,6 +63,13 @@ def same_as_last_release(repo_root: Path, target: str) -> bool:
     return bool(entries) and entries == _entries_at(repo_root, described.stdout.strip())
 
 
+def entries_added_since(repo_root: Path, rev: str) -> list[str]:
+    """The working-tree entries that focus.md did not have at `rev` (committed on the branch or not): this branch's own list,
+    without anything already on `rev` - e.g. lines contributors' merged PRs left on main."""
+    base = set(_entries_at(repo_root, rev))
+    return [entry for entry in read_entries(repo_root) if entry not in base]
+
+
 def stash_entries(repo_root: Path, stash_sha: str) -> list[str]:
     """The entries a stash added to focus.md: those in the stashed file but not in the commit it was
     made on. Everything already at that base belongs to earlier, merged work, so what's left is new.
