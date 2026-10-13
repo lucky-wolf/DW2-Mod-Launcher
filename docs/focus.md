@@ -11,3 +11,4 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
+- The loader now installs its XML patch, font, text-file and title-lookup hooks before it calls the code mods' entry points, so a mod with a slow start-up can no longer make the game read its data before the patches.
