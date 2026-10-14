@@ -65,6 +65,24 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Compare_IgnoresLineEndingChangesInTextFiles_ButNotInBinaryFiles()
+        {
+            string text = Path.Combine(Content, "text.json");
+            string binary = Path.Combine(Content, "data.bin");
+            File.WriteAllBytes(text, System.Text.Encoding.UTF8.GetBytes("{\r\n  \"a\": 1\r\n}"));
+            File.WriteAllBytes(binary, new byte[] { 0, 13, 10, 7 });
+            PublishedManifest manifest = PublishedState.Capture(Content);
+
+            File.WriteAllBytes(text, System.Text.Encoding.UTF8.GetBytes("{\n  \"a\": 1\n}"));
+            File.SetLastWriteTimeUtc(text, DateTime.UtcNow.AddHours(1));
+            File.WriteAllBytes(binary, new byte[] { 0, 10, 7 });
+            File.SetLastWriteTimeUtc(binary, DateTime.UtcNow.AddHours(1));
+
+            PublishedChanges changes = PublishedState.Compare(Content, manifest);
+            Assert.Equal(new[] { "data.bin" }, changes.Modified);
+        }
+
+        [Fact]
         public void Load_ReturnsNull_WithoutRecord_AndRoundTripsARecord()
         {
             Assert.Null(PublishedState.Load("123", Data));

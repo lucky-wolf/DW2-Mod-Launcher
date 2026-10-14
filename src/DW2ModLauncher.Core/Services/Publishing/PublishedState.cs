@@ -83,7 +83,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 if (!manifest.Files.TryGetValue(file, out PublishedFile recorded)) { changes.Added.Add(file); continue; }
                 FileInfo info = new FileInfo(Path.Combine(contentFolder, file));
                 if (info.Length == recorded.Size && info.LastWriteTimeUtc.Ticks == recorded.ModifiedUtcTicks) continue;
-                if (info.Length != recorded.Size || HashFile(info.FullName) != recorded.Hash) changes.Modified.Add(file);
+                // No size shortcut here: a text file saved with other line endings has another size and the same hash.
+                if (HashFile(info.FullName) != recorded.Hash) changes.Modified.Add(file);
             }
             foreach (string file in manifest.Files.Keys)
                 if (!seen.Contains(file)) changes.Removed.Add(file);
@@ -151,11 +152,48 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'));
         }
 
+        /// <summary>
+        /// SHA-256 of the file. A text file (no NUL in its first 8 KiB) is hashed with CRLF read as LF, so a copy that went through
+        /// another system's line endings (a repo that keeps LF, a Windows editor) is not a change; binary files are hashed as they are.
+        /// </summary>
         private static string HashFile(string path)
         {
             using (FileStream stream = File.OpenRead(path))
             using (SHA256 sha = SHA256.Create())
-                return Convert.ToHexString(sha.ComputeHash(stream));
+            {
+                byte[] buffer = new byte[81920];
+                bool text = true, first = true, pendingCr = false;
+                byte[] cr = { (byte)'\r' };
+                int read;
+                while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    if (first)
+                    {
+                        first = false;
+                        text = Array.IndexOf(buffer, (byte)0, 0, Math.Min(read, 8192)) < 0;
+                    }
+                    if (!text) { sha.TransformBlock(buffer, 0, read, null, 0); continue; }
+                    int start = 0;
+                    for (int i = 0; i < read; i++)
+                    {
+                        if (pendingCr)
+                        {
+                            pendingCr = false;
+                            if (buffer[i] != (byte)'\n') sha.TransformBlock(cr, 0, 1, null, 0);
+                        }
+                        if (buffer[i] == (byte)'\r')
+                        {
+                            sha.TransformBlock(buffer, start, i - start, null, 0);
+                            start = i + 1;
+                            pendingCr = true;
+                        }
+                    }
+                    sha.TransformBlock(buffer, start, read - start, null, 0);
+                }
+                if (pendingCr) sha.TransformBlock(cr, 0, 1, null, 0);
+                sha.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                return Convert.ToHexString(sha.Hash);
+            }
         }
     }
 }
