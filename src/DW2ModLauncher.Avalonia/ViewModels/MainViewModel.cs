@@ -547,7 +547,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             if (row == null || populating) return;
             bool enable = !IsSelected(row.Mod);
-            SetEnabledResult result = ModLibrary.SetEnabled(row.Mod, enable, settings, modOrder);
+            // The new mod goes where its row sits among the enabled ones, so a position dragged while the game was running still counts.
+            List<string> listOrder = Mods.Where(r => r == row || IsSelected(r.Mod)).Select(r => r.Mod.ActiveToken).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+            SetEnabledResult result = ModLibrary.SetEnabled(row.Mod, enable, settings, modOrder, listOrder);
             SaveSettings();
             switch (result.Outcome)
             {
