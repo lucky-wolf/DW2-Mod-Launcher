@@ -7,7 +7,7 @@ Three different things get translated in this project, and they work differently
 | The launcher's own window | `src/DW2ModLauncher.Avalonia/Languages/<code>.json` | The language picker in the main window |
 | The launcher's text inside the game (status widget, Mods menu) | The `Widget*` keys of the same packs | A translation mod, or the launcher's language (a setting) |
 | A mod's own settings dialog | `settings.schema.<code>.json` sidecars shipped by the mod | The launcher's language |
-| A mod's own lines in the in-game status panel | Whatever the mod ships (DW2-XL's mods: `status.<code>.json`) | The in-game language, passed to the mod as the `Language` option |
+| A mod's own lines in the in-game status panel | Whatever the mod ships (one approach: a `status.<code>.json` next to the DLL) | The in-game language, passed to the mod as the `Language` option |
 | The game itself (races, events, interface text) | A translation mod's `patches/` and `.txt` files | Which translation mod is enabled |
 
 ## The launcher's language packs
@@ -42,7 +42,7 @@ leaves out is shown as the schema has it. The dialog follows the launcher's lang
 
 ## A mod's own in-game text
 
-The launcher adds `"Language": "<code>"` to every code mod's options JSON at launch. The value is the same in-game language the widget uses (the enabled translation mod's declared language, or the launcher's own when Settings says so; English otherwise), not the dialog's language. What a mod does with it is up to the mod: DW2-XL's mods translate the lines they report to the status panel from a `status.<code>.json` next to their DLL. The loader translates nothing a mod reports. Details: [DLL Injection.md](DLL%20Injection.md#the-language-option).
+The launcher adds `"Language": "<code>"` to every code mod's options JSON at launch. The value is the same in-game language the widget uses (the enabled translation mod's declared language, or the launcher's own when Settings says so; English otherwise), not the dialog's language. What a mod does with it is up to the mod; one approach is to translate the lines it reports to the status panel from a `status.<code>.json` next to its DLL, mapping the English text to the translated text. The loader translates nothing a mod reports. Details: [DLL Injection.md](DLL%20Injection.md#the-language-option).
 
 ## Translating the game
 

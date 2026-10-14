@@ -58,5 +58,5 @@ This removes two worries that would otherwise count against the idea: old saves 
 
 **Suggested order of work**
 1. Section 1.1 (patched-file dump) as the quick visibility win; it also shows what the runtime merge produces today.
-2. Answer questions 1 to 4 by reading the game's data-loading and save code (decompiled `DistantWorlds.Types` and the data-loading classes). Question 2 might replace 1.1 with something better.
+2. Answer questions 1 to 4 by studying how the game loads its data and writes saves. Question 2 might replace 1.1 with something better.
 3. Only then decide between runtime hooks with a mod-position rule (section 2, second option) and the pre-merged mod. They share the engine, so work on one is not wasted if the other wins.

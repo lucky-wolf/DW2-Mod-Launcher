@@ -4,7 +4,8 @@
 The PR is titled "Released as vX.Y.Z" (the version release.py will tag when it merges; see
 docs/CI Releases.md), or "Housekeeping (no release)" when the branch changes no file the release
 workflow watches. Its description is the list in docs/focus.md
-(falling back to this branch's commit subjects when that is empty).
+(falling back to this branch's commit subjects when that is empty). When the branch's PR is already open with a
+description, it offers to keep that and append the new focus.md entries rather than replace it.
 
 Merges here are rebases, so it first checks the branch is on top of origin/<target> and offers to rebase it (aborting the
 whole run if the rebase conflicts).
@@ -128,6 +129,29 @@ def choose_stale_focus_action() -> str:
         print("  please answer r, c or a")
 
 
+def offer_to_extend_open_pr(repo_root: Path, branch: str, entries: list[str], new_description: str) -> str:
+    """When the branch's PR is already open with a description, offers to keep it and append the entries it lacks (the
+    default) instead of replacing it with just the focus.md list. Returns the description to use."""
+    try:
+        current = github.open_pr_body(repo_root, branch)
+    except RuntimeError as e:
+        output.fail(f"could not read the open PR's description: {e}")
+    if not current or not current.strip():
+        return new_description
+    present = {line.strip() for line in current.splitlines()}
+    missing = [entry for entry in entries if f"- {entry}" not in present]
+    if not missing:
+        print("  note: the open PR's description already has every docs/focus.md entry, so it is left as it is")
+        return current
+    print(f"\n  The open PR already has a description; docs/focus.md adds {len(missing)} entr{'y' if len(missing) == 1 else 'ies'}:")
+    for entry in missing:
+        print(f"    - {entry}")
+    if output.confirm("  Keep the existing description and append these?", default=True):
+        return current.rstrip("\n") + "\n" + "\n".join(f"- {entry}" for entry in missing)
+    print("  replacing the description with the docs/focus.md list")
+    return new_description
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--target", default="main")
@@ -200,6 +224,10 @@ def main() -> int:
             output.fail("aborted - nothing pushed (edit docs/focus.md, then run this again)")
         use_focus = choice == "reuse"
     pr_description = compute_pr_description(repo_root, target, use_focus)
+    # Re-running for an open PR whose earlier list was cleared from focus.md: replacing the description would drop those
+    # earlier bullets, so offer to keep them and add the new entries after them.
+    if entries and use_focus:
+        pr_description = offer_to_extend_open_pr(repo_root, current_branch, entries, pr_description)
     # Re-running for an open PR whose list was already cleared by an earlier run: the description written then is the
     # real one; rebuilding it from commit subjects would overwrite it with a worse one.
     keep_description = not entries and github.open_pr_exists(repo_root, current_branch)

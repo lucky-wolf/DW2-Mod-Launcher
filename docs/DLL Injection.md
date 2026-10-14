@@ -6,7 +6,7 @@ DW2 loads third-party code mods via a native command-line flag:
 --low-level-inject <dllPath>!<Namespace.Type.Method>
 ```
 
-`DWCommandLineArgs.LowLevelInjections` (see `decomp/DistantWorlds.Core/DistantWorlds.Core/DWCommandLineArgs.cs`)
+The game's `DWCommandLineArgs.LowLevelInjections`
 is typed `IEnumerable<string>`, a `CommandLineParser` "sequence" option: **one** occurrence of
 `--low-level-inject` carries several space-separated `dll!entryPoint` targets. A second
 *occurrence* of the flag does not merge with the first, it replaces it. The game also invokes
