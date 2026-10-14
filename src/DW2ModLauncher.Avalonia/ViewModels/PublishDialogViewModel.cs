@@ -90,7 +90,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null)
         {
             this.dialogs = dialogs;
             this.lastArtFolder = lastArtFolder;
@@ -100,8 +100,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             modJsonPath = mod.ModJsonPath;
             contentFolder = mod.ContentRoot ?? mod.Folder;
             CanEditVisibility = !propertiesOnly;
-            string statusShort = ModDetails.PublishStatusShort(mod, key => l[key]);
-            PublishStatusLine = statusShort.Length == 0 ? "" : statusShort + ". " + ModDetails.PublishStatusTooltip(mod, key => l[key]);
+            this.mod = mod;
+            ComputeStatus();
+            statusOpen = statusExpanded;
+            this.rememberStatusExpanded = rememberStatusExpanded;
+            ShowChangeNotes = true;
+            savedChangeNotes = ModChangelog.UnreleasedText(contentFolder);
+            changeNotes = savedChangeNotes;
             this.propertiesOnly = propertiesOnly;
             // A first publish has no Steam text to protect, so it sends the description; an update leaves the Steam page alone unless asked.
             this.steamDescription = isUpdate && !propertiesOnly ? steamDescription : null;
@@ -203,7 +208,59 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public LocalizedStrings L { get; }
 
         /// <summary>The mod's change-since-publish status, shown at the top of the dialog: the short status, a sentence of detail and the changed files. Empty for a mod that was never published.</summary>
-        public string PublishStatusLine { get; }
+        /// <summary>"Up to date (version, when it was published)"; just "Up to date" when neither is known.</summary>
+        private static string UpToDate(ModInfo mod, ModPublishMetadata metadata, LocalizedStrings l)
+        {
+            string detail = string.Join(", ", new[] { (metadata.Version ?? "").Trim(), ModDetails.PublishedWhen(mod) }.Where(x => x.Length > 0));
+            return detail.Length == 0 ? l["PublishStateUpToDateBare"] : string.Format(l["PublishStateUpToDate"], detail);
+        }
+        private readonly ModInfo mod;
+        private string publishStatusLine = "";
+        private string publishStatusDetail = "";
+
+        /// <summary>The folded header: just the state - "Modified: 3", "Up to date (1.0.13, 14/10/2026)", "Not yet published" or "Not tracked".</summary>
+        public string PublishStatusLine { get { return publishStatusLine; } private set { if (Set(ref publishStatusLine, value)) Raise(nameof(HasPublishStatus)); } }
+
+        private void ComputeStatus()
+        {
+            string statusShort = ModDetails.PublishStatusShort(mod, key => L[key]);
+            PublishStatusLine = mod.PublishStatus == PublishStatus.Changed ? string.Format(L["PublishStateChangedCount"], mod.UnpublishedChanges.Count)
+                : mod.PublishStatus == PublishStatus.Current ? UpToDate(mod, metadata, L)
+                : mod.PublishStatus == PublishStatus.Unpublished ? L["PublishStateUnpublishedTitle"]
+                : mod.PublishStatus == PublishStatus.Unknown ? L["PublishStateUntracked"]
+                : statusShort;
+            PublishStatusDetail = statusShort.Length == 0 ? "" : ModDetails.PublishStatusTooltip(mod, key => L[key], 500);
+        }
+
+        /// <summary>Compares the folder with its record again, for after something changed what counts as published (the description pushed on its own).</summary>
+        private void RefreshStatus()
+        {
+            try { PublishedState.Evaluate(mod); }
+            catch (Exception ex) { DW2ModLauncher.Core.Diagnostics.Logger.LogException("Compare with the last publish", ex); return; }
+            ComputeStatus();
+        }
+        /// <summary>The sentence under the folded status line, then every changed file.</summary>
+        public string PublishStatusDetail { get { return publishStatusDetail; } private set { Set(ref publishStatusDetail, value); } }
+        private bool statusOpen;
+        private readonly Action<bool> rememberStatusExpanded;
+        /// <summary>Whether the modified-files section is unfolded; the choice is remembered for the next time.</summary>
+        public bool StatusExpanded { get { return statusOpen; } set { if (Set(ref statusOpen, value)) rememberStatusExpanded?.Invoke(value); } }
+
+        public bool ShowChangeNotes { get; }
+        private string changeNotes;
+        /// <summary>The text last taken from the Steam page: if it is saved unchanged, the file matches what Steam has and is not a change since the last publish.</summary>
+        private string pulledDescription;
+        private readonly string savedChangeNotes;
+        /// <summary>The Unreleased lines of changelog.txt: what the update will send as its change note. Written back by <see cref="Commit"/>.</summary>
+        public string ChangeNotes
+        {
+            get { return changeNotes; }
+            set { if (Set(ref changeNotes, value)) { Raise(nameof(ChangeNotesHeader)); RaiseModified(); } }
+        }
+        public string ChangeNotesHeader
+        {
+            get { return L["PublishChangeNotes"] + ": " + (changeNotes ?? "").Split('\n').Count(line => line.Trim().Length > 0); }
+        }
         public bool HasPublishStatus { get { return PublishStatusLine.Length > 0; } }
         /// <summary>The mod.json version before this dialog proposed anything, for rolling back a publish that did not happen.</summary>
         public string OriginalVersion { get; }
@@ -318,7 +375,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
         /// <summary>The primary button: publishing is always allowed; the Properties "Save" only once something changed.</summary>
         public bool CanPrimary { get { return !propertiesOnly || IsModified; } }
-        private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanPrimary)); }
+        /// <summary>Something typed or chosen in this dialog has not been saved: leaving now would throw it away.</summary>
+        private bool HasUnsavedEdits
+        {
+            get
+            {
+                return FieldsSnapshot() != savedFields || !ModDescriptionFile.SameText(description, savedDescription)
+                    || (ShowChangeNotes && (changeNotes ?? "").Trim() != savedChangeNotes);
+            }
+        }
+        /// <summary>The dialog's way out: "Cancel" while edits would be discarded, "Close" when what is shown is what is on disk.</summary>
+        public string CancelText { get { return L[HasUnsavedEdits ? "Cancel" : "Close"]; } }
+        private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanPrimary)); Raise(nameof(CancelText)); }
 
         public string Title { get { return title; } set { if (Set(ref title, value)) RaiseModified(); } }
         public string Version
@@ -495,6 +563,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     await dialogs.ShowMessageAsync(L["PublishPullSteamDescriptionNotFound"], "DW2 Mod Launcher");
                     return;
                 }
+                pulledDescription = detail.Description ?? "";
                 Description = detail.Description ?? "";
             }
             catch (Exception ex)
@@ -524,7 +593,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 RaiseModified();
                 ModPublishRequest request = new ModPublishRequest
                 {
-                    Description = description,
+                    // the placeholders ({version}, {date}) are filled in on the way to Steam, as in a full publish
+                    Description = DescriptionTokens.Expand(description, (version ?? "").Trim(), DateTime.Now),
                     DescriptionOnly = true,
                     ExistingWorkshopId = long.Parse(workshopId)
                 };
@@ -534,8 +604,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 using (dialogs.ShowBusy(L["PublishPushSteamDescriptionRunning"], "DW2 Mod Launcher", L["Cancel"], TimeSpan.FromSeconds(15), cancel))
                     result = await Task.Run(() => ModPublisherFactory.Create(uint.Parse(DW2ModLauncher.Core.Services.SteamLocator.AppId)).Publish(request));
                 if (cancel.IsCancellationRequested) return;
+                string recordProblem = null;
+                if (string.IsNullOrEmpty(result.ErrorMessage))
+                {
+                    // The page now matches the file, so the file is no longer a change since the last publish.
+                    try { PublishedState.RecordFile(workshopId, contentFolder, descriptionFileName); RefreshStatus(); }
+                    catch (Exception ex)
+                    {
+                        DW2ModLauncher.Core.Diagnostics.Logger.LogException("Record pushed description", ex);
+                        recordProblem = L.Format("PublishStateRecordFailed", ex.Message);
+                    }
+                }
                 await dialogs.ShowMessageAsync(string.IsNullOrEmpty(result.ErrorMessage)
-                    ? L["PublishPushSteamDescriptionDone"]
+                    ? L["PublishPushSteamDescriptionDone"] + (recordProblem == null ? "" : "\n\n" + recordProblem)
                     : L.Format("PublishPushSteamDescriptionFailed", result.ErrorMessage), "DW2 Mod Launcher");
             }
             catch (Exception ex)
@@ -774,11 +855,23 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     ModDescriptionFile.Save(contentFolder, descriptionFileName, description);
                 // Named in mod.json whenever the file exists (the default name too); no file, no key.
                 metadata.DescriptionFile = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName) != null ? descriptionFileName : "";
+                if (pulledDescription != null && workshopId != null && ModDescriptionFile.SameText(description, pulledDescription))
+                    PublishedState.RecordFile(workshopId, contentFolder, descriptionFileName);
             }
             catch (Exception ex)
             {
                 DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write description.bbcode", ex);
                 return ex.Message;
+            }
+            // The change notes go to the Unreleased section of changelog.txt; the file is only touched when the text changed.
+            if (ShowChangeNotes && (changeNotes ?? "").Trim() != savedChangeNotes)
+            {
+                try { ModChangelog.SetUnreleased(contentFolder, (changeNotes ?? "").Trim()); }
+                catch (Exception ex)
+                {
+                    DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write changelog.txt", ex);
+                    return ex.Message;
+                }
             }
             metadata.Bundles = detectedBundles;
             try

@@ -36,10 +36,10 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public int Count { get { return Added.Count + Removed.Count + Modified.Count; } }
         public bool IsClean { get { return Count == 0; } }
 
-        /// <summary>Every changed path, each marked + (added), - (removed) or ~ (modified), in path order.</summary>
+        /// <summary>Every changed path, each marked + (added), - (removed) or ≠ (modified), in path order.</summary>
         public IEnumerable<string> Describe()
         {
-            return Added.Select(p => "+ " + p).Concat(Removed.Select(p => "- " + p)).Concat(Modified.Select(p => "~ " + p))
+            return Added.Select(p => "+ " + p).Concat(Removed.Select(p => "- " + p)).Concat(Modified.Select(p => "≠ " + p))
                 .OrderBy(s => s.Substring(2), StringComparer.OrdinalIgnoreCase);
         }
     }
@@ -137,6 +137,20 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public static void Record(string workshopId, string contentFolder, string dataRoot = null)
         {
             Save(workshopId, Capture(contentFolder), dataRoot);
+        }
+
+        /// <summary>
+        /// Brings one file's record up to date with the folder, for a change that reached Steam without a full publish (the description
+        /// pushed on its own). Nothing else in the record changes, so every other difference still shows. No record: nothing to update.
+        /// </summary>
+        public static void RecordFile(string workshopId, string contentFolder, string relativePath, string dataRoot = null)
+        {
+            PublishedManifest manifest = Load(workshopId, dataRoot);
+            if (manifest == null) return;
+            string key = relativePath.Replace('\\', '/');
+            if (File.Exists(Path.Combine(contentFolder, key))) manifest.Files[key] = Describe(contentFolder, key);
+            else manifest.Files.Remove(key);
+            Save(workshopId, manifest, dataRoot);
         }
 
         private static PublishedFile Describe(string contentFolder, string relativePath)

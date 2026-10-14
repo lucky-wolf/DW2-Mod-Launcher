@@ -37,17 +37,14 @@
          that exists" (a branch cut before the last release can't see its tag). For an untagged (dev) build, ask git for all
          of them so the patch shown is the one the next release will really carry; a new MAJOR.MINOR series has none, so
          it stays at MinVer's .0. Falls back to MinVer's own patch if git is missing or lists nothing. -->
-    <Exec Condition="'$(_DW2IsDev)' == 'true'" Command="git tag --list &quot;v$(MinVerMajor).$(MinVerMinor).*&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" IgnoreExitCode="true" WorkingDirectory="$(MSBuildThisFileDirectory)">
+    <Exec Condition="'$(_DW2IsDev)' == 'true'" Command="git tag --list &quot;v$(MinVerMajor).$(MinVerMinor).*&quot; --sort=-v:refname" ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" IgnoreExitCode="true" WorkingDirectory="$(MSBuildThisFileDirectory)">
       <Output TaskParameter="ConsoleOutput" ItemName="_DW2SeriesTag" />
     </Exec>
-    <ItemGroup>
-      <_DW2SeriesPatch Include="$([System.Text.RegularExpressions.Regex]::Match('%(_DW2SeriesTag.Identity)', '^v\d+\.\d+\.(\d+)$').Groups[1].Value)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(_DW2SeriesTag.Identity)', '^v\d+\.\d+\.\d+$'))" />
-    </ItemGroup>
+    <!-- the list is sorted newest first (by version, not by name: v1.0.9 sorts after v1.0.12 alphabetically), so the first tag is the highest -->
     <PropertyGroup>
-      <_DW2MaxPatch>-1</_DW2MaxPatch>
-      <_DW2MaxPatch Condition="'%(_DW2SeriesPatch.Identity)' != '' And %(_DW2SeriesPatch.Identity) &gt; $(_DW2MaxPatch)">%(_DW2SeriesPatch.Identity)</_DW2MaxPatch>
+      <_DW2MaxPatch>$([System.Text.RegularExpressions.Regex]::Match('@(_DW2SeriesTag)', '^v\d+\.\d+\.(\d+)(;|$)').Groups[1].Value)</_DW2MaxPatch>
     </PropertyGroup>
-    <PropertyGroup Condition="'$(_DW2IsDev)' == 'true' And $(_DW2MaxPatch) &gt;= 0">
+    <PropertyGroup Condition="'$(_DW2IsDev)' == 'true' And '$(_DW2MaxPatch)' != ''">
       <MinVerPatch>$([MSBuild]::Add($(_DW2MaxPatch), 1))</MinVerPatch>
     </PropertyGroup>
     <PropertyGroup>

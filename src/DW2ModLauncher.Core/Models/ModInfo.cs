@@ -57,7 +57,7 @@ namespace DW2ModLauncher.Core.Models
         public DW2ModLauncher.Core.Services.Publishing.ModVisibility? Visibility { get; set; }
         /// <summary>When the last recorded publish happened (UTC), or null when there is no record.</summary>
         public System.DateTime? PublishedUtc { get; set; }
-        /// <summary>When <see cref="PublishStatus"/> is Changed, the changed files, each marked + (added), - (removed) or ~ (modified).</summary>
+        /// <summary>When <see cref="PublishStatus"/> is Changed, the changed files, each marked + (added), - (removed) or ≠ (modified).</summary>
         public List<string> UnpublishedChanges { get; set; } = new List<string>();
         public List<string> IncludedTools { get; set; }
         public List<string> IncludedDocuments { get; set; }
