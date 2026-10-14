@@ -11,12 +11,3 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
-- Added all windows standard copy, cut, paste shortcuts to text edit controls
-- Change notes: changelog.txt's Unreleased lines go to Steam
-- changelog.txt stamped with version and date after publishing
-- {version} and {date} placeholders in description files
-- Publish dialog: modified files and change notes fold away
-- Description and short description fold; hints became tooltips
-- Preview image field read-only, with a folder button
-- Mod list keeps its selection after publishing
-- Dev builds show the correct next patch version
