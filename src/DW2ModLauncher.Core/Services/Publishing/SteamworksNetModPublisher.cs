@@ -111,7 +111,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
 
                 stage = "uploading the content and metadata (SteamUGC.SubmitItemUpdate)";
                 SubmitItemUpdateResult_t submitted;
-                if (!Await(SteamUGC.SubmitItemUpdate(update, ""), out submitted, result, request.Cancel)) return result;
+                if (!Await(SteamUGC.SubmitItemUpdate(update, request.ChangeNote ?? ""), out submitted, result, request.Cancel)) return result;
                 if (submitted.m_eResult != EResult.k_EResultOK)
                 {
                     result.ErrorMessage = Describe(stage, submitted.m_eResult, request, fileId);

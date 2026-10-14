@@ -42,7 +42,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public static string ResolveSteamDescription(string contentRoot, ModPublishMetadata metadata)
         {
             string text = ModDescriptionFile.Load(contentRoot, metadata);
-            return string.IsNullOrWhiteSpace(text) ? null : text;
+            return string.IsNullOrWhiteSpace(text) ? null : DescriptionTokens.Expand(text, metadata?.Version, DateTime.Now);
         }
 
         /// <summary>Rewrites just the "version" key (used to undo the auto-bump after a publish that didn't happen).</summary>

@@ -9,13 +9,6 @@
   <Grid RowDefinitions="*,Auto">
     <ScrollViewer Grid.Row="0">
       <StackPanel Margin="24" Spacing="14">
-        <TextBlock IsVisible="{Binding HasPublishStatus}" Classes="muted" TextWrapping="Wrap" Text="{Binding PublishStatusLine}" />
-        <Border IsVisible="{Binding HasStrayImages}" BorderBrush="Orange" BorderThickness="1" Padding="10,8" ToolTip.Tip="{Binding StrayImagesTooltip}">
-          <Grid ColumnDefinitions="*,12,Auto">
-            <TextBlock Grid.Column="0" Foreground="Orange" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding StrayImagesWarning, StringFormat='⚠ {0}'}" />
-            <Button Grid.Column="2" Command="{Binding CleanStrayImagesCommand}" Content="{Binding L[PublishStrayImagesClean]}" />
-          </Grid>
-        </Border>
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[PublishInfoTitle]}" />
           <TextBox Text="{Binding Title}" />
@@ -30,11 +23,17 @@
             <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" IsEnabled="{Binding VisibilityEnabled}" HorizontalAlignment="Stretch" />
           </StackPanel>
           <StackPanel Grid.Column="4" Spacing="6">
-            <TextBlock Text="{Binding L[PublishInfoPreviewImage]}" />
-            <Grid ColumnDefinitions="*,8,Auto,6,Auto">
-              <TextBox Grid.Column="0" Text="{Binding PreviewImage}" />
-              <TextBlock Grid.Column="2" Classes="muted" VerticalAlignment="Center" Text="{Binding PreviewImageSize}" />
-              <Button Grid.Column="4" Content="…" Command="{Binding BrowsePreviewCommand}" MinWidth="36" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="{Binding L[PublishInfoPreviewImage]}" />
+              <TextBlock Grid.Column="1" Classes="muted" HorizontalAlignment="Right" Text="{Binding PreviewImageSize}" />
+            </Grid>
+            <!-- The name is read-only (it can still be selected and copied); the folder button opens the file picker. -->
+            <Grid ColumnDefinitions="*,6,Auto">
+              <TextBox Grid.Column="0" Text="{Binding PreviewImage}" IsReadOnly="True" />
+              <Button Grid.Column="2" Command="{Binding BrowsePreviewCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishInfoPreviewImage]}">
+                <!-- "folder open" icon, Material Design Icons, Apache-2.0 -->
+                <PathIcon Width="16" Height="16" Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
+              </Button>
             </Grid>
           </StackPanel>
         </Grid>
@@ -81,14 +80,15 @@
             <ComboBox ItemsSource="{Binding BumpLevels}" SelectedItem="{Binding BumpLevel}" HorizontalAlignment="Stretch" />
           </StackPanel>
         </Grid>
-        <StackPanel Spacing="2">
-          <TextBlock Text="{Binding L[PublishShortDescription]}" />
-          <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishShortDescriptionHint]}" />
-          <TextBox Text="{Binding ShortDescription}" Margin="0,4,0,0" />
-        </StackPanel>
         <StackPanel Spacing="6">
-          <Grid ColumnDefinitions="Auto,*,Auto,6,Auto,6,Auto,6,Auto">
-            <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[Description]}" />
+          <TextBlock Text="{Binding L[PublishShortDescription]}" ToolTip.Tip="{Binding L[PublishShortDescriptionHint]}" />
+          <TextBox Text="{Binding ShortDescription}" ToolTip.Tip="{Binding L[PublishShortDescriptionHint]}" />
+        </StackPanel>
+        <!-- Folded by default: the arrow edits the description here, the pencil in your own editor. The buttons sit in the header and do not toggle it. -->
+        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
+          <Expander.Header>
+            <Grid ColumnDefinitions="Auto,*,Auto,6,Auto,6,Auto,6,Auto" ToolTip.Tip="{Binding L[PublishDescriptionHint]}">
+              <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[Description]}" />
             <Button Grid.Column="4" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
               <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
               <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
@@ -105,11 +105,10 @@
               <!-- "cloud upload" icon, Material Design Icons, Apache-2.0 -->
               <PathIcon Width="16" Height="16" Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
             </Button>
-          </Grid>
-          <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{Binding L[PublishDescriptionHint]}" />
+            </Grid>
+          </Expander.Header>
           <TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" Height="160" />
-
-        </StackPanel>
+        </Expander>
         <!-- Rarely used sections stay collapsed (just the title and an arrow) unless the mod actually has something in them. -->
         <Expander Header="{Binding L[PublishInfoBundles]}" IsExpanded="{Binding HasBundles, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0">
           <Border Background="{StaticResource Dw2Void}" BorderBrush="{StaticResource Dw2Steel}" BorderThickness="1" Padding="10,8">
@@ -160,6 +159,17 @@
             </StackPanel>
           </Border>
         </Expander>
+        <!-- Folded to the one status line by default; the choice is remembered. Unfolded it lists every changed file. -->
+        <Expander IsVisible="{Binding HasPublishStatus}" IsExpanded="{Binding StatusExpanded}" Header="{Binding PublishStatusLine}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+          <SelectableTextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding PublishStatusDetail}" />
+        </Expander>
+        <!-- What the update will send as its change note: the Unreleased lines of changelog.txt. Folded to "Change notes: N" until opened. -->
+        <Expander IsVisible="{Binding ShowChangeNotes}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
+          <Expander.Header>
+            <TextBlock Text="{Binding ChangeNotesHeader}" ToolTip.Tip="{Binding L[PublishChangeNotesHint]}" />
+          </Expander.Header>
+          <TextBox Text="{Binding ChangeNotes}" AcceptsReturn="True" TextWrapping="Wrap" Height="120" />
+        </Expander>
       </StackPanel>
     </ScrollViewer>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
@@ -167,7 +177,7 @@
         <TextBlock Classes="muted" VerticalAlignment="Center" IsVisible="{Binding ShowDescriptionDiffers}" Text="{Binding L[PublishDescriptionDiffers]}" />
         <CheckBox IsChecked="{Binding ReplaceDescription}" IsVisible="{Binding ShowReplaceDescription}" Content="{Binding L[PublishReplaceDescription]}" VerticalAlignment="Center" Margin="0,0,12,0" />
         <Button Name="PublishButton" Classes="play" IsEnabled="{Binding CanPrimary}" Content="{Binding PrimaryButtonText}" MinWidth="170" FontSize="14" ToolTip.Tip="{Binding Note}" />
-        <Button Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />
+        <Button Name="CancelButton" IsCancel="True" Content="{Binding CancelText}" MinWidth="125" />
       </StackPanel>
     </Border>
   </Grid>

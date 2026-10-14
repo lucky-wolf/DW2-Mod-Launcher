@@ -45,6 +45,8 @@ namespace DW2ModLauncher.Core.Models
         public string LastSelectedMod { get; set; }
         /// <summary>Extension of the description file a mod gets when it names none of its own (".bbcode", ".txt", or anything typed); see ModDescriptionFile.</summary>
         public string DescriptionExtension { get; set; } = ".bbcode";
+        /// <summary>The publish dialog's modified-files section is unfolded (folded by default; remembered).</summary>
+        public bool PublishStatusExpanded { get; set; }
         /// <summary>The folder the last preview image was picked from (outside any mod), offered when the next pick starts from a blank image field.</summary>
         public string LastArtFolder { get; set; }
         /// <summary>Per mod (id, else folder name): headings of the settings editor groups the user collapsed.</summary>

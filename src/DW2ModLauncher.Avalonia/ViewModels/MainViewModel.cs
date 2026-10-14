@@ -339,6 +339,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>Stored the moment a preview image is picked, so the folder is remembered even if the publish dialog is then cancelled.</summary>
+        private void RememberStatusExpanded(bool expanded)
+        {
+            settings.PublishStatusExpanded = expanded;
+            SaveSettings();
+        }
+
         private void RememberArtFolder(string folder)
         {
             settings.LastArtFolder = folder;
@@ -457,7 +463,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             populating = false;
             RefreshRowStates();
             ApplySort();
-            SelectedRow = keepSelected == null ? null : Mods.FirstOrDefault(r => r.Mod == keepSelected);
+            // A refresh rescans the folders, so the selected mod is a new object: find it again by where it lives (or, failing that, its token).
+            SelectedRow = keepSelected == null ? null : Mods.FirstOrDefault(r => r.Mod == keepSelected || SameMod(r.Mod, keepSelected));
+        }
+
+        private static bool SameMod(ModInfo a, ModInfo b)
+        {
+            if (a.IsWorkshop != b.IsWorkshop) return false;
+            if (!string.IsNullOrEmpty(a.Folder) && !string.IsNullOrEmpty(b.Folder)) return string.Equals(a.Folder, b.Folder, StringComparison.OrdinalIgnoreCase);
+            return !string.IsNullOrEmpty(a.ActiveToken) && string.Equals(a.ActiveToken, b.ActiveToken, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>Recomputes enabled / health / load-order for the existing rows without rebuilding the list (keeps scroll position).</summary>
@@ -1141,7 +1155,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1222,7 +1236,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1304,19 +1318,28 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return;
             }
 
+            string contentFolder = mod.ContentRoot ?? mod.Folder;
+            string newDescription;
+            try { newDescription = editor.ReplaceDescription ? ModPublishMetadataEditor.ResolveSteamDescription(contentFolder, metadata) : null; }
+            catch (FormatException ex)
+            {
+                RollBackVersion(mod, versionBefore, versionWritten);
+                await Dialogs.ShowMessageAsync(T("PublishFailed", ex.Message), "DW2 Mod Launcher");
+                return;
+            }
             publishRunning = true;
             PublishCommand.RaiseCanExecuteChanged();
             SetStatus(T("PublishRunning"));
-            string contentFolder = mod.ContentRoot ?? mod.Folder;
             ModPublishRequest request = new ModPublishRequest
             {
                 ContentFolder = contentFolder,
                 Title = metadata.DisplayName,
                 // Null leaves the Steam page's description untouched.
-                Description = editor.ReplaceDescription ? ModPublishMetadataEditor.ResolveSteamDescription(contentFolder, metadata) : null,
+                Description = newDescription,
                 PreviewImagePath = string.IsNullOrWhiteSpace(metadata.PreviewImage) ? null : Path.Combine(contentFolder, metadata.PreviewImage),
                 ExistingWorkshopId = long.TryParse(mod.WorkshopId, out long existingId) ? existingId : (long?)null,
-                Visibility = editor.SelectedVisibility
+                Visibility = editor.SelectedVisibility,
+                ChangeNote = ModChangelog.ChangeNote(contentFolder, metadata.Version)
             };
             CancellationTokenSource cancel = new CancellationTokenSource();
             request.Cancel = cancel.Token;
@@ -1344,6 +1367,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     return;
                 }
                 ModJsonWorkshopIdWriter.Write(mod.ModJsonPath, result.WorkshopId.Value);
+                // The published notes are now history: the Unreleased heading takes this version (changelog.txt).
+                string stampProblem = null;
+                try { ModChangelog.Stamp(contentFolder, metadata.Version, DateTime.Now); }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Stamp changelog of " + mod.DisplayName, ex);
+                    stampProblem = T("PublishChangelogStampFailed", ex.Message);
+                }
                 // After every write the publish itself makes to the folder (version bump, author stamp, the id just written), so it starts clean.
                 string recordProblem = null;
                 try { PublishedState.Record(result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), contentFolder); }
@@ -1355,6 +1386,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 string url = "https://steamcommunity.com/sharedfiles/filedetails/?id=" + result.WorkshopId.Value;
                 string message = T("PublishCapturedIdMessage", result.WorkshopId.Value, url);
                 if (result.NeedsWorkshopAgreement) message += "\n\n" + T("PublishNeedsWorkshopAgreement");
+                if (stampProblem != null) message += "\n\n" + stampProblem;
                 if (recordProblem != null) message += "\n\n" + recordProblem;
                 // Steam can quietly hold an item private (e.g. until the Workshop agreement is accepted), so check it took the setting.
                 ModVisibility? requested = editor.SelectedVisibility;

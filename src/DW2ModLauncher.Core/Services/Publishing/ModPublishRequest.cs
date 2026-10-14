@@ -25,6 +25,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
         /// <summary>Sends only <see cref="Visibility"/> to an existing item: nothing else (title, content, preview image, description) is touched.</summary>
         public bool VisibilityOnly { get; set; }
         public string PreviewImagePath { get; set; }
+        /// <summary>The change note Steam shows for this update (ModChangelog.ChangeNote). Null or blank sends none.</summary>
+        public string ChangeNote { get; set; }
         public long? ExistingWorkshopId { get; set; }
         /// <summary>Null leaves visibility alone: a new item stays private (Steam's default), an existing one keeps what it has.</summary>
         public ModVisibility? Visibility { get; set; }
