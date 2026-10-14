@@ -10,6 +10,9 @@
 
   <PropertyGroup>
     <MinVerTagPrefix>v</MinVerTagPrefix>
+    <!-- The SDK appends the git commit to the informational version ("1.0.10-dev+<sha>"), which changes every dll's bytes on every commit even when the code
+         is the same. Nothing reads the suffix (every reader cuts at the '+'). -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <!-- .version holds the hand-bumped MAJOR.MINOR that scripts/release.py tags with. Feed it to MinVer as the floor so a
          dev build already shows the version the next release will carry (0.5 -> 0.5.0-dev) instead of lagging at the
          last tag's patch+1 until the first tag of the new MAJOR.MINOR exists. -->
