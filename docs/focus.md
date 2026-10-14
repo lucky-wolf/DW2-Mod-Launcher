@@ -11,3 +11,5 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
+- Fixed detection of modified to normalize text files before hashing and comparing
+- Fixed my own dll mods to remove the git hash from their embedded version strings (which otherwise causes a false difference)

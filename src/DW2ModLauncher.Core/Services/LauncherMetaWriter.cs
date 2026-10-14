@@ -48,7 +48,9 @@ namespace DW2ModLauncher.Core.Services
                 root.Remove(key);
             }
             root[field] = name;
-            File.WriteAllText(path, root.ToJsonString(Indented), new UTF8Encoding(false));
+            // LF always, whatever the platform: mod repos keep LF-only files, and a CRLF stamp would read as a change once the file
+            // is copied back through one (the published-state comparison hashes the bytes).
+            File.WriteAllText(path, root.ToJsonString(Indented).Replace("\r\n", "\n"), new UTF8Encoding(false));
         }
     }
 }
