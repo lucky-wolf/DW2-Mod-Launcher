@@ -11,3 +11,4 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
+- Added `Mod Author README.md` to help other mod authors integrate with this ecosystem

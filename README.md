@@ -49,6 +49,8 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
   - Test your mods that use DLL injection
   - Create a specification that users can easily configure your mod to their tastes
 
+Making a mod? Start with the [Mod author README](Mod%20Author%20README.md).
+
 ## Requirements
 
 - Windows, or Linux (the game runs under Proton; see [Linux](#linux))

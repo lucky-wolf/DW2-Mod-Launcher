@@ -17,7 +17,7 @@ For every code mod in the manifest: its DLL name, the version and build time rea
 
 ## Reporting more from a mod
 
-A mod has no compile-time reference to the loader (it must keep working when injected directly), so it reaches `DW2ModLauncher.Loader.ModStatus` by reflection. Copy this file into the mod, change the namespace, and call it. With no launcher every call is a no-op and `LauncherStatus.Present` is false, which is the cue to draw the mod's own line if it wants one. DW2FreighterLogistics is the worked example (`dll/DW2FreighterLogistics/LauncherStatus.cs` in DW2-XL).
+A mod has no compile-time reference to the loader (it must keep working when injected directly), so it reaches `DW2ModLauncher.Loader.ModStatus` by reflection. Copy this file into the mod, change the namespace, and call it. With no launcher every call is a no-op and `LauncherStatus.Present` is false, which is the cue to draw the mod's own line if it wants one.
 
 ```csharp
 using System.Reflection;

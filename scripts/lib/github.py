@@ -27,6 +27,18 @@ def open_pr_exists(repo_root: Path, branch: str) -> bool:
     return listing.returncode == 0 and json.loads(listing.stdout or "[]") != []
 
 
+def open_pr_body(repo_root: Path, branch: str) -> str | None:
+    """The description of branch's open PR, or None when there is no open PR."""
+    listing = subprocess.run(
+        ["gh", "pr", "list", "--head", branch, "--state", "open", "--json", "body"],
+        cwd=repo_root, capture_output=True, text=True,
+    )
+    if listing.returncode != 0:
+        raise RuntimeError(listing.stderr.strip())
+    existing = json.loads(listing.stdout or "[]")
+    return existing[0]["body"] or "" if existing else None
+
+
 def create_or_update_pr(repo_root: Path, branch: str, target: str, title: str, body: str | None, draft: bool) -> tuple[str, bool]:
     """Creates the PR for branch, or updates the open one's title (and body, unless body is None). Returns (url, created).
     Raises RuntimeError with gh's message on failure."""

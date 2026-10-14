@@ -2,7 +2,7 @@
 
 Goal: the launcher adds a **Mods** item to the game's own Game Menu (the Esc / "Distant Worlds 2" panel). Code mods that opt in add entries under it, so a mod's UI has one place to live instead of each mod inventing its own. The launcher is always the first entry; it opens the status panel that the status line already opens.
 
-## What the game gives us (from the decompiled dump, `DW2-XL/temp/game-dump`)
+## What the game gives us
 
 - The Game Menu is `DistantWorlds.UI.GameMenuPanel` (`DWRendererBase.GameMenuPanel`), a `DWPanel` with eight fixed buttons and a seed label. `BindData` lays them out by hand every time the menu is shown (`ScaledRenderer.ShowGameMenu`), and the panel height comes from `UserInterfaceHelper.GameMenuPanelSize` (9 rows). There is no generic menu, no fly-out, and no extension point.
 - The panel is anchored to the right edge, below the Game Menu button, so a sub-list has to open to its **left**.
@@ -49,7 +49,7 @@ Opens the existing status dialog (the panel behind the status line), expanded wi
 
 1. `ModMenu` + `MenuRegistry` (loader, BCL only, unit tested like `StatusRegistry`): entries, order, revision counter.
 2. `MenuWidget` (loader, reflection): the Mods button on the Game Menu, the column, click handling, Harmony postfixes on `ShowGameMenu`/`HideGameMenu` plus the existing `Update` postfix for upkeep. Share `Game.Bind` and `Slot` with `StatusWidget` (extract to their own file).
-3. Docs: `docs/Mod Menu.md` (user and mod-author facing), snippet in the DW2-XL `dll/README.md` convention.
+3. Docs: `docs/Mod Menu.md` (user and mod-author facing), with the snippet for mods to copy.
 4. First consumer: DW2FreighterLogistics or DW2SpiesHaveLimits (whichever already has a UI to open); the second proves the ordering.
 
 ## What was built (revised after the first in-game test)

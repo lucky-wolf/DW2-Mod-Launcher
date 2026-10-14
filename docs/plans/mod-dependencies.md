@@ -1,6 +1,6 @@
 # Mod dependencies and data channels in dw2modlauncher.json
 
-Status: built (launcher side) on 2026-10-10. User-facing description: [../DLL Injection.md](../DLL%20Injection.md). The consumer is DW2-XL's Coherent Research, which receives its profile tables on the `coherent-research.profiles` channel; XL provides them.
+Status: built (launcher side) on 2026-10-10. User-facing description: [../DLL Injection.md](../DLL%20Injection.md). The first consumer is the Coherent Research mod, which receives its profile tables on the `coherent-research.profiles` channel; a data mod supplies them (a worked example is under Channels).
 
 ## Two features
 
@@ -30,9 +30,49 @@ Decisions made: load order is **enforced** (on Play the launcher sorts the enabl
 
 Why channels and not "dependency + needs": a mod like Coherent Research is not dependent on any one mod; it is a consumer that works with whatever data is offered, and the mods that have the data (XL, a total overhaul) are the ones that opt in. So the receiving DLL declares the channels it receives (`receives`), and any mod declares what it supplies (`provides`: channel, and slot name to file path). Neither names the other, so a renamed mod, a beta folder or a fork needs no special case.
 
-- Slots, formats and their `version` are the receiver's contract (for `coherent-research.profiles`: [DW2-XL docs/Profile Data Channel.md](../../../DW2-XL/docs/Profile%20Data%20Channel.md)). The `version` inside a file, not the other mod's package version, is how a reader handles old versus new data.
+- Slots, formats and their `version` are the receiver's contract, which the receiving mod documents (the worked example below shows what that looks like). The `version` inside a file, not the other mod's package version, is how a reader handles old versus new data.
 - The launcher reads the files (text only, 1 MB each) and merges every enabled provider's file for a slot **in load order**: a `.json` slot as an RFC 7396 merge patch (first provider the full set, later ones augment or override, `null` removes), any other slot replaced by the later provider. The receiver gets the combined text in the second argument of `InitWithOptions(string json, IReadOnlyDictionary<string, string> files)`, keyed `channel/slot`. Settings JSON is untouched.
 - Disagreeing top-level `version` values between providers are reported before launch. Bad paths (absolute, `..`, links, missing, oversize, not UTF-8) and unparseable `.json` are reported and left out. No provider means no keys.
+
+### Worked example: `coherent-research.profiles`
+
+Coherent Research chooses armor, shields, engines, hyperdrives, reactors and weapons for a race from a table of named profiles. It does not own the table's contents: any mod can supply them. It is the receiver, so it owns the contract.
+
+The receiver (Coherent Research) declares in its `dw2modlauncher.json`:
+
+```json
+{ "minLauncherVersion": "1.0.9", "receives": ["coherent-research.profiles"] }
+```
+
+A mod that has profiles (a data mod that adds races, say) declares, in its own `dw2modlauncher.json`, which file fills the slot:
+
+```json
+{
+  "minLauncherVersion": "1.0.9",
+  "provides": [
+    { "channel": "coherent-research.profiles",
+      "files": { "extended race profiles.json": "profiles/extended race profiles.json" } }
+  ]
+}
+```
+
+The receiver's contract for the one slot, `extended race profiles.json`: a JSON object of `category` then `profile name` then properties, plus a top-level `version` that the receiver checks.
+
+```json
+{
+  "version": 2,
+  "Armor": { "ArmorHex": { "ArmorReactiveRating": 2, "IonDefense": 2, "ArmorBlastRating": 1 } },
+  "WeaponCloseIn": { "HeavyIon": { "family": "Ion Cannons", "gamma": 1.0 } }
+}
+```
+
+What happens at launch:
+
+- The launcher reads each enabled provider's file and merges them in load order. A second provider that ships only `{ "version": 2, "Armor": { "NewRace": { ... } } }` adds that profile and leaves the first provider's profiles alone; `"ArmorHex": null` would remove one.
+- Coherent Research receives the merged text as `files["coherent-research.profiles/extended race profiles.json"]` and layers it over a base table of its own, so with no provider enabled it still runs on its base table and says so in its log.
+- If two providers disagree on `version`, the launcher reports it before launch and the merged data takes the later one. A receiver that does not understand a `version` refuses the file and says so in its log.
+
+The same pattern fits any case where one mod owns a format and others contribute data to it.
 
 ## Not included
 
@@ -48,7 +88,7 @@ Why channels and not "dependency + needs": a mod like Coherent Research is not d
 
 ## Hand-off
 
-Where this stands and what is left, for whoever picks it up next (the DW2-XL side is in `DW2-XL/docs/plans/weapon-scoring.md` and `DW2-XL/docs/Profile Data Channel.md`).
+Where this stands and what is left, for whoever picks it up next (the receiving mod's own documentation covers its data format).
 
 - **Shipped in 1.0.9** (the current branch): `dependencies`, `provides` / `receives`, the second `InitWithOptions` argument, the "Works with other mods" lines in the details pane (`ModDetails.BuildLinks`, flat `label: value`, nothing shown for a mod that declares none). Mods that use it set `"minLauncherVersion": "1.0.9"` in their `dw2modlauncher.json` (Coherent Research and XL do).
 - **mod.json is the game's file.** The launcher reads only keys the game itself reads (matched ignoring case) and writes nothing of its own there; everything launcher-specific lives in `dw2modlauncher.json`. The old `Required` / `Optional` / `Incompatible` / `LoadBefore` / `LoadAfter` readers and the alias key names were removed for that reason.
