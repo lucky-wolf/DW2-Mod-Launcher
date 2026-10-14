@@ -73,10 +73,10 @@ namespace DW2ModLauncher.Core.Services
         /// Records the choice in the launcher's own settings (the caller saves them) and in DW2's mods.json.
         /// On success the order state is updated in place.
         /// </summary>
-        public static SetEnabledResult SetEnabled(ModInfo mod, bool enabled, LauncherSettings settings, ModOrderState order)
+        public static SetEnabledResult SetEnabled(ModInfo mod, bool enabled, LauncherSettings settings, ModOrderState order, IList<string> listOrder = null)
         {
             settings.SelectedMods[mod.Key] = enabled;
-            SetEnabledResult result = SaveOrderSelection(mod, enabled, settings, order);
+            SetEnabledResult result = SaveOrderSelection(mod, enabled, settings, order, listOrder);
             // An enabled mod always has a settings file holding every schema key (missing ones at their defaults).
             if (enabled && result.Outcome == SetEnabledOutcome.Saved)
             {
@@ -138,14 +138,17 @@ namespace DW2ModLauncher.Core.Services
             return result;
         }
 
-        public static SetEnabledResult SaveOrderSelection(ModInfo mod, bool enabled, LauncherSettings settings, ModOrderState order)
+        /// <param name="listOrder">The enabled mods (including this one when enabling) as the list shows them, top to bottom. When given, an enabled mod
+        /// takes the place its row holds in the list (e.g. dragged there while the game was running) instead of going to the end.</param>
+        public static SetEnabledResult SaveOrderSelection(ModInfo mod, bool enabled, LauncherSettings settings, ModOrderState order, IList<string> listOrder = null)
         {
             if (order.ReadFailed) return new SetEnabledResult { Outcome = SetEnabledOutcome.ModsJsonInvalid };
             if (GameProcess.IsRunning()) return new SetEnabledResult { Outcome = SetEnabledOutcome.GameRunning };
             try
             {
-                List<string> written = ModOrderStore.Write(ModOrderStore.PathFor(settings.ManagedModsRoot, settings.GameRoot),
-                    ModOrderStore.WithEnabled(order.Order, mod.ActiveToken, enabled));
+                List<string> next = ModOrderStore.WithEnabled(order.Order, mod.ActiveToken, enabled);
+                if (enabled && listOrder != null) next = ModOrderStore.Reorder(next, listOrder);
+                List<string> written = ModOrderStore.Write(ModOrderStore.PathFor(settings.ManagedModsRoot, settings.GameRoot), next);
                 if (written == null) return new SetEnabledResult { Outcome = SetEnabledOutcome.NoModsFolder };
                 order.Order = written;
                 order.FileFound = true;
