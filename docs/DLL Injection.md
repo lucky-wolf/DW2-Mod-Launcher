@@ -119,6 +119,17 @@ public static void InitWithOptions(string json, IReadOnlyDictionary<string, stri
 - A path that is absolute, leaves the mod's folder (`..`), is a link, is missing, is larger than 1 MB or is not UTF-8 text is reported before launch and left out; so is a `.json` slot that does not parse. With no provider enabled the DLL simply receives no keys and decides for itself what to do.
 - This narrows what the DLL is told; it is not a sandbox, since a code mod runs with the user's rights.
 
+### Live channels (data that changes while the game runs)
+
+File channels are read once, at launch. Data that changes in play (which colonies are an empire's hubs, say) travels on a *live channel*: a name and a delegate, held by the loader in `DW2ModLauncher.Loader.LiveChannels`.
+
+- The mod that has the data **provides** a delegate under the channel's name, at start-up: `LiveChannels.Provide(providerName, channel, handler)`. The mod that wants it **gets** the delegate by name when it needs it, `LiveChannels.Get(channel)`, and calls it. The consumer never names the provider and the provider never names the consumer.
+- As with file channels, the channel is a contract owned by the mod that consumes it: it documents the channel's name and the delegate's type. Build the type from BCL types only (`Func<short, IReadOnlyCollection<int>>`): every mod compiles its own copy of its own types, which are different types to the other mods.
+- **Ask when you need it, never once at start-up.** Mods load one after another in load order, so a provider may not have registered yet when a consumer starts. `Get` gives `null` when nobody provides the channel, and that is what the consumer reports (its status line) if it still has none when it needs one.
+- One provider per channel, and the last one wins, as everywhere in the mod order: a mod that provides a channel after another takes it over, so a mod placed later can replace what an earlier one offers. The loader log says each time: `live channel 'x': provided by B, superseding A (the later mod wins)`. The same mod providing again just replaces its own handler.
+- **Build on what you replace.** `Provide` hands back the handler it superseded (`null` if there was none), so a later mod can call the earlier mod's handler from its own, change the answer, and publish the result as the official one: `Func<short, IReadOnlyCollection<int>> previous = null; previous = Provide(channel, new Func<short, IReadOnlyCollection<int>>(id => Adjust(previous(id))));`. It is the mod that registers last that answers every consumer; the earlier mod's data is still there through `previous`. A mod that only wants to replace simply ignores the return value.
+- Mods reach `LiveChannels` by reflection (it is a static class with BCL-only signatures), as they reach `ModStatus`; the DW2-XL code mods do it in `dll/Shared/LiveChannel.cs`. Nothing is declared in `dw2modlauncher.json` and nothing is checked before launch.
+
 `dll` is relative to the mod's content folder; `entryPoint` is the `Namespace.Type.Method` the loader
 invokes. `LoaderManifestBuilder.Build` gathers every enabled mod's targets, in load order,
 de-duplicated by `dll!entryPoint`, into a `DW2ModLauncher.Core.Models.LoaderManifest`.
