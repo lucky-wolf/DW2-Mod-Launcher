@@ -737,7 +737,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     CoverFileName(extension), extension);
                 if (copyName == null) return null;
                 string target = System.IO.Path.Combine(contentFolder, copyName);
-                File.Copy(picked, target);
+                File.Copy(picked, target, overwrite: true);
                 return target;
             }
             catch (Exception ex)
@@ -749,21 +749,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>
-        /// The name offered for a preview image brought in from outside the mod: the mod's own name (it is the mod's cover art), with
-        /// " (2)", " (3)"... added when that file already exists in the mod folder.
+        /// The name offered for a preview image brought in from outside the mod: the mod's own name (it is the mod's cover art). If that
+        /// file already exists it is offered anyway, since replacing the old cover art is the usual intent.
         /// </summary>
         private string CoverFileName(string extension)
         {
             string stem = DW2ModLauncher.Core.Services.LocalModManager.FolderNameFor(string.IsNullOrWhiteSpace(title) ? System.IO.Path.GetFileName(contentFolder.TrimEnd('/', (char)92)) : title);
-            string name = stem + extension;
-            for (int n = 2; File.Exists(System.IO.Path.Combine(contentFolder, name)); n++)
-                name = stem + " (" + n + ")" + extension;
-            return name;
+            return stem + extension;
         }
 
         /// <summary>
         /// Asks what to call a file about to be saved in the mod folder. The extension is fixed (a typed image extension is replaced), and
-        /// a name that is already taken is refused, so nothing is ever overwritten. Returns the file name, or null on Cancel.
+        /// a name that is already taken is allowed (the dialog warns that the file will be replaced). Returns the file name, or null on Cancel.
         /// </summary>
         private async Task<string> PromptFileNameAsync(string label, string defaultName, string extension)
         {
@@ -775,11 +772,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     if (name == null) return L["PublishPreviewResizeNameBad"];
                     return File.Exists(System.IO.Path.Combine(contentFolder, name)) ? L.Format("PublishPreviewResizeNameTaken", name) : L.Format("PublishPreviewResizeNameHint", name);
                 },
-                isInvalid: text =>
-                {
-                    string name = PreviewImagePlan.FileNameFor(text, extension);
-                    return name == null || File.Exists(System.IO.Path.Combine(contentFolder, name));
-                });
+                isInvalid: text => PreviewImagePlan.FileNameFor(text, extension) == null);
             return typed == null ? null : PreviewImagePlan.FileNameFor(typed, extension);
         }
 

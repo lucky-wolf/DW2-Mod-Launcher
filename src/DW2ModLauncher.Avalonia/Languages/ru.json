@@ -229,7 +229,7 @@
   "PublishStrayImagesClean": "Очистить…",
   "PublishStrayImagesQuestion": "Эти файлы изображений в папке мода не являются изображением предпросмотра, и мод их не использует, но они будут загружены в Steam вместе с ним:\r\n\r\n{0}\r\n\r\nПереместить их в корзину?",
   "PublishPreviewResizeNameHint": "Будет сохранён как {0}",
-  "PublishPreviewResizeNameTaken": "{0} уже есть в папке мода. Выберите другое имя.",
+  "PublishPreviewResizeNameTaken": "{0} уже есть в папке мода и будет заменён.",
   "PublishPreviewResizeNameBad": "Недопустимое имя файла.",
   "PublishPreviewResizeFailed": "{0} не удалось уменьшить до размера меньше 1 МиБ, не сделав его крошечным. Он будет использован как есть.",
   "PublishInfoBundles": "Бандлы",

@@ -229,7 +229,7 @@
   "PublishStrayImagesClean": "Clean up…",
   "PublishStrayImagesQuestion": "These image files in the mod folder are not the preview image and nothing in the mod uses them, but they would be uploaded to Steam with it:\r\n\r\n{0}\r\n\r\nMove them to the recycle bin?",
   "PublishPreviewResizeNameHint": "Will be saved as {0}",
-  "PublishPreviewResizeNameTaken": "{0} already exists in the mod folder. Choose another name.",
+  "PublishPreviewResizeNameTaken": "{0} already exists in the mod folder and will be replaced.",
   "PublishPreviewResizeNameBad": "That is not a valid file name.",
   "PublishPreviewResizeFailed": "{0} could not be made smaller than 1 MiB without becoming tiny. It will be used as it is.",
   "PublishInfoBundles": "Bundles",

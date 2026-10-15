@@ -229,7 +229,7 @@
   "PublishStrayImagesClean": "整理…",
   "PublishStrayImagesQuestion": "Modフォルダーにある次の画像ファイルはプレビュー画像ではなく、Modからも使用されていませんが、Modと一緒にSteamへアップロードされます:\r\n\r\n{0}\r\n\r\nごみ箱に移動しますか？",
   "PublishPreviewResizeNameHint": "{0} として保存されます",
-  "PublishPreviewResizeNameTaken": "{0} はModフォルダーに既にあります。別の名前を指定してください。",
+  "PublishPreviewResizeNameTaken": "{0} はModフォルダーに既にあります。置き換えられます。",
   "PublishPreviewResizeNameBad": "ファイル名として無効です。",
   "PublishPreviewResizeFailed": "「{0}」は極端に小さくしない限り1 MiB未満にできませんでした。そのまま使用します。",
   "PublishInfoBundles": "バンドル",

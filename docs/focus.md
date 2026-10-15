@@ -12,3 +12,4 @@ reconstruct it right before opening the PR. Fold several small related lines int
 
 ---
 - Load order is preserved when you enable or disable a mod (current session only)
+- Picking replacement cover art can now overwrite the existing file instead of forcing "(2)"
