@@ -174,6 +174,17 @@ ignored, and a field `key` that already appeared in an earlier group is skipped:
 }
 ```
 
+A group can carry a **description**: a root `_groups` object (underscore, so it sorts first and never clashes with a group of your own named "groups") maps a group's name to text shown under its heading while the group is
+expanded. Use it to explain what a feature is when its fields are only switches like "Enable for Player" (the field `description`
+then only has to say what that one switch changes). The names are matched ignoring case; a value that is not a string is an error.
+
+```json
+{
+  "Staging": [ {"key": "StagingPlayer", "type": "bool", "label": "Enable for Player", "default": true} ],
+  "_groups": { "Staging": "Each invasion fleet has troops waiting near its home base, so it can fill up the moment it is ordered out." }
+}
+```
+
 Per field:
 
 | Attribute | Required | Meaning |
@@ -199,7 +210,10 @@ Limits, defaults and types never go in it.
 
 ```json
 {
-  "groups": { "Speed penalties": "速度ペナルティ" },
+  "groups": {
+    "Speed penalties": "速度ペナルティ",
+    "Staging": { "heading": "集結", "description": "各侵攻艦隊は、母港の近くで兵が待機しています。" }
+  },
   "fields": {
     "Enabled": "有効",
     "NebulaPercent": { "label": "星雲での速度低下 (%)", "description": "星雲の中で失う速度です。" },
@@ -208,7 +222,9 @@ Limits, defaults and types never go in it.
 }
 ```
 
-- `groups` maps a group's name (its root key) to the heading to show.
+- `groups` maps a group's name (its root key) to the heading to show, or to an object with `heading` and/or `description` (the
+  translation of the group description from the schema's `_groups` object). All the launcher's translation paths, this one included,
+  are collected in [Localization.md](Localization.md#a-mods-settings-dialog).
 - `fields` maps a field `key` to its translation: an object with any of `label`, `description` and `options` (the schema's option text to the
   text shown; the stored value stays the schema's option), or just a string, which translates only the label.
 - Keys are matched ignoring case. A sidecar for the base language is used like any other, so a mod written in Japanese can ship

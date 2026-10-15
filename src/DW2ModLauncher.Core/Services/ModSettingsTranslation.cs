@@ -13,7 +13,7 @@ namespace DW2ModLauncher.Core.Services
     /// schema has it, so a translator can do just the labels. Limits, defaults and types never belong in a sidecar.
     /// <code>
     /// {
-    ///   "groups": { "Hubs": "ハブ" },
+    ///   "groups": { "Hubs": "ハブ", "Staging": { "heading": "…", "description": "…" } },
     ///   "fields": {
     ///     "HubsPlayer": { "label": "…", "description": "…", "options": { "Normal": "通常" } },
     ///     "Seed": "シード"
@@ -25,6 +25,7 @@ namespace DW2ModLauncher.Core.Services
     public class ModSettingsTranslation
     {
         private readonly Dictionary<string, string> groups = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> groupDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, FieldText> fields = new Dictionary<string, FieldText>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>The translated text of one field; any part may be null (not translated).</summary>
@@ -42,6 +43,12 @@ namespace DW2ModLauncher.Core.Services
         public string Heading(string groupName, string schemaText)
         {
             return groupName != null && groups.TryGetValue(groupName, out string text) && !string.IsNullOrWhiteSpace(text) ? text : schemaText;
+        }
+
+        /// <summary>The group description, translated if the sidecar has it.</summary>
+        public string GroupDescription(string groupName, string schemaText)
+        {
+            return groupName != null && groupDescriptions.TryGetValue(groupName, out string text) && !string.IsNullOrWhiteSpace(text) ? text : schemaText;
         }
 
         public string Label(string key, string schemaText)
@@ -98,6 +105,15 @@ namespace DW2ModLauncher.Core.Services
             foreach (JsonProperty group in element.EnumerateObject())
             {
                 if (group.Value.ValueKind == JsonValueKind.String) result.groups[group.Name] = group.Value.GetString();
+                else if (group.Value.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (JsonProperty part in group.Value.EnumerateObject())
+                    {
+                        if (part.Value.ValueKind != JsonValueKind.String) continue;
+                        if (string.Equals(part.Name, "heading", StringComparison.OrdinalIgnoreCase)) result.groups[group.Name] = part.Value.GetString();
+                        else if (string.Equals(part.Name, "description", StringComparison.OrdinalIgnoreCase)) result.groupDescriptions[group.Name] = part.Value.GetString();
+                    }
+                }
             }
         }
 

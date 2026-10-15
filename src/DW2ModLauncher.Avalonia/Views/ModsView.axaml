@@ -94,6 +94,9 @@
                   <Image Source="{Binding Thumbnail}" Width="72" Height="48" Stretch="Uniform" />
                   <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                   <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" IsVisible="{Binding HasUnpublishedChanges}" ToolTip.Tip="{Binding UnpublishedTip}" />
+                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding IsUpToDate}" ToolTip.Tip="{Binding UpToDateTip}" />
+                  <!-- Never published: a mid gray dot (gold is for changes since a publish). -->
+                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="#8A8A8A" IsVisible="{Binding IsNotPublished}" ToolTip.Tip="{Binding VisibilityTip}" />
                 </StackPanel>
                 <StackPanel views:ColumnRowPanel.ColumnId="source" Classes="dim" Margin="6,0" VerticalAlignment="Center">
                   <StackPanel Orientation="Horizontal" Spacing="6">

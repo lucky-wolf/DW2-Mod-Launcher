@@ -733,6 +733,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
 
+        /// <summary>Compares the mod's folder with its record right now, so a dialog about to open shows the folder as it is and not as of the last scan.</summary>
+        private void FreshenPublishState(ModInfo mod)
+        {
+            EvaluatePublishState(mod);
+            Mods.FirstOrDefault(r => ReferenceEquals(r.Mod, mod))?.RefreshPublishState();
+        }
+
         /// <summary>
         /// A local mod's files are the author's to edit at any time, so the details pane re-reads what it shows (names, description,
         /// preview, included tools/documents) instead of trusting the last scan. Conflict and state fields are left alone.
@@ -1155,6 +1162,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             bool isPublished = !string.IsNullOrWhiteSpace(mod.WorkshopId);
             ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
+            FreshenPublishState(mod);
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
             PublishDialogViewModel editor;
             try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded); }
@@ -1236,6 +1244,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModVisibility? currentVisibility = isUpdate ? await ReadVisibilityAsync(mod) : null;
             // On an update, ask Steam what the description currently says so the dialog only offers to replace it when it differs.
             string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
+            FreshenPublishState(mod);
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
             PublishDialogViewModel editor;
             try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded); }

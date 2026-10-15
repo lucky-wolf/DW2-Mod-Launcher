@@ -34,6 +34,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Whether a published local mod's folder differs from its last publish: the dot beside its name.</summary>
         public bool HasUnpublishedChanges { get { return Mod.PublishStatus == PublishStatus.Changed; } }
         public string UnpublishedTip { get { return HasUnpublishedChanges && Strings != null ? Strings("PublishStateBadgeTip") : null; } }
+        /// <summary>A published local mod whose folder matches its last publish: the green dot beside its name.</summary>
+        public bool IsUpToDate { get { return Mod.PublishStatus == PublishStatus.Current; } }
+        public string UpToDateTip { get { return IsUpToDate && Strings != null ? Strings("PublishStateUpToDateBare") : null; } }
         public System.Func<string, string> Strings { get; set; }
 
         /// <summary>The visibility icon beside the source, once looked up (see MainViewModel.StartVisibilityLookup).</summary>
@@ -65,6 +68,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Raise(nameof(VisibilityTip));
             Raise(nameof(HasUnpublishedChanges));
             Raise(nameof(UnpublishedTip));
+            Raise(nameof(IsUpToDate));
+            Raise(nameof(UpToDateTip));
         }
 
         /// <summary>Re-reads fields the Workshop check or a language change can alter on the underlying mod.</summary>

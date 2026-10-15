@@ -91,6 +91,28 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Read_AttachesGroupDescriptions_FromRootGroupsObject()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "dw2-schema-" + System.Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                File.WriteAllText(Path.Combine(dir, "settings.schema.json"), @"{
+                    ""Speed"": [ { ""key"": ""A"", ""type"": ""bool"" } ],
+                    ""Other"": [ { ""key"": ""B"", ""type"": ""bool"" } ],
+                    ""_groups"": { ""speed"": ""About speed."", ""Missing"": ""Nobody home."" }
+                }");
+
+                var schema = ModSettingsSchemaReader.Read(dir);
+
+                Assert.Equal(new[] { "Speed", "Other" }, schema.Groups.Select(g => g.Name));
+                Assert.Equal("About speed.", schema.Groups[0].Description);
+                Assert.Null(schema.Groups[1].Description);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
         public void Read_Throws_WhenMalformed()
         {
             string dir = Path.Combine(Path.GetTempPath(), "dw2-schema-" + System.Guid.NewGuid().ToString("N"));

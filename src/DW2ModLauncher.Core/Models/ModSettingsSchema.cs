@@ -34,7 +34,7 @@ namespace DW2ModLauncher.Core.Models
             foreach (ModSettingsGroup group in Groups)
             {
                 List<ModSettingsField> shown = group.Fields.Where(f => !(f.Hidden && isWorkshop)).ToList();
-                if (shown.Count > 0) result.Add(new ModSettingsGroup { Name = group.Name, Fields = shown });
+                if (shown.Count > 0) result.Add(new ModSettingsGroup { Name = group.Name, Description = group.Description, Fields = shown });
             }
             return result;
         }
@@ -46,6 +46,8 @@ namespace DW2ModLauncher.Core.Models
         public const string DefaultName = "fields";
 
         public string Name { get; set; }
+        /// <summary>What the group is about, from the schema's root "_groups" object ({"GroupName": "text"}); shown under the heading. Null when the author gave none.</summary>
+        public string Description { get; set; }
         public List<ModSettingsField> Fields { get; set; } = new List<ModSettingsField>();
 
         /// <summary>The conventional "fields" group has no heading of its own, so existing schemas look as they always did.</summary>

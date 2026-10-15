@@ -9,7 +9,8 @@ namespace DW2ModLauncher.Core.Services
     /// <summary>
     /// Reads a mod's optional settings.schema.json (shipped by the mod author, describing the
     /// shape of its own settings.json values) into a ModSettingsSchema. Every root key whose value is an
-    /// array is a group of fields, in file order; other root keys (e.g. "$schema") are ignored. A field key
+    /// array is a group of fields, in file order; the root "_groups" object ({"GroupName": "what it is about"}) gives groups a description;
+    /// other root keys (e.g. "$schema") are ignored. A field key
     /// that already appeared in an earlier group is skipped. Returns null only when the mod ships no schema (or an
     /// empty one); a schema that exists but cannot be read throws InvalidDataException.
     /// </summary>
@@ -44,6 +45,16 @@ namespace DW2ModLauncher.Core.Services
                             group.Fields.Add(field);
                         }
                         if (group.Fields.Count > 0) schema.Groups.Add(group);
+                    }
+                    if (document.RootElement.TryGetProperty("_groups", out JsonElement descriptions) && descriptions.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (JsonProperty entry in descriptions.EnumerateObject())
+                        {
+                            if (entry.Value.ValueKind != JsonValueKind.String)
+                                throw new InvalidDataException("settings.schema.json: the description of group '" + entry.Name + "' must be a string: " + path);
+                            foreach (ModSettingsGroup group in schema.Groups)
+                                if (string.Equals(group.Name, entry.Name, StringComparison.OrdinalIgnoreCase)) group.Description = entry.Value.GetString();
+                        }
                     }
                     return schema.Groups.Count > 0 ? schema : null;
                 }
