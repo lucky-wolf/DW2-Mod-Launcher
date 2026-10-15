@@ -52,7 +52,7 @@
     </DataTemplate>
   </Window.Resources>
   <Grid RowDefinitions="*,Auto">
-    <ScrollViewer Grid.Row="0">
+    <ScrollViewer Name="Scroller" Grid.Row="0">
       <StackPanel Margin="16" Spacing="4">
         <ItemsControl ItemsSource="{Binding VisibleGroups}" ItemTemplate="{StaticResource GroupTemplate}" />
       </StackPanel>
