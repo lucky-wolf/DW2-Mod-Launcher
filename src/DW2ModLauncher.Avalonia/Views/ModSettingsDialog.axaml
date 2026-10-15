@@ -42,6 +42,7 @@
             <PathIcon Width="10.5" Height="10.5" Data="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
           </Button>
         </Grid>
+        <TextBlock IsVisible="{Binding ShowDescription}" Text="{Binding Description}" TextWrapping="Wrap" FontSize="12" Opacity="0.75" Margin="0,0,16,4" />
         <ItemsControl IsVisible="{Binding IsExpanded}" ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource FieldTemplate}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>

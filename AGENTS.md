@@ -67,6 +67,11 @@ test suite before building, the same gates CI uses, and fails fast with a messag
 putting anything that doesn't need a window/control in `DW2ModLauncher.Core` so it can be unit tested (load-order logic and
 DLL-injection argument building live there).
 
+**Agents: build it yourself.** After finishing a feature or fix in this repo, run `python scripts/build.py` (not `build.cmd`, which pauses
+on errors) yourself instead of leaving the build for the owner, and report a failure prominently: the owner reads a failure message as "I must build it" and a success, or no mention, as "already built" (they can see the build in the transcript), so a success needs no more than a short line. If the owner has the launcher running, the build
+usually cannot overwrite the running files; say so plainly when that is why it failed, and do not retry in a loop. Never launch the
+launcher yourself.
+
 ## CI & Releases
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) gates every pull request (including from forks, on `windows-latest` and `ubuntu-latest`; not on pushes to `main`, since merges are rebases of already-validated branches) by running `scripts/validate.py` (`dotnet format --verify-no-changes`, `dotnet build -c Release`, then `dotnet test` - the same checks `build.cmd` runs; run `dotnet format DW2ModLauncher.sln` to fix formatting); `scripts/new-branch.py` and `scripts/open-pr.py` start and open PRs; [.github/workflows/release.yml](.github/workflows/release.yml)
@@ -101,9 +106,13 @@ When you find existing code that breaks this, say so and fix it rather than buil
 
 **Reviews:** whenever you review a PR or anyone else's code (a human's or another agent's), actively look for this and call it out as a finding, not a nit: swallowed or empty `catch` blocks, "return null/empty on error", guessed-at substitutes for a missing or bad value, input quietly clamped or defaulted, and error handling whose real purpose is to avoid deciding what the error means. Say what the failure should do instead (surface it, log it, tell the user), and flag the PR as needing changes when it adds this kind of code.
 
+## Mod changes belong in the mod's changelog
+
+The code mods live in the DW2-XL repo, not here. Whenever work done from this repo edits a mod's source (a `dll/<Mod>` folder in DW2-XL), add a one-line `- ` entry (about eight words, what changed, not why) under `## Unreleased` in that mod's `dll/<Mod>/changelog.txt`. The launcher flags a mod as modified when its DLL changes, and that line is how the owner tells what the real change was. The launcher's own changes go in [docs/focus.md](docs/focus.md), as below.
+
 ## Keeping docs/focus.md current
 
-[docs/focus.md](docs/focus.md) is the running list of what the current branch has accomplished; `scripts/open-pr.py` uses it as the PR description and `scripts/new-branch.py` empties it for new work. When you finish a user-visible change (human or AI), add a one-line `- ` entry below the `---` in the same change. Each line is one short, single-line, fairly high-level accomplishment - never a long run-on sentence smashing several things together. If three things were done in the same subsystem, that is three short lines saying what they were, not one merged line.
+[docs/focus.md](docs/focus.md) is the running list of what the current branch has accomplished; `scripts/open-pr.py` uses it as the PR description and `scripts/new-branch.py` empties it for new work. When you finish a user-visible change (human or AI), add a one-line `- ` entry below the `---` in the same change. Each line is one short, single-line, fairly high-level accomplishment - never a long run-on sentence smashing several things together. Keep the list short: if an existing line already covers a kind of change, do not add another for it, and fold several small lines on one theme into a single line; add a line only when nothing there covers the kind of change you made. Do this as you finish each change, not at the end.
 
 ## Updating this file
 

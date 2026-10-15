@@ -13,3 +13,5 @@ reconstruct it right before opening the PR. Fold several small related lines int
 ---
 - Load order is preserved when you enable or disable a mod (current session only)
 - Picking replacement cover art can now overwrite the existing file instead of forcing "(2)"
+- Mod settings groups can carry a description (`_groups` in the schema), translatable in sidecars
+- Mod list shows a dot per publish state: gold changed, gray never published, green up to date

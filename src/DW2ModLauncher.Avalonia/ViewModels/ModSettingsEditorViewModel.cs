@@ -180,9 +180,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly List<SettingFieldViewModel> allFields;
         private bool isExpanded = true;
 
-        public SettingGroupViewModel(string heading, bool hasHeading, List<SettingFieldViewModel> fields, LocalizedStrings l = null, string displayHeading = null)
+        public SettingGroupViewModel(string heading, bool hasHeading, List<SettingFieldViewModel> fields, LocalizedStrings l = null, string displayHeading = null, string description = null)
         {
             Heading = heading;
+            Description = description;
             DisplayHeading = string.IsNullOrWhiteSpace(displayHeading) ? heading : displayHeading;
             HasHeading = hasHeading;
             allFields = fields;
@@ -199,6 +200,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>What the dialog shows as the heading: the translation if the mod ships one, else <see cref="Heading"/>.</summary>
         public string DisplayHeading { get; }
         public bool HasHeading { get; }
+        /// <summary>What the group is about, shown under the heading while the group is expanded; null when the mod gave none.</summary>
+        public string Description { get; }
+        public bool HasDescription { get { return !string.IsNullOrWhiteSpace(Description); } }
         public RelayCommand ToggleCommand { get; }
         public RelayCommand ResetGroupCommand { get; }
         public string ResetTooltip { get; }
@@ -214,8 +218,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool IsExpanded
         {
             get { return isExpanded; }
-            set { if (Set(ref isExpanded, value)) Raise(nameof(Chevron)); }
+            set { if (Set(ref isExpanded, value)) { Raise(nameof(Chevron)); Raise(nameof(ShowDescription)); } }
         }
+        public bool ShowDescription { get { return isExpanded && HasDescription; } }
         public string Chevron { get { return isExpanded ? "▾" : "▸"; } }
         /// <summary>Every field of the group, shown or not.</summary>
         public IReadOnlyList<SettingFieldViewModel> AllFields { get { return allFields; } }
@@ -258,7 +263,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     rows.Add(row);
                 }
                 if (rows.Count == 0) continue;
-                SettingGroupViewModel g = new SettingGroupViewModel(group.Name, group.HasHeading, rows, l, translation.Heading(group.Name, group.Name));
+                SettingGroupViewModel g = new SettingGroupViewModel(group.Name, group.HasHeading, rows, l, translation.Heading(group.Name, group.Name), translation.GroupDescription(group.Name, group.Description));
                 if (g.HasHeading && collapsed.Contains(g.Heading ?? "")) g.IsExpanded = false;
                 Groups.Add(g);
             }

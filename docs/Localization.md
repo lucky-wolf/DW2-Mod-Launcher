@@ -37,8 +37,13 @@ The in-game status line and the Mods menu are drawn by the loader (`DW2ModLaunch
 ## A mod's settings dialog
 
 The dialog text comes from the mod's `settings.schema.json`, in the author's language. A mod (or its translator) adds a language with a sidecar,
-`settings.schema.<code>.json`, that translates labels, descriptions, group headings and enum option text by the schema's keys; whatever it
-leaves out is shown as the schema has it. The dialog follows the launcher's language. Format and an example: [DLL Injection.md](DLL%20Injection.md#translating-the-settings-dialog).
+`settings.schema.<code>.json`, that translates by the schema's keys:
+
+- field labels and descriptions, and enum option text (`fields`);
+- group headings and group descriptions, the text under a heading that comes from the schema's `_groups` object (`groups`: a plain string translates the heading, `{ "heading": "…", "description": "…" }` either or both).
+
+Whatever a sidecar leaves out is shown as the schema has it, so a translator can do just part of it. Names are matched ignoring case, a sidecar that
+exists but is not valid is reported when the dialog opens, and the dialog follows the launcher's language. Format and an example: [DLL Injection.md](DLL%20Injection.md#translating-the-settings-dialog).
 
 ## A mod's own in-game text
 
