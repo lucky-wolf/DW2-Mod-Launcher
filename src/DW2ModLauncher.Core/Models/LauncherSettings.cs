@@ -52,6 +52,9 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Per mod (id, else folder name): headings of the settings editor groups the user collapsed.</summary>
         public Dictionary<string, List<string>> CollapsedSettingGroups { get; set; } = new Dictionary<string, List<string>>();
 
+        /// <summary>Per mod (id, else folder name): how far down the settings editor was scrolled when it was closed, so it opens there again.</summary>
+        public Dictionary<string, double> SettingsScrollOffsets { get; set; } = new Dictionary<string, double>();
+
         /// <summary>Per mod (id, else folder name): how the publish dialog proposes the next version. Mods not listed use the defaults (auto-increment, patch).</summary>
         public Dictionary<string, VersionBumpPolicy> VersionBump { get; set; } = new Dictionary<string, VersionBumpPolicy>();
 

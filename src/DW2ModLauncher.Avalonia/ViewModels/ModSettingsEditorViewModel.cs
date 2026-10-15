@@ -274,6 +274,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public bool CanShowHidden { get; }
 
+        /// <summary>The dialog's vertical scroll offset: set by the launcher before it opens (to where the user left off), updated by the dialog as it closes.</summary>
+        public double ScrollOffset { get; set; }
+
         /// <summary>Headings of the groups currently collapsed (remembered per mod by the launcher).</summary>
         public List<string> CollapsedGroups
         {

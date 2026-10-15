@@ -1063,8 +1063,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs, settings.ShowHiddenSettings, collapsedGroups,
                     // the dialog is the launcher's own window, so a mod's sidecar is picked by the launcher's language
                     ModSettingsTranslation.Read(mod.ContentRoot ?? mod.Folder, settings.Language));
+                if (settings.SettingsScrollOffsets == null) settings.SettingsScrollOffsets = new Dictionary<string, double>();
+                editor.ScrollOffset = settings.SettingsScrollOffsets.TryGetValue(modKey, out double savedOffset) ? savedOffset : 0;
                 bool saved = await Dialogs.EditModSettingsAsync(editor);
                 bool dirty = false;
+                double nowOffset = Math.Round(editor.ScrollOffset);
+                if (nowOffset != (settings.SettingsScrollOffsets.TryGetValue(modKey, out double was) ? was : 0))
+                {
+                    if (nowOffset <= 0) settings.SettingsScrollOffsets.Remove(modKey);
+                    else settings.SettingsScrollOffsets[modKey] = nowOffset;
+                    dirty = true;
+                }
                 if (editor.CanShowHidden && editor.ShowHidden != settings.ShowHiddenSettings)
                 {
                     settings.ShowHiddenSettings = editor.ShowHidden;
