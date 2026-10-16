@@ -45,6 +45,10 @@ namespace DW2ModLauncher.Loader
                 {
                     OpenDialog();
                 }
+                if (ModMenu.TakeReturnRequest() && _g.GameMenuPanel.GetStatic() is object up && _g.Visible.Get<bool>(up) && _dialog == null)
+                {
+                    ReturnToGame();
+                }
                 if (!_launcherEntryAdded)
                 {
                     _launcherEntryAdded = true;
@@ -131,6 +135,12 @@ namespace DW2ModLauncher.Loader
             }
             else if (name == ModsCloseName || name.EndsWith("_Close", StringComparison.Ordinal))
             {
+                if (_groupShown != null)
+                {
+                    // a group's dialog goes back to the Mods dialog
+                    OpenDialog();
+                    return;
+                }
                 // closing the launcher's menu is the end of the stack: back to the game
                 CloseDialog();
                 ReturnToGame();
@@ -140,6 +150,11 @@ namespace DW2ModLauncher.Loader
                 if (!int.TryParse(name.Substring(ModsItemPrefix.Length), out int index) || index < 0 || index >= _menuShown.Count) return;
                 MenuEntrySnapshot entry = _menuShown[index];
                 if (!entry.Enabled) return;
+                if (entry.IsGroup)
+                {
+                    OpenDialog(entry.Id, entry.Label);
+                    return;
+                }
                 CloseDialog();
                 entry.OnClick();
             }
@@ -162,11 +177,18 @@ namespace DW2ModLauncher.Loader
             }
         }
 
-        static void OpenDialog()
+        // the group whose dialog is up (null: the top-level Mods dialog)
+        static string _groupShown;
+
+        static void OpenDialog() => OpenDialog(null, null);
+
+        static void OpenDialog(string group, string groupLabel)
         {
             CloseDialog();
-            _menuShown = ModMenu.Registry.Snapshot();
-            _dialog = _m.BuildDialog(_menuShown);
+            _groupShown = group;
+            _menuShown = ModMenu.Registry.Snapshot(group);
+            _dialog = _m.BuildDialog(_menuShown, group == null ? StatusStrings.Get("WidgetMenuHeader") : groupLabel.ToUpperInvariant(),
+                StatusStrings.Get(group == null ? "WidgetMenuClose" : "WidgetMenuBack"));
             _g.AddCustomControl.Invoke(null, new[] { _dialog });
             _m.ShowCentered(_dialog, _m.ScreenWidth(), _m.ScreenHeight());
         }
@@ -353,7 +375,7 @@ namespace DW2ModLauncher.Loader
             }
 
             // A Settings-style dialog: header, one full-width button per entry (greyed out when disabled), then Close.
-            public object BuildDialog(List<MenuEntrySnapshot> entries)
+            public object BuildDialog(List<MenuEntrySnapshot> entries, string header, string closeText)
             {
                 Game g = _game;
                 object d = Activator.CreateInstance(_dialogType);
@@ -361,7 +383,7 @@ namespace DW2ModLauncher.Loader
                 _renderedBorder.Set(d, true);
                 _overlay.Set(d, true);
                 _closeInHeader.Set(d, true);
-                _headerText.Set(d, StatusStrings.Get("WidgetMenuHeader"));
+                _headerText.Set(d, header);
                 _modal.Set(d, true);
                 _setFeatureDefaults.Invoke(d, null);
                 _backColor.Set(d, _backColorValue);
@@ -389,7 +411,7 @@ namespace DW2ModLauncher.Loader
                     y += rowHeight + gap;
                 }
                 y += gap * 4f;
-                object close = NewButton(ModsCloseName, StatusStrings.Get("WidgetMenuClose"));
+                object close = NewButton(ModsCloseName, closeText);
                 g.SetSizeAndPosition.Invoke(close, new object[] { innerSize, g.Vec2(x, y) });
                 AddControl.Invoke(d, new[] { close });
                 y += rowHeight + gap;

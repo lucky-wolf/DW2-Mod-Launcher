@@ -364,6 +364,7 @@
   "WidgetMenuMods": "Mod",
   "WidgetMenuHeader": "MOD",
   "WidgetMenuClose": "閉じる",
+  "WidgetMenuBack": "戻る",
   "WidgetMenuSeed": "ランダムシード",
   "WidgetMenuCopied": "クリップボードにコピーしました",
   "WidgetAbout": "バージョン {0}\n\n読み込まれたコードMod: {1}。画面左下の行に一覧が表示されます。クリックすると詳細が開きます。\n\nログ: data/Logs/dw2modlauncher.log",

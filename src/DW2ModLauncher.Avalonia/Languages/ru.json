@@ -364,6 +364,7 @@
   "WidgetMenuMods": "Моды",
   "WidgetMenuHeader": "МОДЫ",
   "WidgetMenuClose": "Закрыть",
+  "WidgetMenuBack": "Назад",
   "WidgetMenuSeed": "Случайное зерно",
   "WidgetMenuCopied": "Скопировано в буфер обмена",
   "WidgetAbout": "Версия {0}\n\nЗагружено модов с кодом: {1}. Они перечислены в строке внизу слева; нажмите на неё для подробностей.\n\nЖурнал: data/Logs/dw2modlauncher.log",

@@ -11,6 +11,13 @@ namespace DW2ModLauncher.Loader
         // Adds (or replaces) the mod's entry under Mods. onClick runs when the player picks it; an exception from it is swallowed.
         public static void Add(string id, string label, Action onClick) => Safe(() => Registry.Add(id, label, Guard(id, onClick)));
 
+        // Adds (or replaces) the mod's group under Mods: one button that opens a second dialog holding the entries added with AddChild. A mod
+        // with several things to offer (a button per world, say) uses one group, so the top-level list stays one button per mod.
+        public static void AddGroup(string id, string label) => Safe(() => Registry.AddGroup(id, label));
+
+        // Adds (or replaces) an entry in the group's dialog. onClick runs when the player picks it; an exception from it is swallowed.
+        public static void AddChild(string parentId, string id, string label, Action onClick) => Safe(() => Registry.AddChild(parentId, id, label, Guard(id, onClick)));
+
         static volatile bool _showRequested;
 
         // A mod calls this when its own UI closes, to bring the Mods dialog back (the stack: Game Menu > Mods > the mod's dialog).
@@ -21,6 +28,19 @@ namespace DW2ModLauncher.Loader
         {
             bool requested = _showRequested;
             _showRequested = false;
+            return requested;
+        }
+
+        static volatile bool _returnRequested;
+
+        // A mod calls this from its click handler when picking the entry should end the whole stack, not come back to the Mods dialog:
+        // the Game Menu closes and the game resumes (a handler that jumps the map to a world, say). Ignored unless the Game Menu is still up.
+        public static void ReturnToGame() => _returnRequested = true;
+
+        internal static bool TakeReturnRequest()
+        {
+            bool requested = _returnRequested;
+            _returnRequested = false;
             return requested;
         }
 

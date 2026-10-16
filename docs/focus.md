@@ -18,3 +18,5 @@ reconstruct it right before opening the PR. Fold several small related lines int
 - Mod list shows a dot per publish state: gold changed, gray never published, green up to date
 - Code mods can offer each other live data while the game runs (live channels)
 - They can also hook up in layers, just as mods can override or extend earlier mods
+- Mods menu entries can close the Game Menu and resume the game (ReturnToGame)
+- Mods menu entries can be grouped: one button per mod opens a second dialog of its entries
