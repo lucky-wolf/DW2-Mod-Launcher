@@ -200,6 +200,7 @@ namespace DW2ModLauncher.XmlPatching
                     foreach (XElement e in f.Doc.Root.Elements())
                     {
                         if (_invalid.Contains(e) || _matchedEntities.Contains(e)) continue;
+                        if (Attr(e, "optional") == "true") continue; // the patch says the entity may be missing (it belongs to data the player may not have)
                         string id = Attr(e, "id");
                         Skipped(f, e, schema.EntityElement + " id=" + id + " is not defined by any loaded " + rootName + " file (a mod may have replaced it)" + KnownIdsHint(rootName, id)
                             + (_orderSkipped.Contains(f) ? "; data of mods loaded after this one is not patched" : string.Empty));

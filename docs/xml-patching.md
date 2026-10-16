@@ -116,6 +116,10 @@ Common keyed list items: `ResourceQuantity` (`ResourceId`), `Component` (`Compon
 
 ## Good to know
 
+- **Entities that may be missing.** An entity that no loaded data file defines is reported as skipped (and the in-game status line shows an
+  amber warning). When that is expected - a translation of an add-on's content that the player may not own - mark the entity
+  `optional="true"` (`<Race id="9" optional="true">`): if it is defined it is patched like any other, if not it is left out of the report.
+  Only whole entities take it, and only `true` or `false` are valid. Older launchers reject the attribute and skip the entity.
 - **Order.** Mods apply in launcher load order; inside a mod, patch files by name, top to bottom. A later patch sees the
   result of earlier ones (after you add a level, `index="5"` can address it).
 - **Positions shift.** `index` counts the list as it is when your patch runs. Prefer `id` where an item has a key.

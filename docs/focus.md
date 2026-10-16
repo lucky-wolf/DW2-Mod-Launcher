@@ -11,3 +11,4 @@ reconstruct it right before opening the PR. Fold several small related lines int
 `scripts/new-branch.py` also empties it when it creates a new branch.
 
 ---
+- XML patches can mark an entity `optional="true"`: when no data file defines it (a translation for an add-on the player does not own) it is skipped silently instead of raising the patch-problems warning.

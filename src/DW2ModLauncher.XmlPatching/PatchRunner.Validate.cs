@@ -24,7 +24,7 @@ namespace DW2ModLauncher.XmlPatching
                     Fail(f, e, "<" + e.Name.LocalName + "> is not an entity of <" + f.Doc.Root.Name.LocalName + ">; expected <" + schema.EntityElement + ">" + Suggest(e.Name.LocalName, new[] { schema.EntityElement }));
                     continue;
                 }
-                if (!CheckAttributes(f, e)) continue;
+                if (!CheckAttributes(f, e, entity: true)) continue;
 
                 string op = Attr(e, "op");
                 if (Attr(e, "id") == null)
@@ -48,17 +48,24 @@ namespace DW2ModLauncher.XmlPatching
         }
 
         /// <summary>Attribute names and op/index values on one element; false (after reporting) if anything is off.</summary>
-        private bool CheckAttributes(PatchFile f, XElement e)
+        private bool CheckAttributes(PatchFile f, XElement e, bool entity = false)
         {
             foreach (XAttribute a in e.Attributes())
             {
                 if (a.IsNamespaceDeclaration) continue;
                 string name = a.Name.LocalName;
+                if (entity && name == "optional") continue;
                 if (!KnownAttributes.Contains(name))
                 {
-                    Fail(f, e, "unknown attribute '" + name + "' on <" + e.Name.LocalName + "> (known: id, index, op)" + Suggest(name, KnownAttributes));
+                    Fail(f, e, "unknown attribute '" + name + "' on <" + e.Name.LocalName + "> (known: id, index, op" + (entity ? ", optional" : string.Empty) + ")" + Suggest(name, KnownAttributes));
                     return false;
                 }
+            }
+            string optional = Attr(e, "optional");
+            if (optional != null && optional != "true" && optional != "false")
+            {
+                Fail(f, e, "optional=\"" + optional + "\" is not valid (use true or false)");
+                return false;
             }
             string op = Attr(e, "op");
             if (op != null && op != "add" && op != "remove" && op != "replace")

@@ -179,6 +179,51 @@ namespace DW2ModLauncher.Tests.XmlPatching
         }
 
         [Fact]
+        public void An_Optional_Entity_That_Is_Not_Defined_Is_Not_Reported()
+        {
+            PatchTestKit kit = new PatchTestKit().Patch("<Race id=\"99\" optional=\"true\"><Aggression>2</Aggression></Race>");
+            kit.Apply(kit.Races("<Race><RaceId>0</RaceId></Race>"));
+            kit.Runner.Finish();
+
+            Assert.Empty(kit.Errors());
+            Assert.Equal(0, kit.Report.Skipped("patches/p.xml"));
+        }
+
+        [Fact]
+        public void An_Optional_Entity_That_Is_Defined_Is_Applied_Like_Any_Other()
+        {
+            PatchTestKit kit = new PatchTestKit().Patch("<Race id=\"0\" optional=\"true\"><Aggression>2</Aggression></Race>");
+            XDocument d = kit.Apply(kit.Races(PatchTestKit.HumanRace));
+            kit.Runner.Finish();
+
+            Assert.Empty(kit.Errors());
+            Assert.Equal(1, kit.Report.Applied("patches/p.xml"));
+        }
+
+        [Fact]
+        public void Optional_False_Still_Reports_A_Missing_Entity()
+        {
+            PatchTestKit kit = new PatchTestKit().Patch("<Race id=\"99\" optional=\"false\"><Aggression>2</Aggression></Race>");
+            kit.Apply(kit.Races("<Race><RaceId>0</RaceId></Race>"));
+            kit.Runner.Finish();
+
+            Assert.Contains("is not defined by any loaded ArrayOfRace file", Assert.Single(kit.Errors()));
+        }
+
+        [Fact]
+        public void Optional_Needs_True_Or_False_And_Belongs_To_Entities_Only()
+        {
+            PatchTestKit kit = new PatchTestKit().Patch(
+                "<Race id=\"0\" optional=\"yes\"><Aggression>2</Aggression></Race><Race id=\"1\"><Bonuses><Bonus index=\"1\" optional=\"true\"><Amount>1</Amount></Bonus></Bonuses></Race>");
+            kit.Runner.ValidateAll();
+
+            string[] errors = kit.Errors().ToArray();
+            Assert.Equal(2, errors.Length);
+            Assert.Contains("optional=\"yes\" is not valid", errors[0]);
+            Assert.Contains("unknown attribute 'optional' on <Bonus>", errors[1]);
+        }
+
+        [Fact]
         public void Remove_Entity_Takes_It_Out_Of_The_File()
         {
             PatchTestKit kit = new PatchTestKit().Patch("<Race id=\"9\" op=\"remove\"/>");
