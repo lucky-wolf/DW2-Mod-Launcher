@@ -156,6 +156,8 @@
   "ModsJsonERROR": "mods.json ERROR",
   "CloseGameBeforeProfileSwitch": "Close DW2 before switching profiles.",
   "LoadOrderSaved": "Load order saved.",
+  "LoadOrderRuleBlocked": "Not moved: {0}.",
+  "LoadOrderSnapped": "{0} was moved to the first place its load order rules allow.",
   "SwitchedModProfile": "Switched Mod profile: ",
   "LauncherTooOld": "Needs a newer launcher, version at least ",
   "ModConflictWarning": "Mod Conflict Warning",

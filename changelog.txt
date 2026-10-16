@@ -1,3 +1,7 @@
+## v1.0.16
+- Enabled mods can no longer be dragged past a load order rule; enabling snaps to the nearest valid place
+- Edit Properties: erasing all change notes can now be saved, and Mark Up to Date writes pending edits first
+
 ## v1.0.15
 - No longer asks for confirmation when launching a game (saves to current profile automatically)
 - New "Mark Up to Date" right-click action records a modified mod's current files as what is on Steam

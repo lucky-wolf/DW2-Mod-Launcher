@@ -237,7 +237,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>Whether the folder differs from the last publish, so "Mark Up to Date" has something to accept.</summary>
-        public bool CanMarkUpToDate { get { return mod.PublishStatus == PublishStatus.Changed && ModDetails.WorkshopId(mod) != null; } }
+        public bool CanMarkUpToDate { get { return (mod.PublishStatus == PublishStatus.Changed || HasUnsavedEdits) && ModDetails.WorkshopId(mod) != null; } }
 
         /// <summary>The owner's override: the folder as it is now counts as what Steam has. Local records only; nothing is sent to Steam.</summary>
         private async Task MarkUpToDateAsync()
@@ -245,6 +245,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (!CanMarkUpToDate) return;
             string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
             if (!await dialogs.ConfirmAsync(L.Format("ConfirmMarkUpToDate", name, mod.UnpublishedChanges.Count), L["MarkUpToDate"], L["MarkUpToDate"], L["Cancel"])) return;
+            // What is typed in this dialog (change notes included) is written first, so the record covers the files as they now are.
+            if (HasUnsavedEdits)
+            {
+                string error = Commit();
+                if (error != null)
+                {
+                    await dialogs.ShowMessageAsync(error, "DW2 Mod Launcher");
+                    return;
+                }
+                savedFields = FieldsSnapshot();
+                savedDescription = description;
+                RaiseModified();
+            }
             try { PublishedState.MarkCurrent(ModDetails.WorkshopId(mod), contentFolder); }
             catch (Exception ex)
             {
@@ -278,7 +291,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string changeNotes;
         /// <summary>The text last taken from the Steam page: if it is saved unchanged, the file matches what Steam has and is not a change since the last publish.</summary>
         private string pulledDescription;
-        private readonly string savedChangeNotes;
+        private string savedChangeNotes;
         /// <summary>The Unreleased lines of changelog.txt: what the update will send as its change note. Written back by <see cref="Commit"/>.</summary>
         public string ChangeNotes
         {
@@ -387,7 +400,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>Something in the dialog differs from what it opened with.</summary>
-        public bool IsModified { get { return FieldsSnapshot() != savedFields || !ModDescriptionFile.SameText(description, savedDescription) || HasStrayImages || MissingDescriptionFileKey; } }
+        public bool IsModified { get { return FieldsSnapshot() != savedFields || !ModDescriptionFile.SameText(description, savedDescription) || HasStrayImages || MissingDescriptionFileKey || ChangeNotesEdited; } }
+        /// <summary>The change notes box differs from the Unreleased lines on disk (erasing them all counts).</summary>
+        private bool ChangeNotesEdited { get { return ShowChangeNotes && (changeNotes ?? "").Trim() != savedChangeNotes; } }
 
         /// <summary>
         /// mod.json has no "descriptionFile" yet the mod has (or, once saved, will have) a description file: saving writes the key, so the
@@ -413,12 +428,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get
             {
                 return FieldsSnapshot() != savedFields || !ModDescriptionFile.SameText(description, savedDescription)
-                    || (ShowChangeNotes && (changeNotes ?? "").Trim() != savedChangeNotes);
+                    || ChangeNotesEdited;
             }
         }
         /// <summary>The dialog's way out: "Cancel" while edits would be discarded, "Close" when what is shown is what is on disk.</summary>
         public string CancelText { get { return L[HasUnsavedEdits ? "Cancel" : "Close"]; } }
-        private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanPrimary)); Raise(nameof(PrimaryButtonText)); Raise(nameof(CancelText)); }
+        private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanMarkUpToDate)); Raise(nameof(CanPrimary)); Raise(nameof(PrimaryButtonText)); Raise(nameof(CancelText)); }
 
         public string Title { get { return title; } set { if (Set(ref title, value)) RaiseModified(); } }
         public string Version
@@ -889,9 +904,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return ex.Message;
             }
             // The change notes go to the Unreleased section of changelog.txt; the file is only touched when the text changed.
-            if (ShowChangeNotes && (changeNotes ?? "").Trim() != savedChangeNotes)
+            if (ChangeNotesEdited)
             {
-                try { ModChangelog.SetUnreleased(contentFolder, (changeNotes ?? "").Trim()); }
+                try { ModChangelog.SetUnreleased(contentFolder, (changeNotes ?? "").Trim()); savedChangeNotes = (changeNotes ?? "").Trim(); }
                 catch (Exception ex)
                 {
                     DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write changelog.txt", ex);

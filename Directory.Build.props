@@ -41,8 +41,10 @@
       <Output TaskParameter="ConsoleOutput" ItemName="_DW2SeriesTag" />
     </Exec>
     <!-- the list is sorted newest first (by version, not by name: v1.0.9 sorts after v1.0.12 alphabetically), so the first tag is the highest -->
+    <!-- an item list can't be handed straight to a property function (the match comes back empty), so it goes through a property first -->
     <PropertyGroup>
-      <_DW2MaxPatch>$([System.Text.RegularExpressions.Regex]::Match('@(_DW2SeriesTag)', '^v\d+\.\d+\.(\d+)(;|$)').Groups[1].Value)</_DW2MaxPatch>
+      <_DW2SeriesTags>@(_DW2SeriesTag)</_DW2SeriesTags>
+      <_DW2MaxPatch>$([System.Text.RegularExpressions.Regex]::Match('$(_DW2SeriesTags)', '^v\d+\.\d+\.(\d+)').Groups[1].Value)</_DW2MaxPatch>
     </PropertyGroup>
     <PropertyGroup Condition="'$(_DW2IsDev)' == 'true' And '$(_DW2MaxPatch)' != ''">
       <MinVerPatch>$([MSBuild]::Add($(_DW2MaxPatch), 1))</MinVerPatch>

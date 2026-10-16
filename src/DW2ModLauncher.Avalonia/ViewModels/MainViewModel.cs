@@ -556,6 +556,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (row == null || populating) return;
             bool enable = !IsSelected(row.Mod);
             // The new mod goes where its row sits among the enabled ones, so a position dragged while the game was running still counts.
+            snapNote = "";
+            if (enable) SnapToDependencyOrder(row);
             List<string> listOrder = Mods.Where(r => r == row || IsSelected(r.Mod)).Select(r => r.Mod.ActiveToken).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
             SetEnabledResult result = ModLibrary.SetEnabled(row.Mod, enable, settings, modOrder, listOrder);
             SaveSettings();
@@ -575,7 +577,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     modOrder = ModOrderStore.Read(ModsJsonPath());
                     break;
                 case SetEnabledOutcome.Saved:
-                    SetStatus(T("DW2ModSettingsSaved"));
+                    SetStatus(T("DW2ModSettingsSaved") + (snapNote.Length > 0 ? " " + snapNote : ""));
                     if (result.SettingsError != null)
                         await Dialogs.ShowMessageAsync(T("ModEnabledSettingsFailed", row.Mod.DisplayName, result.SettingsError.Message), "DW2 Mod Launcher");
                     break;
@@ -594,6 +596,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Settings.UpdateCommandPreview();
         }
 
+        /// <summary>Before a row is enabled, moves it the least that its loadAfter / loadBefore rules need among the enabled rows, and says so.</summary>
+        private string snapNote = "";
+        private void SnapToDependencyOrder(ModRowViewModel row)
+        {
+            List<ModRowViewModel> enabledRows = Mods.Where(r => r != row && IsSelected(r.Mod)).ToList();
+            int desired = Mods.Take(Mods.IndexOf(row)).Count(r => r != row && IsSelected(r.Mod));
+            int snapped = ModDependencies.NearestValidIndex(enabledRows.Select(r => r.Mod).ToList(), row.Mod, desired);
+            if (snapped == desired) return;
+            // the row goes just before the enabled row now below it, or just after the last enabled row
+            int target = snapped < enabledRows.Count ? Mods.IndexOf(enabledRows[snapped]) : Mods.IndexOf(enabledRows[enabledRows.Count - 1]) + 1;
+            int from = Mods.IndexOf(row);
+            if (from < target) target--;
+            if (from != target) Mods.Move(from, target);
+            snapNote = T("LoadOrderSnapped", row.Name);
+        }
+
         /// <summary>Raised when the view should scroll the selected row into view, centred where there is room.</summary>
         public event Action RevealSelectionRequested;
 
@@ -605,6 +623,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             sortColumn = -1;
             SaveSortPreference();
             toIndex = Math.Max(0, Math.Min(toIndex, Mods.Count - 1));
+            // An enabled mod may not be dropped where a loadAfter / loadBefore rule of its own (or of another enabled mod) is broken; a disabled one goes anywhere.
+            if (from != toIndex && IsSelected(row.Mod))
+            {
+                List<ModRowViewModel> proposed = Mods.ToList();
+                proposed.RemoveAt(from);
+                proposed.Insert(toIndex, row);
+                List<string> broken = ModDependencies.Violations(proposed.Where(r => IsSelected(r.Mod)).Select(r => r.Mod).ToList(), row.Mod);
+                if (broken.Count > 0)
+                {
+                    SetStatus(T("LoadOrderRuleBlocked", string.Join("; ", broken)));
+                    SelectedRow = row;
+                    return;
+                }
+            }
             if (from != toIndex) Mods.Move(from, toIndex);
             SelectedRow = row;
             CommitListOrder();
