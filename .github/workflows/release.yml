@@ -99,7 +99,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          # The notes are the merged PR's description (built from docs/focus.md by open-pr.py); GitHub's generated
+          # The notes are the merged PR's description (built from changelog.txt by open-pr.py); GitHub's generated
           # notes (a bare rebase-merge commit list) are only the fallback when no PR description is found.
           python scripts/release-notes.py release-notes.md
           if [ -f release-notes.md ]; then notes=(--notes-file release-notes.md); else notes=(--generate-notes); fi

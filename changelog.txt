@@ -1,0 +1,6 @@
+## v1.0.15
+- No longer asks for confirmation when launching a game (saves to current profile automatically)
+- New "Mark Up to Date" right-click action records a modified mod's current files as what is on Steam
+- Publish dialog lists Change notes above the modified files, no longer repeated inside it
+- Publish dialog: wider, Mark Up to Date in the footer, one Publish button that reads Close when up to date
+- Repo changelog.txt replaces docs/focus.md as the running record of changes

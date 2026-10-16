@@ -3,9 +3,9 @@
 
 The PR is titled "Released as vX.Y.Z" (the version release.py will tag when it merges; see
 docs/CI Releases.md), or "Housekeeping (no release)" when the branch changes no file the release
-workflow watches. Its description is the list in docs/focus.md
+workflow watches. Its description is the newest section of changelog.txt
 (falling back to this branch's commit subjects when that is empty). When the branch's PR is already open with a
-description, it offers to keep that and append the new focus.md entries rather than replace it.
+description, it offers to keep that and append the new changelog.txt entries rather than replace it.
 
 Merges here are rebases, so it first checks the branch is on top of origin/<target> and offers to rebase it (aborting the
 whole run if the rebase conflicts).
@@ -23,7 +23,7 @@ import sys
 import webbrowser
 from pathlib import Path
 
-from lib import dotnet_checks, focus, github, launcher_build, output, proc, release_version
+from lib import changelog, dotnet_checks, github, launcher_build, output, proc, release_version
 
 
 def compute_pr_title(repo_root: Path, target: str, fallback: str) -> str:
@@ -36,10 +36,10 @@ def compute_pr_title(repo_root: Path, target: str, fallback: str) -> str:
     return f"Released as {tag}" if tag else fallback
 
 
-def compute_pr_description(repo_root: Path, target: str, use_focus: bool = True) -> str:
-    """The entries in docs/focus.md (see lib/focus.py), one bullet each; when there are none (or use_focus is
-    False), one bullet per commit on this branch that isn't on origin/<target>, oldest first."""
-    entries = focus.read_entries(repo_root) if use_focus else []
+def compute_pr_description(repo_root: Path, target: str, use_changelog: bool = True) -> str:
+    """The entries of changelog.txt's newest section (see lib/changelog.py), one bullet each; when there are none (or
+    use_changelog is False), one bullet per commit on this branch that isn't on origin/<target>, oldest first."""
+    entries = changelog.read_entries(repo_root) if use_changelog else []
     if entries:
         return "\n".join(f"- {entry}" for entry in entries)
     log = proc.git(repo_root, "log", f"origin/{target}..HEAD", "--reverse", "--format=%s").stdout
@@ -74,52 +74,55 @@ def ensure_rebased(repo_root: Path, target: str, dry_run: bool) -> bool:
     if not output.confirm(f"  Rebase onto origin/{target} now?", default=True):
         output.fail(f"aborted - rebase onto origin/{target} first (merges here are rebases)")
 
-    # docs/focus.md is this branch's own list, but main can carry lines in it (merged outside contributors' PRs leave theirs), and
-    # both sides adding lines under the '---' always conflicts. So the branch's own entries are set aside, the file is taken
-    # from main, and the list is rebuilt from just those entries after the rebase.
-    focus_file = repo_root / focus.FOCUS_PATH
-    original_focus = focus_file.read_bytes() if focus_file.exists() else None
+    # changelog.txt: main can carry sections this branch lacks (merged PRs, outside contributors' included), and both sides adding a
+    # section at the top always conflicts. So the branch's own entries are set aside, the file is taken from main, and the
+    # branch's section is rebuilt on top of it after the rebase.
+    changelog_file = repo_root / changelog.CHANGELOG_PATH
+    original_changelog = changelog_file.read_bytes() if changelog_file.exists() else None
     base = proc.git(repo_root, "merge-base", "HEAD", f"origin/{target}").stdout.strip()
-    mine = focus.entries_added_since(repo_root, base)
-    proc.git(repo_root, "checkout", "HEAD", "--", str(focus.FOCUS_PATH))
+    mine = changelog.entries_added_since(repo_root, base)
+    tracked = proc.git(repo_root, "cat-file", "-e", f"HEAD:{changelog.CHANGELOG_PATH.as_posix()}").returncode == 0
+    if tracked:
+        proc.git(repo_root, "checkout", "HEAD", "--", str(changelog.CHANGELOG_PATH))
+    elif changelog_file.exists():
+        changelog_file.unlink()
 
     def give_up(message: str) -> None:
-        if original_focus is not None:
-            focus_file.write_bytes(original_focus)
+        if original_changelog is not None:
+            changelog_file.write_bytes(original_changelog)
         output.fail(message)
 
     result = proc.run(repo_root, f"git rebase origin/{target}", ["git", "rebase", "--autostash", f"origin/{target}"], check=False)
     while result.returncode != 0:
         unmerged = proc.git(repo_root, "diff", "--name-only", "--diff-filter=U").stdout.split()
-        if unmerged != [focus.FOCUS_PATH.as_posix()]:
+        if unmerged != [changelog.CHANGELOG_PATH.as_posix()]:
             proc.run(repo_root, "git rebase --abort", ["git", "rebase", "--abort"], check=False)
             give_up(f"rebase onto origin/{target} failed (conflicts in {', '.join(unmerged) or 'unknown files'}) and was aborted - resolve it by hand, then run this again")
-        # in a rebase "ours" is the branch being rebased onto, i.e. main's list; ours is rebuilt below
-        proc.run(repo_root, "take main's docs/focus.md", ["git", "checkout", "--ours", "--", str(focus.FOCUS_PATH)])
-        proc.run(repo_root, "git add docs/focus.md", ["git", "add", "--", str(focus.FOCUS_PATH)])
+        # in a rebase "ours" is the branch being rebased onto, i.e. main's file; the branch's section is rebuilt below
+        proc.run(repo_root, "take main's changelog.txt", ["git", "checkout", "--ours", "--", str(changelog.CHANGELOG_PATH)])
+        proc.run(repo_root, "git add changelog.txt", ["git", "add", "--", str(changelog.CHANGELOG_PATH)])
         result = proc.run(repo_root, "git rebase --continue", ["git", "-c", "core.editor=true", "rebase", "--continue"], check=False)
     if proc.git(repo_root, "diff", "--name-only", "--diff-filter=U").stdout.strip():
         give_up("rebased, but re-applying your uncommitted changes conflicted - resolve them (git stash list has the copy), then run this again")
 
-    on_main = focus.read_entries(repo_root)
-    focus.reset(repo_root)
-    focus.append(repo_root, mine)
-    if on_main:
-        print(f"  note: docs/focus.md on origin/{target} carried {len(on_main)} entr{'y' if len(on_main) == 1 else 'ies'} from merged work;")
-        print("        they are left out of this branch's list, and this PR clears them from main")
+    # main's tags are only known locally once fetched, so the heading is the next release version as of now
+    heading = release_version.next_tag(repo_root)
+    if not heading:
+        output.fail("could not work out the next release version (.version is missing or malformed) to head the changelog.txt section")
+    changelog.rebuild_from(repo_root, f"origin/{target}", heading, mine)
     output.ok(f"rebased onto origin/{target}")
     return True
 
 
-def choose_stale_focus_action() -> str:
-    """What to do about a docs/focus.md that is identical to the last release's list: "reuse" it, describe the PR by its
-    "commits" instead (the stale list is still cleared in the PR's last commit), or "abort" the whole run. Letters, not
+def choose_stale_changelog_action(heading: str) -> str:
+    """What to do about a changelog.txt whose newest section is a version that is already released: "reuse" it anyway,
+    describe the PR by its "commits" instead, or "abort" the whole run. Letters, not
     digits, and anything else is re-asked - like output.confirm, so a stray key never picks an action."""
-    print("    [r] reuse the list as the PR description")
-    print("    [c] ignore the list: describe the PR by its commit subjects (the stale list is cleared in the PR)")
-    print("    [a] abort: nothing is pushed, so you can edit docs/focus.md first")
+    print(f"    [r] use the {heading} section as the PR description")
+    print("    [c] ignore it: describe the PR by its commit subjects")
+    print("    [a] abort: nothing is pushed, so you can add a section to changelog.txt first")
     while True:
-        answer = input("  Stale docs/focus.md - what now? [r/c/a] ").strip().lower()
+        answer = input("  Stale changelog.txt - what now? [r/c/a] ").strip().lower()
         if answer in ("r", "reuse"):
             return "reuse"
         if answer in ("c", "commits"):
@@ -131,7 +134,7 @@ def choose_stale_focus_action() -> str:
 
 def offer_to_extend_open_pr(repo_root: Path, branch: str, entries: list[str], new_description: str) -> str:
     """When the branch's PR is already open with a description, offers to keep it and append the entries it lacks (the
-    default) instead of replacing it with just the focus.md list. Returns the description to use."""
+    default) instead of replacing it with just the changelog.txt section. Returns the description to use."""
     try:
         current = github.open_pr_body(repo_root, branch)
     except RuntimeError as e:
@@ -141,14 +144,14 @@ def offer_to_extend_open_pr(repo_root: Path, branch: str, entries: list[str], ne
     present = {line.strip() for line in current.splitlines()}
     missing = [entry for entry in entries if f"- {entry}" not in present]
     if not missing:
-        print("  note: the open PR's description already has every docs/focus.md entry, so it is left as it is")
+        print("  note: the open PR's description already has every changelog.txt entry, so it is left as it is")
         return current
-    print(f"\n  The open PR already has a description; docs/focus.md adds {len(missing)} entr{'y' if len(missing) == 1 else 'ies'}:")
+    print(f"\n  The open PR already has a description; changelog.txt adds {len(missing)} entr{'y' if len(missing) == 1 else 'ies'}:")
     for entry in missing:
         print(f"    - {entry}")
     if output.confirm("  Keep the existing description and append these?", default=True):
         return current.rstrip("\n") + "\n" + "\n".join(f"- {entry}" for entry in missing)
-    print("  replacing the description with the docs/focus.md list")
+    print("  replacing the description with the changelog.txt section")
     return new_description
 
 
@@ -212,27 +215,28 @@ def main() -> int:
     output.step("push & open PR")
     pr_title = compute_pr_title(repo_root, target, current_branch)
 
-    use_focus = True
-    entries = focus.read_entries(repo_root)
+    use_changelog = True
+    entries = changelog.read_entries(repo_root)
     if not entries:
-        print("  note: docs/focus.md has no entries, so the description falls back to commit subjects")
-    elif focus.same_as_last_release(repo_root, target):
-        print("  WARNING: docs/focus.md is identical to the last release's list - stale entries from earlier work?")
+        print("  note: the newest changelog.txt section has no entries, so the description falls back to commit subjects")
+    elif changelog.is_released(repo_root):
+        heading = changelog.current_heading(repo_root)
+        print(f"  WARNING: the newest changelog.txt section ({heading}) is a version that is already released - stale entries from earlier work?")
         print("           (the release notes come from this description)")
-        choice = choose_stale_focus_action()
+        choice = choose_stale_changelog_action(heading)
         if choice == "abort":
-            output.fail("aborted - nothing pushed (edit docs/focus.md, then run this again)")
-        use_focus = choice == "reuse"
-    pr_description = compute_pr_description(repo_root, target, use_focus)
-    # Re-running for an open PR whose earlier list was cleared from focus.md: replacing the description would drop those
-    # earlier bullets, so offer to keep them and add the new entries after them.
-    if entries and use_focus:
+            output.fail("aborted - nothing pushed (add a section for the next version to changelog.txt, then run this again)")
+        use_changelog = choice == "reuse"
+    pr_description = compute_pr_description(repo_root, target, use_changelog)
+    # Re-running for an open PR whose description was edited since: replacing it would drop those bullets, so offer to keep
+    # them and add the new entries after them.
+    if entries and use_changelog:
         pr_description = offer_to_extend_open_pr(repo_root, current_branch, entries, pr_description)
     # Re-running for an open PR whose list was already cleared by an earlier run: the description written then is the
     # real one; rebuilding it from commit subjects would overwrite it with a worse one.
     keep_description = not entries and github.open_pr_exists(repo_root, current_branch)
     if keep_description:
-        print("  note: docs/focus.md is empty and the PR is already open, so its description is left as it is")
+        print("  note: the newest changelog.txt section is empty and the PR is already open, so its description is left as it is")
     print(f"  Branch: {current_branch} -> {target}")
     print(f"  PR title: {pr_title}")
     print(f"  PR description:\n{pr_description}" if pr_description else "  PR description: (none)")
@@ -244,15 +248,6 @@ def main() -> int:
 
     if not output.confirm("\n  Push and open the PR with the above?", default=True):
         output.fail("aborted - nothing pushed")
-
-    # The list has done its job (it is in pr_description now), so it never holds over to the next branch: it is emptied in the
-    # PR's own last commit, which makes the merge land an empty list on main.
-    if entries:
-        focus.reset(repo_root)
-        if proc.git(repo_root, "status", "--porcelain", "--", str(focus.FOCUS_PATH)).stdout.strip():
-            proc.run(repo_root, "clear docs/focus.md", ["git", "add", "--", str(focus.FOCUS_PATH)])
-            proc.run(repo_root, "git commit", ["git", "commit", "-m", "Clear docs/focus.md (its list is in the PR description)"])
-            output.ok("docs/focus.md cleared (committed with the PR)")
 
     # A rebased branch that is already on origin has different commits there, so a plain push would be rejected.
     push = ["git", "push", "-u", "origin", current_branch]

@@ -3,6 +3,7 @@ usage: from lib import github; github.require_gh_auth()
 """
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -16,7 +17,13 @@ def require_gh_auth() -> None:
     except FileNotFoundError:
         output.fail("the GitHub CLI (gh) is not installed - see https://cli.github.com")
     if result.returncode != 0:
-        output.fail("gh is not logged in - run `gh auth login`")
+        detail = (result.stderr or result.stdout).strip()
+        if re.search(r"\b5\d\d\b|service unavailable|bad gateway|gateway time-?out|timed out|error connecting|"
+                     r"no such host|connection (?:refused|reset)|could not resolve|dial tcp", detail, re.IGNORECASE):
+            output.fail(f"GitHub is unreachable or down (not an auth problem - retry later): {detail[:300]}")
+        if re.search(r"\b401\b|not logged in|bad credentials|token .*(?:invalid|expired)|no oauth token", detail, re.IGNORECASE):
+            output.fail("gh is not logged in - run `gh auth login`")
+        output.fail(f"gh auth status failed (cause unclear, not necessarily auth): {detail[:300]}")
 
 
 def open_pr_exists(repo_root: Path, branch: str) -> bool:

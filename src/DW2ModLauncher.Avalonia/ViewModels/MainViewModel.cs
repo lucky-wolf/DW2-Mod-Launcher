@@ -104,6 +104,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModSettingsCommand = new RelayCommand(OpenModSettingsAsync, () => HasModSettings(selectedRow));
             PublishCommand = new RelayCommand(PublishAsync, () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !publishRunning);
             EditPropertiesCommand = new RelayCommand(() => EditPropertiesAsync(selectedRow.Mod), () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !string.IsNullOrWhiteSpace(selectedRow.Mod.ModJsonPath));
+            MarkUpToDateCommand = new RelayCommand(MarkUpToDateAsync, () => selectedRow != null && selectedRow.Mod.PublishStatus == PublishStatus.Changed);
             CheckLauncherUpdateCommand = new RelayCommand(() => CheckForLauncherUpdateAsync(true));
             CheckUpdatesCommand = new RelayCommand(() => BeginWorkshopUpdateCheck(true), () => !updateCheckRunning && workshopMods.Count > 0);
             CreateModCommand = new RelayCommand(CreateModAsync);
@@ -236,6 +237,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand EditPropertiesCommand { get; }
         public RelayCommand CreateModCommand { get; }
         public RelayCommand DeleteModCommand { get; }
+        public RelayCommand MarkUpToDateCommand { get; }
 
         public ModRowViewModel SelectedRow
         {
@@ -342,6 +344,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void RememberStatusExpanded(bool expanded)
         {
             settings.PublishStatusExpanded = expanded;
+            SaveSettings();
+        }
+
+        private void RememberChangeNotesExpanded(bool expanded)
+        {
+            settings.PublishChangeNotesExpanded = expanded;
             SaveSettings();
         }
 
@@ -647,6 +655,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // The author edits a local mod's folder at any time, so the selected mod is compared again each time its details are shown.
             EvaluatePublishState(mod);
             selectedRow.RefreshPublishState();
+            MarkUpToDateCommand.RaiseCanExecuteChanged();
             DetailPublishState = ModDetails.PublishStatusShort(mod, key => T(key));
             DetailPublishTip = ModDetails.PublishStatusTooltip(mod, key => T(key));
             DetailVisibility = VisibilityLine(mod);
@@ -992,6 +1001,29 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
 
+        /// <summary>The owner's override: the mod's folder as it is now counts as what Steam has, so only later edits show as modified.</summary>
+        private async Task MarkUpToDateAsync()
+        {
+            if (selectedRow == null) return;
+            ModInfo mod = selectedRow.Mod;
+            string id = ModDetails.WorkshopId(mod);
+            if (mod.IsWorkshop || id == null || mod.PublishStatus != PublishStatus.Changed) return;
+            string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
+            if (!await Dialogs.ConfirmAsync(T("ConfirmMarkUpToDate", name, mod.UnpublishedChanges.Count), T("MarkUpToDate"), T("MarkUpToDate"), T("Cancel"))) return;
+            try
+            {
+                PublishedState.MarkCurrent(id, mod.ContentRoot ?? mod.Folder);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Mark " + name + " up to date", ex);
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateFailed", ex.Message), "DW2 Mod Launcher");
+                return;
+            }
+            ShowDetails();
+            SetStatus(T("MarkedUpToDateStatus", name));
+        }
+
         private async Task DeleteModAsync()
         {
             if (selectedRow == null) return;
@@ -1174,7 +1206,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1256,7 +1288,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);

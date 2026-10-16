@@ -47,6 +47,8 @@ namespace DW2ModLauncher.Core.Models
         public string DescriptionExtension { get; set; } = ".bbcode";
         /// <summary>The publish dialog's modified-files section is unfolded (folded by default; remembered).</summary>
         public bool PublishStatusExpanded { get; set; }
+        /// <summary>The publish dialog's change-notes section is unfolded (folded by default; remembered).</summary>
+        public bool PublishChangeNotesExpanded { get; set; }
         /// <summary>The folder the last preview image was picked from (outside any mod), offered when the next pick starts from a blank image field.</summary>
         public string LastArtFolder { get; set; }
         /// <summary>Per mod (id, else folder name): headings of the settings editor groups the user collapsed.</summary>

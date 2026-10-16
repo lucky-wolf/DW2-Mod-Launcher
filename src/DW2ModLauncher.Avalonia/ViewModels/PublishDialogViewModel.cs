@@ -90,7 +90,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null)
         {
             this.dialogs = dialogs;
             this.lastArtFolder = lastArtFolder;
@@ -104,6 +104,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ComputeStatus();
             statusOpen = statusExpanded;
             this.rememberStatusExpanded = rememberStatusExpanded;
+            notesOpen = changeNotesExpanded;
+            this.rememberChangeNotesExpanded = rememberChangeNotesExpanded;
             ShowChangeNotes = true;
             savedChangeNotes = ModChangelog.UnreleasedText(contentFolder);
             changeNotes = savedChangeNotes;
@@ -111,7 +113,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // A first publish has no Steam text to protect, so it sends the description; an update leaves the Steam page alone unless asked.
             this.steamDescription = isUpdate && !propertiesOnly ? steamDescription : null;
             replaceDescription = !isUpdate;
-            PrimaryButtonText = l[propertiesOnly ? "Save" : "PublishToWorkshop"];
             WindowTitle = l[propertiesOnly ? "EditPropertiesTitle" : "PublishToWorkshop"] + " - " + (mod.DisplayName ?? mod.Id);
             // Shown as the Publish button's tooltip. Properties-only editing saves mod.json and never talks to Steam, so it has no note.
             Note = propertiesOnly ? null : l[isUpdate ? "PublishAboutToRunUpdate" : "PublishAboutToRunFirstTime"];
@@ -158,6 +159,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             canPushVisibility = workshopId != null && (propertiesOnly ? currentVisibility.HasValue : isUpdate);
             VisibilityEnabled = !propertiesOnly || canPushVisibility;
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage);
+            MarkUpToDateCommand = new RelayCommand(MarkUpToDateAsync);
             PullSteamDescriptionCommand = new RelayCommand(PullSteamDescriptionAsync);
             PushSteamDescriptionCommand = new RelayCommand(PushSteamDescriptionAsync);
             BrowsePreviewCommand = new RelayCommand(BrowsePreviewAsync);
@@ -229,8 +231,30 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 : mod.PublishStatus == PublishStatus.Unpublished ? L["PublishStateUnpublishedTitle"]
                 : mod.PublishStatus == PublishStatus.Unknown ? L["PublishStateUntracked"]
                 : statusShort;
-            PublishStatusDetail = statusShort.Length == 0 ? "" : ModDetails.PublishStatusTooltip(mod, key => L[key], 500);
+            PublishStatusDetail = statusShort.Length == 0 ? "" : ModDetails.PublishStatusTooltip(mod, key => L[key], 500, includeChangeLog: false);
+            Raise(nameof(CanMarkUpToDate));
+            Raise(nameof(PrimaryButtonText));
         }
+
+        /// <summary>Whether the folder differs from the last publish, so "Mark Up to Date" has something to accept.</summary>
+        public bool CanMarkUpToDate { get { return mod.PublishStatus == PublishStatus.Changed && ModDetails.WorkshopId(mod) != null; } }
+
+        /// <summary>The owner's override: the folder as it is now counts as what Steam has. Local records only; nothing is sent to Steam.</summary>
+        private async Task MarkUpToDateAsync()
+        {
+            if (!CanMarkUpToDate) return;
+            string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
+            if (!await dialogs.ConfirmAsync(L.Format("ConfirmMarkUpToDate", name, mod.UnpublishedChanges.Count), L["MarkUpToDate"], L["MarkUpToDate"], L["Cancel"])) return;
+            try { PublishedState.MarkCurrent(ModDetails.WorkshopId(mod), contentFolder); }
+            catch (Exception ex)
+            {
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Mark " + name + " up to date", ex);
+                await dialogs.ShowMessageAsync(L.Format("MarkUpToDateFailed", ex.Message), "DW2 Mod Launcher");
+                return;
+            }
+            RefreshStatus();
+        }
+        public RelayCommand MarkUpToDateCommand { get; private set; }
 
         /// <summary>Compares the folder with its record again, for after something changed what counts as published (the description pushed on its own).</summary>
         private void RefreshStatus()
@@ -246,6 +270,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Whether the modified-files section is unfolded; the choice is remembered for the next time.</summary>
         public bool StatusExpanded { get { return statusOpen; } set { if (Set(ref statusOpen, value)) rememberStatusExpanded?.Invoke(value); } }
 
+        private bool notesOpen;
+        private readonly Action<bool> rememberChangeNotesExpanded;
+        /// <summary>Whether the change-notes section is unfolded; the choice is remembered for the next time.</summary>
+        public bool ChangeNotesExpanded { get { return notesOpen; } set { if (Set(ref notesOpen, value)) rememberChangeNotesExpanded?.Invoke(value); } }
         public bool ShowChangeNotes { get; }
         private string changeNotes;
         /// <summary>The text last taken from the Steam page: if it is saved unchanged, the file matches what Steam has and is not a change since the last publish.</summary>
@@ -267,7 +295,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string WindowTitle { get; }
         public string Note { get; }
         /// <summary>"Publish to Workshop", or "Save" when the dialog only edits mod.json.</summary>
-        public string PrimaryButtonText { get; }
+        public string PrimaryButtonText { get { return L[propertiesOnly ? "Save" : NothingToPublish ? "Close" : "PublishAction"]; } }
         /// <summary>False when only editing properties (nothing is being published, so no description-replacement offer). The visibility box has its own <see cref="VisibilityEnabled"/>.</summary>
         public bool CanEditVisibility { get; }
         /// <summary>Whether the visibility box can be changed: always in the publish dialog; in edit properties only for a published item whose visibility Steam told us.</summary>
@@ -374,6 +402,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
         /// <summary>The primary button: publishing is always allowed; the Properties "Save" only once something changed.</summary>
+        /// <summary>The publish dialog has nothing to send: the mod is recorded as up to date and nothing here was edited, so its one button reads Close.</summary>
+        public bool NothingToPublish { get { return !propertiesOnly && mod.PublishStatus == PublishStatus.Current && !HasUnsavedEdits; } }
+        /// <summary>Edit Properties keeps a separate Cancel/Close next to Save; the publish dialog has just its one button (Esc or the window's X leave).</summary>
+        public bool ShowCancel { get { return propertiesOnly; } }
         public bool CanPrimary { get { return !propertiesOnly || IsModified; } }
         /// <summary>Something typed or chosen in this dialog has not been saved: leaving now would throw it away.</summary>
         private bool HasUnsavedEdits
@@ -386,7 +418,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
         /// <summary>The dialog's way out: "Cancel" while edits would be discarded, "Close" when what is shown is what is on disk.</summary>
         public string CancelText { get { return L[HasUnsavedEdits ? "Cancel" : "Close"]; } }
-        private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanPrimary)); Raise(nameof(CancelText)); }
+        private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanPrimary)); Raise(nameof(PrimaryButtonText)); Raise(nameof(CancelText)); }
 
         public string Title { get { return title; } set { if (Set(ref title, value)) RaiseModified(); } }
         public string Version

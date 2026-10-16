@@ -140,6 +140,19 @@ namespace DW2ModLauncher.Core.Services.Publishing
         }
 
         /// <summary>
+        /// The owner's say-so that the folder as it is now counts as what Steam has: the files are captured again, but the record keeps
+        /// its original publish time (nothing was published). Only differences from here on show as changes. Throws when there is no record.
+        /// </summary>
+        public static void MarkCurrent(string workshopId, string contentFolder, string dataRoot = null)
+        {
+            PublishedManifest existing = Load(workshopId, dataRoot)
+                ?? throw new InvalidOperationException("There is no published-state record for Workshop item " + workshopId + " to bring up to date.");
+            PublishedManifest manifest = Capture(contentFolder);
+            manifest.PublishedUtc = existing.PublishedUtc;
+            Save(workshopId, manifest, dataRoot);
+        }
+
+        /// <summary>
         /// Brings one file's record up to date with the folder, for a change that reached Steam without a full publish (the description
         /// pushed on its own). Nothing else in the record changes, so every other difference still shows. No record: nothing to update.
         /// </summary>
