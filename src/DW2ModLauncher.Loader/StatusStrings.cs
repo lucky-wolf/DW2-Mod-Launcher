@@ -41,6 +41,7 @@ namespace DW2ModLauncher.Loader
             ["WidgetMenuMods"] = "Mods",
             ["WidgetMenuHeader"] = "MODS",
             ["WidgetMenuClose"] = "Close",
+            ["WidgetMenuBack"] = "Back",
             ["WidgetMenuSeed"] = "Random Seed",
             ["WidgetMenuCopied"] = "Copied to clipboard",
             ["WidgetLoaderName"] = "Mod Launcher (loader)",

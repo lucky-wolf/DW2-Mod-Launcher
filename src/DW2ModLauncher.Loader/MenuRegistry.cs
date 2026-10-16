@@ -10,6 +10,9 @@ namespace DW2ModLauncher.Loader
         public string Label { get; set; }
         public bool Enabled { get; set; }
         public Action OnClick { get; set; }
+        // the group this entry is listed under (null: the top-level Mods dialog); a group has no handler: picking it opens its entries
+        public string Parent { get; set; }
+        public bool IsGroup { get; set; }
     }
 
     // The entries mods (and the launcher itself) have put under the in-game Mods menu (docs/Mod Menu.md).
@@ -26,6 +29,8 @@ namespace DW2ModLauncher.Loader
             public string Label;
             public bool Enabled = true;
             public Action OnClick;
+            public string Parent;
+            public bool IsGroup;
         }
 
         readonly object _gate = new object();
@@ -56,6 +61,46 @@ namespace DW2ModLauncher.Loader
             }
         }
 
+        // Adds (or replaces) a group: a top-level button that opens a second dialog listing the entries added under it with AddChild.
+        public void AddGroup(string id, string label)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            lock (_gate)
+            {
+                Entry e = Find(id);
+                if (e == null)
+                {
+                    e = new Entry { Id = id };
+                    _entries.Add(e);
+                }
+                e.Label = string.IsNullOrWhiteSpace(label) ? id : label.Trim();
+                e.IsGroup = true;
+                e.OnClick = null;
+                e.Parent = null;
+                _revision++;
+            }
+        }
+
+        // Adds (or replaces) an entry listed in the group's dialog. The group need not exist yet; its entries wait for it.
+        public void AddChild(string parentId, string id, string label, Action onClick)
+        {
+            if (string.IsNullOrEmpty(parentId) || string.IsNullOrEmpty(id) || onClick == null) return;
+            lock (_gate)
+            {
+                Entry e = Find(id);
+                if (e == null)
+                {
+                    e = new Entry { Id = id };
+                    _entries.Add(e);
+                }
+                e.Label = string.IsNullOrWhiteSpace(label) ? id : label.Trim();
+                e.OnClick = onClick;
+                e.Parent = parentId;
+                e.IsGroup = false;
+                _revision++;
+            }
+        }
+
         public void Remove(string id)
         {
             lock (_gate)
@@ -78,15 +123,17 @@ namespace DW2ModLauncher.Loader
             }
         }
 
-        // The launcher first, then the rest alphabetically by label (ties by id), so the order never depends on load order.
-        public List<MenuEntrySnapshot> Snapshot()
+        // The top-level entries (parent null), or the entries listed under a group. The launcher first, then the rest alphabetically by label
+        // (ties by id), so the order never depends on load order.
+        public List<MenuEntrySnapshot> Snapshot(string parent = null)
         {
             lock (_gate)
             {
                 var list = new List<MenuEntrySnapshot>();
                 foreach (Entry e in _entries)
                 {
-                    list.Add(new MenuEntrySnapshot { Id = e.Id, Label = e.Label, Enabled = e.Enabled, OnClick = e.OnClick });
+                    if (!string.Equals(e.Parent, parent, StringComparison.Ordinal)) continue;
+                    list.Add(new MenuEntrySnapshot { Id = e.Id, Label = e.Label, Enabled = e.Enabled, OnClick = e.OnClick, Parent = e.Parent, IsGroup = e.IsGroup });
                 }
                 list.Sort((a, b) =>
                 {

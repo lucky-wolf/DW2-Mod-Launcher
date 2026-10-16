@@ -76,8 +76,9 @@ static class LauncherMenu
 | `Remove()` | Removes it. |
 | `SetEnabled(bool)` | Greys it out and ignores clicks (for example, not in a game). |
 | `Show()` | Brings the Mods dialog back. Call it when your own UI closes (see below). |
+| `ReturnToGame()` | Closes the Game Menu and resumes the game. Call it from a click handler whose job is done in the game itself (jumping the map to a world, say), so the player sees the result at once. Ignored unless the Game Menu is still up. |
 
-One entry per mod; a mod that wants several actions opens its own dialog from `onClick`. A mod that needs a second entry can use its own id, by calling `ModMenu.Add` directly with a different first argument.
+One entry per mod; a mod that wants several actions opens its own dialog from `onClick`. A mod that needs a second entry can use its own id, by calling `ModMenu.Add` directly with a different first argument. A mod with a list (a button per world, say) makes one **group**: `ModMenu.AddGroup(id, label)` is the mod's single button in the Mods dialog, and picking it opens a second dialog (headed with the label, with a Back button that returns to the Mods dialog) holding the entries added with `ModMenu.AddChild(groupId, id, label, onClick)`. Add and remove children as the list changes (`Remove(id)`); a child may be added before its group exists. A child's handler that is done in the game itself calls `ReturnToGame()` to close the whole stack.
 
 ## The stack
 

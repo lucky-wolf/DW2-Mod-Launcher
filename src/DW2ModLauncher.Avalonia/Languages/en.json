@@ -364,6 +364,7 @@
   "WidgetMenuMods": "Mods",
   "WidgetMenuHeader": "MODS",
   "WidgetMenuClose": "Close",
+  "WidgetMenuBack": "Back",
   "WidgetMenuSeed": "Random Seed",
   "WidgetMenuCopied": "Copied to clipboard",
   "WidgetAbout": "Version {0}\n\nCode mods loaded: {1}. The line at the lower left of the screen lists them; click it for details.\n\nLog: data/Logs/dw2modlauncher.log",
