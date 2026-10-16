@@ -156,6 +156,8 @@
   "ModsJsonERROR": "ОШИБКА mods.json",
   "CloseGameBeforeProfileSwitch": "Закройте DW2 перед переключением профилей.",
   "LoadOrderSaved": "Порядок загрузки сохранён.",
+  "LoadOrderRuleBlocked": "Не перемещено: {0}.",
+  "LoadOrderSnapped": "«{0}» перемещён на ближайшее место, допустимое правилами порядка загрузки.",
   "SwitchedModProfile": "Профиль модов переключён: ",
   "LauncherTooOld": "Нужен более новый лаунчер, версия не ниже ",
   "ModConflictWarning": "Предупреждение о конфликте модов",

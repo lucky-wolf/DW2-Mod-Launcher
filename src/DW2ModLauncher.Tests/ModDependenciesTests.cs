@@ -36,6 +36,33 @@ namespace DW2ModLauncher.Tests
         // ---- order
 
         [Fact]
+        public void Violations_NamesOnlyTheRulesTheMoverBreaks()
+        {
+            ModInfo a = MakeMod("a"); ModInfo b = MakeMod("b"); ModInfo c = MakeMod("c");
+            a.Dependencies.Add(Dep("c", after: true));
+            c.Dependencies.Add(Dep("b", before: true));   // c must load before b
+
+            Assert.Empty(ModDependencies.Violations(new[] { b, c, a }, a));
+            Assert.Single(ModDependencies.Violations(new[] { a, b, c }, a));
+            Assert.Single(ModDependencies.Violations(new[] { b, c, a }, b));   // b must load after c (c loads before b)
+            Assert.Empty(ModDependencies.Violations(new[] { c, b, a }, a));
+        }
+
+        [Fact]
+        public void NearestValidIndex_ClampsToTheClosestPlaceTheRulesAllow()
+        {
+            ModInfo a = MakeMod("a"); ModInfo b = MakeMod("b"); ModInfo c = MakeMod("c"); ModInfo m = MakeMod("m");
+            m.Dependencies.Add(Dep("b", after: true));
+            m.Dependencies.Add(Dep("c", before: true));
+            ModInfo[] others = { a, b, c };
+
+            Assert.Equal(2, ModDependencies.NearestValidIndex(others, m, 0));   // must load after b (index 1), so slot 2
+            Assert.Equal(2, ModDependencies.NearestValidIndex(others, m, 3));   // and before c (index 2)
+            Assert.Equal(2, ModDependencies.NearestValidIndex(others, m, 2));
+            Assert.Equal(1, ModDependencies.NearestValidIndex(new[] { a, c }, m, 5)); // no b: only "before c" binds
+        }
+
+        [Fact]
         public void Enforce_MovesAModAfterWhatItLoadsAfter()
         {
             ModInfo a = MakeMod("a"); ModInfo b = MakeMod("b"); ModInfo c = MakeMod("c");

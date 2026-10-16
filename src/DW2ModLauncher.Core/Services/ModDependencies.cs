@@ -69,6 +69,53 @@ namespace DW2ModLauncher.Core.Services
             return false;
         }
 
+        /// <summary>The enabled mods <paramref name="mover"/> must load after (<paramref name="before"/>) and before (<paramref name="after"/>), by the rules on either side.</summary>
+        private static void Relations(IList<ModInfo> enabled, ModInfo mover, List<ModInfo> before, List<ModInfo> after)
+        {
+            foreach (ModInfo mod in enabled)
+            {
+                foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
+                {
+                    if (dep == null || dep.loadAfter == dep.loadBefore) continue;
+                    ModInfo target = Find(enabled, dep.mod);
+                    if (target == null || target == mod) continue;
+                    ModInfo first = dep.loadAfter ? target : mod;   // the one that must load first
+                    ModInfo second = dep.loadAfter ? mod : target;
+                    if (second == mover) before.Add(first);
+                    else if (first == mover) after.Add(second);
+                }
+            }
+        }
+
+        /// <summary>The loadAfter / loadBefore rules that involve <paramref name="mover"/> and that the given order of the enabled mods breaks, one line each.</summary>
+        public static List<string> Violations(IList<ModInfo> ordered, ModInfo mover)
+        {
+            List<string> broken = new List<string>();
+            int at = ordered.IndexOf(mover);
+            if (at < 0) return broken;
+            List<ModInfo> before = new List<ModInfo>(), after = new List<ModInfo>();
+            Relations(ordered, mover, before, after);
+            foreach (ModInfo b in before.Distinct()) if (ordered.IndexOf(b) > at) broken.Add(Name(mover) + " must load after " + Name(b));
+            foreach (ModInfo a in after.Distinct()) if (ordered.IndexOf(a) < at) broken.Add(Name(mover) + " must load before " + Name(a));
+            return broken;
+        }
+
+        /// <summary>
+        /// Where a mod being enabled goes among the <paramref name="others"/> (the enabled mods in load order): the place asked for, or the nearest
+        /// one its rules allow. The result is the index to insert at (0 to others.Count). Rules that contradict each other leave the place asked for;
+        /// the launch check reports those.
+        /// </summary>
+        public static int NearestValidIndex(IList<ModInfo> others, ModInfo mover, int desired)
+        {
+            List<ModInfo> all = others.Concat(new[] { mover }).ToList();
+            List<ModInfo> before = new List<ModInfo>(), after = new List<ModInfo>();
+            Relations(all, mover, before, after);
+            int lower = before.Select(b => others.IndexOf(b) + 1).DefaultIfEmpty(0).Max();
+            int upper = after.Select(a => others.IndexOf(a)).DefaultIfEmpty(others.Count).Min();
+            desired = Math.Max(0, Math.Min(desired, others.Count));
+            return lower > upper ? desired : Math.Max(lower, Math.Min(upper, desired));
+        }
+
         /// <summary>The result of putting the enabled mods in an order that satisfies every loadAfter and loadBefore.</summary>
         public class OrderResult
         {
