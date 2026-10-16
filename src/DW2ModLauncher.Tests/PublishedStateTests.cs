@@ -47,6 +47,30 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void MarkCurrent_AcceptsTheFolderButKeepsThePublishTime()
+        {
+            PublishedManifest recorded = PublishedState.Capture(Content);
+            recorded.PublishedUtc = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            PublishedState.Save("77", recorded, Data);
+            File.WriteAllText(Path.Combine(Content, "sub", "a.txt"), "changed afterwards");
+            Assert.False(PublishedState.Compare(Content, PublishedState.Load("77", Data)).IsClean);
+
+            PublishedState.MarkCurrent("77", Content, Data);
+
+            PublishedManifest after = PublishedState.Load("77", Data);
+            Assert.True(PublishedState.Compare(Content, after).IsClean);
+            Assert.Equal(recorded.PublishedUtc, after.PublishedUtc);
+            File.WriteAllText(Path.Combine(Content, "sub", "b.txt"), "later still");
+            Assert.Equal(new[] { "sub/b.txt" }, PublishedState.Compare(Content, after).Added);
+        }
+
+        [Fact]
+        public void MarkCurrent_WithoutARecordThrows()
+        {
+            Assert.Throws<InvalidOperationException>(() => PublishedState.MarkCurrent("404", Content, Data));
+        }
+
+        [Fact]
         public void Compare_IgnoresTouchWithIdenticalContent()
         {
             PublishedManifest manifest = PublishedState.Capture(Content);

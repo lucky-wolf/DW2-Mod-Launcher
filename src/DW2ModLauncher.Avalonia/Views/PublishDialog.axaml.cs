@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using DW2ModLauncher.Avalonia.Services;
 using DW2ModLauncher.Avalonia.ViewModels;
 
@@ -16,8 +17,13 @@ namespace DW2ModLauncher.Avalonia.Views
             DataContext = editor;
             Closed += delegate { editor.Dispose(); };
             CancelButton.Click += delegate { Close(false); };
+            KeyDown += (sender, e) =>
+            {
+                if (e.Key == Key.Escape) { Close(false); e.Handled = true; }
+            };
             PublishButton.Click += async delegate
             {
+                if (editor.NothingToPublish) { Close(false); return; }
                 // Saving rewrites mod.json's bundle list from the folder, so missing entries are about to be dropped: ask first.
                 string question = editor.MissingBundlesQuestion;
                 if (question != null && !await dialogs.ConfirmAsync(question, Title, editor.L["OK"], editor.L["Cancel"])) return;

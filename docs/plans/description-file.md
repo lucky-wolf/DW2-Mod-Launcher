@@ -33,7 +33,7 @@ legacy and go away.
 - [x] Dialog XAML + view: remove radios/file row, add editor button, dispose on close
 - [x] Strings (EN/JA): remove dead keys, add new ones
 - [x] Tests: update/replace the old descriptionFile tests, add migration + conflict + save tests
-- [x] focus.md entry; AGENTS.md mention if conventions shift
+- [x] changelog.txt entry; AGENTS.md mention if conventions shift
 
 ## Follow-up: earlier default name
 

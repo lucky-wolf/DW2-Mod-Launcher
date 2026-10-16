@@ -4,7 +4,7 @@
         xmlns:svc="using:DW2ModLauncher.Core.Services"
         x:Class="DW2ModLauncher.Avalonia.Views.PublishDialog"
         x:DataType="vm:PublishDialogViewModel"
-        Title="{Binding WindowTitle}" Width="720" Height="900" CanResize="False"
+        Title="{Binding WindowTitle}" Width="830" Height="900" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Grid RowDefinitions="*,Auto">
     <ScrollViewer Grid.Row="0">
@@ -159,16 +159,16 @@
             </StackPanel>
           </Border>
         </Expander>
-        <!-- Folded to the one status line by default; the choice is remembered. Unfolded it lists every changed file. -->
-        <Expander IsVisible="{Binding HasPublishStatus}" IsExpanded="{Binding StatusExpanded}" Header="{Binding PublishStatusLine}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-          <SelectableTextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding PublishStatusDetail}" />
-        </Expander>
         <!-- What the update will send as its change note: the Unreleased lines of changelog.txt. Folded to "Change notes: N" until opened. -->
-        <Expander IsVisible="{Binding ShowChangeNotes}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
+        <Expander IsVisible="{Binding ShowChangeNotes}" IsExpanded="{Binding ChangeNotesExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
           <Expander.Header>
             <TextBlock Text="{Binding ChangeNotesHeader}" ToolTip.Tip="{Binding L[PublishChangeNotesHint]}" />
           </Expander.Header>
-          <TextBox Text="{Binding ChangeNotes}" AcceptsReturn="True" TextWrapping="Wrap" Height="120" />
+          <TextBox Text="{Binding ChangeNotes}" AcceptsReturn="True" TextWrapping="Wrap" Height="80" />
+        </Expander>
+        <!-- Folded to the one status line by default; the choice is remembered. Unfolded it lists every changed file. -->
+        <Expander IsVisible="{Binding HasPublishStatus}" IsExpanded="{Binding StatusExpanded}" Header="{Binding PublishStatusLine}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+          <SelectableTextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding PublishStatusDetail}" />
         </Expander>
       </StackPanel>
     </ScrollViewer>
@@ -176,8 +176,9 @@
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
         <TextBlock Classes="muted" VerticalAlignment="Center" IsVisible="{Binding ShowDescriptionDiffers}" Text="{Binding L[PublishDescriptionDiffers]}" />
         <CheckBox IsChecked="{Binding ReplaceDescription}" IsVisible="{Binding ShowReplaceDescription}" Content="{Binding L[PublishReplaceDescription]}" VerticalAlignment="Center" Margin="0,0,12,0" />
+        <Button IsVisible="{Binding CanMarkUpToDate}" Command="{Binding MarkUpToDateCommand}" Content="{Binding L[MarkUpToDate]}" MinWidth="125" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" />
         <Button Name="PublishButton" Classes="play" IsEnabled="{Binding CanPrimary}" Content="{Binding PrimaryButtonText}" MinWidth="170" FontSize="14" ToolTip.Tip="{Binding Note}" />
-        <Button Name="CancelButton" IsCancel="True" Content="{Binding CancelText}" MinWidth="125" />
+        <Button Name="CancelButton" IsCancel="True" IsVisible="{Binding ShowCancel}" Content="{Binding CancelText}" MinWidth="125" />
       </StackPanel>
     </Border>
   </Grid>

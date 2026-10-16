@@ -325,8 +325,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>
-        /// Before launching: with unsaved edits, Save changes / Don't save / cancel the launch (returns false). Don't save keeps
-        /// the list but disconnects it from the profile. Otherwise the profile on screen is made the active one.
+        /// Before launching: unsaved edits are saved to the profile without asking (returns false only if the save fails).
+        /// Otherwise the profile on screen is made the active one.
         /// </summary>
         public async Task<bool> ConfirmSaveForLaunchAsync()
         {
@@ -337,7 +337,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 RaiseDirty();
                 return true;
             }
-            if (ProfileDirty) return await AskSaveOrDisconnectAsync(string.Format(main.T("UnsavedProfileLaunch"), profileName));
+            if (ProfileDirty) return await WriteProfileAsync(profileName);
             try { main.GameProfiles.WriteCurrent(profileName); }
             catch (Exception ex) { Logger.LogException("Set active profile before launch", ex); }
             return true;

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using DW2ModLauncher.Core.Models;
+using DW2ModLauncher.Core.Services.Publishing;
 
 namespace DW2ModLauncher.Core.Services
 {
@@ -139,11 +140,18 @@ namespace DW2ModLauncher.Core.Services
             }
         }
 
-        /// <summary>The sentence plus (when files changed) up to <paramref name="maxFiles"/> of them, one per line; for a tooltip.</summary>
-        public static string PublishStatusTooltip(ModInfo mod, Func<string, string> t, int maxFiles = 12)
+        /// <summary>
+        /// For a modified mod: first (when the mod's changelog.txt has unreleased lines) a "Change log:" heading with those lines indented under it,
+        /// then the sentence ("N files changed since ...") heading up to <paramref name="maxFiles"/> of the changed files, one per line; for a tooltip.
+        /// <paramref name="includeChangeLog"/> false leaves the change log out (the publish dialog shows it in its own section).
+        /// </summary>
+        public static string PublishStatusTooltip(ModInfo mod, Func<string, string> t, int maxFiles = 12, bool includeChangeLog = true)
         {
             string text = PublishStatusSentence(mod, t);
             if (mod.PublishStatus != PublishStatus.Changed) return text;
+            string notes = includeChangeLog ? ModChangelog.UnreleasedText(mod.ContentRoot ?? mod.Folder) : "";
+            if (notes.Length > 0)
+                text = t("PublishStateChangeLog") + "\n" + string.Join("\n", notes.Split('\n').Select(l => "  " + l)) + "\n\n" + text;
             text += "\n" + string.Join("\n", mod.UnpublishedChanges.Take(maxFiles).Select(c => "  " + c));
             if (mod.UnpublishedChanges.Count > maxFiles) text += "\n  ... +" + (mod.UnpublishedChanges.Count - maxFiles);
             return text;

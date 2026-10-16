@@ -3,8 +3,8 @@
 
 CI-only helper for .github/workflows/release.yml (needs GH_TOKEN, GITHUB_REPOSITORY and GITHUB_SHA).
 Writes nothing (and leaves the file absent) when no PR is found or its description is empty, so the
-workflow can fall back to GitHub's generated notes. docs/focus.md is deliberately not read here: it is
-only a local drafting aid for open-pr.py, and a stale copy on main must never end up in a release.
+workflow can fall back to GitHub's generated notes. changelog.txt is deliberately not read here: it is
+only a local drafting aid for open-pr.py, and a stale section on main must never end up in a release.
 
 Usage:
   scripts/release-notes.py OUTPUT_FILE
