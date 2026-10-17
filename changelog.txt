@@ -1,4 +1,6 @@
 ## v1.0.16
+- Local mods with a description file get mod.json's descriptionFile added automatically on scan
+- Mod settings still at their old default follow the mod's new default
 - Enabled mods can no longer be dragged past a load order rule; enabling snaps to the nearest valid place
 - Edit Properties: erasing all change notes can now be saved, and Mark Up to Date writes pending edits first
 

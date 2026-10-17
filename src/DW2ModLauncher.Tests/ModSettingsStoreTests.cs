@@ -153,6 +153,82 @@ namespace DW2ModLauncher.Tests
             finally { if (File.Exists(path)) File.Delete(path); }
         }
 
+        private static ModSettingsSchema TwoBoolsAndAnInt(bool untouchedDefault, bool editedDefault, int count)
+        {
+            return new ModSettingsSchema
+            {
+                Groups = new List<ModSettingsGroup>
+                {
+                    new ModSettingsGroup
+                    {
+                        Name = "fields",
+                        Fields = new List<ModSettingsField>
+                        {
+                            new ModSettingsField { Key = "Untouched", Type = "bool", Default = untouchedDefault },
+                            new ModSettingsField { Key = "Edited", Type = "bool", Default = editedDefault },
+                            new ModSettingsField { Key = "Count", Type = "int", Default = count },
+                        }
+                    }
+                }
+            };
+        }
+
+        [Fact]
+        public void GetOrCreateValues_MovesSettingsStillAtTheOldDefault_ToTheNewDefault_ButKeepsEditedOnes()
+        {
+            ModInfo mod = MakeMod("test/store-newdefault-" + Guid.NewGuid().ToString("N"));
+            string path = ModSettingsStore.GetSettingsPath(mod);
+            string defaultsPath = ModSettingsStore.GetDefaultsPath(mod);
+            try
+            {
+                ModSettingsStore.GetOrCreateValues(mod, TwoBoolsAndAnInt(true, true, 5));
+                JsonObject edited = ModSettingsStore.GetOrCreateValues(mod, null);
+                edited["Edited"] = false;
+                ModSettingsStore.SaveValues(mod, edited);
+
+                JsonObject values = ModSettingsStore.GetOrCreateValues(mod, TwoBoolsAndAnInt(false, false, 7));
+
+                Assert.False(values["Untouched"].GetValue<bool>());
+                Assert.False(values["Edited"].GetValue<bool>());
+                Assert.Equal(7, values["Count"].GetValue<int>());
+                Assert.False(ModSettingsStore.GetOrCreateValues(mod, null)["Untouched"].GetValue<bool>());
+
+                // The user's own value survives a default that moves away from it.
+                JsonObject chosen = ModSettingsStore.GetOrCreateValues(mod, null);
+                chosen["Count"] = 9;
+                ModSettingsStore.SaveValues(mod, chosen);
+                Assert.Equal(9, ModSettingsStore.GetOrCreateValues(mod, TwoBoolsAndAnInt(false, false, 11))["Count"].GetValue<int>());
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+                if (File.Exists(defaultsPath)) File.Delete(defaultsPath);
+            }
+        }
+
+        [Fact]
+        public void GetOrCreateValues_LeavesValuesAlone_WhenNoDefaultsWereRememberedYet()
+        {
+            ModInfo mod = MakeMod("test/store-nobaseline-" + Guid.NewGuid().ToString("N"));
+            string path = ModSettingsStore.GetSettingsPath(mod);
+            string defaultsPath = ModSettingsStore.GetDefaultsPath(mod);
+            try
+            {
+                ModSettingsStore.SaveValues(mod, new JsonObject { ["Untouched"] = true, ["Edited"] = true, ["Count"] = 5 });
+
+                JsonObject values = ModSettingsStore.GetOrCreateValues(mod, TwoBoolsAndAnInt(false, false, 7));
+
+                Assert.True(values["Untouched"].GetValue<bool>());
+                Assert.Equal(5, values["Count"].GetValue<int>());
+                Assert.True(File.Exists(defaultsPath));
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+                if (File.Exists(defaultsPath)) File.Delete(defaultsPath);
+            }
+        }
+
         [Fact]
         public void SaveValues_RoundTrips()
         {

@@ -1226,7 +1226,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             if (mod == null || mod.IsWorkshop || string.IsNullOrWhiteSpace(mod.ModJsonPath)) return;
             ModPublishMetadata metadata;
-            try { metadata = ModPublishMetadataEditor.Read(mod.ModJsonPath); }
+            try
+            {
+                // Naming the description file is housekeeping, not an edit: done before the dialog snapshots mod.json.
+                ModDescriptionFile.EnsureKeyInModJson(mod.ModJsonPath, mod.ContentRoot ?? mod.Folder);
+                metadata = ModPublishMetadataEditor.Read(mod.ModJsonPath);
+            }
             catch (Exception ex)
             {
                 Logger.LogException("Read mod.json for properties", ex);
@@ -1299,7 +1304,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return;
             }
             ModPublishMetadata metadata;
-            try { metadata = ModPublishMetadataEditor.Read(mod.ModJsonPath); }
+            try
+            {
+                ModDescriptionFile.EnsureKeyInModJson(mod.ModJsonPath, mod.ContentRoot ?? mod.Folder);
+                metadata = ModPublishMetadataEditor.Read(mod.ModJsonPath);
+            }
             catch (Exception ex)
             {
                 Logger.LogException("Read mod.json for publish", ex);
