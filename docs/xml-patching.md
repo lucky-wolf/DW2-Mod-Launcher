@@ -30,13 +30,15 @@ Two rules to remember:
 
 ## What you write
 
-Whatever you write **overrides**; whatever you leave out stays as it is. Three attributes pick the target and the action:
+Whatever you write **overrides**; whatever you leave out stays as it is. Three attributes pick the target and the action
+(a fourth, `missing`, only says how loudly to complain, see [When a target is missing](#when-a-target-is-missing)):
 
 | Attribute | Meaning |
 |---|---|
 | `id="…"` | which entity or list item (matched by its key, see [Keys](#keys)) |
 | `index="N"` | which list item, by position. **Starts at 1** (V1, V2, V3 ... as the game shows levels) |
 | `op="…"` | `add`, `remove` or `replace`. Without `op` the element just overrides |
+| `missing="…"` | `error`, `warn` or `ok`: what the in-game status line shows if this item's target is not there |
 
 Elements always mean "this field". Attributes are removed before the game sees the data.
 
@@ -135,15 +137,50 @@ written to **`dw2modlauncher-patches.log`** (in the launcher's log folder: Setti
 
 ```
 patches/races.xml:5: error: <Race> has no field 'Agression' - did you mean 'Aggression'?
-patches/races.xml:9: error: Race id=99 is not defined by any loaded ArrayOfRace file (a mod may have replaced it) (has: 0, 1, 2, ...) - did you mean '9'?
+patches/races.xml:9: warning (not applied, missing=warn): Race id=99 is not defined by any loaded ArrayOfRace file (a mod may have replaced it) (has: 0, 1, 2, ...) - did you mean '9'?
 patches/races.xml:12: error: <Bonus> is a list item of <Bonuses>; say which one: id="Type value", index="N" or op="add"
-patches/races.xml:14: error: Race id=3 > PreferredGovernmentIds > short index=9: list has 1 item(s) (valid: 1..1)
+patches/races.xml:14: warning (not applied, missing=warn): Race id=3 > PreferredGovernmentIds > short index=9: list has 1 item(s) (valid: 1..1)
 patches/races.xml: 9 applied, 0 unchanged, 5 skipped
 ```
 
 Every change that was applied is logged as `old -> new`, so you can confirm what happened. "unchanged" means the value was
 already what you wrote. The usual causes of a patch that "does nothing": a typo in a field name, the wrong `id`, the file
 sitting outside `patches/`, or the mod not enabled in the launcher.
+
+### When a target is missing
+
+An item whose target is not there (the entity, list item or data file it addresses) cannot apply. That is not always a
+mistake: a translation patch for an entity another mod removed is normal. So **you** decide how loudly it is reported,
+with `missing="error|warn|ok"`:
+
+| Value | In-game status line | Log |
+|---|---|---|
+| `error` | red error | yes |
+| `warn` | yellow warning (the default) | yes |
+| `ok` | nothing | yes |
+
+**Every unapplied item is always written to the log**, whatever the value; `missing` only decides how much the *player* is
+bothered, never whether you can find out. The first of these that is set wins:
+
+1. **The patch.** `missing` on the item, or on any element around it up to the file's root element (the nearest one wins), so
+   `<ArrayOfRace missing="ok">` sets a default for the whole file and a single item can still say `missing="error"`.
+   An explicit value is final.
+2. **The mod.** `"missing": "error"` in the mod's `dw2modlauncher.json` is the default for every item that does not say.
+   A mod where everything missing really is a problem can ship with `error`.
+3. **The default**, `warn`.
+
+```xml
+<ArrayOfRace missing="ok">                                      <!-- this file: quiet unless an item says otherwise -->
+  <Race id="99"><Aggression>2</Aggression></Race>               <!-- only logged if Race 99 does not exist -->
+  <Race id="0" missing="error"><Aggression>2</Aggression></Race> <!-- red if Race 0 does not exist -->
+</ArrayOfRace>
+```
+
+While developing, set **Settings > Unapplied XML patches** in the launcher to "At least a warning" or "Always an error". It
+raises everything to at least that level for every mod on your machine, whatever the patches and mods say, so you see your
+own problems loudly. It only raises, never lowers, so an `error` you wrote on purpose can never be hidden by it, and it is a
+local setting that is never part of your mod. Mistakes in the patch itself (a misspelt field, a bad `missing` value) are not
+"missing target" cases: they are always amber, and red under the override.
 
 ## Translating the game: the Localization Mod shortcut
 

@@ -32,6 +32,9 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Where the loader writes its logs (as the game process sees the path); blank = the game's data/Logs folder.</summary>
         public string LogDirectory { get; set; } = "";
 
+        /// <summary>The developer override of the launcher settings ("warn" or "error"; blank = off): the patcher raises what the widget shows for every unapplied patch item to at least this, whatever the patches and mods declare. Never lowers.</summary>
+        public string MissingOverride { get; set; } = "";
+
         /// <summary>The widget's and Mods menu's own words in the chosen language (the Widget* keys of the launcher's language pack); empty = the loader's built-in English.</summary>
         public Dictionary<string, string> Strings { get; set; } = new Dictionary<string, string>();
     }
@@ -42,6 +45,8 @@ namespace DW2ModLauncher.Core.Models
         public string DisplayName { get; set; }
         /// <summary>The mod's position in <see cref="LoaderManifest.ModFolders"/>: the patches apply to data of this mod and of the ones before it.</summary>
         public int Order { get; set; }
+        /// <summary>The mod's own dw2modlauncher.json "missing" ("error", "warn" or "ok") exactly as written, the default for its patch items that do not set one; blank = not set. The loader validates it and reports a bad value.</summary>
+        public string Missing { get; set; } = "";
         /// <summary>Paths as the game process sees them (Z:\... under Proton).</summary>
         public List<string> Files { get; set; } = new List<string>();
     }

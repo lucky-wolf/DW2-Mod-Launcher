@@ -1,4 +1,5 @@
 ## v1.0.15
+- XML patches: missing="error|warn|ok" sets how loudly an unapplied patch item shows in game; Settings has a developer override that only escalates
 - No longer asks for confirmation when launching a game (saves to current profile automatically)
 - New "Mark Up to Date" right-click action records a modified mod's current files as what is on Steam
 - Publish dialog lists Change notes above the modified files, no longer repeated inside it

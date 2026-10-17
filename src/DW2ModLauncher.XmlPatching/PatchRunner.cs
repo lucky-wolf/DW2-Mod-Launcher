@@ -16,6 +16,8 @@ namespace DW2ModLauncher.XmlPatching
         internal bool Validated { get; set; }
         /// <summary>Position of the owning mod in the load order. The patch only applies to data from this mod or from before it (see <see cref="PatchRunner.Apply"/>).</summary>
         public int Order { get; set; } = int.MaxValue;
+        /// <summary>The owning mod's own missing level (dw2modlauncher.json "missing"); null = the mod says nothing.</summary>
+        public MissingLevel? ModMissing { get; set; }
     }
 
     /// <summary>
@@ -26,7 +28,7 @@ namespace DW2ModLauncher.XmlPatching
     /// </summary>
     public sealed partial class PatchRunner
     {
-        private static readonly string[] KnownAttributes = { "id", "index", "op" };
+        private static readonly string[] KnownAttributes = { "id", "index", "op", MissingPolicy.AttributeName };
 
         private readonly Func<string, SchemaRoot> _schemaFor;
         private readonly KeyMap _keys;
@@ -58,13 +60,29 @@ namespace DW2ModLauncher.XmlPatching
 
         public PatchReport Report { get; } = new PatchReport();
 
+        /// <summary>
+        /// The developer override (launcher settings): raises what the widget shows for every unapplied item and patch problem to at
+        /// least this level, whatever the patches and mods declare. It never lowers anything. Null = off.
+        /// </summary>
+        public MissingLevel? DevOverride
+        {
+            get { return Report.Floor; }
+            set { Report.Floor = value; }
+        }
+
+        /// <summary>The level of an item whose patch and mod say nothing (the global default).</summary>
+        public MissingLevel DefaultMissing { get; set; } = MissingPolicy.Default;
+
         public IReadOnlyList<PatchFile> Files
         {
             get { return _files; }
         }
 
-        /// <summary>Parses one patch file and queues it. Returns false (and reports why) when the file is not usable at all.</summary>
-        public bool AddFile(string label, string displayPath, string xml, int order = int.MaxValue)
+        /// <summary>
+        /// Parses one patch file and queues it. Returns false (and reports why) when the file is not usable at all.
+        /// <paramref name="modMissing"/> is the owning mod's default for patch items that do not set missing themselves.
+        /// </summary>
+        public bool AddFile(string label, string displayPath, string xml, int order = int.MaxValue, MissingLevel? modMissing = null)
         {
             lock (_lock)
             {
@@ -84,7 +102,13 @@ namespace DW2ModLauncher.XmlPatching
                     Report.Add(Severity.Error, displayPath, 1, "the root element must be the one of the data it patches, e.g. <ArrayOfRace>");
                     return false;
                 }
-                _files.Add(new PatchFile { Label = label, Path = displayPath, Doc = doc, Order = order });
+                string rootMissing = Attr(doc.Root, MissingPolicy.AttributeName);
+                if (rootMissing != null && !MissingPolicy.TryParse(rootMissing, out _))
+                {
+                    Report.Add(Severity.Error, displayPath, LineOf(doc.Root), "missing=\"" + rootMissing + "\" is not valid (use error, warn or ok)" + Suggest(rootMissing, MissingPolicy.Names));
+                    return false;
+                }
+                _files.Add(new PatchFile { Label = label, Path = displayPath, Doc = doc, Order = order, ModMissing = modMissing });
                 return true;
             }
         }
@@ -192,7 +216,7 @@ namespace DW2ModLauncher.XmlPatching
                     if (!_rootsApplied.Contains(rootName) && LateRoots.Contains(rootName)) continue; // opened after the pass, and warned about then
                     if (!_rootsApplied.Contains(rootName))
                     {
-                        Report.Add(Severity.Warning, f.Path, 1, "no data file with root <" + rootName + "> was loaded, so this patch did nothing");
+                        Report.AddUnapplied(DeclaredLevel(f, f.Doc.Root), f.Path, 1, "no data file with root <" + rootName + "> was loaded, so this patch did nothing");
                         continue;
                     }
                     SchemaRoot schema = SchemaFor(rootName);
@@ -356,11 +380,24 @@ namespace DW2ModLauncher.XmlPatching
             Report.CountSkipped(f.Path);
         }
 
-        /// <summary>Reports an item that could not be applied in this pass; unlike <see cref="Fail"/> it does not disable the item for later passes.</summary>
+        /// <summary>
+        /// Reports an item whose target is missing and so could not be applied in this pass; unlike <see cref="Fail"/> it does not
+        /// disable the item for later passes. It is always recorded; how loudly the widget shows it is the item's missing level.
+        /// </summary>
         private void Skipped(PatchFile f, XElement e, string message)
         {
-            Report.Add(Severity.Error, f.Path, LineOf(e), message);
+            Report.AddUnapplied(DeclaredLevel(f, e), f.Path, LineOf(e), message);
             Report.CountSkipped(f.Path);
+        }
+
+        /// <summary>The missing level a patch element asks for: the nearest element up to the file's root that sets it, else the mod's, else the global default. (Values were validated when the file was added or checked.)</summary>
+        private MissingLevel DeclaredLevel(PatchFile f, XElement e)
+        {
+            for (XElement x = e; x != null; x = x.Parent)
+            {
+                if (MissingPolicy.TryParse(Attr(x, MissingPolicy.AttributeName), out MissingLevel level)) return level;
+            }
+            return f.ModMissing ?? DefaultMissing;
         }
 
         /// <summary>A failure that depends on the data; reported at Finish unless the same item applies in another file.</summary>

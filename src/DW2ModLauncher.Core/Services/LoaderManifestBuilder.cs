@@ -165,7 +165,7 @@ namespace DW2ModLauncher.Core.Services
         {
             List<string> files = PatchFilesOf(modRoot);
             if (files.Count == 0) return;
-            LoaderManifestPatchSet set = new LoaderManifestPatchSet { DisplayName = mod.DisplayName ?? mod.Id, Order = order };
+            LoaderManifestPatchSet set = new LoaderManifestPatchSet { DisplayName = mod.DisplayName ?? mod.Id, Order = order, Missing = LauncherMetaReader.Read(mod)?.missing?.Trim() ?? "" };
             foreach (string file in files)
                 set.Files.Add(GamePaths.ToGameVisiblePath(Path.GetFullPath(file)));
             manifest.Patches.Add(set);

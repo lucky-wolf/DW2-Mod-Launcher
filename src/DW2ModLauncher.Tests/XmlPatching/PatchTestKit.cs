@@ -146,7 +146,8 @@ namespace DW2ModLauncher.Tests.XmlPatching
 
         public IEnumerable<string> Errors()
         {
-            return Report.Entries.Where(e => e.Severity == Severity.Error).Select(e => e.Message);
+            // Problems of the patch itself and unapplied items (which are warnings by default, errors with missing="error").
+            return Report.Entries.Where(e => e.Severity == Severity.Error || e.Unapplied).Select(e => e.Message);
         }
 
         public const string HumanRace = "<Race><RaceId>0</RaceId><Name>Human</Name><Aggression>1.2</Aggression><IsPlayable>true</IsPlayable>" +

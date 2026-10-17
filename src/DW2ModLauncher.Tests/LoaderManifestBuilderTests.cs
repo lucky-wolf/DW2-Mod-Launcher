@@ -218,6 +218,33 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Build_CarriesTheModsMissingSettingIntoItsPatchSet_AsWritten()
+        {
+            string set = MakeModDir();
+            string unset = MakeModDir();
+            try
+            {
+                foreach (string d in new[] { set, unset })
+                {
+                    Directory.CreateDirectory(Path.Combine(d, "patches"));
+                    File.WriteAllText(Path.Combine(d, "patches", "a.xml"), "<ArrayOfRace />");
+                }
+                File.WriteAllText(Path.Combine(set, "dw2modlauncher.json"), @"{ ""missing"": "" Error "" }");
+
+                LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(set), ModAt(unset) });
+
+                Assert.Equal("Error", manifest.Patches[0].Missing); // trimmed; validation (and the report of a bad word) is the loader's
+                Assert.Equal("", manifest.Patches[1].Missing);
+                Assert.Equal("", manifest.MissingOverride);
+            }
+            finally
+            {
+                Directory.Delete(set, true);
+                Directory.Delete(unset, true);
+            }
+        }
+
+        [Fact]
         public void InvalidFor_ReportsEveryDllWithoutAValidEntryPoint()
         {
             string dir = MakeModDir("Good.dll");

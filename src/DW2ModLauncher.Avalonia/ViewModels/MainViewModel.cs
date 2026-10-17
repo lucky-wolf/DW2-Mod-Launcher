@@ -1749,7 +1749,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 foreach (string line in ModChannels.Describe(OrderedEnabledMods())) Logger.Log("Channel data", line);
                 string inGameLanguage = WidgetLanguage.Choose(OrderedEnabledMods(), settings, out _);
                 LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods(), settings.LogDirectory,
-                    WidgetLanguage.Strings(inGameLanguage), inGameLanguage);
+                    WidgetLanguage.Strings(inGameLanguage), inGameLanguage, settings.PatchMissingOverride);
                 Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(LaunchMode, launchManifest.Fonts.LastOrDefault()?.Name)));
                 SetStatus(T("DistantWorlds2Launched") + (dependencyOrder.Written ? " (load order adjusted to meet mod dependencies: " + string.Join("; ", dependencyOrder.Moves) + ")" : ""));
                 launchStartedUtc = DateTime.UtcNow;

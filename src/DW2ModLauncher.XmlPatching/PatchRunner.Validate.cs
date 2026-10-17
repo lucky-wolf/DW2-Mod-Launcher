@@ -56,9 +56,15 @@ namespace DW2ModLauncher.XmlPatching
                 string name = a.Name.LocalName;
                 if (!KnownAttributes.Contains(name))
                 {
-                    Fail(f, e, "unknown attribute '" + name + "' on <" + e.Name.LocalName + "> (known: id, index, op)" + Suggest(name, KnownAttributes));
+                    Fail(f, e, "unknown attribute '" + name + "' on <" + e.Name.LocalName + "> (known: id, index, op, missing)" + Suggest(name, KnownAttributes));
                     return false;
                 }
+            }
+            string missing = Attr(e, MissingPolicy.AttributeName);
+            if (missing != null && !MissingPolicy.TryParse(missing, out _))
+            {
+                Fail(f, e, "missing=\"" + missing + "\" is not valid (use error, warn or ok)" + Suggest(missing, MissingPolicy.Names));
+                return false;
             }
             string op = Attr(e, "op");
             if (op != null && op != "add" && op != "remove" && op != "replace")

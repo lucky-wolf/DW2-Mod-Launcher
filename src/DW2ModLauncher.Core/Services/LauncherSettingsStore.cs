@@ -89,6 +89,7 @@ namespace DW2ModLauncher.Core.Services
             if (settings.WorkshopRoot == null) settings.WorkshopRoot = "";
             if (settings.ManagedModsRoot == null) settings.ManagedModsRoot = "";
             if (settings.LogDirectory == null) settings.LogDirectory = "";
+            if (settings.PatchMissingOverride == null) settings.PatchMissingOverride = "";
             if (settings.LastWorkshopUpdateCheckUtc == null) settings.LastWorkshopUpdateCheckUtc = "";
             if (settings.ActiveProfile == null) settings.ActiveProfile = "";
             settings.GameRoot = NativePath(settings.GameRoot);

@@ -49,13 +49,15 @@ namespace DW2ModLauncher.Loader
             _modFolders = manifest?.ModFolders ?? new List<string>();
             PatchRunner runner = new PatchRunner(SchemaFor, KeyMap.Default);
             runner.LateRoots.Add("ArrayOfTourItem");
+            runner.DevOverride = ParseOverride(manifest?.MissingOverride);
             foreach (LoaderManifestPatchSet set in manifest?.Patches ?? new List<LoaderManifestPatchSet>())
             {
+                MissingLevel? modMissing = ParseModMissing(set);
                 foreach (string file in set.Files ?? new List<string>())
                 {
                     try
                     {
-                        runner.AddFile(set.DisplayName, DisplayPath(set, file), File.ReadAllText(file), set.Order);
+                        runner.AddFile(set.DisplayName, DisplayPath(set, file), File.ReadAllText(file), set.Order, modMissing);
                     }
                     catch (Exception ex)
                     {
@@ -78,6 +80,26 @@ namespace DW2ModLauncher.Loader
             AppDomain.CurrentDomain.ProcessExit += (_, __) => EndPass();
             Log(runner.Files.Count + " patch file(s) loaded; hooks installed.");
             return runner.Files.Count;
+        }
+
+        /// <summary>The launcher's developer override ("warn" or "error"; blank = off). It only escalates, so "ok" is as wrong as any other word: reported, and then ignored.</summary>
+        private static MissingLevel? ParseOverride(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            if (MissingPolicy.TryParse(text, out MissingLevel level) && level != MissingLevel.Ok) return level;
+            Log("ERROR: the launcher's patch-problems override is '" + text + "'; it must be blank, warn or error. It is ignored.");
+            HookStatus.Failed("patch-override", StatusStrings.Get("WidgetPatchOverrideInvalid", text), _logPath);
+            return null;
+        }
+
+        /// <summary>A mod's dw2modlauncher.json "missing"; null when it sets none. A value that is not error, warn or ok is reported and the mod gets the default.</summary>
+        private static MissingLevel? ParseModMissing(LoaderManifestPatchSet set)
+        {
+            if (string.IsNullOrWhiteSpace(set.Missing)) return null;
+            if (MissingPolicy.TryParse(set.Missing, out MissingLevel level)) return level;
+            Log("ERROR: " + (set.DisplayName ?? "a mod") + ": dw2modlauncher.json \"missing\" is '" + set.Missing + "'; it must be error, warn or ok. The default (warn) is used.");
+            HookStatus.Failed("patch-missing:" + set.DisplayName, StatusStrings.Get("WidgetPatchMissingInvalid", set.DisplayName, set.Missing), _logPath);
+            return null;
         }
 
         // ---- hooks ----
@@ -218,14 +240,17 @@ namespace DW2ModLauncher.Loader
             ReportProblems(runner);
         }
 
-        // Patch problems never stop the game and many players play on with them (a translation that targets an entity another mod
-        // removed, say), so they are shown as an amber warning, never red: red is kept for a feature that could not install at all.
+        // Every unapplied item is already in the log. What the widget shows is each entry's level: the patch's, else the mod's, else
+        // warn (amber), raised by the developer override; at ok an item is only logged. A problem in the patch itself is amber unless
+        // the override raises it. Red is for entries at error.
         private static void ReportProblems(PatchRunner runner)
         {
-            int errors = runner.Report.Entries.Count(e => e.Severity == Severity.Error);
-            int warnings = runner.Report.Entries.Count(e => e.Severity == Severity.Warning);
+            int errors = runner.Report.CountAt(MissingLevel.Error);
+            int warnings = runner.Report.CountAt(MissingLevel.Warn);
             if (errors + warnings == 0) return;
-            HookStatus.Warn("patch-problems", StatusStrings.Get("WidgetPatchProblems", errors, warnings), _logPath);
+            string text = StatusStrings.Get("WidgetPatchProblems", errors, warnings);
+            if (errors > 0) HookStatus.Failed("patch-problems", text, _logPath);
+            else HookStatus.Warn("patch-problems", text, _logPath);
         }
 
         // ---- helpers ----

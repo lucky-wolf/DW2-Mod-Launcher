@@ -22,6 +22,9 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>"replace": this mod's Galactopedia articles replace those of the game and of the mods before it (instead of being added to them). For translations.</summary>
         public string galactopedia { get; set; }
 
+        /// <summary>"error", "warn" or "ok": what the in-game widget shows when one of this mod's XML patch items cannot be applied because its target is missing. The default for patch items that do not set missing="..." themselves; blank = the launcher's default (warn). Every unapplied item is logged either way.</summary>
+        public string missing { get; set; }
+
         /// <summary>The oldest launcher version this mod works with (e.g. "1.0.6"; a leading "v" and any "-dev" suffix are ignored). Older launchers flag the mod before launch.</summary>
         public string minLauncherVersion { get; set; }
 

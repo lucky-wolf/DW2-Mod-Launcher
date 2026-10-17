@@ -87,6 +87,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get { return !main.WidgetLanguageFromMods; }
             set { if (!value) return; main.WidgetLanguageFromMods = false; Raise(); Raise(nameof(WidgetLanguageFromMods)); }
         }
+        private static readonly string[] PatchMissingValues = { "", "warn", "error" };
+        private int patchMissingIndex;
+        /// <summary>
+        /// The developer override for unapplied XML patches (0 = as the mods declare, 1 = at least warn, 2 = error). -1 (nothing selected)
+        /// is a value the settings file holds that is none of these: it is shown as such and left alone unless the user picks one.
+        /// </summary>
+        public int PatchMissingOverrideIndex { get { return patchMissingIndex; } set { Set(ref patchMissingIndex, value); } }
         private string authorName = "";
         /// <summary>The user's author name, stamped into mods they create or publish.</summary>
         public string AuthorName { get { return authorName; } set { Set(ref authorName, value); } }
@@ -145,6 +152,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             LogFolder = s.LogDirectory ?? "";
             DescriptionExtension = ModDescriptionFile.NormalizeExtension(s.DescriptionExtension);
             AuthorName = s.AuthorName ?? "";
+            PatchMissingOverrideIndex = Array.IndexOf(PatchMissingValues, (s.PatchMissingOverride ?? "").Trim());
         }
 
         /// <summary>Writes the editable fields into the settings object without validating (used right before launch).</summary>
@@ -181,9 +189,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool pathsSame = game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory;
             string author = (authorName ?? "").Trim();
             AuthorName = author;
-            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "")) return true;
+            string patchMissing = patchMissingIndex >= 0 ? PatchMissingValues[patchMissingIndex] : s.PatchMissingOverride;
+            bool patchMissingSame = patchMissing == s.PatchMissingOverride;
+            if (pathsSame && patchMissingSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "")) return true;
             s.DescriptionExtension = extension;
             s.AuthorName = author;
+            s.PatchMissingOverride = patchMissing;
             if (pathsSame)
             {
                 main.SaveSettings();
