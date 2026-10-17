@@ -101,6 +101,31 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void ModDescriptionFile_EnsureKeyInModJson_AddsTheKeyOnlyWhenAFileExistsAndTheKeyIsMissing()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "dw2-ensurekey-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            string modJson = Path.Combine(dir, "mod.json");
+            try
+            {
+                File.WriteAllText(modJson, "{ \"displayName\": \"X\", \"custom\": 7 }");
+                // No description file: nothing to name, nothing written.
+                Assert.Null(ModDescriptionFile.EnsureKeyInModJson(modJson, dir));
+                Assert.DoesNotContain("descriptionFile", File.ReadAllText(modJson));
+
+                File.WriteAllText(Path.Combine(dir, "description.txt"), "text");
+                Assert.Equal("description.txt", ModDescriptionFile.EnsureKeyInModJson(modJson, dir));
+                string written = File.ReadAllText(modJson);
+                Assert.Contains("\"descriptionFile\": \"description.txt\"", written);
+                Assert.Contains("\"custom\": 7", written);
+
+                // Already named: left alone.
+                Assert.Null(ModDescriptionFile.EnsureKeyInModJson(modJson, dir));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
         public void ModDescriptionFile_NameFor_UsesTheModsOwnFile_ButNeverOneOutsideTheFolder()
         {
             string dir = Path.Combine(Path.GetTempPath(), "dw2-namefor-" + Guid.NewGuid().ToString("N"));

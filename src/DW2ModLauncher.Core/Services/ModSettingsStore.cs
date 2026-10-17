@@ -68,8 +68,73 @@ namespace DW2ModLauncher.Core.Services
                     changed = true;
                 }
             }
+            if (schema != null && FollowChangedDefaults(mod, fields, values)) changed = true;
             if (changed) SaveValues(mod, values);
             return values;
+        }
+
+        /// <summary>Where the defaults a mod's schema declared at the last read are remembered, so a later read can tell
+        /// "the user left this setting alone" (stored value still equals that old default) from "the user chose it".</summary>
+        public static string GetDefaultsPath(ModInfo mod)
+        {
+            string token = mod?.ActiveToken ?? mod?.Key ?? "unknown";
+            foreach (char c in Path.GetInvalidFileNameChars()) token = token.Replace(c, '_');
+            return Path.Combine(UserDataRoot.Get(), "ModSettingsDefaults", token + ".json");
+        }
+
+        /// <summary>A setting still holding the default the schema declared last time moves to the schema's new default;
+        /// one the user changed keeps their value. With no remembered defaults (first read, or a mod seen before this
+        /// existed) nothing moves - the current defaults just become the baseline. Returns whether any value changed.</summary>
+        private static bool FollowChangedDefaults(ModInfo mod, System.Collections.Generic.List<ModSettingsField> fields, JsonObject values)
+        {
+            string path = GetDefaultsPath(mod);
+            JsonObject remembered = null;
+            if (File.Exists(path))
+            {
+                try
+                {
+                    remembered = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)) as JsonObject;
+                }
+                catch (JsonException ex)
+                {
+                    throw new InvalidDataException("The remembered defaults for " + (mod?.DisplayName ?? mod?.Id) + " are not valid JSON, so they were left as they are: " + path + "\n" + ex.Message, ex);
+                }
+                if (remembered == null)
+                    throw new InvalidDataException("The remembered defaults for " + (mod?.DisplayName ?? mod?.Id) + " are not a JSON object, so they were left as they are: " + path);
+            }
+
+            bool valuesChanged = false;
+            JsonObject current = new JsonObject();
+            foreach (ModSettingsField field in fields)
+            {
+                if (string.IsNullOrWhiteSpace(field.Key)) continue;
+                JsonNode newDefault = ToJsonNode(field.Default);
+                current[field.Key] = newDefault?.DeepClone();
+                if (remembered == null || !remembered.TryGetPropertyValue(field.Key, out JsonNode oldDefault)) continue;
+                if (SameValue(oldDefault, newDefault)) continue;
+                if (values.TryGetPropertyValue(field.Key, out JsonNode stored) && SameValue(stored, oldDefault))
+                {
+                    values[field.Key] = newDefault?.DeepClone();
+                    valuesChanged = true;
+                }
+            }
+
+            if (remembered == null || !SameValue(remembered, current))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, current.ToJsonString(WriteOptions), new UTF8Encoding(false));
+            }
+            return valuesChanged;
+        }
+
+        // 1 and 1.0 are the same setting value even though their JSON text differs.
+        private static bool SameValue(JsonNode a, JsonNode b)
+        {
+            if (a == null || b == null) return a == null && b == null;
+            if (decimal.TryParse(a.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal x)
+                && decimal.TryParse(b.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out decimal y))
+                return x == y;
+            return JsonNode.DeepEquals(a, b);
         }
 
         public static void SaveValues(ModInfo mod, JsonObject values)

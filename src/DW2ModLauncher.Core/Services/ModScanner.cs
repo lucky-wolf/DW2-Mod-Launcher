@@ -28,7 +28,10 @@ namespace DW2ModLauncher.Core.Services
                 {
                     string modJson = FindModJson(dir, workshop);
                     if (string.IsNullOrWhiteSpace(modJson)) continue;
+                    // Local mods only: a Workshop copy is Steam's, and the next update would overwrite the edit anyway.
+                    string keyError = workshop ? null : EnsureDescriptionFileKey(modJson);
                     ModInfo mod = ReadModInfo(dir, modJson, workshop, t);
+                    if (keyError != null && mod.ModJsonError == null) mod.ModJsonError = keyError;
                     result.Add(mod);
                 }
                 catch (Exception ex)
@@ -41,6 +44,21 @@ namespace DW2ModLauncher.Core.Services
                 }
             }
             return result.OrderBy(m => m.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
+        }
+
+        /// <summary>Writes the missing "descriptionFile" key (see ModDescriptionFile.EnsureKeyInModJson). Returns an error message when mod.json could not be updated, else null.</summary>
+        private static string EnsureDescriptionFileKey(string modJson)
+        {
+            try
+            {
+                Publishing.ModDescriptionFile.EnsureKeyInModJson(modJson, Path.GetDirectoryName(modJson));
+                return null;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Text.Json.JsonException)
+            {
+                Logger.LogException("Add descriptionFile to mod.json: " + modJson, ex);
+                return "Could not add \"descriptionFile\" to mod.json: " + ex.Message;
+            }
         }
 
         public static string FindModJson(string dir, bool workshop)

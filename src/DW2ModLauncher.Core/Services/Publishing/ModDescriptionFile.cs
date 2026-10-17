@@ -54,6 +54,25 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return preferred;
         }
 
+        /// <summary>
+        /// A mod whose folder has a description file by convention but whose mod.json does not name it gets "descriptionFile" written,
+        /// so the contract is explicit without the author doing anything. Returns the name written, or null when nothing needed writing.
+        /// </summary>
+        /// <exception cref="IOException">mod.json could not be read or written.</exception>
+        /// <exception cref="System.Text.Json.JsonException">mod.json is not valid JSON.</exception>
+        public static string EnsureKeyInModJson(string modJsonPath, string contentRoot)
+        {
+            if (string.IsNullOrWhiteSpace(modJsonPath) || string.IsNullOrWhiteSpace(contentRoot) || !File.Exists(modJsonPath)) return null;
+            string name = DefaultFor(contentRoot, null);
+            if (!File.Exists(PathFor(contentRoot, name))) return null;
+            System.Text.Json.Nodes.JsonObject root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(modJsonPath, Encoding.UTF8)) as System.Text.Json.Nodes.JsonObject;
+            if (root == null || root.Any(kv => kv.Key.Equals("descriptionFile", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(kv.Value?.ToString()))) return null;
+            foreach (string existing in root.Select(kv => kv.Key).Where(k => k.Equals("descriptionFile", StringComparison.OrdinalIgnoreCase)).ToList()) root.Remove(existing);
+            root["descriptionFile"] = name;
+            ModJsonFile.Save(modJsonPath, root);
+            return name;
+        }
+
         public static string PreferredName(string extension)
         {
             return "description" + NormalizeExtension(extension);

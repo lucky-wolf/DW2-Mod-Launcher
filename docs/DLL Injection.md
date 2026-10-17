@@ -250,6 +250,13 @@ losing them. On first read, `ModSettingsStore.GetOrCreateValues` synthesizes and
 default value for every schema field so both the editor and the manifest always have real values
 to work with.
 
+When a mod update changes a field's default, a stored value that still equals the **old** default
+moves to the new one; a value the user changed is kept. The old defaults are remembered in
+`%AppData%\DW2ModLauncher\ModSettingsDefaults\<mod token>.json` (rewritten on every read). A mod
+with no remembered defaults yet just records its current ones as the baseline, so nothing moves
+the first time. A user who deliberately picked a value equal to the old default is
+indistinguishable from one who never touched it, and follows the new default too.
+
 `LoaderManifestBuilder` inlines each mod's resolved settings JSON directly into its manifest
 entry when a schema is present, so nothing needs to be written into Workshop content at launch
 time either.
