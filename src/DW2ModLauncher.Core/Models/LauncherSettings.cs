@@ -45,6 +45,8 @@ namespace DW2ModLauncher.Core.Models
         public string LastSelectedMod { get; set; }
         /// <summary>Extension of the description file a mod gets when it names none of its own (".bbcode", ".txt", or anything typed); see ModDescriptionFile.</summary>
         public string DescriptionExtension { get; set; } = ".bbcode";
+        /// <summary>Publishing an update sends the description to Steam whenever it differs from the Steam page. Off: the author pushes it by hand (the cloud-upload button).</summary>
+        public bool AutoUpdateDescription { get; set; } = true;
         /// <summary>The publish dialog's modified-files section is unfolded (folded by default; remembered).</summary>
         public bool PublishStatusExpanded { get; set; }
         /// <summary>The publish dialog's change-notes section is unfolded (folded by default; remembered).</summary>

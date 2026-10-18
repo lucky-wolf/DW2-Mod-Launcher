@@ -45,8 +45,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Label = translation.Label(field.Key, string.IsNullOrWhiteSpace(field.Label) ? field.Key : field.Label);
             Description = translation.Description(field.Key, field.Description ?? "");
             ChoiceOptions = (field.Options ?? new List<string>()).Select(o => new ChoiceOption(o, translation.Option(field.Key, o))).ToList();
-            MinValue = (decimal)(field.Min ?? -1000000);
-            MaxValue = (decimal)(field.Max ?? 1000000);
+            MinValue = ModSettingsValues.MinOf(field);
+            MaxValue = ModSettingsValues.MaxOf(field);
             // Remember what the schema's default looks like once it has passed through the same conversions as an edited value,
             // so "at default" compares like with like.
             // A field with no schema default falls back to its zero value (false, 0 clamped to Min/Max, first option, blank text),
@@ -79,7 +79,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
         public decimal MinValue { get; }
         public decimal MaxValue { get; }
-        public decimal Increment { get { return Kind == ModSettingKind.Integer ? 1 : 0.1m; } }
+        public decimal Increment { get { return ModSettingsValues.StepOf(schemaField); } }
         public string NumberFormat { get { return Kind == ModSettingKind.Integer ? "0" : "0.##"; } }
 
         public bool IsBool { get { return Kind == ModSettingKind.Bool; } }
