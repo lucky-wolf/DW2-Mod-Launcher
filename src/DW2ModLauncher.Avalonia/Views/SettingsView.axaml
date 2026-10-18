@@ -54,11 +54,12 @@
         <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
           <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionAuthoring]}" />
         </Border>
-        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
           <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsAuthorName]}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
           <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" Width="300" Text="{Binding AuthorName}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
           <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsDescriptionExtension]}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
           <ComboBox Grid.Row="1" Grid.Column="1" IsEditable="True" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
+          <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding AutoUpdateDescription}" Content="{Binding L[SettingsAutoUpdateDescription]}" ToolTip.Tip="{Binding L[SettingsAutoUpdateDescriptionTooltip]}" />
         </Grid>
       </StackPanel>
 

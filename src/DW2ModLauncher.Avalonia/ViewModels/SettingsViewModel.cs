@@ -74,6 +74,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string descriptionExtension = ModDescriptionFile.DefaultExtension;
         /// <summary>Extension for the description file of a mod that names none (a dot is added if missing); typed freely or picked from <see cref="DescriptionExtensions"/>.</summary>
         public string DescriptionExtension { get { return descriptionExtension; } set { Set(ref descriptionExtension, value); } }
+        private bool autoUpdateDescription = true;
+        /// <summary>Publishing an update also sends the description when it differs from the Steam page.</summary>
+        public bool AutoUpdateDescription { get { return autoUpdateDescription; } set { Set(ref autoUpdateDescription, value); } }
         /// <summary>Whether the in-game widget follows the enabled translation mod (true) or the launcher's own language (false).</summary>
         public bool WidgetLanguageFromMods
         {
@@ -145,6 +148,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             LogFolder = s.LogDirectory ?? "";
             DescriptionExtension = ModDescriptionFile.NormalizeExtension(s.DescriptionExtension);
             AuthorName = s.AuthorName ?? "";
+            AutoUpdateDescription = s.AutoUpdateDescription;
         }
 
         /// <summary>Writes the editable fields into the settings object without validating (used right before launch).</summary>
@@ -181,9 +185,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool pathsSame = game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory;
             string author = (authorName ?? "").Trim();
             AuthorName = author;
-            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "")) return true;
+            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription) return true;
             s.DescriptionExtension = extension;
             s.AuthorName = author;
+            s.AutoUpdateDescription = autoUpdateDescription;
             if (pathsSame)
             {
                 main.SaveSettings();

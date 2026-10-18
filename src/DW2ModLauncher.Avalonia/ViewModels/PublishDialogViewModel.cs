@@ -62,14 +62,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string description;
         private string shortDescription;
         private VisibilityOption visibility;
-        private bool replaceDescription;
+        private readonly bool isUpdate;
+        private readonly bool autoUpdateDescription;
         private readonly string workshopId;
         private bool pullingDescription;
         private bool canPushVisibility;
         private bool revertingVisibility;
         // The item's current Steam description when this is an update and Steam could be asked; null otherwise.
         private readonly string steamDescription;
-        private bool replaceTouched;
         // Properties dialog: the field values as they were when it opened, so Save is only live once something differs.
         private readonly bool propertiesOnly;
         private string savedFields;
@@ -90,7 +90,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true)
         {
             this.dialogs = dialogs;
             this.lastArtFolder = lastArtFolder;
@@ -112,7 +112,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             this.propertiesOnly = propertiesOnly;
             // A first publish has no Steam text to protect, so it sends the description; an update leaves the Steam page alone unless asked.
             this.steamDescription = isUpdate && !propertiesOnly ? steamDescription : null;
-            replaceDescription = !isUpdate;
+            this.isUpdate = isUpdate;
+            this.autoUpdateDescription = autoUpdateDescription;
             WindowTitle = l[propertiesOnly ? "EditPropertiesTitle" : "PublishToWorkshop"] + " - " + (mod.DisplayName ?? mod.Id);
             // Shown as the Publish button's tooltip. Properties-only editing saves mod.json and never talks to Steam, so it has no note.
             Note = propertiesOnly ? null : l[isUpdate ? "PublishAboutToRunUpdate" : "PublishAboutToRunFirstTime"];
@@ -137,8 +138,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // A mod that already names its own description file keeps it; otherwise the existing description file, or one with the preferred extension (default .bbcode).
             descriptionFileName = ModDescriptionFile.NameFor(contentFolder, metadata.DescriptionFile, descriptionExtension);
             description = ModDescriptionFile.Load(contentFolder, metadata, descriptionExtension);
-            // When we know what Steam has, only offer (and by default do) the replacement if the text really differs.
-            if (this.steamDescription != null) replaceDescription = DescriptionDiffersFromSteam;
             lastFileText = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName);
             shortDescription = metadata.ShortDescription;
             // Bundles are detected from the mod folder (never typed); the list is written back to mod.json on save.
@@ -160,6 +159,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             VisibilityEnabled = !propertiesOnly || canPushVisibility;
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage);
             MarkUpToDateCommand = new RelayCommand(MarkUpToDateAsync);
+            SaveCommand = new RelayCommand(SaveAsync);
             PullSteamDescriptionCommand = new RelayCommand(PullSteamDescriptionAsync);
             PushSteamDescriptionCommand = new RelayCommand(PushSteamDescriptionAsync);
             BrowsePreviewCommand = new RelayCommand(BrowsePreviewAsync);
@@ -231,7 +231,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 : mod.PublishStatus == PublishStatus.Unpublished ? L["PublishStateUnpublishedTitle"]
                 : mod.PublishStatus == PublishStatus.Unknown ? L["PublishStateUntracked"]
                 : statusShort;
-            PublishStatusDetail = statusShort.Length == 0 ? "" : ModDetails.PublishStatusTooltip(mod, key => L[key], 500, includeChangeLog: false);
+            // Modified: just the file names (the header has the count; being listed is what "modified" means). Other states keep their one-sentence explanation.
+            PublishStatusDetail = mod.PublishStatus == PublishStatus.Changed ? string.Join("\n", mod.UnpublishedChanges.Select(c => c.Substring(2)))
+                : statusShort.Length == 0 ? "" : ModDetails.PublishStatusSentence(mod, key => L[key]);
+            LastPublished = ModDetails.PublishedWhen(mod);
             Raise(nameof(CanMarkUpToDate));
             Raise(nameof(PrimaryButtonText));
         }
@@ -278,6 +281,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
         /// <summary>The sentence under the folded status line, then every changed file.</summary>
         public string PublishStatusDetail { get { return publishStatusDetail; } private set { Set(ref publishStatusDetail, value); } }
+
+        private string lastPublished = "";
+        /// <summary>When the last publish happened (date, plus time if today); empty when the mod was never published.</summary>
+        public string LastPublished { get { return lastPublished; } private set { Set(ref lastPublished, value); } }
         private bool statusOpen;
         private readonly Action<bool> rememberStatusExpanded;
         /// <summary>Whether the modified-files section is unfolded; the choice is remembered for the next time.</summary>
@@ -313,13 +320,30 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool CanEditVisibility { get; }
         /// <summary>Whether the visibility box can be changed: always in the publish dialog; in edit properties only for a published item whose visibility Steam told us.</summary>
         public bool VisibilityEnabled { get; }
-        /// <summary>The "replace the Steam description" checkbox only applies to publishing, not to editing properties.</summary>
-        public bool ShowReplaceDescription { get { return CanEditVisibility && (steamDescription == null || DescriptionDiffersFromSteam); } }
         /// <summary>True when Steam's text is known and differs from the box; the dialog says so next to the checkbox.</summary>
         public bool ShowDescriptionDiffers { get { return CanEditVisibility && steamDescription != null && DescriptionDiffersFromSteam; } }
+        /// <summary>The Description header's tooltip: the usual hint, or (when the text differs from Steam's) that it differs.</summary>
+        public string DescriptionTooltip { get { return L[ShowDescriptionDiffers ? "PublishDescriptionDiffers" : "PublishDescriptionHint"]; } }
         private bool DescriptionDiffersFromSteam { get { return steamDescription != null && !ModDescriptionFile.SameText(description, steamDescription); } }
-        /// <summary>Whether this publish overwrites the Steam page's description. A per-publish choice, not stored in mod.json.</summary>
-        public bool ReplaceDescription { get { return replaceDescription; } set { replaceTouched = true; Set(ref replaceDescription, value); } }
+        /// <summary>
+        /// Whether this publish overwrites the Steam page's description: always for a first publish; for an update only when the launcher setting
+        /// "update the description automatically" is on and the text differs from Steam's.
+        /// </summary>
+        public bool ReplaceDescription { get { return !isUpdate || (autoUpdateDescription && DescriptionDiffersFromSteam); } }
+
+        /// <summary>The Publish button's tooltip: what is about to happen, and plainly whether the description goes to Steam (and if not, why).</summary>
+        public string PublishTooltip
+        {
+            get
+            {
+                if (Note == null) return null;
+                string line = ReplaceDescription ? L["PublishNoteDescriptionSent"]
+                    : !autoUpdateDescription ? L["PublishNoteDescriptionOff"]
+                    : steamDescription == null ? L["PublishNoteDescriptionUnknown"]
+                    : L["PublishNoteDescriptionSame"];
+                return Note + "\n\n" + line;
+            }
+        }
         /// <summary>The item's Workshop id (read-only), or "Unpublished" until a first publish has written one into mod.json.</summary>
         public string WorkshopIdText { get; }
         /// <summary>The DLLs (and entry points) the launcher will inject for this mod, shown as a read-only table.</summary>
@@ -433,7 +457,32 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
         /// <summary>The dialog's way out: "Cancel" while edits would be discarded, "Close" when what is shown is what is on disk.</summary>
         public string CancelText { get { return L[HasUnsavedEdits ? "Cancel" : "Close"]; } }
-        private void RaiseModified() { Raise(nameof(IsModified)); Raise(nameof(CanMarkUpToDate)); Raise(nameof(CanPrimary)); Raise(nameof(PrimaryButtonText)); Raise(nameof(CancelText)); }
+        /// <summary>The publish dialog's Save button (writing mod.json, description and change notes without publishing); the Properties dialog's primary button is its Save.</summary>
+        public bool ShowSave { get { return !propertiesOnly; } }
+        public bool CanSave { get { return HasUnsavedEdits || MissingDescriptionFileKey; } }
+        public RelayCommand SaveCommand { get; private set; }
+
+        /// <summary>Writes what is typed here to disk and sends nothing to Steam.</summary>
+        private async Task SaveAsync()
+        {
+            if (!CanSave) return;
+            string question = MissingBundlesQuestion;
+            if (question != null && !await dialogs.ConfirmAsync(question, "DW2 Mod Launcher", L["OK"], L["Cancel"])) return;
+            string error = Commit();
+            if (error != null)
+            {
+                await dialogs.ShowMessageAsync(error, "DW2 Mod Launcher");
+                return;
+            }
+            // Commit dropped the missing bundles from mod.json, so they are not asked about again.
+            missingBundles.Clear();
+            savedFields = FieldsSnapshot();
+            savedDescription = description;
+            RaiseModified();
+            RefreshStatus();
+        }
+
+        private void RaiseModified() { Raise(nameof(CanSave)); Raise(nameof(IsModified)); Raise(nameof(CanMarkUpToDate)); Raise(nameof(CanPrimary)); Raise(nameof(PrimaryButtonText)); Raise(nameof(CancelText)); }
 
         public string Title { get { return title; } set { if (Set(ref title, value)) RaiseModified(); } }
         public string Version
@@ -559,10 +608,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (!Set(ref description, value)) return;
                 RaiseModified();
                 if (steamDescription == null) return;
-                // Follow the text until the author decides for themselves: differing means send it, identical means there is nothing to send.
-                if (!replaceTouched) Set(ref replaceDescription, DescriptionDiffersFromSteam, nameof(ReplaceDescription));
-                Raise(nameof(ShowReplaceDescription));
+                Raise(nameof(PublishTooltip));
                 Raise(nameof(ShowDescriptionDiffers));
+                Raise(nameof(DescriptionTooltip));
             }
         }
         public string ShortDescription { get { return shortDescription; } set { if (Set(ref shortDescription, value)) RaiseModified(); } }

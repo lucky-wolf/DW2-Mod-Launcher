@@ -61,11 +61,27 @@ namespace DW2ModLauncher.Core.Services
             return match ?? field.Options[0];
         }
 
-        /// <summary>The stored number clamped to the field's Min/Max (defaults +-1,000,000).</summary>
+        /// <summary>The field's lower bound; open-ended when the schema gives none.</summary>
+        public static decimal MinOf(ModSettingsField field) { return field.Min.HasValue ? (decimal)field.Min.Value : decimal.MinValue; }
+
+        /// <summary>The field's upper bound; open-ended when the schema gives none.</summary>
+        public static decimal MaxOf(ModSettingsField field) { return field.Max.HasValue ? (decimal)field.Max.Value : decimal.MaxValue; }
+
+        /// <summary>The spinner step: a power of ten scaled to the size of the field's default (0.1 below 10 for floats, 1 for ints).</summary>
+        public static decimal StepOf(ModSettingsField field)
+        {
+            decimal reference = 0;
+            if (field.Default != null && decimal.TryParse(Convert.ToString(field.Default, CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture, out decimal d)) reference = Math.Abs(d);
+            decimal step = KindOf(field) == ModSettingKind.Integer ? 1m : 0.1m;
+            while (reference >= step * 100m) step *= 10m;
+            return step;
+        }
+
+        /// <summary>The stored number clamped to the field's Min/Max (open-ended when the schema omits them).</summary>
         public static decimal ToNumber(ModSettingsField field, JsonNode current)
         {
-            decimal min = (decimal)(field.Min ?? -1000000);
-            decimal max = (decimal)(field.Max ?? 1000000);
+            decimal min = MinOf(field);
+            decimal max = MaxOf(field);
             // Parse the JSON text rather than GetValue<double>(): that throws for integer-backed values (e.g. defaults
             // built in code), which would silently show as 0.
             decimal value = 0;

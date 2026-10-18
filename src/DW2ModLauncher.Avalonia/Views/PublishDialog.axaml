@@ -37,7 +37,7 @@
             </Grid>
           </StackPanel>
         </Grid>
-        <Grid ColumnDefinitions="Auto,24,*">
+        <Grid ColumnDefinitions="Auto,24,*,24,*">
           <StackPanel Grid.Column="0" Spacing="6">
             <TextBlock Text="{Binding L[Version]}" />
             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -79,6 +79,10 @@
             <TextBlock Text="{Binding L[VersionOnPublish]}" />
             <ComboBox ItemsSource="{Binding BumpLevels}" SelectedItem="{Binding BumpLevel}" HorizontalAlignment="Stretch" />
           </StackPanel>
+          <StackPanel Grid.Column="4" Spacing="6">
+            <TextBlock Text="{Binding L[PublishLastPublished]}" />
+            <TextBox Text="{Binding LastPublished, Mode=OneWay}" IsReadOnly="True" />
+          </StackPanel>
         </Grid>
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[PublishShortDescription]}" ToolTip.Tip="{Binding L[PublishShortDescriptionHint]}" />
@@ -87,8 +91,12 @@
         <!-- Folded by default: the arrow edits the description here, the pencil in your own editor. The buttons sit in the header and do not toggle it. -->
         <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
           <Expander.Header>
-            <Grid ColumnDefinitions="Auto,*,Auto,6,Auto,6,Auto,6,Auto" ToolTip.Tip="{Binding L[PublishDescriptionHint]}">
-              <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[Description]}" />
+            <Grid ColumnDefinitions="Auto,*,Auto,6,Auto,6,Auto,6,Auto" ToolTip.Tip="{Binding DescriptionTooltip}">
+              <!-- The gold dot is the same "modified" mark as the mod list's; here it means the text differs from the Steam page. -->
+              <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <TextBlock VerticalAlignment="Center" Text="{Binding L[Description]}" />
+                <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" IsVisible="{Binding ShowDescriptionDiffers}" />
+              </StackPanel>
             <Button Grid.Column="4" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
               <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
               <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
@@ -164,20 +172,19 @@
           <Expander.Header>
             <TextBlock Text="{Binding ChangeNotesHeader}" ToolTip.Tip="{Binding L[PublishChangeNotesHint]}" />
           </Expander.Header>
-          <TextBox Text="{Binding ChangeNotes}" AcceptsReturn="True" TextWrapping="Wrap" Height="80" />
+          <TextBox Text="{Binding ChangeNotes}" AcceptsReturn="True" TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.AllowAutoHide="False" MinLines="5" MaxLines="5" />
         </Expander>
         <!-- Folded to the one status line by default; the choice is remembered. Unfolded it lists every changed file. -->
-        <Expander IsVisible="{Binding HasPublishStatus}" IsExpanded="{Binding StatusExpanded}" Header="{Binding PublishStatusLine}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+        <Expander IsVisible="{Binding HasPublishStatus}" IsExpanded="{Binding StatusExpanded}" Header="{Binding PublishStatusLine}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="16,4,0,0">
           <SelectableTextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding PublishStatusDetail}" />
         </Expander>
       </StackPanel>
     </ScrollViewer>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-        <TextBlock Classes="muted" VerticalAlignment="Center" IsVisible="{Binding ShowDescriptionDiffers}" Text="{Binding L[PublishDescriptionDiffers]}" />
-        <CheckBox IsChecked="{Binding ReplaceDescription}" IsVisible="{Binding ShowReplaceDescription}" Content="{Binding L[PublishReplaceDescription]}" VerticalAlignment="Center" Margin="0,0,12,0" />
         <Button IsVisible="{Binding CanMarkUpToDate}" Command="{Binding MarkUpToDateCommand}" Content="{Binding L[MarkUpToDate]}" MinWidth="125" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" />
-        <Button Name="PublishButton" Classes="play" IsEnabled="{Binding CanPrimary}" Content="{Binding PrimaryButtonText}" MinWidth="170" FontSize="14" ToolTip.Tip="{Binding Note}" />
+        <Button IsVisible="{Binding ShowSave}" IsEnabled="{Binding CanSave}" Command="{Binding SaveCommand}" Content="{Binding L[Save]}" MinWidth="125" />
+        <Button Name="PublishButton" Classes="play" IsEnabled="{Binding CanPrimary}" Content="{Binding PrimaryButtonText}" MinWidth="170" FontSize="14" ToolTip.Tip="{Binding PublishTooltip}" />
         <Button Name="CancelButton" IsCancel="True" IsVisible="{Binding ShowCancel}" Content="{Binding CancelText}" MinWidth="125" />
       </StackPanel>
     </Border>
