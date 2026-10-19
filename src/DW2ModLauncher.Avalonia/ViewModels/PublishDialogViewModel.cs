@@ -65,11 +65,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly bool isUpdate;
         private readonly bool autoUpdateDescription;
         private readonly string workshopId;
+        // What Steam's page says now (null: not asked or unreachable) and what we last sent it (null: never recorded); a difference means it was edited on Steam.
+        private string steamDescription;
+        private string sentDescription;
         private bool pullingDescription;
         private bool canPushVisibility;
         private bool revertingVisibility;
         // The item's current Steam description when this is an update and Steam could be asked; null otherwise.
-        private readonly string steamDescription;
         // Properties dialog: the field values as they were when it opened, so Save is only live once something differs.
         private readonly bool propertiesOnly;
         private string savedFields;
@@ -110,8 +112,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             savedChangeNotes = ModChangelog.UnreleasedText(contentFolder);
             changeNotes = savedChangeNotes;
             this.propertiesOnly = propertiesOnly;
-            // A first publish has no Steam text to protect, so it sends the description; an update leaves the Steam page alone unless asked.
-            this.steamDescription = isUpdate && !propertiesOnly ? steamDescription : null;
+            if (isUpdate)
+            {
+                this.steamDescription = steamDescription;
+                try { sentDescription = PublishedState.Load(ModDetails.WorkshopId(mod))?.Description; }
+                catch (Exception ex) { DW2ModLauncher.Core.Diagnostics.Logger.LogException("Read the recorded description", ex); }
+            }
             this.isUpdate = isUpdate;
             this.autoUpdateDescription = autoUpdateDescription;
             WindowTitle = l[propertiesOnly ? "EditPropertiesTitle" : "PublishToWorkshop"] + " - " + (mod.DisplayName ?? mod.Id);
@@ -235,6 +241,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             PublishStatusDetail = mod.PublishStatus == PublishStatus.Changed ? string.Join("\n", mod.UnpublishedChanges.Select(c => c.Substring(2)))
                 : statusShort.Length == 0 ? "" : ModDetails.PublishStatusSentence(mod, key => L[key]);
             LastPublished = ModDetails.PublishedWhen(mod);
+            Raise(nameof(ShowDescriptionDiffers)); Raise(nameof(ShowDescriptionEditedOnSteam)); Raise(nameof(DescriptionTooltip)); Raise(nameof(PublishTooltip));
             Raise(nameof(CanMarkUpToDate));
             Raise(nameof(PrimaryButtonText));
         }
@@ -321,15 +328,32 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Whether the visibility box can be changed: always in the publish dialog; in edit properties only for a published item whose visibility Steam told us.</summary>
         public bool VisibilityEnabled { get; }
         /// <summary>True when Steam's text is known and differs from the box; the dialog says so next to the checkbox.</summary>
-        public bool ShowDescriptionDiffers { get { return CanEditVisibility && steamDescription != null && DescriptionDiffersFromSteam; } }
-        /// <summary>The Description header's tooltip: the usual hint, or (when the text differs from Steam's) that it differs.</summary>
-        public string DescriptionTooltip { get { return L[ShowDescriptionDiffers ? "PublishDescriptionDiffers" : "PublishDescriptionHint"]; } }
-        private bool DescriptionDiffersFromSteam { get { return steamDescription != null && !ModDescriptionFile.SameText(description, steamDescription); } }
+        public bool ShowDescriptionDiffers { get { return isUpdate && !ShowDescriptionEditedOnSteam && DescriptionDiffersFromSteam; } }
+        /// <summary>Steam's page no longer says what we last sent it: someone edited the description there. Shown as a red dot, ahead of the gold one.</summary>
+        public bool ShowDescriptionEditedOnSteam { get { return isUpdate && steamDescription != null && sentDescription != null && !ModDescriptionFile.SameText(sentDescription, steamDescription); } }
+        /// <summary>Steam's description as fetched when the dialog opened (or as last pushed or pulled here); null when unknown.</summary>
+        public string SteamDescriptionText { get { return steamDescription; } }
+        /// <summary>The description file's name inside the mod folder.</summary>
+        public string DescriptionFileName { get { return descriptionFileName; } }
+        /// <summary>The Description header's tooltip: the usual hint, or that the description was modified on Steam, or that it differs from what was last sent.</summary>
+        public string DescriptionTooltip { get { return L[ShowDescriptionEditedOnSteam ? "PublishDescriptionEditedOnSteam" : ShowDescriptionDiffers ? "PublishDescriptionDiffers" : "PublishDescriptionHint"]; } }
+        // Same tracking as every other file: the description is "different" when it is typed over what is saved, or when its file is among the changes since the last publish (a push records it).
+        private bool DescriptionDiffersFromSteam
+        {
+            get
+            {
+                if (!ModDescriptionFile.SameText(description, savedDescription)) return true;
+                string file = descriptionFileName.Replace('\\', '/');
+                return mod.UnpublishedChanges.Any(c => string.Equals(c.Substring(2), file, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        // A publish also refreshes the {version}/{date} stamps, so a description that has them goes out every time.
+        private bool PublishWouldChangeSteamDescription { get { return DescriptionDiffersFromSteam || DescriptionTokens.HasTokens(description); } }
         /// <summary>
         /// Whether this publish overwrites the Steam page's description: always for a first publish; for an update only when the launcher setting
         /// "update the description automatically" is on and the text differs from Steam's.
         /// </summary>
-        public bool ReplaceDescription { get { return !isUpdate || (autoUpdateDescription && DescriptionDiffersFromSteam); } }
+        public bool ReplaceDescription { get { return !isUpdate || (autoUpdateDescription && PublishWouldChangeSteamDescription); } }
 
         /// <summary>The Publish button's tooltip: what is about to happen, and plainly whether the description goes to Steam (and if not, why).</summary>
         public string PublishTooltip
@@ -339,7 +363,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (Note == null) return null;
                 string line = ReplaceDescription ? L["PublishNoteDescriptionSent"]
                     : !autoUpdateDescription ? L["PublishNoteDescriptionOff"]
-                    : steamDescription == null ? L["PublishNoteDescriptionUnknown"]
                     : L["PublishNoteDescriptionSame"];
                 return Note + "\n\n" + line;
             }
@@ -607,7 +630,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 if (!Set(ref description, value)) return;
                 RaiseModified();
-                if (steamDescription == null) return;
                 Raise(nameof(PublishTooltip));
                 Raise(nameof(ShowDescriptionDiffers));
                 Raise(nameof(DescriptionTooltip));
@@ -658,8 +680,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     await dialogs.ShowMessageAsync(L["PublishPullSteamDescriptionNotFound"], "DW2 Mod Launcher");
                     return;
                 }
+                // Steam's text replaces the box: ask first when that throws away a local description Steam does not have.
+                if (DescriptionDiffersFromSteam && !ModDescriptionFile.SameText(description, detail.Description)
+                    && !await dialogs.ConfirmAsync(L["PublishPullSteamDescriptionConfirm"], "DW2 Mod Launcher", L["Yes"], L["No"])) return;
                 pulledDescription = detail.Description ?? "";
+                // Taking Steam's text accepts any edit made there.
+                steamDescription = sentDescription = pulledDescription;
                 Description = detail.Description ?? "";
+                ComputeStatus();
             }
             catch (Exception ex)
             {
@@ -678,6 +706,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await dialogs.ShowMessageAsync(L["PublishPushSteamDescriptionBlank"], "DW2 Mod Launcher");
                 return;
             }
+            if (!await dialogs.ConfirmAsync(L[ShowDescriptionEditedOnSteam ? "PublishPushSteamDescriptionConfirmEdited" : "PublishPushSteamDescriptionConfirm"], "DW2 Mod Launcher", L["Yes"], L["No"])) return;
             pullingDescription = true;
             try
             {
@@ -703,7 +732,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (string.IsNullOrEmpty(result.ErrorMessage))
                 {
                     // The page now matches the file, so the file is no longer a change since the last publish.
-                    try { PublishedState.RecordFile(workshopId, contentFolder, descriptionFileName); RefreshStatus(); }
+                    steamDescription = sentDescription = request.Description;
+                    try { PublishedState.RecordFile(workshopId, contentFolder, descriptionFileName, sentDescription: request.Description); RefreshStatus(); }
                     catch (Exception ex)
                     {
                         DW2ModLauncher.Core.Diagnostics.Logger.LogException("Record pushed description", ex);
@@ -944,7 +974,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 // Named in mod.json whenever the file exists (the default name too); no file, no key.
                 metadata.DescriptionFile = ModDescriptionFile.ReadFile(contentFolder, descriptionFileName) != null ? descriptionFileName : "";
                 if (pulledDescription != null && workshopId != null && ModDescriptionFile.SameText(description, pulledDescription))
-                    PublishedState.RecordFile(workshopId, contentFolder, descriptionFileName);
+                    PublishedState.RecordFile(workshopId, contentFolder, descriptionFileName, sentDescription: pulledDescription);
             }
             catch (Exception ex)
             {

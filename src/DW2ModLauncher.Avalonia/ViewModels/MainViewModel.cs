@@ -1240,10 +1240,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             bool isPublished = !string.IsNullOrWhiteSpace(mod.WorkshopId);
             ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
+            string steamDescription = isPublished ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             FreshenPublishState(mod);
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1324,7 +1325,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             bool isUpdate = !string.IsNullOrWhiteSpace(mod.WorkshopId);
             ModVisibility? currentVisibility = isUpdate ? await ReadVisibilityAsync(mod) : null;
-            // On an update, ask Steam what the description currently says so the dialog only offers to replace it when it differs.
+            // On an update, ask Steam what the description says now, to tell whether someone edited it there since we last sent it.
             string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             FreshenPublishState(mod);
             string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
@@ -1412,8 +1413,30 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
 
             string contentFolder = mod.ContentRoot ?? mod.Folder;
+            // Someone edited the description on Steam and this publish would replace it: the author decides whose copy wins.
+            bool useSteamDescription = false;
+            if (editor.ReplaceDescription && editor.ShowDescriptionEditedOnSteam)
+            {
+                int pick = await Dialogs.ChooseAsync(T("PublishDescriptionConflict"), "DW2 Mod Launcher",
+                    new[] { T("PublishDescriptionUseLocal"), T("PublishDescriptionUseSteam"), T("Cancel") });
+                if (pick == 1) useSteamDescription = true;
+                else if (pick != 0)
+                {
+                    RollBackVersion(mod, versionBefore, versionWritten);
+                    return;
+                }
+            }
             string newDescription;
-            try { newDescription = editor.ReplaceDescription ? ModPublishMetadataEditor.ResolveSteamDescription(contentFolder, metadata) : null; }
+            try
+            {
+                if (useSteamDescription)
+                {
+                    // Steam's text becomes the local file (so the uploaded content has it) and the page is left as it is.
+                    ModDescriptionFile.Save(contentFolder, editor.DescriptionFileName, editor.SteamDescriptionText);
+                    newDescription = null;
+                }
+                else newDescription = editor.ReplaceDescription ? ModPublishMetadataEditor.ResolveSteamDescription(contentFolder, metadata) : null;
+            }
             catch (FormatException ex)
             {
                 RollBackVersion(mod, versionBefore, versionWritten);
@@ -1470,7 +1493,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
                 // After every write the publish itself makes to the folder (version bump, author stamp, the id just written), so it starts clean.
                 string recordProblem = null;
-                try { PublishedState.Record(result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), contentFolder); }
+                try { PublishedState.Record(result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), contentFolder, sentDescription: useSteamDescription ? editor.SteamDescriptionText : newDescription); }
                 catch (Exception ex)
                 {
                     Logger.LogException("Record published state of " + mod.DisplayName, ex);

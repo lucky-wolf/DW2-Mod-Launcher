@@ -96,6 +96,8 @@
               <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <TextBlock VerticalAlignment="Center" Text="{Binding L[Description]}" />
                 <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" IsVisible="{Binding ShowDescriptionDiffers}" />
+                <!-- Red: the text on Steam is no longer what the launcher last sent, so it was edited on the Steam page. -->
+                <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Red}" IsVisible="{Binding ShowDescriptionEditedOnSteam}" />
               </StackPanel>
             <Button Grid.Column="4" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
               <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
