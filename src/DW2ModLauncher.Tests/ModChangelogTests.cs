@@ -104,5 +104,81 @@ namespace DW2ModLauncher.Tests
         {
             Assert.Throws<FormatException>(() => DescriptionTokens.Expand("{versoin}", "1.2.3", DateTime.Now));
         }
+
+        [Fact]
+        public void Tokens_ChangesBecomeABBCodeList()
+        {
+            Assert.Equal("Now:\n[list]\n[*]one\n[*]two\n[/list]", DescriptionTokens.Expand("Now:\n{changes}", "1.0.0", DateTime.Now, new[] { "one", "two" }));
+        }
+
+        [Fact]
+        public void Tokens_ChangesWithNoEntriesIsAnError()
+        {
+            Assert.Throws<FormatException>(() => DescriptionTokens.Expand("{changes}", "1.0.0", DateTime.Now));
+        }
+
+        [Fact]
+        public void LatestChanges_PrefersUnreleasedThenTheVersionThenTheNewestRelease()
+        {
+            string dir = MakeFolder("## Unreleased\n- new\n\n## 1.1.0 (2026-02-01)\n- shipped\n\n## 1.0.0 (2026-01-01)\n- old\n");
+            try { Assert.Equal(new[] { "new" }, ModChangelog.LatestChanges(dir, "1.1.0")); }
+            finally { Directory.Delete(dir, true); }
+            dir = MakeFolder("## Unreleased\n\n## 1.1.0 (2026-02-01)\n- shipped\n\n## 1.0.0 (2026-01-01)\n- old\n");
+            try
+            {
+                Assert.Equal(new[] { "old" }, ModChangelog.LatestChanges(dir, "1.0.0"));
+                Assert.Equal(new[] { "shipped" }, ModChangelog.LatestChanges(dir, "9.9.9"));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void Notes_FollowTheVersionSectionWhenThereIsNoUnreleased()
+        {
+            string dir = MakeFolder("## 1.0.17\n- one\n- two\n\n## 1.0.16\n- old\n");
+            try
+            {
+                Assert.Equal("- one\n- two", ModChangelog.NotesText(dir, "1.0.17"));
+                ModChangelog.SetNotes(dir, "1.0.17", "- one\n- two\n- three");
+                Assert.Equal("- one\n- two\n- three", ModChangelog.NotesText(dir, "1.0.17"));
+                Assert.Equal("- old", ModChangelog.NotesText(dir, "1.0.16"));
+                Assert.Equal("", ModChangelog.NotesText(dir, "1.0.18"));
+                Assert.Equal("", ModChangelog.UnreleasedText(dir));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void Notes_PreferUnreleasedWhenItHasLines()
+        {
+            string dir = MakeFolder("## Unreleased\n- new\n\n## 1.0.17\n- shipped\n");
+            try
+            {
+                Assert.Equal("- new", ModChangelog.NotesText(dir, "1.0.17"));
+                ModChangelog.SetNotes(dir, "1.0.17", "- newer");
+                Assert.Equal("- newer", ModChangelog.UnreleasedText(dir));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void Notes_WithNowhereToGoCreateUnreleased()
+        {
+            string dir = MakeFolder("## 1.0.16\n- old\n");
+            try
+            {
+                ModChangelog.SetNotes(dir, "1.0.17", "- first");
+                Assert.Equal("- first", ModChangelog.UnreleasedText(dir));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void LatestChanges_NoChangelogIsEmpty()
+        {
+            string dir = MakeFolder(null);
+            try { Assert.Empty(ModChangelog.LatestChanges(dir, "1.0.0")); }
+            finally { Directory.Delete(dir, true); }
+        }
     }
 }

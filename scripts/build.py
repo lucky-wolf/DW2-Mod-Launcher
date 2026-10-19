@@ -2,12 +2,15 @@
 """Build the Avalonia launcher for this OS.
 
 By default it also applies `dotnet format` fixes and runs the unit tests (the same checks CI runs), then
-builds. Pass --no-validate to skip both and just build.
+builds. Pass --no-validate to skip both and just build. After the build it syncs the launcher's own Workshop item (the
+local mod folder DW2 Mod Launcher in the game's mods folder) with the repo: mod/description.bbcode both ways and the newest
+changelog.txt entries into its Unreleased section (see lib/mod_sync.py); --no-mod-sync skips that.
 
 Usage:
   scripts/build.py
   scripts/build.py --no-validate      # fast edit/build loop
   scripts/build.py --dry-run          # print the steps, build nothing
+  scripts/build.py --no-mod-sync      # do not touch mods/DW2 Mod Launcher
 """
 
 import argparse
@@ -26,7 +29,8 @@ def main() -> int:
     output.set_color(args.color)
 
     launcher_build.build(
-        REPO_ROOT, launcher_build.resolve_ui(args.ui), args.config, validate=not args.no_validate, dry_run=args.dry_run
+        REPO_ROOT, launcher_build.resolve_ui(args.ui), args.config, validate=not args.no_validate, dry_run=args.dry_run,
+        sync_mod=not args.no_mod_sync, game_path=args.game_path,
     )
     return 0
 

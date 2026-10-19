@@ -12,7 +12,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import dotnet_checks, output, proc
+from . import dotnet_checks, mod_sync, output, proc
 
 TEST_PROJECT = dotnet_checks.TEST_PROJECT
 
@@ -91,9 +91,11 @@ def executable_path(repo_root: Path, ui: Ui, config: str) -> Path:
     return Path(props["TargetDir"]) / (props["AssemblyName"] + ui.apphost_suffix)  # TargetDir is absolute
 
 
-def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = False) -> Path:
+def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = False, sync_mod: bool = True,
+          game_path: Path | None = None) -> Path:
     """Restore, (unless validate is False) apply `dotnet format` and run the tests, build the launcher, and
-    return the path of its executable. dry_run prints the steps and builds nothing."""
+    return the path of its executable. Then (unless sync_mod is False) brings the launcher's own Workshop item, the local mod folder
+    under the game's mods folder, in step with the repo (see mod_sync). dry_run prints the steps and builds nothing."""
     plan = ["dotnet restore"]
     if validate:
         plan.append("dotnet format (applied)")
@@ -129,6 +131,8 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
     exe = executable_path(repo_root, ui, config)
     if not exe.exists():
         output.fail(f"build succeeded but the executable is missing: {exe}")
+    if sync_mod:
+        mod_sync.sync(repo_root, game_path)
     output.done(f"built {exe.relative_to(repo_root) if exe.is_relative_to(repo_root) else exe}")
     return exe
 
@@ -146,6 +150,17 @@ def add_arguments(parser) -> None:
         "--no-validate",
         action="store_true",
         help="skip the formatting fix and the unit tests; just build (faster edit/build loop).",
+    )
+    parser.add_argument(
+        "--no-mod-sync",
+        action="store_true",
+        help="do not sync description.bbcode and changelog entries into the game's mods/DW2 Mod Launcher folder after building.",
+    )
+    parser.add_argument(
+        "--game-path",
+        type=Path,
+        default=None,
+        help="the Distant Worlds 2 install the mod folder sync uses. Default: DW2_PATH, then the usual Steam location.",
     )
     parser.add_argument("--dry-run", action="store_true", help="print what would happen; build and run nothing.")
     output.add_color_argument(parser)

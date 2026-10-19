@@ -109,7 +109,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             notesOpen = changeNotesExpanded;
             this.rememberChangeNotesExpanded = rememberChangeNotesExpanded;
             ShowChangeNotes = true;
-            savedChangeNotes = ModChangelog.UnreleasedText(contentFolder);
+            notesVersion = (metadata.Version ?? "").Trim();
+            savedChangeNotes = ModChangelog.NotesText(contentFolder, notesVersion);
             changeNotes = savedChangeNotes;
             this.propertiesOnly = propertiesOnly;
             if (isUpdate)
@@ -137,6 +138,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bumpLevel = BumpLevels.First(o => o.Value == wanted);
             proposedVersion = ProposeVersion();
             version = proposedVersion;
+            LoadChangeNotesFor(version);
             AdjustVersionCommand = RelayCommand.WithParameter(AdjustVersion);
             IsSemver = ModVersion.TryParseSemver(version, out _, out _, out _);
             previewImage = metadata.PreviewImage;
@@ -306,6 +308,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>The text last taken from the Steam page: if it is saved unchanged, the file matches what Steam has and is not a change since the last publish.</summary>
         private string pulledDescription;
         private string savedChangeNotes;
+        // The version whose section the box was loaded from, and is written back to (see ModChangelog.NotesText).
+        private string notesVersion;
+
+        /// <summary>
+        /// Points the notes box at the section a publish as <paramref name="forVersion"/> sends: Unreleased, or that version's own section when
+        /// the changelog's newest section is the version about to go out. Text the author already edited is left alone.
+        /// </summary>
+        private void LoadChangeNotesFor(string forVersion)
+        {
+            if (changeNotes != null && ChangeNotesEdited) return;
+            notesVersion = (forVersion ?? "").Trim();
+            savedChangeNotes = ModChangelog.NotesText(contentFolder, notesVersion);
+            if (Set(ref changeNotes, savedChangeNotes)) { Raise(nameof(ChangeNotes)); Raise(nameof(ChangeNotesHeader)); }
+        }
         /// <summary>The Unreleased lines of changelog.txt: what the update will send as its change note. Written back by <see cref="Commit"/>.</summary>
         public string ChangeNotes
         {
@@ -514,6 +530,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             set
             {
                 if (!Set(ref version, value)) return;
+                LoadChangeNotesFor(value);
                 UpdateIsSemver();
                 RaiseModified();
             }
@@ -697,6 +714,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             finally { pullingDescription = false; }
         }
 
+        /// <summary>What {changes} lists: the change notes as typed in this dialog, else what changelog.txt holds (see <see cref="ModChangelog.LatestChanges"/>).</summary>
+        private List<string> LatestChangesForDescription()
+        {
+            List<string> typed = ModChangelog.Entries(changeNotes);
+            return typed.Count > 0 ? typed : ModChangelog.LatestChanges(contentFolder, (version ?? "").Trim());
+        }
+
         /// <summary>Sends the description box to the item's Steam page and nothing else (no content, title, preview or visibility).</summary>
         private async Task PushSteamDescriptionAsync()
         {
@@ -718,7 +742,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 ModPublishRequest request = new ModPublishRequest
                 {
                     // the placeholders ({version}, {date}) are filled in on the way to Steam, as in a full publish
-                    Description = DescriptionTokens.Expand(description, (version ?? "").Trim(), DateTime.Now),
+                    Description = DescriptionTokens.Expand(description, (version ?? "").Trim(), DateTime.Now, LatestChangesForDescription()),
                     DescriptionOnly = true,
                     ExistingWorkshopId = long.Parse(workshopId)
                 };
@@ -984,7 +1008,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // The change notes go to the Unreleased section of changelog.txt; the file is only touched when the text changed.
             if (ChangeNotesEdited)
             {
-                try { ModChangelog.SetUnreleased(contentFolder, (changeNotes ?? "").Trim()); savedChangeNotes = (changeNotes ?? "").Trim(); }
+                try { ModChangelog.SetNotes(contentFolder, notesVersion, (changeNotes ?? "").Trim()); savedChangeNotes = (changeNotes ?? "").Trim(); }
                 catch (Exception ex)
                 {
                     DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write changelog.txt", ex);
