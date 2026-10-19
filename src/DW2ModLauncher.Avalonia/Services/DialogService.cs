@@ -14,16 +14,18 @@ namespace DW2ModLauncher.Avalonia.Services
         private readonly Func<Window> mainWindow;
         private SettingsDialog settingsDialog;
         private ModSettingsDialog modSettingsDialog;
+        private PublishDialog publishDialog;
 
         public DialogService(Func<Window> owner)
         {
             mainWindow = owner;
         }
 
-        // While the settings window is open it is the window that is not blocked, so dialogs opened from it must belong to it.
+        // While the settings or publish window is open it is the window that is not blocked, so dialogs opened from it must belong to it.
+        // Owned by the main window instead, a confirm raised from the publish window leaves focus on nothing when it closes.
         private Window owner()
         {
-            return (Window)modSettingsDialog ?? settingsDialog ?? mainWindow();
+            return (Window)modSettingsDialog ?? publishDialog ?? settingsDialog ?? mainWindow();
         }
 
         public async Task ShowSettingsAsync(SettingsViewModel settings)
@@ -134,9 +136,13 @@ namespace DW2ModLauncher.Avalonia.Services
             mainWindow().Close();
         }
 
-        public Task<bool> EditPublishAsync(PublishDialogViewModel editor)
+        public async Task<bool> EditPublishAsync(PublishDialogViewModel editor)
         {
-            return new PublishDialog(editor, this).ShowDialog<bool>(owner());
+            PublishDialog dialog = new PublishDialog(editor, this);
+            Window parent = owner();
+            publishDialog = dialog;
+            try { return await dialog.ShowDialog<bool>(parent); }
+            finally { publishDialog = null; }
         }
     }
 }
