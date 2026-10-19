@@ -193,7 +193,7 @@ The launcher shows whether a local mod has changed since its last Workshop publi
 
 ### How the launcher decides
 
-At publish time the launcher records every file in the mod's content folder (size, last-write time, SHA-256) in `<data root>/PublishedState/<workshop id>.json`. The record is never kept in the mod folder, so it cannot change what it measures.
+At publish time the launcher records every file in the mod's content folder (size, last-write time, SHA-256) in `<data root>/PublishedState/<workshop id>.json`. The record is never kept in the mod folder, so it cannot change what it measures. It also keeps the description exactly as last sent to Steam (placeholders filled in): the Publish and Edit Properties dialogs compare Steam's copy with it, show a red dot when someone edited the description on the Steam page, and ask before replacing a differing copy (publish, push and pull alike).
 
 Later it compares the folder with that record:
 

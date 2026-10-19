@@ -12,6 +12,9 @@ namespace DW2ModLauncher.Core.Services.Publishing
     {
         private static readonly Regex Token = new Regex(@"\{([A-Za-z_][A-Za-z0-9_]*)\}", RegexOptions.Compiled);
 
+        /// <summary>Whether the text has any placeholder, so what Steam gets changes with the version and date even when the file does not.</summary>
+        public static bool HasTokens(string text) { return !string.IsNullOrEmpty(text) && Token.IsMatch(text); }
+
         public static string Expand(string text, string version, DateTime date)
         {
             if (string.IsNullOrEmpty(text)) return text;

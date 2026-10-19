@@ -22,6 +22,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
     public class PublishedManifest
     {
         public DateTime PublishedUtc { get; set; }
+        /// <summary>The description text as it was last sent to Steam (placeholders already filled in); null when none was recorded. Steam's own copy is compared with this to spot edits made on the Steam page.</summary>
+        public string Description { get; set; }
         /// <summary>Keyed by path relative to the content folder, with '/' separators.</summary>
         public Dictionary<string, PublishedFile> Files { get; set; } = new Dictionary<string, PublishedFile>(StringComparer.Ordinal);
     }
@@ -134,9 +136,12 @@ namespace DW2ModLauncher.Core.Services.Publishing
         }
 
         /// <summary>Captures the folder as it is now and stores it as the item's published state.</summary>
-        public static void Record(string workshopId, string contentFolder, string dataRoot = null)
+        public static void Record(string workshopId, string contentFolder, string dataRoot = null, string sentDescription = null)
         {
-            Save(workshopId, Capture(contentFolder), dataRoot);
+            PublishedManifest manifest = Capture(contentFolder);
+            // A publish that left the Steam description alone keeps what was recorded for it.
+            manifest.Description = sentDescription ?? Load(workshopId, dataRoot)?.Description;
+            Save(workshopId, manifest, dataRoot);
         }
 
         /// <summary>
@@ -149,6 +154,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 ?? throw new InvalidOperationException("There is no published-state record for Workshop item " + workshopId + " to bring up to date.");
             PublishedManifest manifest = Capture(contentFolder);
             manifest.PublishedUtc = existing.PublishedUtc;
+            manifest.Description = existing.Description;
             Save(workshopId, manifest, dataRoot);
         }
 
@@ -156,10 +162,11 @@ namespace DW2ModLauncher.Core.Services.Publishing
         /// Brings one file's record up to date with the folder, for a change that reached Steam without a full publish (the description
         /// pushed on its own). Nothing else in the record changes, so every other difference still shows. No record: nothing to update.
         /// </summary>
-        public static void RecordFile(string workshopId, string contentFolder, string relativePath, string dataRoot = null)
+        public static void RecordFile(string workshopId, string contentFolder, string relativePath, string dataRoot = null, string sentDescription = null)
         {
             PublishedManifest manifest = Load(workshopId, dataRoot);
             if (manifest == null) return;
+            if (sentDescription != null) manifest.Description = sentDescription;
             string key = relativePath.Replace('\\', '/');
             if (File.Exists(Path.Combine(contentFolder, key))) manifest.Files[key] = Describe(contentFolder, key);
             else manifest.Files.Remove(key);

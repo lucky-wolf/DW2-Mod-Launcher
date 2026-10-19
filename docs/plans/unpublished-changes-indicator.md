@@ -31,7 +31,7 @@ Goal: for a local mod that has been published, show in the launcher whether its 
 - **Cost.** Compare size and mtime first and hash only files where those differ from the stored values, so repeat scans of a large mod (XL, with bundles) stay cheap.
 - **What counts.** Hash exactly what is uploaded (`ModPublishRequest.ContentFolder`). If publish excludes anything, the comparison excludes the same, so `bin/` or `obj/` churn does not light the badge. Title, description and preview image changes belong in the fingerprint too (`DescriptionOnly` publishes touch only the description).
 - **No record yet.** Mods published before this feature have no manifest. Show them as unknown, not changed; tracking starts at their next publish (no "mark as published" button: not worth the clutter).
-- **Description-only publish** (and the visibility box in the dialogs) are metadata conveniences, not publishes: they never touch the record.
+- **Description-only publish** (and the visibility box in the dialogs) are metadata conveniences, not publishes: the visibility box never touches the record. A description push or pull records just the description file and the text sent (`PublishedState.RecordFile`), so a pushed description is not a change and Steam-side edits can be spotted.
 
 ## Rejected
 
