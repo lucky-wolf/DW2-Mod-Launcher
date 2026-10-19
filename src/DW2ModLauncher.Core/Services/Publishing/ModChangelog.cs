@@ -39,6 +39,62 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return unreleased == null ? "" : Body(unreleased);
         }
 
+        /// <summary>
+        /// The entries (the "- " lines, without the dash) that the {changes} placeholder lists: the Unreleased ones, which are what a publish
+        /// is about to send as the change note; with none, the section of <paramref name="version"/>; with none, the newest released section.
+        /// Empty when the changelog holds no entries at all.
+        /// </summary>
+        public static List<string> LatestChanges(string contentRoot, string version)
+        {
+            List<Section> sections = Parse(ReadFile(contentRoot));
+            List<string> entries = sections.Where(IsUnreleased).Select(s => Entries(Body(s))).FirstOrDefault(e => e.Count > 0);
+            if (entries == null) entries = sections.Where(s => HeadingVersion(s) == version).Select(s => Entries(Body(s))).FirstOrDefault(e => e.Count > 0);
+            if (entries == null) entries = sections.Where(s => s.Heading != null && !IsUnreleased(s)).Select(s => Entries(Body(s))).FirstOrDefault(e => e.Count > 0);
+            return entries ?? new List<string>();
+        }
+
+        /// <summary>The "- " lines of some changelog text, each without its dash and trimmed; other lines are ignored.</summary>
+        public static List<string> Entries(string body)
+        {
+            return (body ?? "").Replace("\r\n", "\n").Split('\n').Select(l => l.Trim())
+                .Where(l => l.StartsWith("- ", StringComparison.Ordinal) && l.Substring(2).Trim().Length > 0)
+                .Select(l => l.Substring(2).Trim()).ToList();
+        }
+
+        /// <summary>
+        /// The section the change notes of a publish as <paramref name="version"/> live in: Unreleased when it has lines; otherwise the section
+        /// of that version (a changelog whose newest section is the version about to go out has no Unreleased one); otherwise Unreleased
+        /// (null when there is not even that). The same choice <see cref="ChangeNote"/> makes.
+        /// </summary>
+        private static Section NotesTarget(List<Section> sections, string version)
+        {
+            Section unreleased = sections.FirstOrDefault(IsUnreleased);
+            if (unreleased != null && Body(unreleased).Length > 0) return unreleased;
+            Section ofVersion = string.IsNullOrWhiteSpace(version) ? null : sections.FirstOrDefault(s => HeadingVersion(s) == version.Trim());
+            return ofVersion ?? unreleased;
+        }
+
+        /// <summary>The lines of the section a publish as <paramref name="version"/> sends as its change note (see <see cref="NotesTarget"/>); "" when there are none.</summary>
+        public static string NotesText(string contentRoot, string version)
+        {
+            Section target = NotesTarget(Parse(ReadFile(contentRoot)), version);
+            return target == null ? "" : Body(target);
+        }
+
+        /// <summary>Replaces the lines of that same section (creating an Unreleased one at the top when there is no section to take them). Blank text empties them.</summary>
+        public static void SetNotes(string contentRoot, string version, string text)
+        {
+            List<Section> sections = Parse(ReadFile(contentRoot));
+            Section target = NotesTarget(sections, version);
+            if (target == null)
+            {
+                target = new Section { Heading = UnreleasedHeading };
+                sections.Insert(1, target);
+            }
+            target.Lines = (text ?? "").Replace("\r\n", "\n").Split('\n').ToList();
+            Write(contentRoot, Render(sections));
+        }
+
         /// <summary>Replaces the lines under the Unreleased heading (creating the file, or the heading at the top, when missing). Blank text empties them.</summary>
         public static void SetUnreleased(string contentRoot, string text)
         {

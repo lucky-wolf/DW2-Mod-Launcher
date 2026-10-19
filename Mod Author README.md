@@ -32,7 +32,7 @@ Open Settings and fill in **Author name**. Use your handle, the name you want pl
 | `mod.json` | The game's | `displayName`, `description`, `version` and the rest the game reads. **Never add your own fields to it**; the launcher removes a stale `launcher` block whenever it rewrites the file. |
 | `dw2modlauncher.json` | The launcher's | Everything launcher-specific: `author`, `dependencies`, `provides`, `receives`, `minLauncherVersion`, `language`, and an optional `injection` override. |
 | `settings.schema.json` | The launcher's | Describes the mod's settings so the launcher can draw an editor. Optional `settings.schema.<code>.json` sidecars translate it. |
-| `description.bbcode` | The launcher's | The Workshop description. `{version}` and `{date}` are replaced when you publish. |
+| `description.bbcode` | The launcher's | The Workshop description. `{version}`, `{date}` and `{changes}` are replaced when you publish: the version, the publish date, and the latest `changelog.txt` entries as a bullet list (your `Unreleased` lines; with none, the newest release's). `{changes}` with no entries is an error. |
 | `changelog.txt` | The launcher's | Lines under `Unreleased` go to Steam as the change note when you publish. |
 | `*.dll` with a public static `Entry` class | You | A code mod. Found automatically, never loaded just to look. |
 

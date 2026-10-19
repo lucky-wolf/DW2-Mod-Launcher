@@ -15,6 +15,7 @@ Usage:
   scripts/open-pr.py --target main --draft
   scripts/open-pr.py --skip-checks   # skip the checks, just push + open the PR
   scripts/open-pr.py --dry-run       # run the checks, commit/push/PR nothing
+  scripts/open-pr.py --no-mod-sync   # leave mods/DW2 Mod Launcher (the launcher's Workshop item) alone
 """
 
 import argparse
@@ -23,7 +24,7 @@ import sys
 import webbrowser
 from pathlib import Path
 
-from lib import changelog, dotnet_checks, github, launcher_build, output, proc, release_version
+from lib import changelog, dotnet_checks, github, launcher_build, mod_sync, output, proc, release_version
 
 
 def compute_pr_title(repo_root: Path, target: str, fallback: str) -> str:
@@ -160,6 +161,8 @@ def main() -> int:
     parser.add_argument("--target", default="main")
     parser.add_argument("--draft", action="store_true")
     parser.add_argument("--skip-checks", action="store_true")
+    parser.add_argument("--no-mod-sync", action="store_true", help="do not sync the launcher's Workshop item (mods/DW2 Mod Launcher) with the repo")
+    parser.add_argument("--game-path", type=Path, default=None, help="the Distant Worlds 2 install for the mod folder sync. Default: DW2_PATH, then the usual Steam location.")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -192,6 +195,11 @@ def main() -> int:
         output.step("build & test")
         dotnet_checks.run_dotnet_build(repo_root)
         dotnet_checks.run_dotnet_test(repo_root)
+
+    # After the changelog is final, so the launcher's Workshop item has this release's entries ready to publish; a description
+    # copied into the repo from the mod folder shows up as an uncommitted change just below.
+    if not args.no_mod_sync:
+        mod_sync.sync(repo_root, args.game_path, dry_run=args.dry_run)
 
     output.step("uncommitted changes")
     if proc.git(repo_root, "status", "--porcelain").stdout.strip():

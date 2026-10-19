@@ -30,7 +30,8 @@ def main() -> int:
     output.set_color(args.color)
 
     ui = launcher_build.resolve_ui(args.ui)
-    exe = launcher_build.build(REPO_ROOT, ui, args.config, validate=not args.no_validate, dry_run=args.dry_run)
+    exe = launcher_build.build(REPO_ROOT, ui, args.config, validate=not args.no_validate, dry_run=args.dry_run,
+                              sync_mod=not args.no_mod_sync, game_path=args.game_path)
     command = [str(exe), *args.launcher_args]
 
     output.step(f"run ({ui.name})")
