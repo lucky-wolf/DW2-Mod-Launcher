@@ -62,6 +62,10 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Per mod (id, else folder name): how the publish dialog proposes the next version. Mods not listed use the defaults (auto-increment, patch).</summary>
         public Dictionary<string, VersionBumpPolicy> VersionBump { get; set; } = new Dictionary<string, VersionBumpPolicy>();
 
+        /// <summary>Per published local mod ("local/&lt;workshop id&gt;"): the DW2 mods.json token ("mods/&lt;folder&gt;") it had when last seen,
+        /// so a renamed folder is recognised as the same mod and its load-order entry and stored state follow it.</summary>
+        public Dictionary<string, string> LocalModTokens { get; set; } = new Dictionary<string, string>();
+
         public VersionBumpPolicy VersionBumpFor(string modKey)
         {
             return VersionBump != null && modKey != null && VersionBump.TryGetValue(modKey, out VersionBumpPolicy p) && p != null ? p : new VersionBumpPolicy();

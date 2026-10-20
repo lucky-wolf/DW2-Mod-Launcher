@@ -1,4 +1,6 @@
 ## v1.0.18
+- Sorting by a column heading keeps the selected mod; a click no longer drops the sort
+- A published local mod keeps its settings and enabled state when its folder is renamed
 - Publish dialog footer tooltips open above their buttons instead of swallowing clicks
 - Mark Up to Date says why when it cannot, and lists files that still differ afterwards
 - In-game status line shows a code mod's mod.json version, not its assembly's

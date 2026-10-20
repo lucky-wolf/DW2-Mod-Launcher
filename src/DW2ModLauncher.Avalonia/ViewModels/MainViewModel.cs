@@ -411,6 +411,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach (ModInfo bad in managedMods.Concat(workshopMods).Where(m => m.ModJsonError != null))
                 AddProblem(bad.DisplayName + ": mod.json is not valid JSON.\n" + bad.ModJsonError);
             ModLibrary.RestoreWorkshopRuntimeState(workshopMods, workshopState);
+            List<string> identityProblems = LocalModIdentity.Adopt(managedMods, settings, modOrder, ModsJsonPath(), out bool identityChanged);
+            foreach (string problem in identityProblems) AddProblem(problem);
+            if (identityChanged) SaveSettings();
             managedMods = ModLibrary.OrderForDisplay(managedMods, modOrder);
             workshopMods = ModLibrary.OrderForDisplay(workshopMods, modOrder);
 
@@ -547,6 +550,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             populating = false;
             SelectedRow = keep;
+            if (keep == null) return;
+            // The list control clears its selection when rows move and may do so after this method returns (on its next layout pass),
+            // which would drop the selection the user had when clicking a column heading: put it back once that has happened.
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (!Mods.Contains(keep)) return;
+                if (selectedRow != keep) SelectedRow = keep;
+                RevealSelectionRequested?.Invoke();
+            }, global::Avalonia.Threading.DispatcherPriority.Background);
         }
 
         // ---- enabling and load order
@@ -620,8 +632,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             int from = Mods.IndexOf(row);
             if (from < 0) return;
-            sortColumn = -1;
-            SaveSortPreference();
             toIndex = Math.Max(0, Math.Min(toIndex, Mods.Count - 1));
             // An enabled mod may not be dropped where a loadAfter / loadBefore rule of its own (or of another enabled mod) is broken; a disabled one goes anywhere.
             if (from != toIndex && IsSelected(row.Mod))
@@ -637,7 +647,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     return;
                 }
             }
-            if (from != toIndex) Mods.Move(from, toIndex);
+            if (from == toIndex)
+            {
+                // Nothing moved (a click that wobbled into a drag): the sort order stays as the user set it.
+                SelectedRow = row;
+                return;
+            }
+            // Only a real move leaves the sorted view: the list now shows the manual order.
+            sortColumn = -1;
+            SaveSortPreference();
+            Mods.Move(from, toIndex);
             SelectedRow = row;
             CommitListOrder();
         }
@@ -1137,7 +1156,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 ModSettingsSchema schema = ModSettingsSchemaReader.Read(mod.ContentRoot ?? mod.Folder);
                 if (schema == null || !schema.VisibleFields(mod).Any()) { await Dialogs.ShowMessageAsync(T("NoConfigurableSettings"), "DW2 Mod Launcher"); return; }
                 JsonObject values = ModSettingsStore.GetOrCreateValues(mod, schema);
-                string modKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
+                string modKey = mod.StateKey;
                 if (settings.CollapsedSettingGroups == null) settings.CollapsedSettingGroups = new Dictionary<string, List<string>>();
                 List<string> collapsedGroups = settings.CollapsedSettingGroups.TryGetValue(modKey, out List<string> saved0) ? saved0 : new List<string>();
                 ModSettingsEditorViewModel editor = new ModSettingsEditorViewModel(
@@ -1259,7 +1278,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
             string steamDescription = isPublished ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             FreshenPublishState(mod);
-            string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
+            string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
             try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
             catch (IOException ex)
@@ -1345,7 +1364,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // On an update, ask Steam what the description says now, to tell whether someone edited it there since we last sent it.
             string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             FreshenPublishState(mod);
-            string bumpKey = mod.Id ?? Path.GetFileName(mod.Folder) ?? "";
+            string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
             try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
             catch (IOException ex)
