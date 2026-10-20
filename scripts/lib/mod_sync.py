@@ -147,16 +147,49 @@ def _mod_version(mod_json: Path) -> str | None:
     return json.loads(mod_json.read_text(encoding="utf-8-sig")).get("version")
 
 
-def sync(repo_root: Path, game_path: Path | None = None, dry_run: bool = False, assume_yes: bool = False) -> None:
-    """Brings mods/DW2 Mod Launcher in step with the repo (see the module docstring)."""
+def _mod_dir(game_path: Path | None) -> Path | None:
+    """The launcher's local mod folder, or None (after saying why) when there is no game install or no such folder."""
     install = game_path or default_install_path()
-    output.step("sync launcher mod folder")
     if not install.is_dir():
         output.notice(f"skipped: no Distant Worlds 2 install at {install} (set DW2_PATH to sync the launcher's Workshop item)")
-        return
+        return None
     mod_dir = install / "mods" / MOD_FOLDER
     if not mod_dir.is_dir():
         output.notice(f"skipped: {mod_dir} does not exist (create the launcher's local mod there first)")
+        return None
+    return mod_dir
+
+
+def set_version(version: str, game_path: Path | None = None, dry_run: bool = False) -> None:
+    """Sets "version" in the mod folder's mod.json (just that value; the rest of the file is left byte for byte as it is), so the
+    launcher's publish dialog starts from the version the repo's newest changelog section is for. Used by new-branch.py after the
+    mod folder was synced, when a new version begins."""
+    output.step(f"launcher mod folder version -> {version}")
+    mod_dir = _mod_dir(game_path)
+    if mod_dir is None:
+        return
+    mod_json = mod_dir / "mod.json"
+    if not mod_json.is_file():
+        output.fail(f"{mod_json} does not exist, so its version cannot be set")
+    text = mod_json.read_bytes().decode("utf-8")
+    pattern = re.compile(r'("version"\s*:\s*")([^"]*)(")')
+    found = pattern.findall(text)
+    if len(found) != 1:
+        output.fail(f'{mod_json} has {len(found)} "version" values; expected exactly one')
+    if found[0][1] == version:
+        output.ok(f"mod.json already says {version}")
+        return
+    output.replace(f"mod.json version {found[0][1]} -> {version}")
+    if not dry_run:
+        mod_json.write_bytes(pattern.sub(lambda m: m.group(1) + version + m.group(3), text).encode("utf-8"))
+        output.ok("mod.json updated")
+
+
+def sync(repo_root: Path, game_path: Path | None = None, dry_run: bool = False, assume_yes: bool = False) -> None:
+    """Brings mods/DW2 Mod Launcher in step with the repo (see the module docstring)."""
+    output.step("sync launcher mod folder")
+    mod_dir = _mod_dir(game_path)
+    if mod_dir is None:
         return
     _sync_file(repo_root / REPO_DIR / DESCRIPTION, mod_dir / DESCRIPTION, dry_run, assume_yes)
     sync_changelog(repo_root / changelog.CHANGELOG_PATH, mod_dir / "changelog.txt", mod_dir / "mod.json", dry_run)

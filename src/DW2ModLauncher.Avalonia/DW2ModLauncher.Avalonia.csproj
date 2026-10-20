@@ -75,7 +75,8 @@
     <ItemGroup>
       <LoaderFiles Include="..\DW2ModLauncher.Loader\bin\$(Configuration)\net8.0\DW2ModLauncher.Loader.dll" />
     </ItemGroup>
-    <Copy SourceFiles="@(LoaderFiles)" DestinationFolder="$(OutDir)Loader" SkipUnchangedFiles="true" />
+    <!-- The running game has the copy in our output folder loaded and locked; scripts/build.py passes SkipLoaderCopy while the game is open. -->
+    <Copy SourceFiles="@(LoaderFiles)" DestinationFolder="$(OutDir)Loader" SkipUnchangedFiles="true" Condition="'$(SkipLoaderCopy)' != 'true'" />
   </Target>
 
   <!-- dotnet publish only ships Content/None-with-CopyToPublishDirectory items, so the Loader DLL that

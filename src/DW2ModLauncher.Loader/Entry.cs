@@ -182,7 +182,7 @@ namespace DW2ModLauncher.Loader
                 }
 
                 Assembly assembly = Assembly.LoadFrom(entry.DllPath);
-                version = ReadVersion(assembly);
+                version = ReadModJsonVersion(entry.DllPath) ?? ReadVersion(assembly);
                 built = ReadBuilt(entry.DllPath);
                 int split = entry.EntryType.LastIndexOf('.');
                 if (split <= 0)
@@ -236,6 +236,36 @@ namespace DW2ModLauncher.Loader
                 // Invoke wraps whatever the mod threw
                 Exception cause = ex is TargetInvocationException && ex.InnerException != null ? ex.InnerException : ex;
                 ModStatus.Registry.ReportLoad(id, id, version, built, cause.GetType().Name + ": " + cause.Message);
+            }
+        }
+
+        // The "version" the mod's author keeps in the mod.json beside the DLL (the game's own file, key matched case-insensitively): that is the
+        // version the owner publishes, while a DLL's assembly version is whatever its project says (often the SDK default 1.0.0). Null when the
+        // folder has no mod.json or it names no version, so the assembly's version is used; an unreadable mod.json is logged.
+        private static string ReadModJsonVersion(string dllPath)
+        {
+            string path = Path.Combine(Path.GetDirectoryName(dllPath) ?? "", "mod.json");
+            if (!File.Exists(path)) return null;
+            try
+            {
+                using (JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }))
+                {
+                    if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+                    foreach (JsonProperty p in doc.RootElement.EnumerateObject())
+                    {
+                        if (string.Equals(p.Name, "version", StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind == JsonValueKind.String)
+                        {
+                            string v = p.Value.GetString();
+                            return string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+                        }
+                    }
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("Could not read the version from " + path + ": " + ex.Message);
+                return null;
             }
         }
 

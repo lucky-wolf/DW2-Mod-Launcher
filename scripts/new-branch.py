@@ -2,11 +2,14 @@
 """Prepare a clean local repo state for starting new work.
 
 Flow:
+  0) if the branch being left has a PR that is still open, offer to wait for it to merge (its version is not released until it does)
   1) ensure the working tree is clean (offers to stash)
-  2) switch to main, pull, fetch -p
+  2) switch to main, pull, fetch -p; if that PR was merged, wait until main really contains the merge
   3) if main's tip should have been released, wait for its release tag
   4) delete local branches that are merged or whose remote is gone (git branch -d only)
   5) optionally create a new branch, suggested as <user>/v<next version>, and start that version's section in changelog.txt
+  6) bring the launcher's own Workshop item (the local mod folder DW2 Mod Launcher) in step with the repo, then set its mod.json
+     version to the new version, so the launcher's publish dialog starts from it (see lib/mod_sync.py)
 
 Usage:
   scripts/new-branch.py
@@ -22,7 +25,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from lib import changelog, output, proc, release_version
+from lib import changelog, github, mod_sync, output, proc, release_version
 
 # a "gone" tracking annotation like "[origin/branch: gone]"
 _GONE_BRANCH_PATTERN = re.compile(r"^\s*(\*?)\s*(\S+)\s+[0-9a-f]+\s+\[[^\]]*:\s*gone\]")
@@ -87,6 +90,46 @@ def restore_stashes(repo_root: Path, shas: list[str], heading: str) -> None:
     changelog.append(repo_root, carried_all)
 
 
+def wait_for_open_pr(repo_root: Path, branch: str, pr: dict, poll_seconds: int = 15) -> dict:
+    """The branch being left still has an open PR, so its version is not released and "latest tag + 1" would name the new
+    branch after that same version. Offers to wait for the merge (Ctrl-C works) and returns the PR as it is afterwards."""
+    print()
+    print(f"  '{branch}' still has an open PR (#{pr['number']}): its version is not released until it merges.")
+    if not output.confirm("  Wait for it to merge?", default=True):
+        output.warn("not waiting: the suggested version below will be the one that open PR is about to release")
+        return pr
+    waited = 0
+    while pr["state"] == "OPEN":
+        print(f"  » waiting for PR #{pr['number']} to merge ({waited}s)...")
+        time.sleep(poll_seconds)
+        waited += poll_seconds
+        try:
+            pr = github.latest_pr_for_branch(repo_root, branch)
+        except RuntimeError as e:
+            output.fail(f"could not read the PR state via gh: {e}")
+    if pr["state"] == "CLOSED":
+        output.warn(f"PR #{pr['number']} was closed without merging; nothing was released for '{branch}'")
+    return pr
+
+
+def wait_for_merge_on_main(repo_root: Path, merge_commit: str, timeout_seconds: int = 300, poll_seconds: int = 10) -> None:
+    """GitHub reports a PR as merged a moment before `git pull` can bring the merge down, so a script that pulls right after
+    the merge sees the old main (and the old tags). Pull until the PR's merge commit is in HEAD; fail loudly if it never is."""
+    def has_merge() -> bool:
+        return subprocess.run(["git", "merge-base", "--is-ancestor", merge_commit, "HEAD"], cwd=repo_root).returncode == 0
+
+    elapsed = 0
+    while not has_merge():
+        if elapsed >= timeout_seconds:
+            output.fail(f"the merged PR's commit {merge_commit[:8]} did not reach main after {timeout_seconds}s; re-run in a moment")
+        print(f"  » main does not have the merged PR yet ({elapsed}s/{timeout_seconds}s)...")
+        time.sleep(poll_seconds)
+        elapsed += poll_seconds
+        subprocess.run(["git", "pull", "-q"], cwd=repo_root, capture_output=True)
+        subprocess.run(["git", "fetch", "-p", "--tags", "-q"], cwd=repo_root, capture_output=True)
+    output.ok("main has the merged PR")
+
+
 def landed_in_main(repo_root: Path, branch: str) -> bool:
     """Whether everything on the branch is already in main even though git can't see it as merged, which
     is what rebase and squash merges look like. True when every commit has a patch-equivalent in main
@@ -146,9 +189,26 @@ def main() -> int:
         "--dry-run", action="store_true",
         help="sync/cleanup as normal, but don't delete local branches or create the new branch",
     )
+    parser.add_argument("--no-mod-sync", action="store_true", help="leave the launcher's Workshop item (mods/DW2 Mod Launcher) alone")
+    parser.add_argument("--game-path", type=Path, default=None, help="the Distant Worlds 2 install the mod folder sync uses. Default: DW2_PATH, then the usual Steam location.")
     args = parser.parse_args()
 
     repo_root = proc.repo_root()
+
+    output.step("branch being left")
+    leaving = proc.git(repo_root, "branch", "--show-current").stdout.strip()
+    leaving_pr = None
+    if leaving and leaving != "main":
+        github.require_gh_auth()
+        try:
+            leaving_pr = github.latest_pr_for_branch(repo_root, leaving)
+        except RuntimeError as e:
+            output.fail(f"could not read the PR state of '{leaving}' via gh: {e}")
+        if leaving_pr and leaving_pr["state"] == "OPEN":
+            leaving_pr = wait_for_open_pr(repo_root, leaving, leaving_pr)
+        output.ok(f"'{leaving}': " + (f"PR #{leaving_pr['number']} {leaving_pr['state'].lower()}" if leaving_pr else "no PR"))
+    else:
+        output.ok("on main already")
 
     output.step("working tree")
     to_restore: list[str] = []
@@ -178,6 +238,11 @@ def main() -> int:
     proc.run(repo_root, "checkout main", ["git", "checkout", "main"])
     proc.run(repo_root, "git pull", ["git", "pull"])
     proc.run(repo_root, "git fetch -p --tags", ["git", "fetch", "-p", "--tags"])
+    if leaving_pr and leaving_pr["state"] == "MERGED":
+        if leaving_pr["mergeCommit"]:
+            wait_for_merge_on_main(repo_root, leaving_pr["mergeCommit"])
+        else:
+            output.warn(f"gh gave no merge commit for PR #{leaving_pr['number']}, so main cannot be checked for it")
     output.ok("main updated")
 
     output.step("cleanup local branches")
@@ -261,6 +326,10 @@ def main() -> int:
     # only the entries the stashes added
     restore_stashes(repo_root, to_restore, next_tag)
     output.ok(f"changelog.txt: {next_tag} section started for the new branch")
+
+    if not args.no_mod_sync:
+        mod_sync.sync(repo_root, args.game_path)
+        mod_sync.set_version(next_tag.removeprefix(release_version.TAG_PREFIX), args.game_path)
 
     output.ok(f"ready on branch '{new_branch}'")
     return 0

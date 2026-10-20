@@ -2,7 +2,8 @@
 """Build the Avalonia launcher for this OS.
 
 By default it also applies `dotnet format` fixes and runs the unit tests (the same checks CI runs), then
-builds. Pass --no-validate to skip both and just build. After the build it syncs the launcher's own Workshop item (the
+builds. Pass --no-validate to skip both and just build. With Distant Worlds 2 running, the tests and the Loader DLL copy (which the
+game has locked) are skipped and everything else is built and deployed; it says whether the Loader DLL needs deploying later. After the build it syncs the launcher's own Workshop item (the
 local mod folder DW2 Mod Launcher in the game's mods folder) with the repo: mod/description.bbcode both ways and the newest
 changelog.txt entries into its Unreleased section (see lib/mod_sync.py); --no-mod-sync skips that.
 
