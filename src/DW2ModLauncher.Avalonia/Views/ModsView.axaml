@@ -17,6 +17,7 @@
         <RowDefinition Height="Auto" SharedSizeGroup="Toolbar" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
       <Grid Name="ToolbarGrid" Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
         <Button Grid.Column="0" Command="{Binding RefreshCommand}" Margin="0,0,10,0" ToolTip.Tip="{Binding L[RefreshModsTooltip]}">
@@ -56,19 +57,19 @@
         </Button>
       </Grid>
 
-      <!-- The headers can be dragged into any order (ModsView.axaml.cs); the rows below use the same order. -->
+      <!-- The headers can be dragged into any order (ModsView.axaml.cs); the rows below use the same order. They do not sort: the list is always load order, then name. -->
       <Grid Grid.Row="1">
         <views:ColumnRowPanel Name="HeaderPanel" Background="{StaticResource Dw2Steel}">
-          <Button Classes="header" views:ColumnRowPanel.ColumnId="state" Command="{Binding SortCommand}" CommandParameter="4" Content="{Binding L[ModState]}" ToolTip.Tip="{Binding L[LoadOrder]}" />
-          <Button Classes="header" views:ColumnRowPanel.ColumnId="name" HorizontalContentAlignment="Left" Command="{Binding SortCommand}" CommandParameter="0" Content="{Binding L[ModName]}" Padding="10,6" />
-          <Button Classes="header" views:ColumnRowPanel.ColumnId="source" HorizontalContentAlignment="Left" Command="{Binding SortCommand}" CommandParameter="1" Content="{Binding L[Source]}" />
-          <Button Classes="header" views:ColumnRowPanel.ColumnId="author" HorizontalContentAlignment="Left" Command="{Binding SortCommand}" CommandParameter="5" Content="{Binding L[Author]}" />
+          <Button Classes="header" views:ColumnRowPanel.ColumnId="state" Content="{Binding L[ModState]}" ToolTip.Tip="{Binding L[LoadOrder]}" />
+          <Button Classes="header" views:ColumnRowPanel.ColumnId="name" HorizontalContentAlignment="Left" Content="{Binding L[ModName]}" Padding="10,6" />
+          <Button Classes="header" views:ColumnRowPanel.ColumnId="source" HorizontalContentAlignment="Left" Content="{Binding L[Source]}" />
+          <Button Classes="header" views:ColumnRowPanel.ColumnId="author" HorizontalContentAlignment="Left" Content="{Binding L[Author]}" />
         </views:ColumnRowPanel>
         <Border Name="ColumnDropLine" IsVisible="False" IsHitTestVisible="False" Width="3" HorizontalAlignment="Left" Background="{StaticResource Dw2Gold}" />
       </Grid>
 
       <Grid Grid.Row="2">
-        <ListBox Name="ModList" ItemsSource="{Binding Mods}" SelectedItem="{Binding SelectedRow}"
+        <ListBox Name="ModList" ItemsSource="{Binding VisibleMods}" SelectedItem="{Binding SelectedRow}"
                  Background="{StaticResource Dw2Deep}">
           <ListBox.ContextMenu>
             <ContextMenu>
@@ -127,6 +128,12 @@
           </Border>
           <Border Name="DropLine" IsVisible="False" Height="2" CornerRadius="1" Background="White" />
         </Canvas>
+      </Grid>
+
+      <!-- Filter: under the list, out of the way. -->
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+        <TextBox Grid.Column="0" Text="{Binding FilterText}" Watermark="{Binding L[FilterModsPlaceholder]}" />
+        <CheckBox Grid.Column="1" Margin="14,0,0,0" IsChecked="{Binding LocalModsOnly}" Content="{Binding L[LocalModsOnly]}" ToolTip.Tip="{Binding L[LocalModsOnlyTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0" />
       </Grid>
     </Grid>
 

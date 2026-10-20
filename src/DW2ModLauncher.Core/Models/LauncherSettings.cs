@@ -24,9 +24,8 @@ namespace DW2ModLauncher.Core.Models
         public string ActiveProfile { get; set; }
         /// <summary>The user's name as a mod author; stamped into dw2modlauncher.json of mods they create or publish. Blank = no stamping.</summary>
         public string AuthorName { get; set; } = "";
-        /// <summary>Mod list sort column (0 name, 1 source, 2 state, 3 health, 4 load order, 5 author); -1 = manual load order.</summary>
-        public int SortColumn { get; set; }
-        public bool SortAscending { get; set; }
+        /// <summary>The mod list shows only mods from the game's mods folder, hiding Steam Workshop copies.</summary>
+        public bool LocalModsOnly { get; set; }
         /// <summary>Main window's top-left corner when it last closed; null until first saved.</summary>
         public int? WindowX { get; set; }
         public int? WindowY { get; set; }
@@ -81,8 +80,6 @@ namespace DW2ModLauncher.Core.Models
 
         public LauncherSettings()
         {
-            SortColumn = -1;
-            SortAscending = true;
             Language = "en";
             GameRoot = "";
             WorkshopRoot = "";

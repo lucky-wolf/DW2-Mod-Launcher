@@ -1,5 +1,6 @@
 ## v1.0.18
-- Sorting by a column heading keeps the selected mod; a click no longer drops the sort
+- Mod list is always sorted in load order then name; headings no longer sort
+- Added a filter string input and "local mods only" checkbox under the mod list
 - A published local mod keeps its settings and enabled state when its folder is renamed
 - Publish dialog footer tooltips open above their buttons instead of swallowing clicks
 - Mark Up to Date says why when it cannot, and lists files that still differ afterwards
