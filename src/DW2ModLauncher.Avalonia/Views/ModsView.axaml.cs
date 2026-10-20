@@ -42,7 +42,10 @@ namespace DW2ModLauncher.Avalonia.Views
             DataContextChanged += delegate
             {
                 if (DataContext is MainViewModel main)
+                {
+                    main.CaptureListScroll = CaptureScroll;
                     main.RevealSelectionRequested += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(ScrollToSelection, global::Avalonia.Threading.DispatcherPriority.Background); };
+                }
             };
             ModList.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.ModSettingsCommand.CanExecute(null)) m.ModSettingsCommand.Execute(null); };
             DetailsToggle.Click += delegate { SetDetailsCollapsed(DetailsPane.IsVisible); RememberCollapsed(); };
@@ -185,6 +188,20 @@ namespace DW2ModLauncher.Avalonia.Views
             // The toggle sits over the right end of the row; with the pane gone the list's toolbar makes room for it.
             ToolbarGrid.Margin = new Thickness(0, 0, collapsed ? DetailsToggle.Bounds.Width + 10 : 0, 10);
             DetailsToggleIcon.Data = Geometry.Parse(collapsed ? "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" : "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z");
+        }
+
+        /// <summary>Notes the list's scroll offset and returns the action that puts it back (null before the list has been laid out).</summary>
+        private Action CaptureScroll()
+        {
+            ScrollViewer scroller = ModList.FindDescendantOfType<ScrollViewer>();
+            if (scroller == null || scroller.Viewport.Height <= 0) return null;
+            double offset = scroller.Offset.Y;
+            return () =>
+            {
+                ModList.UpdateLayout();
+                double max = Math.Max(0, scroller.Extent.Height - scroller.Viewport.Height);
+                scroller.Offset = scroller.Offset.WithY(Math.Min(offset, max));
+            };
         }
 
         private void ScrollToSelection()

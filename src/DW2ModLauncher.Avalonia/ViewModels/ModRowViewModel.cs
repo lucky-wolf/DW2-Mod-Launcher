@@ -21,7 +21,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             this.managedModsRoot = managedModsRoot;
         }
 
-        public ModInfo Mod { get; }
+        public ModInfo Mod { get; private set; }
+
+        /// <summary>Points the row at a freshly scanned copy of the same mod, so the list keeps its row objects (and its place) across a rescan.</summary>
+        public void Rebind(ModInfo mod)
+        {
+            Mod = mod;
+            thumbnail = null;
+            thumbnailLoaded = false;
+            Raise(string.Empty);
+        }
 
         private bool isMatch = true;
         /// <summary>Whether the list's filter lets this row show.</summary>
