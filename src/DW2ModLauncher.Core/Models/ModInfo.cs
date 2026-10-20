@@ -77,6 +77,23 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>How many other enabled copies of this same mod (same Workshop item id) are enabled alongside it.</summary>
         public int EnabledCopyCount { get; set; }
 
+        /// <summary>
+        /// The launcher's own per-mod storage key (settings values, editor state, version-bump policy) for a local mod
+        /// that has a Workshop id: "local/&lt;id&gt;", which survives the folder being renamed and stays distinct from the
+        /// subscribed copy ("steam/&lt;id&gt;"). Null for a Workshop copy (its ActiveToken already is the id) and for a local
+        /// mod never published, whose only identity is its folder name.
+        /// </summary>
+        public string PublishedLocalKey
+        {
+            get { return !IsWorkshop && !string.IsNullOrWhiteSpace(WorkshopId) ? "local/" + WorkshopId.Trim() : null; }
+        }
+
+        /// <summary>The key under which this mod's launcher-side state is stored: the id-based one when there is one, else the id/folder name.</summary>
+        public string StateKey
+        {
+            get { return PublishedLocalKey ?? Id ?? System.IO.Path.GetFileName(Folder) ?? ""; }
+        }
+
         public string Key
         {
             get

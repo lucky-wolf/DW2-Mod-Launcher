@@ -18,11 +18,41 @@ namespace DW2ModLauncher.Core.Services
     {
         private static readonly JsonSerializerOptions WriteOptions = new JsonSerializerOptions { WriteIndented = true };
 
+        // A local mod with a Workshop id is stored under "local/<id>" (see ModInfo.PublishedLocalKey), so renaming its folder
+        // keeps its settings; any other mod under its ActiveToken, as before.
+        private static string TokenOf(ModInfo mod)
+        {
+            return mod?.PublishedLocalKey ?? mod?.ActiveToken ?? mod?.Key ?? "unknown";
+        }
+
+        private static string PathFor(string folder, string token)
+        {
+            foreach (char c in Path.GetInvalidFileNameChars()) token = token.Replace(c, '_');
+            return Path.Combine(UserDataRoot.Get(), folder, token + ".json");
+        }
+
         public static string GetSettingsPath(ModInfo mod)
         {
-            string token = mod?.ActiveToken ?? mod?.Key ?? "unknown";
-            foreach (char c in Path.GetInvalidFileNameChars()) token = token.Replace(c, '_');
-            return Path.Combine(UserDataRoot.Get(), "ModSettings", token + ".json");
+            return PathFor("ModSettings", TokenOf(mod));
+        }
+
+        /// <summary>Moves the settings (and remembered defaults) stored under an older token of this mod - its folder name
+        /// before it was renamed or before it had a Workshop id - to where they live now. Only when nothing is stored yet under
+        /// the current token: values already there are never replaced. Returns whether anything moved.</summary>
+        public static bool AdoptStoredUnder(ModInfo mod, string legacyToken)
+        {
+            if (string.IsNullOrWhiteSpace(legacyToken) || legacyToken == TokenOf(mod)) return false;
+            bool moved = false;
+            foreach (string folder in new[] { "ModSettings", "ModSettingsDefaults" })
+            {
+                string from = PathFor(folder, legacyToken);
+                string to = PathFor(folder, TokenOf(mod));
+                if (!File.Exists(from) || File.Exists(to)) continue;
+                Directory.CreateDirectory(Path.GetDirectoryName(to));
+                File.Move(from, to);
+                moved = true;
+            }
+            return moved;
         }
 
         /// <summary>Reads existing stored values and fills in any schema key the file lacks with its default
@@ -77,9 +107,7 @@ namespace DW2ModLauncher.Core.Services
         /// "the user left this setting alone" (stored value still equals that old default) from "the user chose it".</summary>
         public static string GetDefaultsPath(ModInfo mod)
         {
-            string token = mod?.ActiveToken ?? mod?.Key ?? "unknown";
-            foreach (char c in Path.GetInvalidFileNameChars()) token = token.Replace(c, '_');
-            return Path.Combine(UserDataRoot.Get(), "ModSettingsDefaults", token + ".json");
+            return PathFor("ModSettingsDefaults", TokenOf(mod));
         }
 
         /// <summary>A setting still holding the default the schema declared last time moves to the schema's new default;
