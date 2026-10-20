@@ -194,7 +194,7 @@ namespace DW2ModLauncher.Avalonia.Views
             // Then centre the row in the viewport where there is room (the offset is clamped, so rows near either end just stay put).
             ModList.UpdateLayout();
             ScrollViewer scroller = ModList.FindDescendantOfType<ScrollViewer>();
-            int index = m.Mods.IndexOf(m.SelectedRow);
+            int index = m.VisibleMods.IndexOf(m.SelectedRow);
             if (scroller == null || index < 0 || ModList.ContainerFromIndex(index) is not Control row) return;
             Point top = row.TranslatePoint(new Point(0, 0), scroller) ?? new Point(0, 0);
             double target = scroller.Offset.Y + top.Y + row.Bounds.Height / 2 - scroller.Viewport.Height / 2;
@@ -226,6 +226,12 @@ namespace DW2ModLauncher.Avalonia.Views
             if (!dragging)
             {
                 if (Math.Abs(now.X - pressPoint.X) < DragThreshold && Math.Abs(now.Y - pressPoint.Y) < DragThreshold) return;
+                if (DataContext is MainViewModel filtered && filtered.IsFiltering)
+                {
+                    dragRow = null;
+                    filtered.SetStatus(filtered.L["DragNeedsNoFilter"]);
+                    return;
+                }
                 if (!BeginDrag(e)) { dragRow = null; return; }
             }
             UpdateDrag(now);

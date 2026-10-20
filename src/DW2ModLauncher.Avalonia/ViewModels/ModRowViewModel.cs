@@ -22,6 +22,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         public ModInfo Mod { get; }
+
+        private bool isMatch = true;
+        /// <summary>Whether the list's filter lets this row show.</summary>
+        public bool IsMatch { get { return isMatch; } set { Set(ref isMatch, value); } }
+
+        /// <summary>True when the row passes the filter: a blank needle matches all; otherwise name, author, source or folder name must contain it.</summary>
+        public bool Matches(string needle, bool localOnly)
+        {
+            if (localOnly && Mod.IsWorkshop) return false;
+            if (string.IsNullOrEmpty(needle)) return true;
+            foreach (string field in new[] { Name, Author, Source, Mod.IsWorkshop ? null : Path.GetFileName(Mod.Folder ?? "") })
+                if (field != null && field.IndexOf(needle, System.StringComparison.CurrentCultureIgnoreCase) >= 0) return true;
+            return false;
+        }
         public ICommand ToggleCommand { get; }
 
         public string Name { get { return Mod.DisplayName ?? Mod.Id ?? "Unknown"; } }

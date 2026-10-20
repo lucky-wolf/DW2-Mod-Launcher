@@ -41,8 +41,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string statusText = "";
         private LanguageOption selectedLanguage;
         private ModRowViewModel selectedRow;
-        private int sortColumn = -1;
-        private bool sortAscending = true;
+        private string filterText = "";
         private bool updateCheckRunning;
         private bool populating;
         private string detailTitle = "";
@@ -68,9 +67,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             settings = settingsStore.Load();
             NormalizeSettings();
             Views.ModColumnLayout.Set(settings.ModListColumnOrder);
-            // A saved 2 was the old separate "enabled" column, which is now part of column 4; a saved 3 was the Health column, which is gone (the checkbox carries it).
-            sortColumn = settings.SortColumn == 2 || settings.SortColumn == 3 ? 4 : settings.SortColumn >= 0 && settings.SortColumn <= 5 ? settings.SortColumn : -1;
-            sortAscending = settings.SortAscending;
             if (string.IsNullOrWhiteSpace(settings.ManagedModsRoot))
                 settings.ManagedModsRoot = string.IsNullOrWhiteSpace(settings.GameRoot) ? "" : Path.Combine(settings.GameRoot, "mods");
 
@@ -97,7 +93,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             gameWatchTimer.Tick += delegate { var _ = WatchGameAsync(); };
             gameWatchTimer.Start();
             var first = WatchGameAsync();
-            SortCommand = RelayCommand.WithParameter(column => SortBy(int.Parse((string)column, System.Globalization.CultureInfo.InvariantCulture)));
             OpenSelectedFolderCommand = new RelayCommand(OpenModFolder, () => selectedRow != null);
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage, () => SteamPageId(selectedRow) != null);
             OpenDocsCommand = new RelayCommand(OpenDocsAsync, () => selectedRow != null && selectedRow.Mod.IncludedDocuments != null && selectedRow.Mod.IncludedDocuments.Count > 0);
@@ -110,6 +105,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             CreateModCommand = new RelayCommand(CreateModAsync);
             DeleteModCommand = new RelayCommand(DeleteModAsync, () => selectedRow != null && LocalModManager.CanDelete(selectedRow.Mod, settings.ManagedModsRoot));
 
+            Mods.CollectionChanged += delegate { if (!populating) SyncVisibleMods(); };
             PathDetector.Detect(settings, false);
             SaveSettings();
             Refresh();
@@ -124,6 +120,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public SettingsViewModel Settings { get; }
         public ObservableCollection<LanguageOption> Languages { get; } = new ObservableCollection<LanguageOption>();
         public ObservableCollection<ModRowViewModel> Mods { get; } = new ObservableCollection<ModRowViewModel>();
+        /// <summary>What the list shows: the rows of Mods that pass the filter, in the same order. Real removal rather than hiding, so the list lays itself out afresh.</summary>
+        public ObservableCollection<ModRowViewModel> VisibleMods { get; } = new ObservableCollection<ModRowViewModel>();
 
         public RelayCommand OpenSettingsCommand { get; }
         public RelayCommand OpenAboutCommand { get; }
@@ -227,7 +225,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             SetGameState(GameState.Idle);
             SetStatus(T("GameStopped"));
         }
-        public RelayCommand SortCommand { get; }
         public RelayCommand OpenSelectedFolderCommand { get; }
         public RelayCommand OpenSteamPageCommand { get; }
         public RelayCommand OpenDocsCommand { get; }
@@ -474,6 +471,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             populating = false;
             RefreshRowStates();
             ApplySort();
+            ApplyFilter();
             // A refresh rescans the folders, so the selected mod is a new object: find it again by where it lives (or, failing that, its token).
             SelectedRow = keepSelected == null ? null : Mods.FirstOrDefault(r => r.Mod == keepSelected || SameMod(r.Mod, keepSelected));
         }
@@ -506,41 +504,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ShowDetails();
         }
 
-        // ---- sorting (column numbers match the header buttons: 0 name, 1 source, 3 health, 4 enabled + load order, 5 author; 2 was a separate state column, now merged into 4)
-
-        private void SortBy(int column)
-        {
-            sortAscending = sortColumn == column ? !sortAscending : true;
-            sortColumn = column;
-            ApplySort();
-            SaveSortPreference();
-        }
-
-        private void SaveSortPreference()
-        {
-            settings.SortColumn = sortColumn;
-            settings.SortAscending = sortAscending;
-            SaveSettings();
-        }
+        // ---- order and filter: the list is always the enabled mods in load order, then the rest by name; the filter only hides rows
 
         private void ApplySort()
         {
-            if (sortColumn < 0 || Mods.Count == 0) return;
-            Func<ModRowViewModel, object> key;
-            switch (sortColumn)
-            {
-                case 1: key = r => r.Source; break;
-                case 3: key = r => r.HealthSeverity; break;
-                case 5: key = r => r.Author; break;
-                case 4: key = r => r.LoadOrderIndex < 0 ? int.MaxValue : r.LoadOrderIndex; break;
-                default: key = r => r.Name; break;
-            }
-            IComparer<object> comparer = Comparer<object>.Create((a, b) => a is string
-                ? StringComparer.CurrentCultureIgnoreCase.Compare((string)a, (string)b)
-                : ((int)a).CompareTo((int)b));
-            IOrderedEnumerable<ModRowViewModel> ordered = sortAscending ? Mods.OrderBy(key, comparer) : Mods.OrderByDescending(key, comparer);
-            List<ModRowViewModel> sorted = ordered.ThenBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
-            if (!sortAscending) sorted = Mods.OrderByDescending(key, comparer).ThenByDescending(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+            if (Mods.Count == 0) return;
+            List<ModRowViewModel> sorted = Mods
+                .OrderBy(r => r.LoadOrderIndex < 0 ? int.MaxValue : r.LoadOrderIndex)
+                .ThenBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
             ModRowViewModel keep = selectedRow;
             populating = true;
             for (int i = 0; i < sorted.Count; i++)
@@ -549,16 +520,64 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (from != i) Mods.Move(from, i);
             }
             populating = false;
+            SyncVisibleMods();
             SelectedRow = keep;
             if (keep == null) return;
             // The list control clears its selection when rows move and may do so after this method returns (on its next layout pass),
-            // which would drop the selection the user had when clicking a column heading: put it back once that has happened.
+            // which would drop the selection the user had: put it back once that has happened.
             global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (!Mods.Contains(keep)) return;
-                if (selectedRow != keep) SelectedRow = keep;
+                if (Mods.Contains(keep) && selectedRow != keep) SelectedRow = keep;
                 RevealSelectionRequested?.Invoke();
             }, global::Avalonia.Threading.DispatcherPriority.Background);
+        }
+
+        /// <summary>Text the mod list is narrowed to: a row stays when its name, author, source or folder contains it (any case).</summary>
+        public string FilterText
+        {
+            get { return filterText; }
+            set { if (Set(ref filterText, value ?? "")) { ApplyFilter(); Raise(nameof(IsFiltering)); } }
+        }
+
+        /// <summary>Show only the mods in the game's mods folder (the ones the user makes), hiding Steam Workshop copies.</summary>
+        public bool LocalModsOnly
+        {
+            get { return settings.LocalModsOnly; }
+            set
+            {
+                if (settings.LocalModsOnly == value) return;
+                settings.LocalModsOnly = value;
+                SaveSettings();
+                Raise();
+                ApplyFilter();
+                Raise(nameof(IsFiltering));
+            }
+        }
+
+        /// <summary>Whether any filter hides rows; dragging is off then, since a drop position among hidden rows would be ambiguous.</summary>
+        public bool IsFiltering { get { return FilterText.Trim().Length > 0 || LocalModsOnly; } }
+
+        private void ApplyFilter()
+        {
+            string needle = FilterText.Trim();
+            foreach (ModRowViewModel row in Mods) row.IsMatch = row.Matches(needle, LocalModsOnly);
+            SyncVisibleMods();
+            // Rows came or went around the selection: bring it back to the middle of the list.
+            if (selectedRow != null && VisibleMods.Contains(selectedRow)) RevealSelectionRequested?.Invoke();
+        }
+
+        /// <summary>Makes VisibleMods the matching rows of Mods in Mods' order, with the fewest changes (so the list keeps its place).</summary>
+        private void SyncVisibleMods()
+        {
+            List<ModRowViewModel> target = Mods.Where(r => r.IsMatch).ToList();
+            foreach (ModRowViewModel gone in VisibleMods.Where(r => !target.Contains(r)).ToList()) VisibleMods.Remove(gone);
+            for (int i = 0; i < target.Count; i++)
+            {
+                if (i < VisibleMods.Count && VisibleMods[i] == target[i]) continue;
+                int at = VisibleMods.IndexOf(target[i]);
+                if (at >= 0) VisibleMods.Move(at, i);
+                else VisibleMods.Insert(i, target[i]);
+            }
         }
 
         // ---- enabling and load order
@@ -596,14 +615,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             Analyze();
             RefreshRowStates();
-            // Sorted by load order, enabling a mod gives it a number and unchecking drops it below the last enabled one (unnumbered rows
+            // Enabling a mod gives it a load-order number and unchecking drops it below the last enabled one (unnumbered rows
             // sort last), so it changes place either way: follow it there and keep it selected.
-            if (sortColumn == 4)
-            {
-                ApplySort();
-                SelectedRow = row;
-                RevealSelectionRequested?.Invoke();
-            }
+            ApplySort();
+            SelectedRow = row;
+            RevealSelectionRequested?.Invoke();
             UpdateStatus();
             Settings.UpdateCommandPreview();
         }
@@ -627,7 +643,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Raised when the view should scroll the selected row into view, centred where there is room.</summary>
         public event Action RevealSelectionRequested;
 
-        /// <summary>Moves a row (drag and drop) and writes the new load order. Sorting is dropped: the list now shows the manual order.</summary>
+        /// <summary>Moves a row (drag and drop) and writes the new load order.</summary>
         public void MoveRow(ModRowViewModel row, int toIndex)
         {
             int from = Mods.IndexOf(row);
@@ -653,9 +669,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 SelectedRow = row;
                 return;
             }
-            // Only a real move leaves the sorted view: the list now shows the manual order.
-            sortColumn = -1;
-            SaveSortPreference();
             Mods.Move(from, toIndex);
             SelectedRow = row;
             CommitListOrder();
