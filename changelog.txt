@@ -1,3 +1,6 @@
+## v1.0.19
+- Fixed a scrolling issue when doing a rescan of mods
+
 ## v1.0.18
 - Mod list is always sorted in load order then name; headings no longer sort
 - Added a filter string input and "local mods only" checkbox under the mod list

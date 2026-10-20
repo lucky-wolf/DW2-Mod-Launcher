@@ -458,6 +458,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void RebuildRows()
         {
             ModInfo keepSelected = selectedRow == null ? null : selectedRow.Mod;
+            // A rescan replaces every row object, which would send the list back to the top and then re-centre the selection:
+            // note where the list is, hold back the reveal scrolls that follow, and put it back once the new rows are laid out.
+            Action restoreScroll = CaptureListScroll?.Invoke();
+            if (restoreScroll != null) suppressReveal = true;
             foreach (ModInfo mod in AllMods)
             {
                 EvaluatePublishState(mod);
@@ -465,15 +469,40 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 mod.Visibility = id != null && visibilityCache.TryGetValue(id, out ModVisibility known) ? known : (ModVisibility?)null;
             }
             populating = true;
-            Mods.Clear();
-            foreach (ModInfo mod in ModLibrary.OrderForDisplay(AllMods, modOrder))
+            // Rows are kept for mods that are still there (rebound to the new scan); only mods that came or went add or remove a row.
+            List<ModInfo> scanned = ModLibrary.OrderForDisplay(AllMods, modOrder).ToList();
+            List<ModRowViewModel> reused = new List<ModRowViewModel>();
+            foreach (ModRowViewModel old in Mods.ToList())
+            {
+                ModInfo now = scanned.FirstOrDefault(m => SameMod(m, old.Mod));
+                if (now == null) { Mods.Remove(old); continue; }
+                old.Rebind(now);
+                reused.Add(old);
+            }
+            foreach (ModInfo mod in scanned)
+            {
+                if (reused.Any(r => r.Mod == mod)) continue;
                 Mods.Add(new ModRowViewModel(mod, RelayCommand.WithParameter(row => { var _ = ToggleAsync((ModRowViewModel)row); }), settings.ManagedModsRoot) { Strings = key => T(key) });
+            }
             populating = false;
             RefreshRowStates();
             ApplySort();
             ApplyFilter();
             // A refresh rescans the folders, so the selected mod is a new object: find it again by where it lives (or, failing that, its token).
             SelectedRow = keepSelected == null ? null : Mods.FirstOrDefault(r => r.Mod == keepSelected || SameMod(r.Mod, keepSelected));
+            if (restoreScroll == null) return;
+            // Queued after the posts ApplySort made, so it runs last.
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(() => { suppressReveal = false; restoreScroll(); }, global::Avalonia.Threading.DispatcherPriority.Background);
+        }
+
+        private bool suppressReveal;
+
+        /// <summary>Set by the view: notes the list's scroll position and returns the action that restores it (null when the list is not showing).</summary>
+        public Func<Action> CaptureListScroll { get; set; }
+
+        private void RaiseReveal()
+        {
+            if (!suppressReveal) RevealSelectionRequested?.Invoke();
         }
 
         private static bool SameMod(ModInfo a, ModInfo b)
@@ -528,7 +557,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 if (Mods.Contains(keep) && selectedRow != keep) SelectedRow = keep;
-                RevealSelectionRequested?.Invoke();
+                RaiseReveal();
             }, global::Avalonia.Threading.DispatcherPriority.Background);
         }
 
@@ -563,7 +592,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach (ModRowViewModel row in Mods) row.IsMatch = row.Matches(needle, LocalModsOnly);
             SyncVisibleMods();
             // Rows came or went around the selection: bring it back to the middle of the list.
-            if (selectedRow != null && VisibleMods.Contains(selectedRow)) RevealSelectionRequested?.Invoke();
+            if (selectedRow != null && VisibleMods.Contains(selectedRow)) RaiseReveal();
         }
 
         /// <summary>Makes VisibleMods the matching rows of Mods in Mods' order, with the fewest changes (so the list keeps its place).</summary>
