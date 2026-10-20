@@ -182,11 +182,13 @@
         </Expander>
       </StackPanel>
     </ScrollViewer>
+    <!-- The footer is at the window's bottom edge: a tooltip below its buttons has no room and ends up over the pointer, taking the click.
+         These two open above the button instead. -->
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-        <Button IsVisible="{Binding CanMarkUpToDate}" Command="{Binding MarkUpToDateCommand}" Content="{Binding L[MarkUpToDate]}" MinWidth="125" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" />
+        <Button IsVisible="{Binding CanMarkUpToDate}" Command="{Binding MarkUpToDateCommand}" Content="{Binding L[MarkUpToDate]}" MinWidth="125" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" ToolTip.Placement="Top" />
         <Button IsVisible="{Binding ShowSave}" IsEnabled="{Binding CanSave}" Command="{Binding SaveCommand}" Content="{Binding L[Save]}" MinWidth="125" />
-        <Button Name="PublishButton" Classes="play" IsEnabled="{Binding CanPrimary}" Content="{Binding PrimaryButtonText}" MinWidth="170" FontSize="14" ToolTip.Tip="{Binding PublishTooltip}" />
+        <Button Name="PublishButton" Classes="play" IsEnabled="{Binding CanPrimary}" Content="{Binding PrimaryButtonText}" MinWidth="170" FontSize="14" ToolTip.Tip="{Binding PublishTooltip}" ToolTip.Placement="Top" />
         <Button Name="CancelButton" IsCancel="True" IsVisible="{Binding ShowCancel}" Content="{Binding CancelText}" MinWidth="125" />
       </StackPanel>
     </Border>

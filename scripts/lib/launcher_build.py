@@ -107,8 +107,12 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
         return repo_root / Path(ui.project).parent / "bin" / config
 
     require_launcher_closed()
-    if validate:
-        require_game_closed()
+    # A running game has the Loader DLL (the copy in the launcher's output folder) loaded and locked, and the load-order tests
+    # refuse to run beside it. Those are the only two things that need the game closed, so with it open they are skipped and
+    # everything else is built and deployed.
+    game_open = game_is_running()
+    if game_open:
+        output.notice("Distant Worlds 2 is running: the tests and the Loader DLL update are skipped; everything else is built")
 
     output.step("restore")
     dotnet_checks.run_dotnet_restore(repo_root)
@@ -119,10 +123,13 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
         output.ok("dotnet format")
 
     output.step(f"build ({ui.name}, {config})")
-    proc.run(repo_root, f"dotnet build {ui.project}", ["dotnet", "build", ui.project, "-c", config, "--no-restore"])
+    build_args = ["dotnet", "build", ui.project, "-c", config, "--no-restore"]
+    if game_open:
+        build_args.append("-p:SkipLoaderCopy=true")
+    proc.run(repo_root, f"dotnet build {ui.project}", build_args)
     output.ok("dotnet build")
 
-    if validate:
+    if validate and not game_open:
         output.step("test")
         # builds the tests too (the launcher project doesn't reference them), unlike validate.py's --no-build
         proc.run(repo_root, f"dotnet test {TEST_PROJECT}", ["dotnet", "test", TEST_PROJECT, "-c", config, "--no-restore"])
@@ -131,10 +138,24 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
     exe = executable_path(repo_root, ui, config)
     if not exe.exists():
         output.fail(f"build succeeded but the executable is missing: {exe}")
+    if game_open:
+        _report_loader(repo_root, config, exe)
     if sync_mod:
         mod_sync.sync(repo_root, game_path)
     output.done(f"built {exe.relative_to(repo_root) if exe.is_relative_to(repo_root) else exe}")
     return exe
+
+
+def _report_loader(repo_root: Path, config: str, exe: Path) -> None:
+    """With the game open the deployed Loader DLL was not updated: say whether the freshly built one differs from it."""
+    built = repo_root / "src" / "DW2ModLauncher.Loader" / "bin" / config / "net8.0" / "DW2ModLauncher.Loader.dll"
+    deployed = exe.parent / "Loader" / "DW2ModLauncher.Loader.dll"
+    if not built.is_file() or not deployed.is_file():
+        output.warn(f"could not compare the Loader DLL ({built} / {deployed}): one of them is missing")
+    elif built.read_bytes() == deployed.read_bytes():
+        output.ok("Loader DLL unchanged, nothing was skipped")
+    else:
+        output.warn("the Loader DLL changed and was NOT deployed (the game has it loaded): close the game and build again to update it")
 
 
 def add_arguments(parser) -> None:

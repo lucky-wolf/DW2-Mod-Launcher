@@ -1039,12 +1039,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (selectedRow == null) return;
             ModInfo mod = selectedRow.Mod;
             string id = ModDetails.WorkshopId(mod);
-            if (mod.IsWorkshop || id == null || mod.PublishStatus != PublishStatus.Changed) return;
             string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
+            if (mod.IsWorkshop || id == null)
+            {
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateNotTracked", name), "DW2 Mod Launcher");
+                return;
+            }
+            if (mod.PublishStatus != PublishStatus.Changed)
+            {
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateNothing", name, mod.PublishStatus), "DW2 Mod Launcher");
+                return;
+            }
             if (!await Dialogs.ConfirmAsync(T("ConfirmMarkUpToDate", name, mod.UnpublishedChanges.Count), T("MarkUpToDate"), T("MarkUpToDate"), T("Cancel"))) return;
+            string folder = mod.ContentRoot ?? mod.Folder;
             try
             {
-                PublishedState.MarkCurrent(id, mod.ContentRoot ?? mod.Folder);
+                PublishedState.MarkCurrent(id, folder);
             }
             catch (Exception ex)
             {
@@ -1052,7 +1062,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await Dialogs.ShowMessageAsync(T("MarkUpToDateFailed", ex.Message), "DW2 Mod Launcher");
                 return;
             }
+            Logger.Log("Mark up to date", name + " (" + id + "): recorded " + folder + " in " + PublishedState.GetRecordPath(id));
             ShowDetails();
+            if (mod.PublishStatus != PublishStatus.Current)
+            {
+                // The record was just taken from this folder, so anything still listed changed since (or the folder it compares is not the one recorded).
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateStillChanged", name, string.Join("\n", mod.UnpublishedChanges)), "DW2 Mod Launcher");
+                return;
+            }
             SetStatus(T("MarkedUpToDateStatus", name));
         }
 

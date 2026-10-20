@@ -1,3 +1,8 @@
+## v1.0.18
+- Publish dialog footer tooltips open above their buttons instead of swallowing clicks
+- Mark Up to Date says why when it cannot, and lists files that still differ afterwards
+- In-game status line shows a code mod's mod.json version, not its assembly's
+
 ## v1.0.17
 - Publish dialog lists plain modified file names and shows last published
 - Publish dialog gains a Save button; Steam description difference shown as a dot

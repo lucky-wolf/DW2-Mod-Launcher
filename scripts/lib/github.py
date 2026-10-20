@@ -34,6 +34,22 @@ def open_pr_exists(repo_root: Path, branch: str) -> bool:
     return listing.returncode == 0 and json.loads(listing.stdout or "[]") != []
 
 
+def latest_pr_for_branch(repo_root: Path, branch: str) -> dict | None:
+    """The newest PR of any state whose head is `branch`, as {"number", "state" (OPEN/MERGED/CLOSED), "mergeCommit": sha or None};
+    None when the branch never had one. Raises RuntimeError when gh cannot say."""
+    listing = subprocess.run(
+        ["gh", "pr", "list", "--head", branch, "--state", "all", "--json", "number,state,mergeCommit", "--limit", "1"],
+        cwd=repo_root, capture_output=True, text=True,
+    )
+    if listing.returncode != 0:
+        raise RuntimeError(listing.stderr.strip())
+    found = json.loads(listing.stdout or "[]")
+    if not found:
+        return None
+    pr = found[0]
+    return {"number": pr["number"], "state": pr["state"], "mergeCommit": (pr.get("mergeCommit") or {}).get("oid")}
+
+
 def open_pr_body(repo_root: Path, branch: str) -> str | None:
     """The description of branch's open PR, or None when there is no open PR."""
     listing = subprocess.run(
