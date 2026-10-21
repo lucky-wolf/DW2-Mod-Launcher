@@ -65,12 +65,30 @@ namespace DW2ModLauncher.Core.Models
         public string MinLauncherVersion { get; set; }
         /// <summary>dw2modlauncher.json "author", or null/empty when the mod names none.</summary>
         public string Author { get; set; }
+        /// <summary>True when <see cref="Author"/> is not the mod's own statement but the handle of its Workshop creator (SteamAuthors).</summary>
+        public bool AuthorFromSteam { get; set; }
         /// <summary>dw2modlauncher.json "dependencies" (empty when the mod names none).</summary>
         public List<LauncherDependency> Dependencies { get; set; } = new List<LauncherDependency>();
         /// <summary>dw2modlauncher.json "provides" (empty when the mod supplies nothing).</summary>
         public List<LauncherProvision> Provides { get; set; } = new List<LauncherProvision>();
         /// <summary>dw2modlauncher.json "receives" (empty when the mod's DLL takes no channels).</summary>
         public List<string> Receives { get; set; } = new List<string>();
+        /// <summary>How many shared code hooks (HookOverlapAnalyzer) are a caution for this mod; set by HookOverlapAnalyzer.Apply.</summary>
+        public int HookCautionCount { get; set; }
+        /// <summary>How many shared code hooks are a conflict for this mod.</summary>
+        public int HookConflictCount { get; set; }
+        /// <summary>How many other mods, and how many distinct game methods, this mod conflicts over (HookOverlapAnalyzer.Apply); for the details header.</summary>
+        public int HookConflictMods { get; set; }
+        public int HookConflictMethods { get; set; }
+        /// <summary>The same for cautions (overlaps that are not conflicts).</summary>
+        public int HookCautionMods { get; set; }
+        public int HookCautionMethods { get; set; }
+        /// <summary>One line per caution or conflict above, for the health tooltip and details.</summary>
+        public List<string> HookNotes { get; set; } = new List<string>();
+        /// <summary>The lines of HookNotes that are conflicts (the rest are cautions).</summary>
+        public List<string> HookConflictNotes { get; set; } = new List<string>();
+        /// <summary>dw2modlauncher.json "hooksCoordinatedWith" (empty when the mod names none).</summary>
+        public List<string> HooksCoordinatedWith { get; set; } = new List<string>();
         public int IdenticalFileCount { get; set; }
         public int LowRiskConflictCount { get; set; }
         public int HighRiskConflictCount { get; set; }

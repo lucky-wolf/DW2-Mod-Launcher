@@ -52,6 +52,7 @@ namespace DW2ModLauncher.Core.Services
         {
             LoaderManifest manifest = LoaderManifestBuilder.Build(orderedEnabledMods.ToList(), language);
             manifest.LogDirectory = string.IsNullOrWhiteSpace(logDirectory) ? "" : GamePaths.ToGameVisiblePath(logDirectory.Trim());
+            manifest.ObservedHooksPath = GamePaths.ToGameVisiblePath(HookFiles.ObservedPath());
             if (strings != null) manifest.Strings = strings;
             string loaderDir = Path.GetDirectoryName(LoaderDllPath());
             Directory.CreateDirectory(loaderDir);

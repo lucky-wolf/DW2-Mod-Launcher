@@ -25,7 +25,7 @@ Not planned: merging Mods into a combined output folder, and automatic conflict 
     `ModJsonWorkshopIdWriter`, `LocalModManager` (create/delete a local Mod folder, folder-name sanitizing). Everything that is logic rather than presentation lives here so it is unit
     tested and independent of the UI: `LauncherSettingsStore`/`PathDetector`
     (settings, path detection), `GameProfileStore` (DW2's named mod profiles: `currentProfile.txt` + `mods.<name>.json` beside `mods.json`; design history in [docs/archived/mod-profiles.md](docs/archived/mod-profiles.md)), `ModOrderState`/`ModOrderStore` (DW2's `mods.json` + the "is this mod
-    enabled" rules), `ConflictAnalyzer`/`ModHealth`/`LaunchDiagnostics`, `WorkshopUpdateService`, `ModLibrary`,
+    enabled" rules), `ConflictAnalyzer`/`ModHealth`/`LaunchDiagnostics`, `HookFiles`/`HookOverlapAnalyzer` (which mods patch the same game code, from the loader's `hooks-observed.json` and each mod's `dw2modlauncher.hooks.json`, plus live-channel version mismatches; see [docs/Code Hooks.md](<docs/Code Hooks.md>); open items in [docs/plans/hook-manifest.md](docs/plans/hook-manifest.md)), `WorkshopUpdateService`, `ModLibrary`,
     `ModDetails`, `ModSettingsValues`, `ModFileImporter` (turns a file the author picked into a mod-relative path for mod.json, copying it into the mod folder if needed), `FileNames`, `GameLauncher` (launch command: the exe on Windows, `steam -applaunch` on Linux
     on Linux), `GamePaths` (host path -> `Z:\...` as the game sees it under Proton), `PlatformShell`
     (explorer / xdg-open), `GameProcess`, `Localization`

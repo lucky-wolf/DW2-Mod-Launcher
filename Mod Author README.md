@@ -17,6 +17,7 @@ A data mod (XML, art) needs none of the code sections below: the launcher manage
 - [Be a good neighbour](#be-a-good-neighbour)
 - [Channels: providing and receiving data](#channels-providing-and-receiving-data)
 - [Dependencies and load order](#dependencies-and-load-order)
+- [Code hooks: patching the same game code as another mod](#code-hooks-patching-the-same-game-code-as-another-mod)
 - [Language](#language)
 - [Building a DLL that change detection can trust](#building-a-dll-that-change-detection-can-trust)
 - [Publishing](#publishing)
@@ -30,7 +31,7 @@ Open Settings and fill in **Author name**. Use your handle, the name you want pl
 | File | Whose | Purpose |
 | --- | --- | --- |
 | `mod.json` | The game's | `displayName`, `description`, `version` and the rest the game reads. **Never add your own fields to it**; the launcher removes a stale `launcher` block whenever it rewrites the file. |
-| `dw2modlauncher.json` | The launcher's | Everything launcher-specific: `author`, `dependencies`, `provides`, `receives`, `minLauncherVersion`, `language`, and an optional `injection` override. |
+| `dw2modlauncher.json` | The launcher's | Everything launcher-specific: `author`, `dependencies`, `provides`, `receives`, `hooksCoordinatedWith`, `minLauncherVersion`, `language`, and an optional `injection` override. |
 | `settings.schema.json` | The launcher's | Describes the mod's settings so the launcher can draw an editor. Optional `settings.schema.<code>.json` sidecars translate it. |
 | `description.bbcode` | The launcher's | The Workshop description. `{version}`, `{date}` and `{changes}` are replaced when you publish: the version, the publish date, and the latest `changelog.txt` entries as a bullet list (your `Unreleased` lines; with none, the newest release's). `{changes}` with no entries is an error. |
 | `changelog.txt` | The launcher's | Lines under `Unreleased` go to Steam as the change note when you publish. |
@@ -182,6 +183,10 @@ Say what you need in `dw2modlauncher.json`:
 ```
 
 `required` lists a warning before launch when the other mod is missing. `minVersion` is compared with the other mod's `version` in its `mod.json`. `loadAfter` and `loadBefore` are enforced when the player presses Play. There is deliberately no "incompatible" field. Set `"minLauncherVersion"` if your mod needs a recent launcher. Reference: [DLL Injection.md](<docs/DLL Injection.md#dependencies-dependencies-in-dw2modlauncherjson>).
+
+## Code hooks: patching the same game code as another mod
+
+You do not have to do anything: the launcher's loader records every Harmony patch each session, and warns players when two mods change the same game method in ways that can matter. To help it, set `author` (mods by one author never warn each other), and if you have already talked to another author about a shared method, list their mod in `dw2modlauncher.json` as `"hooksCoordinatedWith": ["Their Mod"]`. Live channels between code mods carry a version that both sides state; a mismatch is reported in game instead of failing quietly. You may also ship a `dw2modlauncher.hooks.json` declaring your hooks so the warning appears before the game starts. Everything, including the file format, is in [Code Hooks.md](<docs/Code Hooks.md>).
 
 ## Language
 

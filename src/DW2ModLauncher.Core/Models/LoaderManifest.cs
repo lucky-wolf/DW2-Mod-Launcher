@@ -32,6 +32,9 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Where the loader writes its logs (as the game process sees the path); blank = the game's data/Logs folder.</summary>
         public string LogDirectory { get; set; } = "";
 
+        /// <summary>Where the loader writes hooks-observed.json (as the game process sees the path): what the mods actually patched, for the launcher's code-overlap check. Blank = not written.</summary>
+        public string ObservedHooksPath { get; set; } = "";
+
         /// <summary>The widget's and Mods menu's own words in the chosen language (the Widget* keys of the launcher's language pack); empty = the loader's built-in English.</summary>
         public Dictionary<string, string> Strings { get; set; } = new Dictionary<string, string>();
     }
@@ -77,5 +80,11 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Text files of the mods this mod depends on that it asked for (dw2modlauncher.json "dependencies" "needs"), keyed "mod/file name" as the mod wrote them; passed as the second argument of InitWithOptions(string, IReadOnlyDictionary).</summary>
         public Dictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
         public string DisplayName { get; set; }
+        /// <summary>The launcher's <see cref="ModInfo.Key"/> for the mod; the observed-hooks file names its patch owners by it.</summary>
+        public string ModKey { get; set; }
+        /// <summary>The mod's version as the launcher knows it (mod.json), recorded with the observed hooks.</summary>
+        public string ModVersion { get; set; }
+        /// <summary>The mod's content folder as the game process sees it: a Harmony patch whose code lives below it belongs to the mod.</summary>
+        public string ModFolder { get; set; }
     }
 }

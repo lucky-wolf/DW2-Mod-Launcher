@@ -43,6 +43,7 @@ namespace DW2ModLauncher.Core.Services
                 mod.WorkshopTitle = old.WorkshopTitle;
                 mod.WorkshopPreviewUrl = old.WorkshopPreviewUrl;
                 mod.WorkshopCreator = old.WorkshopCreator;
+                if (old.AuthorFromSteam && string.IsNullOrWhiteSpace(mod.Author)) { mod.Author = old.Author; mod.AuthorFromSteam = true; }
                 mod.WorkshopFileSize = old.WorkshopFileSize;
                 mod.WorkshopTimeCreated = old.WorkshopTimeCreated;
                 mod.WorkshopTags = old.WorkshopTags;

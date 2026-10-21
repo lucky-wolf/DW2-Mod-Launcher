@@ -73,6 +73,7 @@ namespace DW2ModLauncher.Loader
                 LoadOne(entry);
 
             ReportChannelProblems(manifest);
+            InstallObservedHooks(manifest);
 
             // After the mods, so the panel already lists all of them; a widget that cannot install changes nothing for the mods.
             try
@@ -95,6 +96,21 @@ namespace DW2ModLauncher.Loader
                 string text = problem.TrimStart('⚠', ' ');
                 Log("ERROR mod data channel: " + text);
                 HookStatus.Failed("channel:" + i++, StatusStrings.Get("WidgetChannelProblem", text), _logPath);
+            }
+        }
+
+        // Own method for the same reason as InstallXmlPatching; the snapshots themselves run later, on a timer and at exit.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InstallObservedHooks(LoaderManifest manifest)
+        {
+            try
+            {
+                ObservedHooks.Install(manifest);
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR: the list of patched game code will not be written (mods are unaffected): " + ex);
+                HookStatus.Warn("observedhooks", StatusStrings.Get("WidgetObservedHooksFailed", manifest?.ObservedHooksPath ?? "", ex.Message), _logPath);
             }
         }
 

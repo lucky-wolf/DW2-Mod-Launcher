@@ -1,0 +1,37 @@
+namespace DW2ModLauncher.Avalonia.ViewModels
+{
+    /// <summary>One coloured callout in the details pane (the conflicts or the cautions): a one-line header that expands to the list.</summary>
+    public class ProblemsCalloutViewModel : ViewModelBase
+    {
+        private string summary = "";
+        private string text = "";
+        private bool expanded;
+        private bool hasHooks;
+
+        public ProblemsCalloutViewModel(bool isConflict) { IsConflict = isConflict; }
+
+        /// <summary>Red when true, gold when false.</summary>
+        public bool IsConflict { get; }
+        /// <summary>Always visible: "Conflict: 3 mods, 5 hooks" or "Caution (2)".</summary>
+        public string Summary { get { return summary; } private set { Set(ref summary, value); } }
+        /// <summary>One problem per line.</summary>
+        public string Text { get { return text; } private set { if (Set(ref text, value)) Raise(nameof(IsVisible)); } }
+        public bool IsVisible { get { return !string.IsNullOrEmpty(text); } }
+        /// <summary>Whether the list is open; it starts closed for each selected mod so a long list can't take over the details pane.</summary>
+        public bool Expanded { get { return expanded; } set { Set(ref expanded, value); } }
+        /// <summary>Whether the lines include code-hook overlaps, which the hooks report explains in detail.</summary>
+        public bool HasHooks { get { return hasHooks; } private set { Set(ref hasHooks, value); } }
+        public string ReportText { get; set; } = "";
+        public RelayCommand ReportCommand { get; set; }
+
+        public void Show(string summary, string text, bool hasHooks)
+        {
+            Summary = summary;
+            Text = text;
+            HasHooks = hasHooks;
+            Expanded = false;
+        }
+
+        public void Clear() { Show("", "", false); }
+    }
+}
