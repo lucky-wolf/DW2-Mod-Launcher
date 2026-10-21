@@ -139,7 +139,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>The report of every game method patched by more than one mod; its button either acknowledges what is listed or, once everything is acknowledged, forgets the acknowledgements.</summary>
         private async Task ShowHookReportAsync(ModInfo only, HookSeverity? level)
         {
-            Func<HookPair, bool> inScope = p => only == null || ((p.A == only || p.B == only) && (level == null || p.Severity == level));
+            Func<HookPair, bool> inScope = p => only == null ? p.BothEnabled : ((p.A == only || p.B == only) && (level == null || p.Severity == level) && (p.BothEnabled || !HookAnalysis.Enabled.Contains(only)));
             bool open = HookAnalysis.Overlaps.Any(o => o.Pairs.Any(p => p.Severity > HookSeverity.Info && inScope(p)));
             bool anyKnown = (settings.AcknowledgedHooks ?? new List<string>()).Count > 0;
             string report = HookReport.Full(HookAnalysis, key => T(key), only, level);
@@ -513,9 +513,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private void AnalyzeHooks()
         {
-            (ObservedHooksFile observed, string observedError) = HookFiles.ReadObserved(HookFiles.ObservedPath(), key => T(key));
+            // The history keeps what every session saw per mod, so a mod taken out of the launch list still has its record (and can be checked before it is added back).
+            (ObservedHooksFile observed, string observedError) = HookFiles.UpdateObservedHistory(HookFiles.ObservedPath(), HookFiles.HistoryPath(), key => T(key));
             if (observedError != null) AddProblem(observedError);
-            HookAnalysis = HookOverlapAnalyzer.Analyze(OrderedEnabledMods(), observed, HookFiles.SettingIsOn, new HashSet<string>(settings.AcknowledgedHooks ?? new List<string>()), key => T(key));
+            HookAnalysis = HookOverlapAnalyzer.Analyze(OrderedEnabledMods(), observed, HookFiles.SettingIsOn, new HashSet<string>(settings.AcknowledgedHooks ?? new List<string>()), key => T(key),
+                notEnabled: AllMods.Where(m => !IsSelected(m)));
             HookOverlapAnalyzer.Apply(AllMods, HookAnalysis, key => T(key));
             // an unreadable hooks file is an error to show; stale data and overlaps are shown on the mods
             foreach (HookNote note in HookAnalysis.Notes.Where(n => n.Error)) AddProblem(note.Text);
@@ -828,11 +830,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             DetailVisibility = VisibilityLine(mod);
             StartVisibilityLookup(mod);
             bool selected = IsSelected(mod);
-            int severity = ModHealth.Severity(mod, selected);
+            // a mod that is not enabled has no health, but what its code would clash with is shown so the player knows before adding it
+            int severity = selected ? ModHealth.Severity(mod, true) : ModHealth.HookSeverityIfEnabled(mod);
             DetailTitle = mod.DisplayName ?? "";
             DetailVersion = string.IsNullOrWhiteSpace(mod.Version) ? "" : T("Version") + ": " + mod.Version;
             DetailText = ModDetails.BuildText(mod, selected, key => T(key));
-            string hooks = selected ? HookReport.ForMod(HookAnalysis, mod, key => T(key)) : "";
+            string hooks = HookReport.ForMod(HookAnalysis, mod, key => T(key));
             if (hooks.Length > 0) DetailText += Environment.NewLine + Environment.NewLine + hooks;
             DetailSource = T("Source") + ": " + ModDetails.SourceText(mod, settings.ManagedModsRoot);
             DetailWorkshopId = T("PublishWorkshopId") + ": " + (ModDetails.WorkshopId(mod) ?? "—");

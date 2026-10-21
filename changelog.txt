@@ -1,3 +1,6 @@
+## v1.0.20
+- Code conflicts are remembered per mod and shown for mods not in the list
+
 ## v1.0.19
 - Warns when two mods patch the same game code, in English, Japanese and Russian
 - Details pane shows conflicts and cautions in separate collapsible bars naming the mods, with a Details button

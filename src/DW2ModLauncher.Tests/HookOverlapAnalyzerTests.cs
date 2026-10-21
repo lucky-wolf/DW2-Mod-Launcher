@@ -232,6 +232,133 @@ namespace DW2ModLauncher.Tests
             Assert.Contains("acknowledged", HookReport.Full(known, T));
         }
 
+        // --- mods that are not enabled: their record is kept, and they are checked against the enabled mods
+
+        private static ObservedHooksFile Session(string captured, params (ModInfo Mod, string Target, string Effect)[] patches)
+        {
+            ObservedHooksFile file = new ObservedHooksFile { CapturedAt = captured };
+            foreach (ModInfo mod in patches.Select(p => p.Mod).Distinct())
+                file.Mods.Add(new ObservedModInfo { Key = mod.Key, Version = mod.Version });
+            foreach (var patch in patches)
+                file.Hooks.Add(new ObservedHookInfo { Target = patch.Target, Patches = new List<ObservedPatchInfo> { new ObservedPatchInfo { Owner = patch.Mod.Key, Kind = "prefix", Effect = patch.Effect } } });
+            return file;
+        }
+
+        [Fact]
+        public void AModTheLastSessionDidNotLoadKeepsItsEarlierRecord()
+        {
+            ModInfo a = Mod("A", "x"), b = Mod("B", "y");
+            ObservedHooksFile first = Session("1", (a, "G:Hit()", "skips-original"), (b, "G:Hit()", "changes-result"));
+            ObservedHooksFile second = Session("2", (a, "G:Hit()", "skips-original"), (a, "G:More()", "observes"));
+            ObservedHooksFile merged = HookFiles.MergeObserved(HookFiles.MergeObserved(null, first), second);
+
+            Assert.Equal("2", merged.CapturedAt);
+            Assert.Contains(merged.Mods, m => m.Key == b.Key);
+            Assert.Contains(merged.Hooks.Single(h => h.Target == "G:Hit()").Patches, p => p.Owner == b.Key);
+            Assert.Single(merged.Hooks.Single(h => h.Target == "G:Hit()").Patches, p => p.Owner == a.Key);
+            Assert.Contains(merged.Hooks, h => h.Target == "G:More()");
+        }
+
+        [Fact]
+        public void ASessionReplacesWhatItsOwnModsHadBeforeNotWhatOthersHad()
+        {
+            ModInfo a = Mod("A", "x"), b = Mod("B", "y");
+            ObservedHooksFile first = Session("1", (a, "G:Old()", "observes"), (b, "G:B()", "observes"));
+            ObservedHooksFile second = Session("2", (a, "G:New()", "observes"));
+            ObservedHooksFile merged = HookFiles.MergeObserved(first, second);
+            Assert.DoesNotContain(merged.Hooks, h => h.Target == "G:Old()");
+            Assert.Contains(merged.Hooks, h => h.Target == "G:New()");
+            Assert.Contains(merged.Hooks, h => h.Target == "G:B()");
+        }
+
+        [Fact]
+        public void TheHistoryIsWrittenOnceAndRemembersAModTakenOutOfTheList()
+        {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hookhist-" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(dir);
+            try
+            {
+                string sessionPath = System.IO.Path.Combine(dir, "hooks-observed.json"), historyPath = System.IO.Path.Combine(dir, "history.json");
+                ModInfo a = Mod("A", "x"), b = Mod("B", "y");
+                void WriteSession(ObservedHooksFile f) => System.IO.File.WriteAllText(sessionPath, System.Text.Json.JsonSerializer.Serialize(f));
+
+                WriteSession(Session("1", (a, "G:Hit()", "skips-original"), (b, "G:Hit()", "skips-original")));
+                Assert.Null(HookFiles.UpdateObservedHistory(sessionPath, historyPath, T).Error);
+                WriteSession(Session("2", (a, "G:Hit()", "skips-original")));
+                (ObservedHooksFile history, string error) = HookFiles.UpdateObservedHistory(sessionPath, historyPath, T);
+
+                Assert.Null(error);
+                Assert.Contains(history.Mods, m => m.Key == b.Key);
+                // read back from disk, not only returned
+                Assert.Contains(HookFiles.UpdateObservedHistory(System.IO.Path.Combine(dir, "none.json"), historyPath, T).File.Mods, m => m.Key == b.Key);
+            }
+            finally { System.IO.Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void AnUnreadableHistoryIsReportedAndNotOverwritten()
+        {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hookhist-" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(dir);
+            try
+            {
+                string historyPath = System.IO.Path.Combine(dir, "history.json");
+                System.IO.File.WriteAllText(historyPath, "{ not json");
+                string sessionPath = System.IO.Path.Combine(dir, "hooks-observed.json");
+                System.IO.File.WriteAllText(sessionPath, System.Text.Json.JsonSerializer.Serialize(Session("1", (Mod("A"), "G:Hit()", "observes"))));
+                (ObservedHooksFile file, string error) = HookFiles.UpdateObservedHistory(sessionPath, historyPath, T);
+                Assert.Null(file);
+                Assert.Contains(historyPath, error);
+                Assert.Equal("{ not json", System.IO.File.ReadAllText(historyPath));
+            }
+            finally { System.IO.Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void AModNotEnabledShowsItsClashWithAnEnabledModButTheEnabledOneIsNotMarkedDown()
+        {
+            ModInfo enabled = Mod("E", "x"), removed = Mod("R", "y");
+            ObservedHooksFile observed = Session("1", (enabled, "G:Hit()", "changes-result"), (removed, "G:Hit()", "skips-original"));
+            HookAnalysis analysis = HookOverlapAnalyzer.Analyze(new List<ModInfo> { enabled }, observed, null, null, T, m => (null, null), null, new[] { removed });
+            HookOverlapAnalyzer.Apply(new[] { enabled, removed }, analysis, T);
+
+            Assert.Equal(1, removed.HookConflictCount);
+            Assert.Equal(3, ModHealth.HookSeverityIfEnabled(removed));
+            Assert.Equal(0, enabled.HookConflictCount);
+            Assert.Equal(0, enabled.HookCautionCount);
+            Assert.Empty(enabled.HookNotes);
+            Assert.Contains("E", Assert.Single(removed.HookNotes));
+            Assert.Contains("R by y v1.0 (not enabled)", HookReport.Full(analysis, T, removed));
+            Assert.DoesNotContain("(not enabled)", HookReport.ForMod(analysis, enabled, T));
+            // the report of the whole launcher is about the enabled mods only
+            Assert.DoesNotContain("G:Hit()", HookReport.Full(analysis, T));
+            Assert.DoesNotContain(analysis.Overlaps.SelectMany(o => o.Pairs), p => p.BothEnabled);
+        }
+
+        [Fact]
+        public void AModUpdatedSinceItWasRecordedIsToldItsNewVersionHasNotBeenRun()
+        {
+            ModInfo e = Mod("E", "x"), updated = Mod("U", "y", "2.0");
+            ObservedHooksFile observed = Session("1", (e, "G:Hit()", "observes"), (Mod("U", "y", "1.0"), "G:Hit()", "skips-original"));
+            HookAnalysis analysis = HookOverlapAnalyzer.Analyze(new List<ModInfo> { e }, observed, null, null, T, m => (null, null), null, new[] { updated });
+            HookNote note = Assert.Single(analysis.Notes);
+            Assert.Equal(updated, note.Mod);
+            Assert.Contains("version 1.0", note.Text);
+            Assert.Contains("version 2.0", note.Text);
+            Assert.False(note.Error);
+            Assert.Empty(analysis.Overlaps);
+        }
+
+        [Fact]
+        public void TwoModsThatAreBothNotEnabledAreNeverComparedAndAnUntouchedTargetIsDropped()
+        {
+            ModInfo e = Mod("E", "x"), r1 = Mod("R1", "y"), r2 = Mod("R2", "z");
+            ObservedHooksFile observed = Session("1", (e, "G:Mine()", "observes"), (r1, "G:Hit()", "skips-original"), (r2, "G:Hit()", "skips-original"));
+            HookAnalysis analysis = HookOverlapAnalyzer.Analyze(new List<ModInfo> { e }, observed, null, null, T, m => (null, null), null, new[] { r1, r2 });
+            Assert.Empty(analysis.Overlaps);
+            Assert.DoesNotContain("G:Hit()", analysis.ByTarget.Keys);
+        }
+
         // --- the loader's side: owner and effect come from the shape of the code, not from the Harmony ID
 
         [Fact]
