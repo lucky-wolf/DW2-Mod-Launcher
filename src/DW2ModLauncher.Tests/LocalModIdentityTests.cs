@@ -31,7 +31,7 @@ namespace DW2ModLauncher.Tests
                 LauncherSettings settings = new LauncherSettings();
 
                 // First sight with the old name: settings written under the folder name move to the id-based name.
-                File.Delete(stored);
+                if (File.Exists(stored)) File.Delete(stored);
                 string legacy = ModSettingsStore.GetSettingsPath(new ModInfo { Id = before.Id, ActiveToken = before.ActiveToken });
                 Directory.CreateDirectory(Path.GetDirectoryName(legacy));
                 File.WriteAllText(legacy, "{\"Chosen\":7}");
