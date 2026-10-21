@@ -195,7 +195,10 @@ namespace DW2ModLauncher.Core.Services
                 EntryType = entryPoint,
                 SettingsJson = settingsJson,
                 Files = ModChannels.FilesFor(mod, enabled),
-                DisplayName = mod.DisplayName ?? mod.Id
+                DisplayName = mod.DisplayName ?? mod.Id,
+                ModKey = mod.Key,
+                ModVersion = mod.Version,
+                ModFolder = GamePaths.ToGameVisiblePath(Path.GetFullPath(modRoot))
             });
         }
     }

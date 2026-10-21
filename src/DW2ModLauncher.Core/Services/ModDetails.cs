@@ -181,6 +181,32 @@ namespace DW2ModLauncher.Core.Services
         /// The lines of the coloured callout shown under the title: whatever is actually wrong with the mod.
         /// Empty when there is nothing to flag, so a clean mod shows no box at all.
         /// </summary>
+        /// <summary>
+        /// The problems of <see cref="BuildProblems"/> split by level, so the details can show a conflict callout and a caution callout apart:
+        /// conflicts are what makes the mod's health a conflict (high-risk file clashes, hook conflicts, enabled twice), the rest are cautions.
+        /// Both empty when <paramref name="severity"/> is below caution.
+        /// </summary>
+        public static (List<string> Conflicts, List<string> Cautions) BuildProblemGroups(ModInfo mod, int severity, Func<string, string> t)
+        {
+            List<string> conflicts = new List<string>(), cautions = new List<string>();
+            if (severity < 2) return (conflicts, cautions);
+            if (mod.HighRiskConflictCount > 0 || mod.LowRiskConflictCount > 0)
+            {
+                List<string> files = mod.HighRiskConflictCount > 0 ? conflicts : cautions;
+                files.Add(t("Conflicts") + mod.ConflictCount + t("Files") +
+                    t("High") + mod.HighRiskConflictCount + t("Low") + mod.LowRiskConflictCount + "）");
+                if (mod.ConflictMods != null && mod.ConflictMods.Count > 0)
+                    files.Add(t("ConflictsWith") + string.Join(", ", mod.ConflictMods.Take(8).ToArray()));
+            }
+            foreach (string note in mod.HookNotes ?? new List<string>()) (mod.HookConflictNotes != null && mod.HookConflictNotes.Contains(note) ? conflicts : cautions).Add(note);
+            if (mod.EnabledCopyCount > 0) conflicts.Add(t("EnabledMoreThanOnce"));
+            if (mod.IdenticalFileCount > 0) cautions.Add(t("SamePathAndIdenticalContent") + mod.IdenticalFileCount);
+            if (mod.IsWorkshop && mod.UpdateState == "update") cautions.Add(t("SteamWorkshopUpdateAvailable"));
+            if (LauncherRequirement.IsUnmet(mod)) cautions.Add(t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
+            if (mod.ModJsonError != null) cautions.Add("mod.json is not valid JSON: " + mod.ModJsonError);
+            return (conflicts, cautions);
+        }
+
         public static List<string> BuildProblems(ModInfo mod, int severity, Func<string, string> t)
         {
             List<string> lines = new List<string>();
@@ -192,6 +218,7 @@ namespace DW2ModLauncher.Core.Services
                 if (mod.ConflictMods != null && mod.ConflictMods.Count > 0)
                     lines.Add(t("ConflictsWith") + string.Join(", ", mod.ConflictMods.Take(8).ToArray()));
             }
+            foreach (string note in mod.HookNotes ?? new List<string>()) lines.Add(note);
             if (mod.EnabledCopyCount > 0) lines.Add(t("EnabledMoreThanOnce"));
             if (mod.IdenticalFileCount > 0) lines.Add(t("SamePathAndIdenticalContent") + mod.IdenticalFileCount);
             if (mod.IsWorkshop && mod.UpdateState == "update") lines.Add(t("SteamWorkshopUpdateAvailable"));

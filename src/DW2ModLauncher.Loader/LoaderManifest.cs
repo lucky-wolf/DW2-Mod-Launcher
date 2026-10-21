@@ -15,6 +15,7 @@ namespace DW2ModLauncher.Loader
         public bool GalactopediaReplacesVanilla { get; set; }
         public List<string> ChannelProblems { get; set; } = new List<string>();
         public string LogDirectory { get; set; }
+        public string ObservedHooksPath { get; set; }
         public Dictionary<string, string> Strings { get; set; } = new Dictionary<string, string>();
     }
 
@@ -45,5 +46,8 @@ namespace DW2ModLauncher.Loader
         public string SettingsJson { get; set; }
         public Dictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
         public string DisplayName { get; set; }
+        public string ModKey { get; set; }
+        public string ModVersion { get; set; }
+        public string ModFolder { get; set; }
     }
 }

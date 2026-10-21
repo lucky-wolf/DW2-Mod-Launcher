@@ -164,6 +164,7 @@ namespace DW2ModLauncher.Core.Services
             m.Dependencies = launcherMeta?.dependencies ?? new List<LauncherDependency>();
             m.Provides = launcherMeta?.provides ?? new List<LauncherProvision>();
             m.Receives = launcherMeta?.receives ?? new List<string>();
+            m.HooksCoordinatedWith = launcherMeta?.hooksCoordinatedWith ?? new List<string>();
             return m;
         }
 

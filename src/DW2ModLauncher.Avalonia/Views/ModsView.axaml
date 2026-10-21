@@ -77,6 +77,7 @@
               <MenuItem Header="{Binding L[ModSettings]}" Command="{Binding ModSettingsCommand}" />
               <MenuItem Header="{Binding L[SelectedModFolder]}" Command="{Binding OpenSelectedFolderCommand}" />
               <MenuItem Header="{Binding L[OpenDocs]}" Command="{Binding OpenDocsCommand}" />
+              <MenuItem Header="{Binding L[HookReport]}" Command="{Binding HookReportCommand}" />
               <MenuItem Header="{Binding L[EditProperties]}" Command="{Binding EditPropertiesCommand}" />
               <MenuItem Header="{Binding L[PublishToWorkshop]}" Command="{Binding PublishCommand}" />
               <MenuItem Header="{Binding L[MarkUpToDate]}" Command="{Binding MarkUpToDateCommand}" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" />
@@ -162,14 +163,46 @@
         </Border>
         <TextBlock Grid.Row="1" Classes="subheading" Margin="0,14,0,8" TextTrimming="CharacterEllipsis" Text="{Binding DetailTitle}" />
         <StackPanel Grid.Row="2" Spacing="2" Margin="0,0,0,10">
+          <SelectableTextBlock IsVisible="{Binding HasVersion}" Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailVersion}" />
           <SelectableTextBlock Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailWorkshopId}" />
           <SelectableTextBlock Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailSource}" />
           <SelectableTextBlock IsVisible="{Binding HasPublishState}" Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailPublishState}" ToolTip.Tip="{Binding DetailPublishTip}" />
           <SelectableTextBlock IsVisible="{Binding HasVisibility}" Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailVisibility}" />
         </StackPanel>
-        <Border Grid.Row="3" IsVisible="{Binding HasProblems}" Classes="problems" Classes.conflict="{Binding ProblemsIsConflict}" Padding="10,8" Margin="0,0,0,8">
-          <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding ProblemsText}" Foreground="{Binding $parent[Border].Tag}" />
-        </Border>
+        <StackPanel Grid.Row="3">
+          <Border DataContext="{Binding ConflictCallout}" IsVisible="{Binding IsVisible}" Classes="problems" Classes.conflict="{Binding IsConflict}" Padding="10,4" Margin="0,0,0,8">
+            <StackPanel>
+              <ToggleButton Classes="problemsHeader" IsChecked="{Binding Expanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,4">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Summary}" Foreground="{Binding $parent[Border].Tag}" />
+                  <TextBlock Grid.Column="1" Classes="chevron" Text="▾" Foreground="{Binding $parent[Border].Tag}" />
+                </Grid>
+              </ToggleButton>
+              <StackPanel IsVisible="{Binding Expanded}">
+                <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto" Margin="0,4,0,4">
+                  <SelectableTextBlock TextWrapping="Wrap" Text="{Binding Text}" Foreground="{Binding $parent[Border].Tag}" />
+                </ScrollViewer>
+                <Button IsVisible="{Binding HasHooks}" Content="{Binding ReportText}" Command="{Binding ReportCommand}" HorizontalAlignment="Left" Margin="0,0,0,6" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border DataContext="{Binding CautionCallout}" IsVisible="{Binding IsVisible}" Classes="problems" Classes.conflict="{Binding IsConflict}" Padding="10,4" Margin="0,0,0,8">
+            <StackPanel>
+              <ToggleButton Classes="problemsHeader" IsChecked="{Binding Expanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,4">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Summary}" Foreground="{Binding $parent[Border].Tag}" />
+                  <TextBlock Grid.Column="1" Classes="chevron" Text="▾" Foreground="{Binding $parent[Border].Tag}" />
+                </Grid>
+              </ToggleButton>
+              <StackPanel IsVisible="{Binding Expanded}">
+                <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto" Margin="0,4,0,4">
+                  <SelectableTextBlock TextWrapping="Wrap" Text="{Binding Text}" Foreground="{Binding $parent[Border].Tag}" />
+                </ScrollViewer>
+                <Button IsVisible="{Binding HasHooks}" Content="{Binding ReportText}" Command="{Binding ReportCommand}" HorizontalAlignment="Left" Margin="0,0,0,6" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
         <SelectableTextBlock Grid.Row="4" IsVisible="{Binding HasLinks}" TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Margin="0,0,0,10"
                              Text="{Binding DetailLinks}" />
         <Border Grid.Row="5" Height="1" Background="{StaticResource Dw2Blue}" Margin="0,0,0,10" />

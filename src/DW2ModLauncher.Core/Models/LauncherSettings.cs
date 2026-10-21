@@ -8,6 +8,10 @@ namespace DW2ModLauncher.Core.Models
         public string Language { get; set; }
         /// <summary>True: the in-game widget's language is the one an enabled translation mod declares (dw2modlauncher.json "language"), English if none does. False: it follows <see cref="Language"/>, the launcher's own.</summary>
         public bool WidgetLanguageFromMods { get; set; } = true;
+        /// <summary>Code overlaps the player said are fine (HookOverlapAnalyzer.AcknowledgementKey: target, both mods and their versions).</summary>
+        public List<string> AcknowledgedHooks { get; set; } = new List<string>();
+        /// <summary>Steam user id to handle, for Workshop creators looked up as the author of mods that state none (SteamAuthors).</summary>
+        public Dictionary<string, string> SteamNames { get; set; } = new Dictionary<string, string>();
         public string GameRoot { get; set; }
         public string WorkshopRoot { get; set; }
         public string ManagedModsRoot { get; set; }
@@ -22,8 +26,8 @@ namespace DW2ModLauncher.Core.Models
         public string SkippedLauncherVersion { get; set; } = "";
         public Dictionary<string, bool> SelectedMods { get; set; }
         public string ActiveProfile { get; set; }
-        /// <summary>The user's name as a mod author; stamped into dw2modlauncher.json of mods they create or publish. Blank = no stamping.</summary>
-        public string AuthorName { get; set; } = "";
+        /// <summary>The user's name as a mod author; stamped into dw2modlauncher.json of mods they create or publish. Null = never set, so the launcher fills in the handle of the Steam account logged in on this machine (SteamLoginUser); blank = the user chose no stamping.</summary>
+        public string AuthorName { get; set; }
         /// <summary>The mod list shows only mods from the game's mods folder, hiding Steam Workshop copies.</summary>
         public bool LocalModsOnly { get; set; }
         /// <summary>Main window's top-left corner when it last closed; null until first saved.</summary>

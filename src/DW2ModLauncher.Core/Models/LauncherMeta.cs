@@ -31,6 +31,9 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Data this mod supplies to other mods' DLLs over named channels (see ModChannels and docs/DLL Injection.md).</summary>
         public List<LauncherProvision> provides { get; set; }
 
+        /// <summary>Other mods whose patches of the same game code this mod's author has already coordinated with (matched like a dependency's "mod"); overlaps between the two are then Info, never a caution. Mods by one author need no entry. See docs/plans/hook-manifest.md.</summary>
+        public List<string> hooksCoordinatedWith { get; set; }
+
         /// <summary>The channels this mod's DLL receives data on, in the second argument of InitWithOptions(string, IReadOnlyDictionary).</summary>
         public List<string> receives { get; set; }
     }

@@ -147,5 +147,17 @@
     <Setter Property="Background" Value="{StaticResource Dw2Red}" />
     <Setter Property="Tag" Value="White" />
   </Style>
+  <!-- The problems callout's header: flat on the callout colour (no themed background), chevron flips when open. -->
+  <Style Selector="ToggleButton.problemsHeader">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ToggleButton.problemsHeader /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ToggleButton.problemsHeader:checked TextBlock.chevron">
+    <Setter Property="RenderTransform" Value="rotate(180deg)" />
+  </Style>
   <Style Selector="TextBox.invalid /template/ Border#PART_BorderElement"><Setter Property="BorderBrush" Value="{StaticResource Dw2Red}" /></Style>
 </Styles>

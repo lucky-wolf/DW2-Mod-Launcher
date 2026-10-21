@@ -1,4 +1,10 @@
 ## v1.0.19
+- Warns when two mods patch the same game code, in English, Japanese and Russian
+- Details pane shows conflicts and cautions in separate collapsible bars naming the mods, with a Details button
+- dw2modlauncher.json "hooksCoordinatedWith" marks mods whose overlapping game patches are already sorted out
+- Live channels between code mods carry versions; a mismatch is reported in game
+- Workshop mods without an author show their Steam creator's handle, and count as one author
+- Author name defaults to the Steam account logged in on this machine
 - Fixed a scrolling issue when doing a rescan of mods
 
 ## v1.0.18

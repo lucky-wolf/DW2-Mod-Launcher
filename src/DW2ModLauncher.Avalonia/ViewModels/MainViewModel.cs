@@ -46,11 +46,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private bool populating;
         private string detailTitle = "";
         private string detailText = "";
+        private string detailVersion = "";
         private string detailSource = "";
         private string detailWorkshopId = "";
         private bool refreshingSteamStatus;
-        private string problemsText = "";
-        private bool problemsIsConflict;
         private Bitmap preview;
         private bool publishRunning;
         // Steam visibility of published local mods by Workshop id, filled by the startup / Refresh sweep (or when a mod is selected, if the sweep missed it) and kept for the session.
@@ -80,6 +79,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
             Settings = new SettingsViewModel(this);
             OpenSettingsCommand = new RelayCommand(() => Dialogs.ShowSettingsAsync(Settings));
+            HookReportCommand = new RelayCommand(() => ShowHookReportAsync(null, null));
+            SelectedConflictReportCommand = new RelayCommand(() => ShowHookReportAsync(selectedRow?.Mod, HookSeverity.Conflict), () => selectedRow != null);
+            SelectedCautionReportCommand = new RelayCommand(() => ShowHookReportAsync(selectedRow?.Mod, HookSeverity.Caution), () => selectedRow != null);
+            ConflictCallout.ReportCommand = SelectedConflictReportCommand;
+            CautionCallout.ReportCommand = SelectedCautionReportCommand;
+            ConflictCallout.ReportText = CautionCallout.ReportText = T("HookFullReportButton");
             OpenAboutCommand = new RelayCommand(() => Dialogs.ShowAboutAsync(this));
             RefreshCommand = new RelayCommand(() => { Refresh(); var _ = RefreshSteamStatusAsync(); });
             ClearCommand = new RelayCommand(ClearAsync);
@@ -107,6 +112,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
             Mods.CollectionChanged += delegate { if (!populating) SyncVisibleMods(); };
             PathDetector.Detect(settings, false);
+            DetectAuthorName();
             SaveSettings();
             Refresh();
             // Reselect what was selected last time; the Mods view scrolls it into view when it loads.
@@ -125,6 +131,39 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public RelayCommand OpenSettingsCommand { get; }
         public RelayCommand OpenAboutCommand { get; }
+        public RelayCommand HookReportCommand { get; }
+        /// <summary>The hooks report for the selected mod alone, at one level: only its conflicts or only its cautions, and acknowledging covers only those.</summary>
+        public RelayCommand SelectedConflictReportCommand { get; }
+        public RelayCommand SelectedCautionReportCommand { get; }
+
+        /// <summary>The report of every game method patched by more than one mod; its button either acknowledges what is listed or, once everything is acknowledged, forgets the acknowledgements.</summary>
+        private async Task ShowHookReportAsync(ModInfo only, HookSeverity? level)
+        {
+            Func<HookPair, bool> inScope = p => only == null || ((p.A == only || p.B == only) && (level == null || p.Severity == level));
+            bool open = HookAnalysis.Overlaps.Any(o => o.Pairs.Any(p => p.Severity > HookSeverity.Info && inScope(p)));
+            bool anyKnown = (settings.AcknowledgedHooks ?? new List<string>()).Count > 0;
+            string report = HookReport.Full(HookAnalysis, key => T(key), only, level);
+            if (!open && !anyKnown)
+            {
+                await Dialogs.ShowMessageAsync(report, T("HookReportTitle"));
+                return;
+            }
+            bool act = await Dialogs.ConfirmAsync(report, T("HookReportTitle"), open ? T("HookReportAcknowledge") : T("HookReportForget"), T("Close"));
+            if (!act) return;
+            if (open)
+            {
+                if (settings.AcknowledgedHooks == null) settings.AcknowledgedHooks = new List<string>();
+                foreach (HookOverlap overlap in HookAnalysis.Overlaps.Where(o => o.Severity > HookSeverity.Info))
+                    foreach (HookPair pair in overlap.Pairs.Where(p => p.Severity > HookSeverity.Info && inScope(p)))
+                    {
+                        string key = HookOverlapAnalyzer.AcknowledgementKey(overlap.Target, pair.A, pair.B);
+                        if (!settings.AcknowledgedHooks.Contains(key)) settings.AcknowledgedHooks.Add(key);
+                    }
+            }
+            else settings.AcknowledgedHooks = new List<string>();
+            SaveSettings();
+            Refresh();
+        }
         public RelayCommand CheckLauncherUpdateCommand { get; }
         public RelayCommand RefreshCommand { get; }
         public RelayCommand ClearCommand { get; }
@@ -259,6 +298,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public string DetailTitle { get { return detailTitle; } private set { Set(ref detailTitle, value); } }
         public string DetailText { get { return detailText; } private set { Set(ref detailText, value); } }
+        public string DetailVersion { get { return detailVersion; } private set { if (Set(ref detailVersion, value)) Raise(nameof(HasVersion)); } }
+        public bool HasVersion { get { return !string.IsNullOrEmpty(detailVersion); } }
         public string DetailSource { get { return detailSource; } private set { Set(ref detailSource, value); } }
         private string detailVisibility = "";
         /// <summary>"Visibility: Private (only you)" for a published local mod once Steam has been asked; empty before that.</summary>
@@ -279,9 +320,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string DetailLinks { get { return detailLinks; } private set { if (Set(ref detailLinks, value)) Raise(nameof(HasLinks)); } }
         public bool HasLinks { get { return !string.IsNullOrEmpty(detailLinks); } }
 
-        public string ProblemsText { get { return problemsText; } private set { Set(ref problemsText, value); Raise(nameof(HasProblems)); } }
-        public bool HasProblems { get { return !string.IsNullOrEmpty(problemsText); } }
-        public bool ProblemsIsConflict { get { return problemsIsConflict; } private set { Set(ref problemsIsConflict, value); } }
+        /// <summary>The selected mod's problems, split so a caution is never presented as a conflict.</summary>
+        public ProblemsCalloutViewModel ConflictCallout { get; } = new ProblemsCalloutViewModel(true);
+        public ProblemsCalloutViewModel CautionCallout { get; } = new ProblemsCalloutViewModel(false);
         public Bitmap Preview { get { return preview; } private set { Set(ref preview, value); } }
         public bool HasSelection { get { return selectedRow != null; } }
         /// <summary>Update checks only apply to Steam Workshop items, so the context menu offers them for those alone.</summary>
@@ -329,6 +370,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             LauncherSettingsStore.Normalize(settings);
             if (!Localization.AvailableLanguageCodes().Contains(settings.Language)) settings.Language = "en";
+        }
+
+        // A never-set Author name (null) becomes the handle of the Steam account that logged in last on this machine. A name the user typed, or cleared on purpose (blank), is left alone.
+        private void DetectAuthorName()
+        {
+            if (settings.AuthorName != null) return;
+            try
+            {
+                SteamLoginAccount account = SteamLoginUser.FindMostRecent();
+                if (account != null) settings.AuthorName = account.PersonaName.Trim();
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.LogException("Read the logged-in Steam user", ex);
+                AddProblem(T("AuthorDetectFailed", ex.Message));
+            }
         }
 
         public void SaveSettings()
@@ -408,6 +465,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach (ModInfo bad in managedMods.Concat(workshopMods).Where(m => m.ModJsonError != null))
                 AddProblem(bad.DisplayName + ": mod.json is not valid JSON.\n" + bad.ModJsonError);
             ModLibrary.RestoreWorkshopRuntimeState(workshopMods, workshopState);
+            SteamAuthors.Apply(workshopMods, settings.SteamNames ?? new Dictionary<string, string>());
             List<string> identityProblems = LocalModIdentity.Adopt(managedMods, settings, modOrder, ModsJsonPath(), out bool identityChanged);
             foreach (string problem in identityProblems) AddProblem(problem);
             if (identityChanged) SaveSettings();
@@ -447,6 +505,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             collisions = ConflictAnalyzer.Analyze(AllMods, m => modOrder.IsEnabledForConflict(m, settings));
             ConflictAnalyzer.AnalyzeEnabledCopies(AllMods, m => modOrder.IsEnabledForConflict(m, settings));
+            AnalyzeHooks();
+        }
+
+        /// <summary>The last code-overlap analysis (docs/plans/hook-manifest.md): who patches the same game code, stale hook data, channel version mismatches.</summary>
+        public HookAnalysis HookAnalysis { get; private set; } = new HookAnalysis();
+
+        private void AnalyzeHooks()
+        {
+            (ObservedHooksFile observed, string observedError) = HookFiles.ReadObserved(HookFiles.ObservedPath(), key => T(key));
+            if (observedError != null) AddProblem(observedError);
+            HookAnalysis = HookOverlapAnalyzer.Analyze(OrderedEnabledMods(), observed, HookFiles.SettingIsOn, new HashSet<string>(settings.AcknowledgedHooks ?? new List<string>()), key => T(key));
+            HookOverlapAnalyzer.Apply(AllMods, HookAnalysis, key => T(key));
+            // an unreadable hooks file is an error to show; stale data and overlaps are shown on the mods
+            foreach (HookNote note in HookAnalysis.Notes.Where(n => n.Error)) AddProblem(note.Text);
         }
 
         private void ApplySourceNames()
@@ -734,13 +806,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 DetailTitle = "";
                 DetailText = "";
+                DetailVersion = "";
                 DetailSource = "";
                 DetailWorkshopId = "";
                 DetailPublishState = "";
                 DetailPublishTip = null;
                 DetailVisibility = "";
                 DetailLinks = "";
-                ProblemsText = "";
+                ConflictCallout.Clear();
+                CautionCallout.Clear();
                 Preview = null;
                 return;
             }
@@ -755,15 +829,28 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             StartVisibilityLookup(mod);
             bool selected = IsSelected(mod);
             int severity = ModHealth.Severity(mod, selected);
-            DetailTitle = (mod.DisplayName ?? "") + (string.IsNullOrWhiteSpace(mod.Version) ? "" : "  v" + mod.Version);
+            DetailTitle = mod.DisplayName ?? "";
+            DetailVersion = string.IsNullOrWhiteSpace(mod.Version) ? "" : T("Version") + ": " + mod.Version;
             DetailText = ModDetails.BuildText(mod, selected, key => T(key));
+            string hooks = selected ? HookReport.ForMod(HookAnalysis, mod, key => T(key)) : "";
+            if (hooks.Length > 0) DetailText += Environment.NewLine + Environment.NewLine + hooks;
             DetailSource = T("Source") + ": " + ModDetails.SourceText(mod, settings.ManagedModsRoot);
             DetailWorkshopId = T("PublishWorkshopId") + ": " + (ModDetails.WorkshopId(mod) ?? "—");
             DetailLinks = ModDetails.BuildLinks(mod, OrderedEnabledMods());
-            List<string> problems = ModDetails.BuildProblems(mod, severity, key => T(key));
-            ProblemsIsConflict = severity == 3;
-            ProblemsText = problems.Count == 0 ? "" : (severity == 3 ? T("HealthConflict") : T("HealthCaution")) + "\n" + string.Join("\n", problems);
+            (List<string> conflicts, List<string> cautions) = ModDetails.BuildProblemGroups(mod, severity, key => T(key));
+            ConflictCallout.Show(conflicts.Count == 0 ? "" : ProblemsHeader("HealthConflict", conflicts.Count, mod.HookConflictMods, mod.HookConflictMethods, mod.HookConflictNotes.Count),
+                string.Join("\n", conflicts), mod.HookConflictNotes.Count > 0);
+            CautionCallout.Show(cautions.Count == 0 ? "" : ProblemsHeader("HealthCaution", cautions.Count, mod.HookCautionMods, mod.HookCautionMethods, mod.HookNotes.Count - mod.HookConflictNotes.Count),
+                string.Join("\n", cautions), mod.HookNotes.Count - mod.HookConflictNotes.Count > 0);
             Preview = ImageLoader.Load(mod.PreviewImage, 0);
+        }
+
+        /// <summary>"Conflict: 3 mods, 5 hooks" when everything listed is a code-hook overlap, else "Conflict (N)" with N the lines listed.</summary>
+        private string ProblemsHeader(string headingKey, int listed, int mods, int methods, int hookLines)
+        {
+            string heading = T(headingKey);
+            if (mods == 0 || mods != listed) return heading + " (" + listed + ")";
+            return heading + ": " + string.Format(T(mods == 1 ? "HookCountModsOne" : "HookCountMods"), mods) + ", " + string.Format(T(methods == 1 ? "HookCountHooksOne" : "HookCountHooks"), methods);
         }
 
         private string VisibilityLine(ModInfo mod)
@@ -1792,6 +1879,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 List<ModInfo> snapshot = workshopMods.ToList();
                 WorkshopUpdateCheckResult result = await Task.Run(() => WorkshopUpdateService.Check(root, snapshot));
                 int updates = WorkshopUpdateService.Apply(result, workshopMods);
+                await NameWorkshopAuthorsAsync(snapshot);
                 settings.LastWorkshopUpdateCheckUtc = DateTime.UtcNow.ToString("o");
                 SaveSettings();
                 RefreshRowStates();
@@ -1814,6 +1902,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 updateCheckRunning = false;
                 CheckUpdatesCommand.RaiseCanExecuteChanged();
             }
+        }
+
+        /// <summary>Gives the Workshop mods that state no author the Steam handle of their creator (cached in the settings), then grades the code overlaps again, since "same author" may now hold.</summary>
+        private async Task NameWorkshopAuthorsAsync(List<ModInfo> mods)
+        {
+            if (settings.SteamNames == null) settings.SteamNames = new Dictionary<string, string>();
+            Dictionary<string, string> names = settings.SteamNames;
+            List<string> failures = await Task.Run(() => SteamAuthors.Resolve(mods, names));
+            foreach (string failure in failures) Logger.Log("Name Workshop authors", failure);
+            SteamAuthors.Apply(workshopMods, names);
+            AnalyzeHooks();
         }
 
         private async Task BackupAsync(List<ModInfo> mods)
