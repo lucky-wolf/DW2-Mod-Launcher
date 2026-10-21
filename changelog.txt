@@ -1,3 +1,5 @@
+## v1.0.21
+
 ## v1.0.20
 - hooksCoordinatedWith can name one version ("Mod@1.2.3")
 - Rescans mods automatically when the game exits
