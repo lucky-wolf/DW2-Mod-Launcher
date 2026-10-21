@@ -97,6 +97,23 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void ACoordinationPinnedToAVersionLapsesWhenTheOtherModChanges()
+        {
+            var manifests = new Dictionary<string, (HookManifest, string)>
+            {
+                ["A"] = Declares(("G:M()", "prefix", "skips-original")),
+                ["B"] = Declares(("G:M()", "postfix", "changes-result")),
+            };
+            ModInfo a = Mod("A", "x"), b = Mod("B", "y");
+            a.Version = "0.4.0";
+            b.HooksCoordinatedWith.Add("a@0.4.0");
+            Assert.Equal(HookSeverity.Info, Assert.Single(Run(new List<ModInfo> { a, b }, manifests).Overlaps).Severity);
+
+            a.Version = "0.5.0";
+            Assert.Equal(HookSeverity.Conflict, Assert.Single(Run(new List<ModInfo> { a, b }, manifests).Overlaps).Severity);
+        }
+
+        [Fact]
         public void DeclaredLoadOrderBetweenTheModsDowngradesOneLevel()
         {
             ModInfo a = Mod("A", "x"), b = Mod("B", "y");

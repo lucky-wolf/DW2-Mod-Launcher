@@ -306,7 +306,7 @@ namespace DW2ModLauncher.Core.Services
             // Mods by one author are coordinated by definition; an author nobody stated is not guessed to be the same.
             if (SameAuthor(modA, modB)) return HookSeverity.Info;
             // ... and so are two mods either of which says it has coordinated with the other (dw2modlauncher.json "hooksCoordinatedWith")
-            bool Says(ModInfo mod, ModInfo other) => (mod.HooksCoordinatedWith ?? new List<string>()).Any(name => ModDependencies.Find(enabled, name) == other);
+            bool Says(ModInfo mod, ModInfo other) => (mod.HooksCoordinatedWith ?? new List<string>()).Any(entry => Coordinates(entry, other, enabled));
             if (Says(modA, modB) || Says(modB, modA)) return HookSeverity.Info;
             HookSeverity worst = HookSeverity.Info;
             foreach (HookParticipant pa in a)
@@ -319,6 +319,20 @@ namespace DW2ModLauncher.Core.Services
                     if (s > worst) worst = s;
                 }
             return worst;
+        }
+
+        /// <summary>
+        /// One "hooksCoordinatedWith" entry: a mod name, or "Name@1.2.3" to cover only that version of it. A pinned entry says nothing
+        /// about any other version, so an update brings the overlap back for the author to look at again (an unpinned entry never expires).
+        /// </summary>
+        public static bool Coordinates(string entry, ModInfo other, IList<ModInfo> enabled)
+        {
+            if (string.IsNullOrWhiteSpace(entry)) return false;
+            string name = entry.Trim(), pinned = null;
+            int at = name.LastIndexOf('@');
+            if (at > 0) { pinned = name.Substring(at + 1).Trim(); name = name.Substring(0, at).Trim(); }
+            if (ModDependencies.Find(enabled, name) != other) return false;
+            return pinned == null || string.Equals(pinned, (other.Version ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>Two mods are by one author when they state the same author, or when the Workshop items they are published as were created by the same Steam user.</summary>

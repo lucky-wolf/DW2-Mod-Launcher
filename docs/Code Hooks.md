@@ -22,7 +22,7 @@ One level lower when the two patches order themselves explicitly (Harmony before
 
 **Same author** means the same `author` in `dw2modlauncher.json`, or Workshop items created by the same Steam user (`WorkshopCreator`, read by the update check). A Workshop mod that states no author is shown with its creator's Steam handle (looked up from the public profile, remembered by id in `launcher_settings.json`; never written into the mod's files; a failed lookup is logged and leaves the author blank). A mod with no author and no Workshop creator is never assumed to share an author.
 
-`"hooksCoordinatedWith": ["Other Mod"]` in `dw2modlauncher.json` (names matched like a dependency's `mod`) says its author has already dealt with that mod; it is for mods by different authors.
+`"hooksCoordinatedWith": ["Other Mod"]` in `dw2modlauncher.json` (names matched like a dependency's `mod`) says its author has already dealt with that mod; it is for mods by different authors. `"Other Mod@1.2.3"` covers only that version of it (compared with its mod.json `version`): once the other mod updates, the overlap is graded again, so the author re-checks it. Prefer the pinned form for mods you do not control. Older launchers do not know the `@` form and simply ignore the entry.
 
 ## Observed hooks (written by the loader)
 
