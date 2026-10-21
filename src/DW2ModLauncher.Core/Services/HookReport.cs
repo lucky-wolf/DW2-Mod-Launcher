@@ -43,8 +43,10 @@ namespace DW2ModLauncher.Core.Services
                 foreach (KeyValuePair<string, List<HookParticipant>> target in mine)
                 {
                     text.AppendLine("  " + Short(target.Key) + "    " + Patches(target.Value.Where(p => p.Mod == mod)));
-                    foreach (IGrouping<ModInfo, HookParticipant> other in target.Value.Where(p => p.Mod != mod).GroupBy(p => p.Mod))
-                        text.AppendLine("      " + F(t, "HookSharedWith", Name(other.Key), Patches(other)));
+                    // an enabled mod's details do not dwell on mods that are not enabled; a mod that is not enabled shows who it would share with
+                    bool modEnabled = analysis.Enabled.Contains(mod);
+                    foreach (IGrouping<ModInfo, HookParticipant> other in target.Value.Where(p => p.Mod != mod && (p.Enabled || !modEnabled)).GroupBy(p => p.Mod))
+                        text.AppendLine("      " + F(t, "HookSharedWith", Name(other.Key), Patches(other)) + (analysis.Enabled.Contains(other.Key) ? "" : " " + t("HookNotEnabledTag")));
                 }
             }
             foreach (HookNote note in analysis.Drift.Concat(analysis.Notes).Where(n => n.Mod == mod)) text.AppendLine(note.Text);
@@ -56,16 +58,19 @@ namespace DW2ModLauncher.Core.Services
         public static string Full(HookAnalysis analysis, Func<string, string> t, ModInfo only = null, HookSeverity? level = null)
         {
             StringBuilder text = new StringBuilder();
-            List<KeyValuePair<string, List<HookParticipant>>> shared = analysis.ByTarget.Where(x => x.Value.Select(p => p.Mod).Distinct().Count() > 1 && (only == null || x.Value.Any(p => p.Mod == only)) && InLevel(analysis, x.Key, only, level))
-                .OrderByDescending(x => x.Value.Select(p => p.Mod).Distinct().Count()).ThenBy(x => x.Key, StringComparer.Ordinal).ToList();
+            // The report is about the enabled mods; the report of a mod that is not enabled also has the enabled mods it would share with.
+            Func<HookParticipant, bool> counts = p => p.Enabled || (only != null && !analysis.Enabled.Contains(only));
+            List<KeyValuePair<string, List<HookParticipant>>> shared = analysis.ByTarget.Where(x => x.Value.Where(counts).Select(p => p.Mod).Distinct().Count() > 1 && (only == null || x.Value.Any(p => p.Mod == only)) && InLevel(analysis, x.Key, only, level))
+                .OrderByDescending(x => x.Value.Where(counts).Select(p => p.Mod).Distinct().Count()).ThenBy(x => x.Key, StringComparer.Ordinal).ToList();
             text.AppendLine(F(t, only == null ? "HookFullHeader" : "HookScopedHeader", shared.Count, only == null ? "" : Name(only)) + (analysis.AcknowledgedCount > 0 ? " " + F(t, "HookFullAcknowledgedPairs", analysis.AcknowledgedCount) : ""));
             foreach (KeyValuePair<string, List<HookParticipant>> target in shared)
             {
                 HookOverlap overlap = analysis.Overlaps.FirstOrDefault(o => o.Target == target.Key);
                 text.AppendLine();
                 text.AppendLine(target.Key + "  " + (overlap == null ? t("HookAcknowledged") : "[" + SeverityWord(overlap.Severity, t) + "]"));
-                foreach (IGrouping<ModInfo, HookParticipant> mod in target.Value.GroupBy(p => p.Mod))
+                foreach (IGrouping<ModInfo, HookParticipant> mod in target.Value.Where(counts).GroupBy(p => p.Mod))
                     text.AppendLine("  " + Name(mod.Key) + (string.IsNullOrWhiteSpace(mod.Key.Author) ? "" : " " + F(t, "HookBy", mod.Key.Author)) + (string.IsNullOrWhiteSpace(mod.Key.Version) ? "" : " v" + mod.Key.Version)
+                        + (analysis.Enabled.Contains(mod.Key) ? "" : " " + t("HookNotEnabledTag"))
                         + ": " + string.Join(", ", mod.Select(p => p.Kind + " " + p.Effect + " " + t(p.Observed ? "HookSeenTag" : "HookDeclaredTag"))));
             }
             List<ChannelIssue> channelIssues = analysis.ChannelIssues.Where(i => (only == null || i.Mods.Contains(only)) && level != HookSeverity.Conflict).ToList();

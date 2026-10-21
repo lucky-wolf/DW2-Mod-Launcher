@@ -30,8 +30,10 @@ namespace DW2ModLauncher.Core.Services
         public string HarmonyId { get; set; }
         public List<string> Before { get; set; } = new List<string>();
         public List<string> After { get; set; } = new List<string>();
-        /// <summary>True when it came from the last session's observed hooks, false when from the mod's declared manifest.</summary>
+        /// <summary>True when it came from an observed game session, false when from the mod's declared manifest.</summary>
         public bool Observed { get; set; }
+        /// <summary>False for a mod that is not in the launch list: its patches are checked against the enabled mods so the player can see what enabling it would bring.</summary>
+        public bool Enabled { get; set; } = true;
     }
 
     /// <summary>Two mods that both patch one target, and how badly that bites.</summary>
@@ -40,6 +42,8 @@ namespace DW2ModLauncher.Core.Services
         public ModInfo A { get; set; }
         public ModInfo B { get; set; }
         public HookSeverity Severity { get; set; }
+        /// <summary>False when one of the two is not enabled: the pair is what enabling that mod would bring.</summary>
+        public bool BothEnabled { get; set; } = true;
     }
 
     public class HookOverlap
@@ -68,6 +72,8 @@ namespace DW2ModLauncher.Core.Services
 
     public class HookAnalysis
     {
+        /// <summary>The mods in the launch list; the others in <see cref="ByTarget"/> and <see cref="Overlaps"/> are mods that are not enabled.</summary>
+        public HashSet<ModInfo> Enabled { get; set; } = new HashSet<ModInfo>();
         /// <summary>Targets patched by two or more mods that have not been acknowledged, most severe first.</summary>
         public List<HookOverlap> Overlaps { get; set; } = new List<HookOverlap>();
         public List<ChannelIssue> ChannelIssues { get; set; } = new List<ChannelIssue>();
@@ -99,28 +105,21 @@ namespace DW2ModLauncher.Core.Services
         /// <paramref name="isSettingOn"/> says whether a declared hook's setting is on for a mod (null: all are on); <paramref name="acknowledged"/>
         /// holds <see cref="AcknowledgementKey"/> values the player has dismissed; <paramref name="t"/> gives the text of a language-pack key (with
         /// {0}-style holes for the arguments); <paramref name="readManifest"/> defaults to reading each
-        /// mod's dw2modlauncher.hooks.json.
+        /// mod's dw2modlauncher.hooks.json. <paramref name="notEnabled"/> are installed mods that are not in the launch list: their patches (from
+        /// the observed history, or their declared file) are checked against the enabled mods' so the player can see what enabling one would bring,
+        /// but two mods that are both not enabled are never compared, and their settings are not consulted.
         /// </summary>
         public static HookAnalysis Analyze(IList<ModInfo> orderedEnabled, ObservedHooksFile observed, Func<ModInfo, string, bool> isSettingOn, ISet<string> acknowledged,
-            Func<string, string> t, Func<ModInfo, (HookManifest Manifest, string Error)> readManifest = null, string gameVersion = null)
+            Func<string, string> t, Func<ModInfo, (HookManifest Manifest, string Error)> readManifest = null, string gameVersion = null, IEnumerable<ModInfo> notEnabled = null)
         {
-            HookAnalysis result = new HookAnalysis();
+            HookAnalysis result = new HookAnalysis { Enabled = new HashSet<ModInfo>(orderedEnabled) };
             readManifest = readManifest ?? (m => HookFiles.ReadManifest(m, t));
             Dictionary<string, List<HookParticipant>> byTarget = new Dictionary<string, List<HookParticipant>>(StringComparer.Ordinal);
             Dictionary<ModInfo, HookManifest> manifests = new Dictionary<ModInfo, HookManifest>();
 
-            foreach (ModInfo mod in orderedEnabled)
+            // One mod's patches into byTarget: what an observed session recorded for the installed version, else what the mod declares.
+            void Participate(ModInfo mod, HookManifest manifest, bool enabled)
             {
-                (HookManifest manifest, string error) = readManifest(mod);
-                if (error != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookModError", Name(mod), error), Error = true });
-                if (manifest != null) manifests[mod] = manifest;
-                if (manifest != null && !string.IsNullOrWhiteSpace(manifest.ModVersion) && !string.IsNullOrWhiteSpace(mod.Version)
-                    && manifest.ModVersion.Trim() != mod.Version.Trim())
-                    result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookStaleMod", Name(mod), manifest.ModVersion, mod.Version) });
-                if (manifest != null && gameVersion != null && !string.IsNullOrWhiteSpace(manifest.GameVersion) && manifest.GameVersion.Trim() != gameVersion.Trim())
-                    result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookStaleGame", Name(mod), manifest.GameVersion, gameVersion) });
-
-                if (Observes(observed, mod) && manifest != null) result.Drift.AddRange(Drift(mod, observed, manifest, isSettingOn, t));
                 if (Observes(observed, mod))
                 {
                     foreach (ObservedHookInfo hook in observed.Hooks ?? new List<ObservedHookInfo>())
@@ -133,22 +132,62 @@ namespace DW2ModLauncher.Core.Services
                                 HarmonyId = patch.HarmonyId,
                                 Before = patch.Before ?? new List<string>(),
                                 After = patch.After ?? new List<string>(),
-                                Observed = true
+                                Observed = true,
+                                Enabled = enabled
                             });
                 }
                 else if (manifest != null)
                 {
                     foreach (DeclaredHook hook in manifest.Hooks ?? new List<DeclaredHook>())
                     {
-                        if (string.IsNullOrWhiteSpace(hook?.Target)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookNoTarget", Name(mod), HookFiles.ManifestFileName), Error = true }); continue; }
-                        if (!HookEffects.IsKnown(hook.Effect)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnknownEffect", Name(mod), hook.Target, hook.Effect, string.Join(", ", HookEffects.All)), Error = true }); continue; }
-                        if (!string.IsNullOrWhiteSpace(hook.Setting) && isSettingOn != null && !isSettingOn(mod, hook.Setting)) continue;
-                        Add(byTarget, hook.Target, new HookParticipant { Mod = mod, Kind = hook.Kind, Effect = hook.Effect.ToLowerInvariant() });
+                        if (string.IsNullOrWhiteSpace(hook?.Target)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookNoTarget", Name(mod), HookFiles.ManifestFileName), Error = enabled }); continue; }
+                        if (!HookEffects.IsKnown(hook.Effect)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnknownEffect", Name(mod), hook.Target, hook.Effect, string.Join(", ", HookEffects.All)), Error = enabled }); continue; }
+                        if (enabled && !string.IsNullOrWhiteSpace(hook.Setting) && isSettingOn != null && !isSettingOn(mod, hook.Setting)) continue;
+                        Add(byTarget, hook.Target, new HookParticipant { Mod = mod, Kind = hook.Kind, Effect = hook.Effect.ToLowerInvariant(), Enabled = enabled });
                     }
                 }
             }
 
+            // A record from another version of the mod says nothing about this one: say so, rather than showing "no overlaps" for code nobody has run.
+            // A declared file covers the mod (its own staleness is noted separately), so only a mod with neither is told.
+            void NoteUnrunVersion(ModInfo mod, HookManifest manifest)
+            {
+                if (manifest != null || Observes(observed, mod)) return;
+                ObservedModInfo old = observed?.Mods?.FirstOrDefault(m => string.Equals(m.Key, mod.Key, StringComparison.OrdinalIgnoreCase));
+                if (old != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnrunVersion", Name(mod), old.Version ?? "?", mod.Version ?? "?") });
+            }
+
+            foreach (ModInfo mod in orderedEnabled)
+            {
+                (HookManifest manifest, string error) = readManifest(mod);
+                NoteUnrunVersion(mod, manifest);
+                if (error != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookModError", Name(mod), error), Error = true });
+                if (manifest != null) manifests[mod] = manifest;
+                if (manifest != null && !string.IsNullOrWhiteSpace(manifest.ModVersion) && !string.IsNullOrWhiteSpace(mod.Version)
+                    && manifest.ModVersion.Trim() != mod.Version.Trim())
+                    result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookStaleMod", Name(mod), manifest.ModVersion, mod.Version) });
+                if (manifest != null && gameVersion != null && !string.IsNullOrWhiteSpace(manifest.GameVersion) && manifest.GameVersion.Trim() != gameVersion.Trim())
+                    result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookStaleGame", Name(mod), manifest.GameVersion, gameVersion) });
+
+                if (Observes(observed, mod) && manifest != null) result.Drift.AddRange(Drift(mod, observed, manifest, isSettingOn, t));
+                Participate(mod, manifest, true);
+            }
+
+            // A problem with a not-enabled mod's file is noted on that mod's own details, not raised as an error for the whole launcher.
+            List<ModInfo> notEnabledMods = (notEnabled ?? Enumerable.Empty<ModInfo>()).Where(m => !result.Enabled.Contains(m)).ToList();
+            foreach (ModInfo mod in notEnabledMods)
+            {
+                (HookManifest manifest, string error) = readManifest(mod);
+                if (error != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookModError", Name(mod), error) });
+                NoteUnrunVersion(mod, manifest);
+                Participate(mod, manifest, false);
+            }
+
+            // a target nobody enabled patches is of no interest, however many disabled mods patch it
+            foreach (string target in byTarget.Where(x => !x.Value.Any(p => p.Enabled)).Select(x => x.Key).ToList()) byTarget.Remove(target);
             result.ByTarget = byTarget;
+            // declared coordination and load order are looked up among every mod that takes part, enabled or not
+            List<ModInfo> everyone = orderedEnabled.Concat(notEnabledMods).ToList();
             foreach (KeyValuePair<string, List<HookParticipant>> target in byTarget)
             {
                 List<ModInfo> mods = target.Value.Select(p => p.Mod).Distinct().ToList();
@@ -157,9 +196,11 @@ namespace DW2ModLauncher.Core.Services
                 for (int i = 0; i < mods.Count; i++)
                     for (int j = i + 1; j < mods.Count; j++)
                     {
+                        bool bothEnabled = result.Enabled.Contains(mods[i]) && result.Enabled.Contains(mods[j]);
+                        if (!bothEnabled && !result.Enabled.Contains(mods[i]) && !result.Enabled.Contains(mods[j])) continue;
                         if (acknowledged != null && acknowledged.Contains(AcknowledgementKey(target.Key, mods[i], mods[j]))) { result.AcknowledgedCount++; continue; }
-                        HookSeverity severity = GradePair(target.Value.Where(p => p.Mod == mods[i]).ToList(), target.Value.Where(p => p.Mod == mods[j]).ToList(), mods[i], mods[j], orderedEnabled);
-                        overlap.Pairs.Add(new HookPair { A = mods[i], B = mods[j], Severity = severity });
+                        HookSeverity severity = GradePair(target.Value.Where(p => p.Mod == mods[i]).ToList(), target.Value.Where(p => p.Mod == mods[j]).ToList(), mods[i], mods[j], everyone);
+                        overlap.Pairs.Add(new HookPair { A = mods[i], B = mods[j], Severity = severity, BothEnabled = bothEnabled });
                     }
                 if (overlap.Pairs.Count == 0) continue;
                 overlap.Severity = overlap.Pairs.Max(p => p.Severity);
@@ -197,6 +238,8 @@ namespace DW2ModLauncher.Core.Services
                 foreach (HookPair pair in overlap.Pairs.Where(p => p.Severity > HookSeverity.Info))
                     foreach ((ModInfo mod, ModInfo other) in new[] { (pair.A, pair.B), (pair.B, pair.A) })
                     {
+                        // an enabled mod's health is not marked down by a mod that is not enabled; the not-enabled one shows what enabling it would bring
+                        if (analysis.Enabled.Contains(mod) && !analysis.Enabled.Contains(other)) continue;
                         if (pair.Severity == HookSeverity.Conflict) mod.HookConflictCount++; else mod.HookCautionCount++;
                         partners.TryGetValue((mod, other), out (int Conflicts, int Cautions) counts);
                         partners[(mod, other)] = pair.Severity == HookSeverity.Conflict ? (counts.Conflicts + 1, counts.Cautions) : (counts.Conflicts, counts.Cautions + 1);
@@ -204,10 +247,12 @@ namespace DW2ModLauncher.Core.Services
             foreach (IGrouping<ModInfo, KeyValuePair<(ModInfo, ModInfo), (int Conflicts, int Cautions)>> group in partners.GroupBy(x => x.Key.Item1))
             {
                 List<string> conflictTargets = new List<string>(), cautionTargets = new List<string>();
+                // the pairs counted against this mod (see above): not those where it is enabled and the other is not
+                bool Counts(HookPair p) => (p.A == group.Key || p.B == group.Key) && (p.BothEnabled || !analysis.Enabled.Contains(group.Key));
                 foreach (HookOverlap overlap in analysis.Overlaps)
                 {
-                    if (overlap.Pairs.Any(p => p.Severity == HookSeverity.Conflict && (p.A == group.Key || p.B == group.Key))) conflictTargets.Add(overlap.Target);
-                    else if (overlap.Pairs.Any(p => p.Severity == HookSeverity.Caution && (p.A == group.Key || p.B == group.Key))) cautionTargets.Add(overlap.Target);
+                    if (overlap.Pairs.Any(p => p.Severity == HookSeverity.Conflict && Counts(p))) conflictTargets.Add(overlap.Target);
+                    else if (overlap.Pairs.Any(p => p.Severity == HookSeverity.Caution && Counts(p))) cautionTargets.Add(overlap.Target);
                 }
                 group.Key.HookConflictMods = group.Count(x => x.Value.Conflicts > 0);
                 group.Key.HookCautionMods = group.Count(x => x.Value.Conflicts == 0);
