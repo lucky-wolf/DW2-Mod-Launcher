@@ -1,4 +1,6 @@
 ## v1.0.20
+- hooksCoordinatedWith can name one version ("Mod@1.2.3")
+- Rescans mods automatically when the game exits
 - Code conflicts are remembered per mod and shown for mods not in the list
 
 ## v1.0.19

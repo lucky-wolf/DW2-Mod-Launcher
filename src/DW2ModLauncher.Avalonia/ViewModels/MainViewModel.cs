@@ -242,7 +242,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 bool running = await Task.Run(() => GameProcess.IsRunning());
                 if (running && gameState == GameState.Launching && DateTime.UtcNow - launchStartedUtc < LaunchMinimum) return;
                 if (running) SetGameState(GameState.Running);
-                else if (gameState == GameState.Running) SetGameState(GameState.Idle);
+                else if (gameState == GameState.Running)
+                {
+                    SetGameState(GameState.Idle);
+                    RefreshAfterGame();
+                }
                 else if (gameState == GameState.Launching && DateTime.UtcNow - launchStartedUtc > LaunchTimeout)
                 {
                     SetGameState(GameState.Idle);
@@ -262,7 +266,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             await Task.Run(() => GameProcess.Kill());
             SetGameState(GameState.Idle);
+            RefreshAfterGame();
             SetStatus(T("GameStopped"));
+        }
+
+        /// <summary>Mods can write files while the game runs (generated mods, logs, reports), so rescan once it has exited, the same as pressing Refresh.</summary>
+        private void RefreshAfterGame()
+        {
+            Refresh();
+            var _ = RefreshSteamStatusAsync();
         }
         public RelayCommand OpenSelectedFolderCommand { get; }
         public RelayCommand OpenSteamPageCommand { get; }
