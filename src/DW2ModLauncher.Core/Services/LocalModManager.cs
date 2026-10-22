@@ -74,6 +74,17 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>True only for a local Mod whose folder sits directly inside the game's Mod folder. Workshop copies and anything outside it are refused.</summary>
         public static bool CanDelete(ModInfo mod, string managedRoot)
         {
+            return IsLocalInRoot(mod, managedRoot);
+        }
+
+        /// <summary>The same rule as <see cref="CanDelete"/>: only a local Mod directly inside the game's Mod folder can be renamed (see <see cref="ModRenamer"/>).</summary>
+        public static bool CanRename(ModInfo mod, string managedRoot)
+        {
+            return IsLocalInRoot(mod, managedRoot);
+        }
+
+        private static bool IsLocalInRoot(ModInfo mod, string managedRoot)
+        {
             if (mod == null || mod.IsWorkshop) return false;
             if (string.IsNullOrWhiteSpace(mod.Folder) || string.IsNullOrWhiteSpace(managedRoot)) return false;
             string folder = Path.GetFullPath(mod.Folder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);

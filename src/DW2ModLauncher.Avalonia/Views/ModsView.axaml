@@ -81,6 +81,7 @@
               <MenuItem Header="{Binding L[EditProperties]}" Command="{Binding EditPropertiesCommand}" />
               <MenuItem Header="{Binding L[PublishToWorkshop]}" Command="{Binding PublishCommand}" />
               <MenuItem Header="{Binding L[MarkUpToDate]}" Command="{Binding MarkUpToDateCommand}" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" />
+              <MenuItem Header="{Binding L[RenameMod]}" Command="{Binding RenameModCommand}" />
               <MenuItem Header="{Binding L[DeleteMod]}" Command="{Binding DeleteModCommand}" />
               <Separator IsVisible="{Binding SelectedIsWorkshop}" />
               <MenuItem Header="{Binding L[CheckUpdates]}" Command="{Binding CheckUpdatesCommand}" IsVisible="{Binding SelectedIsWorkshop}" />
