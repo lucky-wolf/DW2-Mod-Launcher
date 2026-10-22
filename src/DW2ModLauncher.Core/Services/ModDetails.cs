@@ -19,14 +19,26 @@ namespace DW2ModLauncher.Core.Services
         /// </summary>
         public static string BuildLinks(ModInfo mod, IList<ModInfo> orderedEnabled)
         {
-            List<string> lines = new List<string>();
+            return string.Join("\n", BuildLinkLines(mod, orderedEnabled).Select(l => l.Text));
+        }
+
+        /// <summary>The lines of <see cref="BuildLinks"/>, each with whether it is met (shown with a green check mark) or unmet and required (shown in red).</summary>
+        public static List<DetailLine> BuildLinkLines(ModInfo mod, IList<ModInfo> orderedEnabled)
+        {
+            List<DetailLine> lines = new List<DetailLine>();
             Func<IEnumerable<ModInfo>, string> names = mods => string.Join(", ", mods.Select(m => m.DisplayName ?? m.Id));
+            if (!string.IsNullOrWhiteSpace(mod.MinLauncherVersion))
+            {
+                bool tooOld = LauncherRequirement.IsUnmet(mod);
+                lines.Add(new DetailLine("Launcher: " + mod.MinLauncherVersion.Trim() + " or newer" + (tooOld ? " - this is " + AppVersion.Display + ", TOO OLD" : ""), tooOld ? LineState.Unmet : LineState.Met));
+            }
             foreach (string channel in (mod.Receives ?? new List<string>()).Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 List<ModInfo> providers = orderedEnabled.Where(m => m != mod && (m.Provides ?? new List<LauncherProvision>())
                     .Any(p => p != null && string.Equals(p.channel?.Trim(), channel, StringComparison.OrdinalIgnoreCase))).ToList();
-                lines.Add("Receives: " + channel);
-                lines.Add("Providers: " + (providers.Count == 0 ? "none enabled" : names(providers)));
+                LineState supplied = providers.Count == 0 ? LineState.None : LineState.Met;
+                lines.Add(new DetailLine("Receives: " + channel, supplied));
+                lines.Add(new DetailLine("Providers: " + (providers.Count == 0 ? "none enabled" : names(providers)), supplied));
             }
             foreach (LauncherProvision provision in mod.Provides ?? new List<LauncherProvision>())
             {
@@ -34,21 +46,18 @@ namespace DW2ModLauncher.Core.Services
                 string channel = provision.channel.Trim();
                 List<ModInfo> receivers = orderedEnabled.Where(m => m != mod && (m.Receives ?? new List<string>())
                     .Any(c => string.Equals(c?.Trim(), channel, StringComparison.OrdinalIgnoreCase))).ToList();
-                lines.Add("Provides: " + channel);
-                lines.Add("Receivers: " + (receivers.Count == 0 ? "none enabled" : names(receivers)));
+                LineState taken = receivers.Count == 0 ? LineState.None : LineState.Met;
+                lines.Add(new DetailLine("Provides: " + channel, taken));
+                lines.Add(new DetailLine("Receivers: " + (receivers.Count == 0 ? "none enabled" : names(receivers)), taken));
             }
             foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
             {
                 if (dep == null || string.IsNullOrWhiteSpace(dep.mod)) continue;
-                List<string> parts = new List<string>();
-                parts.Add(dep.required ? "required" : "optional");
-                if (!string.IsNullOrWhiteSpace(dep.minVersion)) parts.Add("min " + dep.minVersion.Trim());
-                if (dep.loadAfter) parts.Add("loads after");
-                if (dep.loadBefore) parts.Add("loads before");
-                lines.Add("Depends on: " + dep.mod.Trim() + " (" + string.Join(", ", parts) + ")");
-                lines.Add("Status: " + (ModDependencies.Find(orderedEnabled, dep.mod) == null ? "not enabled" : "enabled"));
+                string text = "Depends on: " + dep.mod.Trim();
+                if (ModDependencies.Find(orderedEnabled, dep.mod) != null) lines.Add(new DetailLine(text, LineState.Met));
+                else lines.Add(new DetailLine(text + " - not enabled", dep.required ? LineState.Unmet : LineState.None));
             }
-            return string.Join("\n", lines);
+            return lines;
         }
 
         public static string BuildText(ModInfo mod, bool isSelected, Func<string, string> t)
@@ -202,7 +211,8 @@ namespace DW2ModLauncher.Core.Services
             if (mod.EnabledCopyCount > 0) conflicts.Add(t("EnabledMoreThanOnce"));
             if (mod.IdenticalFileCount > 0) cautions.Add(t("SamePathAndIdenticalContent") + mod.IdenticalFileCount);
             if (mod.IsWorkshop && mod.UpdateState == "update") cautions.Add(t("SteamWorkshopUpdateAvailable"));
-            if (LauncherRequirement.IsUnmet(mod)) cautions.Add(t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
+            if (LauncherRequirement.IsUnmet(mod)) conflicts.Add(t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
+            foreach (string problem in mod.DependencyProblems ?? new List<string>()) cautions.Add(problem);
             if (mod.ModJsonError != null) cautions.Add("mod.json is not valid JSON: " + mod.ModJsonError);
             return (conflicts, cautions);
         }
@@ -223,6 +233,7 @@ namespace DW2ModLauncher.Core.Services
             if (mod.IdenticalFileCount > 0) lines.Add(t("SamePathAndIdenticalContent") + mod.IdenticalFileCount);
             if (mod.IsWorkshop && mod.UpdateState == "update") lines.Add(t("SteamWorkshopUpdateAvailable"));
             if (LauncherRequirement.IsUnmet(mod)) lines.Add(t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
+            foreach (string problem in mod.DependencyProblems ?? new List<string>()) lines.Add(problem);
             if (mod.ModJsonError != null) lines.Add("mod.json is not valid JSON: " + mod.ModJsonError);
             return lines;
         }
@@ -243,5 +254,20 @@ namespace DW2ModLauncher.Core.Services
             StringComparison comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
             return fullPath.StartsWith(fullRoot, comparison) && File.Exists(fullPath) ? fullPath : null;
         }
+    }
+}
+
+namespace DW2ModLauncher.Core.Services
+{
+    public enum LineState { None, Met, Unmet }
+
+    /// <summary>One line of a mod's links in the details pane and whether what it asks for is there.</summary>
+    public sealed class DetailLine
+    {
+        public DetailLine(string text, LineState state = LineState.None) { Text = text; State = state; }
+        public string Text { get; }
+        public LineState State { get; }
+        public bool IsMet { get { return State == LineState.Met; } }
+        public bool IsUnmet { get { return State == LineState.Unmet; } }
     }
 }

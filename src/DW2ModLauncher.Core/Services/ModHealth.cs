@@ -19,9 +19,10 @@ namespace DW2ModLauncher.Core.Services
         public static int Severity(ModInfo mod, bool isSelected)
         {
             if (mod == null || !isSelected) return 0;
-            if (mod.HighRiskConflictCount > 0 || mod.HookConflictCount > 0 || mod.EnabledCopyCount > 0) return 3;
+            if (mod.HighRiskConflictCount > 0 || mod.HookConflictCount > 0 || mod.EnabledCopyCount > 0 || LauncherRequirement.IsUnmet(mod)) return 3;
             bool caution = mod.LowRiskConflictCount > 0 || mod.HookCautionCount > 0 || mod.IdenticalFileCount > 0 ||
-                           (mod.IsWorkshop && mod.UpdateState == "update") || LauncherRequirement.IsUnmet(mod);
+                           (mod.IsWorkshop && mod.UpdateState == "update") ||
+                           (mod.DependencyProblems != null && mod.DependencyProblems.Count > 0);
             return caution ? 2 : 1;
         }
     }

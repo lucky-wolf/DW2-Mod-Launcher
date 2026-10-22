@@ -150,7 +150,7 @@ namespace DW2ModLauncher.Tests
             a.Dependencies.Add(Dep("needed", required: true));
             a.Dependencies.Add(Dep("nice", required: false));
 
-            List<string> problems = ModDependencies.Problems(new[] { a });
+            List<string> problems = ModDependencies.Problems(new[] { a }, new[] { a });
 
             Assert.Single(problems);
             Assert.Contains("needed", problems[0]);
@@ -170,7 +170,7 @@ namespace DW2ModLauncher.Tests
             ModInfo xl = MakeMod("xl", actual);
             a.Dependencies.Add(Dep("xl", minVersion: minVersion));
 
-            Assert.Equal(problem, ModDependencies.Problems(new[] { a, xl }).Count > 0);
+            Assert.Equal(problem, ModDependencies.Problems(new[] { a, xl }, new[] { a, xl }).Count > 0);
         }
 
         [Fact]
@@ -180,7 +180,7 @@ namespace DW2ModLauncher.Tests
             a.Dependencies.Add(Dep("b", after: true, before: true));
             a.Dependencies.Add(Dep(" "));
 
-            Assert.Equal(2, ModDependencies.Problems(new[] { a, b }).Count);
+            Assert.Equal(2, ModDependencies.Problems(new[] { a, b }, new[] { a, b }).Count);
         }
 
         [Fact]

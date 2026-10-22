@@ -17,8 +17,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>One problem per line.</summary>
         public string Text { get { return text; } private set { if (Set(ref text, value)) Raise(nameof(IsVisible)); } }
         public bool IsVisible { get { return !string.IsNullOrEmpty(text); } }
-        /// <summary>Whether the list is open; it starts closed for each selected mod so a long list can't take over the details pane.</summary>
-        public bool Expanded { get { return expanded; } set { Set(ref expanded, value); } }
+        /// <summary>Whether the list is open: the player's one choice for every mod (kept in the settings).</summary>
+        public bool Expanded { get { return expanded; } set { if (Set(ref expanded, value)) ExpandedChanged?.Invoke(value); } }
+        /// <summary>Told when the player opens or closes the list, so the choice can be kept for every mod.</summary>
+        public System.Action<bool> ExpandedChanged { get; set; }
         /// <summary>Whether the lines include code-hook overlaps, which the hooks report explains in detail.</summary>
         public bool HasHooks { get { return hasHooks; } private set { Set(ref hasHooks, value); } }
         public string ReportText { get; set; } = "";
@@ -29,7 +31,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Summary = summary;
             Text = text;
             HasHooks = hasHooks;
-            Expanded = false;
         }
 
         public void Clear() { Show("", "", false); }

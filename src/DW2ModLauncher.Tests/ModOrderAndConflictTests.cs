@@ -196,7 +196,7 @@ namespace DW2ModLauncher.Tests
         {
             ModInfo a = MakeMod("a");
 
-            var issues = LaunchDiagnostics.Build(new List<ModInfo> { a }, new ModOrderState(), Path.Combine(dir, "nope.dll"), new List<LoaderManifestEntry>(), key => key + ":");
+            var issues = LaunchDiagnostics.Build(new List<ModInfo> { a }, new List<ModInfo> { a }, new ModOrderState(), Path.Combine(dir, "nope.dll"), new List<LoaderManifestEntry>(), key => key + ":");
 
             Assert.Contains(issues, i => i.Contains("LaunchArgumentDLLNotFound:") && i.Contains("nope.dll"));
         }
@@ -242,7 +242,7 @@ namespace DW2ModLauncher.Tests
             File.WriteAllText(loader, "");
             var entry = new LoaderManifestEntry { DllPath = @"Z:\does\not\exist\a.dll", HostDllPath = real };
 
-            var issues = LaunchDiagnostics.Build(new List<ModInfo> { a }, new ModOrderState(), loader, new[] { entry }, key => key + ":");
+            var issues = LaunchDiagnostics.Build(new List<ModInfo> { a }, new List<ModInfo> { a }, new ModOrderState(), loader, new[] { entry }, key => key + ":");
 
             Assert.DoesNotContain(issues, i => i.Contains("LaunchArgumentDLLNotFound"));
         }

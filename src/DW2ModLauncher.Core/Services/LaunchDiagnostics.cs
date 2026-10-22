@@ -11,10 +11,10 @@ namespace DW2ModLauncher.Core.Services
     /// <summary>Pre-launch checks over the enabled mods. Messages come back localised through the supplied lookup.</summary>
     public static class LaunchDiagnostics
     {
-        public static List<string> Build(IList<ModInfo> enabled, ModOrderState order, string loaderDllPath, IEnumerable<LoaderManifestEntry> manifestEntries, Func<string, string> t)
+        public static List<string> Build(IList<ModInfo> enabled, IEnumerable<ModInfo> installed, ModOrderState order, string loaderDllPath, IEnumerable<LoaderManifestEntry> manifestEntries, Func<string, string> t)
         {
             List<string> issues = new List<string>();
-            issues.AddRange(ModDependencies.Problems(enabled));
+            issues.AddRange(ModDependencies.Problems(enabled, installed));
             // providers are merged in load order, so the checks of what they supply need the mods in that order
             issues.AddRange(ModChannels.Problems(enabled.OrderBy(m => order.IndexOf(m.ActiveToken) < 0 ? int.MaxValue : order.IndexOf(m.ActiveToken)).ToList()));
             foreach (LoaderManifestEntry entry in manifestEntries ?? new List<LoaderManifestEntry>())

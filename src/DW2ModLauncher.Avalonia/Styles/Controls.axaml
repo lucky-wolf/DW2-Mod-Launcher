@@ -80,6 +80,16 @@
   <Style Selector="views|ColumnRowPanel.off > :is(Control).dim">
     <Setter Property="Opacity" Value="0.45" />
   </Style>
+  <!-- A mod with a caution or a conflict: its name, source and author are drawn in gold or red (beside the icon in front of the name). -->
+  <Style Selector="views|ColumnRowPanel.caution TextBlock.health">
+    <Setter Property="Foreground" Value="{StaticResource Dw2Gold}" />
+  </Style>
+  <Style Selector="views|ColumnRowPanel.conflict TextBlock.health">
+    <Setter Property="Foreground" Value="{StaticResource Dw2Red}" />
+  </Style>
+  <Style Selector="TextBlock.linkUnmet">
+    <Setter Property="Foreground" Value="{StaticResource Dw2Red}" />
+  </Style>
   <Style Selector="TextBlock.muted">
     <Setter Property="Foreground" Value="{StaticResource Dw2Muted}" />
   </Style>

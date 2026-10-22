@@ -87,6 +87,8 @@ namespace DW2ModLauncher.Core.Models
         public List<string> HookNotes { get; set; } = new List<string>();
         /// <summary>The lines of HookNotes that are conflicts (the rest are cautions).</summary>
         public List<string> HookConflictNotes { get; set; } = new List<string>();
+        /// <summary>What is wrong with this mod's dw2modlauncher.json dependencies while it is enabled (a required mod missing, too old); set by the launcher's analysis, empty when all is met.</summary>
+        public List<string> DependencyProblems { get; set; } = new List<string>();
         /// <summary>dw2modlauncher.json "hooksCoordinatedWith" (empty when the mod names none).</summary>
         public List<string> HooksCoordinatedWith { get; set; } = new List<string>();
         public int IdenticalFileCount { get; set; }
