@@ -26,44 +26,50 @@ namespace DW2ModLauncher.Core.Services
         /// Why the enabled mods' dependencies are not met: a required mod that is not enabled, a version below minVersion (or one the
         /// other mod does not state), and an entry that cannot work.
         /// </summary>
-        public static List<string> Problems(IList<ModInfo> enabled)
+        public static List<string> Problems(IList<ModInfo> enabled, IEnumerable<ModInfo> installed)
         {
             List<string> problems = new List<string>();
             foreach (ModInfo mod in enabled)
+                foreach (string problem in ProblemsOf(mod, enabled, installed)) problems.Add("⚠ " + Name(mod) + ": " + problem);
+            return problems;
+        }
+
+        /// <summary><paramref name="installed"/> is every mod the launcher knows, so a missing requirement can say whether it is absent or only disabled. The same problems for one enabled mod, worded without its name (the caller shows them on that mod).</summary>
+        public static List<string> ProblemsOf(ModInfo mod, IList<ModInfo> enabled, IEnumerable<ModInfo> installed)
+        {
+            List<string> problems = new List<string>();
+            foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
             {
-                foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
+                if (dep == null || string.IsNullOrWhiteSpace(dep.mod)) { problems.Add("a dependency in dw2modlauncher.json names no mod"); continue; }
+                if (dep.loadAfter && dep.loadBefore) problems.Add("dw2modlauncher.json asks to load both before and after " + dep.mod);
+                ModInfo target = Find(enabled, dep.mod);
+                if (target == null || target == mod)
                 {
-                    if (dep == null || string.IsNullOrWhiteSpace(dep.mod)) { problems.Add("⚠ " + Name(mod) + ": a dependency in dw2modlauncher.json names no mod"); continue; }
-                    if (dep.loadAfter && dep.loadBefore) problems.Add("⚠ " + Name(mod) + ": dw2modlauncher.json asks to load both before and after " + dep.mod);
-                    ModInfo target = Find(enabled, dep.mod);
-                    if (target == null || target == mod)
-                    {
-                        if (dep.required) problems.Add("⚠ " + Name(mod) + ": requires " + dep.mod + ", which is not installed or not enabled");
-                        continue;
-                    }
-                    VersionProblem(mod, dep, target, problems);
+                    if (dep.required) problems.Add("requires " + dep.mod + ", which is " + (Find(installed, dep.mod) == null ? "not installed" : "installed but not enabled"));
+                    continue;
                 }
+                VersionProblem(dep, target, problems);
             }
             return problems;
         }
 
         /// <summary>Whether the other mod is new enough for the dependency; a problem is added to the list when it is not (or cannot be told).</summary>
-        private static bool VersionProblem(ModInfo mod, LauncherDependency dep, ModInfo target, List<string> problems)
+        private static bool VersionProblem(LauncherDependency dep, ModInfo target, List<string> problems)
         {
             if (string.IsNullOrWhiteSpace(dep.minVersion)) return false;
             if (!LauncherRequirement.TryParse(dep.minVersion, out Version needed))
             {
-                problems.Add("⚠ " + Name(mod) + ": its minVersion '" + dep.minVersion + "' for " + dep.mod + " is not a version");
+                problems.Add("its minVersion '" + dep.minVersion + "' for " + dep.mod + " is not a version");
                 return true;
             }
             if (!LauncherRequirement.TryParse(target.Version, out Version have))
             {
-                problems.Add("⚠ " + Name(mod) + ": needs " + dep.mod + " " + dep.minVersion + " or newer, but " + Name(target) + " states no usable version" + (string.IsNullOrWhiteSpace(target.Version) ? "" : " ('" + target.Version + "')"));
+                problems.Add("needs " + dep.mod + " " + dep.minVersion + " or newer, but " + Name(target) + " states no usable version" + (string.IsNullOrWhiteSpace(target.Version) ? "" : " ('" + target.Version + "')"));
                 return true;
             }
             if (have < needed)
             {
-                problems.Add("⚠ " + Name(mod) + ": needs " + dep.mod + " " + dep.minVersion + " or newer, but " + Name(target) + " is " + target.Version);
+                problems.Add("needs " + dep.mod + " " + dep.minVersion + " or newer, but " + Name(target) + " is " + target.Version);
                 return true;
             }
             return false;

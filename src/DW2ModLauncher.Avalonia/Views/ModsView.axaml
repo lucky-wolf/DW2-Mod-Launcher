@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
              xmlns:views="using:DW2ModLauncher.Avalonia.Views"
+             xmlns:svc="using:DW2ModLauncher.Core.Services"
              x:Class="DW2ModLauncher.Avalonia.Views.ModsView"
              x:DataType="vm:MainViewModel">
   <Grid Name="RootGrid" Margin="14" Grid.IsSharedSizeScope="True">
@@ -89,7 +90,7 @@
           </ListBox.ContextMenu>
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:ModRowViewModel">
-              <views:ColumnRowPanel MinHeight="54" Classes.off="{Binding !Enabled}">
+              <views:ColumnRowPanel MinHeight="54" Classes.off="{Binding !Enabled}" Classes.caution="{Binding IsCaution}" Classes.conflict="{Binding IsConflict}">
                 <StackPanel views:ColumnRowPanel.ColumnId="state" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <Button Classes="glyph" Classes.on="{Binding Enabled}" Classes.caution="{Binding IsCaution}" Classes.conflict="{Binding IsConflict}" VerticalAlignment="Center"
                           Command="{Binding ToggleCommand}" CommandParameter="{Binding}" Content="{Binding StateGlyph}" ToolTip.Tip="{Binding HealthTip}" />
@@ -97,7 +98,10 @@
                 </StackPanel>
                 <StackPanel views:ColumnRowPanel.ColumnId="name" Classes="dim" Orientation="Horizontal" Spacing="8" Margin="4,0">
                   <Image Source="{Binding Thumbnail}" Width="72" Height="48" Stretch="Uniform" />
-                  <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <!-- Warning triangle (gold) for a caution, error circle (red) for a conflict, Material Design Icons, Apache-2.0 -->
+                  <PathIcon IsVisible="{Binding IsCaution}" Width="18" Height="18" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" ToolTip.Tip="{Binding HealthTip}" Data="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+                  <PathIcon IsVisible="{Binding IsConflict}" Width="18" Height="18" VerticalAlignment="Center" Foreground="{StaticResource Dw2Red}" ToolTip.Tip="{Binding HealthTip}" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                  <TextBlock Classes="health" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                   <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" IsVisible="{Binding HasUnpublishedChanges}" ToolTip.Tip="{Binding UnpublishedTip}" />
                   <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding IsUpToDate}" ToolTip.Tip="{Binding UpToDateTip}" />
                   <!-- Never published: a mid gray dot (gold is for changes since a publish). -->
@@ -105,7 +109,7 @@
                 </StackPanel>
                 <StackPanel views:ColumnRowPanel.ColumnId="source" Classes="dim" Margin="6,0" VerticalAlignment="Center">
                   <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="{Binding Source}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="health" Text="{Binding Source}" TextTrimming="CharacterEllipsis" />
                     <Panel IsVisible="{Binding HasVisibility}" VerticalAlignment="Center" ToolTip.Tip="{Binding VisibilityTip}">
                       <!-- Visibility icons, Material Design Icons, Apache-2.0: eye = public, eye with slash = private, people = friends only, link = unlisted, cloud with slash = not published -->
                       <PathIcon IsVisible="{Binding IsVisPublic}" Width="14" Height="14" Data="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
@@ -117,7 +121,7 @@
                   </StackPanel>
                   <TextBlock Classes="muted" FontSize="11" Text="{Binding FolderPath}" IsVisible="{Binding HasFolderPath}" TextTrimming="PathSegmentEllipsis" />
                 </StackPanel>
-                <TextBlock views:ColumnRowPanel.ColumnId="author" Classes="dim" Margin="6,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Author}" />
+                <TextBlock views:ColumnRowPanel.ColumnId="author" Classes="dim health" Margin="6,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Author}" />
               </views:ColumnRowPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -204,8 +208,16 @@
             </StackPanel>
           </Border>
         </StackPanel>
-        <SelectableTextBlock Grid.Row="4" IsVisible="{Binding HasLinks}" TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Margin="0,0,0,10"
-                             Text="{Binding DetailLinks}" />
+        <ItemsControl Grid.Row="4" IsVisible="{Binding HasLinks}" ItemsSource="{Binding DetailLinks}" Margin="0,0,0,10">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="svc:DetailLine">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Classes.linkUnmet="{Binding IsUnmet}" />
+                <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding IsMet}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
         <Border Grid.Row="5" Height="1" Background="{StaticResource Dw2Blue}" Margin="0,0,0,10" />
         <ScrollViewer Grid.Row="6">
           <SelectableTextBlock TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Text="{Binding DetailText}" />

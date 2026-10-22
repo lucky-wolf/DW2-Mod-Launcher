@@ -85,8 +85,8 @@ namespace DW2ModLauncher.Tests
 
             Assert.Contains("Receives: A.Channel\nProviders: XL", receiver);
             Assert.Contains("Receives: lonely.channel\nProviders: none enabled", receiver);
-            Assert.Contains("Depends on: XL (required, min 1.36.0, loads after)\nStatus: enabled", receiver);
-            Assert.Contains("Depends on: ghost (optional)\nStatus: not enabled", receiver);
+            Assert.Contains("Depends on: XL", receiver);
+            Assert.Contains("Depends on: ghost - not enabled", receiver);
             Assert.Contains("Provides: a.channel\nReceivers: CR", provider);
             Assert.DoesNotContain("one.json", provider);
             Assert.Contains("Receivers: none enabled", providerAlone);

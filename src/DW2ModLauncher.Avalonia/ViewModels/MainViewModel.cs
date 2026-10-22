@@ -79,9 +79,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
             Settings = new SettingsViewModel(this);
             OpenSettingsCommand = new RelayCommand(() => Dialogs.ShowSettingsAsync(Settings));
-            HookReportCommand = new RelayCommand(() => ShowHookReportAsync(null, null));
+            HookReportCommand = new RelayCommand(() => ShowHookReportAsync(selectedRow?.Mod, null), () => selectedRow != null);
             SelectedConflictReportCommand = new RelayCommand(() => ShowHookReportAsync(selectedRow?.Mod, HookSeverity.Conflict), () => selectedRow != null);
             SelectedCautionReportCommand = new RelayCommand(() => ShowHookReportAsync(selectedRow?.Mod, HookSeverity.Caution), () => selectedRow != null);
+            ConflictCallout.Expanded = settings.ConflictsExpanded;
+            CautionCallout.Expanded = settings.CautionsExpanded;
+            ConflictCallout.ExpandedChanged = open => { settings.ConflictsExpanded = open; SaveSettings(); };
+            CautionCallout.ExpandedChanged = open => { settings.CautionsExpanded = open; SaveSettings(); };
             ConflictCallout.ReportCommand = SelectedConflictReportCommand;
             CautionCallout.ReportCommand = SelectedCautionReportCommand;
             ConflictCallout.ReportText = CautionCallout.ReportText = T("HookFullReportButton");
@@ -333,10 +337,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool HasPublishState { get { return !string.IsNullOrEmpty(detailPublishState); } }
         public string DetailWorkshopId { get { return detailWorkshopId; } private set { Set(ref detailWorkshopId, value); } }
 
-        private string detailLinks = "";
+        private IReadOnlyList<DetailLine> detailLinks = new List<DetailLine>();
         /// <summary>What the selected mod provides, receives and depends on, with who is on the other end (ModDetails.BuildLinks).</summary>
-        public string DetailLinks { get { return detailLinks; } private set { if (Set(ref detailLinks, value)) Raise(nameof(HasLinks)); } }
-        public bool HasLinks { get { return !string.IsNullOrEmpty(detailLinks); } }
+        public IReadOnlyList<DetailLine> DetailLinks { get { return detailLinks; } private set { if (Set(ref detailLinks, value)) Raise(nameof(HasLinks)); } }
+        public bool HasLinks { get { return detailLinks.Count > 0; } }
 
         /// <summary>The selected mod's problems, split so a caution is never presented as a conflict.</summary>
         public ProblemsCalloutViewModel ConflictCallout { get; } = new ProblemsCalloutViewModel(true);
@@ -523,7 +527,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             collisions = ConflictAnalyzer.Analyze(AllMods, m => modOrder.IsEnabledForConflict(m, settings));
             ConflictAnalyzer.AnalyzeEnabledCopies(AllMods, m => modOrder.IsEnabledForConflict(m, settings));
+            AnalyzeDependencies();
             AnalyzeHooks();
+        }
+
+        /// <summary>Puts each enabled mod's unmet dw2modlauncher.json dependencies on the mod, so the list and details warn before launch (a mod that is not enabled has none).</summary>
+        private void AnalyzeDependencies()
+        {
+            List<ModInfo> enabled = OrderedEnabledMods();
+            foreach (ModInfo mod in AllMods) mod.DependencyProblems = enabled.Contains(mod) ? ModDependencies.ProblemsOf(mod, enabled, AllMods) : new List<string>();
         }
 
         /// <summary>The last code-overlap analysis (docs/plans/hook-manifest.md): who patches the same game code, stale hook data, channel version mismatches.</summary>
@@ -710,6 +722,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // The new mod goes where its row sits among the enabled ones, so a position dragged while the game was running still counts.
             snapNote = "";
             if (enable) SnapToDependencyOrder(row);
+            // Clicking the checkbox selects the row (after the snap, whose moves can drop the list's selection): ApplySort below keeps whatever is selected and follows it to its new place.
+            SelectedRow = row;
             List<string> listOrder = Mods.Where(r => r == row || IsSelected(r.Mod)).Select(r => r.Mod.ActiveToken).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
             SetEnabledResult result = ModLibrary.SetEnabled(row.Mod, enable, settings, modOrder, listOrder);
             SaveSettings();
@@ -738,8 +752,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             RefreshRowStates();
             // Enabling a mod gives it a load-order number and unchecking drops it below the last enabled one (unnumbered rows
             // sort last), so it changes place either way: follow it there and keep it selected.
-            ApplySort();
             SelectedRow = row;
+            ApplySort();
             RevealSelectionRequested?.Invoke();
             UpdateStatus();
             Settings.UpdateCommandPreview();
@@ -832,7 +846,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 DetailPublishState = "";
                 DetailPublishTip = null;
                 DetailVisibility = "";
-                DetailLinks = "";
+                DetailLinks = new List<DetailLine>();
                 ConflictCallout.Clear();
                 CautionCallout.Clear();
                 Preview = null;
@@ -853,11 +867,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             DetailTitle = mod.DisplayName ?? "";
             DetailVersion = string.IsNullOrWhiteSpace(mod.Version) ? "" : T("Version") + ": " + mod.Version;
             DetailText = ModDetails.BuildText(mod, selected, key => T(key));
-            string hooks = HookReport.ForMod(HookAnalysis, mod, key => T(key));
-            if (hooks.Length > 0) DetailText += Environment.NewLine + Environment.NewLine + hooks;
             DetailSource = T("Source") + ": " + ModDetails.SourceText(mod, settings.ManagedModsRoot);
             DetailWorkshopId = T("PublishWorkshopId") + ": " + (ModDetails.WorkshopId(mod) ?? "—");
-            DetailLinks = ModDetails.BuildLinks(mod, OrderedEnabledMods());
+            DetailLinks = ModDetails.BuildLinkLines(mod, OrderedEnabledMods());
             (List<string> conflicts, List<string> cautions) = ModDetails.BuildProblemGroups(mod, severity, key => T(key));
             ConflictCallout.Show(conflicts.Count == 0 ? "" : ProblemsHeader("HealthConflict", conflicts.Count, mod.HookConflictMods, mod.HookConflictMethods, mod.HookConflictNotes.Count),
                 string.Join("\n", conflicts), mod.HookConflictNotes.Count > 0);
@@ -2051,7 +2063,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             List<string> diagnostics;
             try
             {
-                diagnostics = LaunchDiagnostics.Build(enabled, modOrder, GameLauncher.LoaderDllPath(),
+                diagnostics = LaunchDiagnostics.Build(enabled, AllMods, modOrder, GameLauncher.LoaderDllPath(),
                     LoaderManifestBuilder.Build(OrderedEnabledMods()).Entries, key => T(key));
                 diagnostics.AddRange(dependencyOrder.Problems.Select(p => "⚠ " + p));
                 WidgetLanguage.Choose(OrderedEnabledMods(), settings, out string unknownLanguage);
