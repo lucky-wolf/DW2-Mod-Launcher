@@ -15,6 +15,15 @@ namespace DW2ModLauncher.Tests
             return dir;
         }
 
+        [Theory]
+        [InlineData("## Unreleased\n\n## 1.0.0 (2026-01-01)\n- old\n", "## 1.0.0 (2026-01-01)\n- old\n")]
+        [InlineData("## 1.0.0 (2026-01-01)\n- old\n", "## 1.0.0 (2026-01-01)\n- old\n")]
+        [InlineData("## Unreleased\r\n- new\r\n\r\n## 1.0.0\r\n- old\r\n", "## Unreleased\n- new\n\n## 1.0.0\n- old\n")]
+        public void WithoutEmptyUnreleased_DropsOnlyAnEmptyHeading(string input, string expected)
+        {
+            Assert.Equal(expected, ModChangelog.WithoutEmptyUnreleased(input));
+        }
+
         [Fact]
         public void ChangeNote_UsesUnreleasedLines()
         {
@@ -144,6 +153,20 @@ namespace DW2ModLauncher.Tests
                 Assert.Equal("- old", ModChangelog.NotesText(dir, "1.0.16"));
                 Assert.Equal("", ModChangelog.NotesText(dir, "1.0.18"));
                 Assert.Equal("", ModChangelog.UnreleasedText(dir));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void Notes_NextVersionShowsUnreleasedAndAPublishedVersionShowsItsOwnNotes()
+        {
+            string dir = MakeFolder("## Unreleased\n- next\n\n## 1.0.12 (2026-10-22)\n- shipped\n");
+            try
+            {
+                Assert.Equal("- next", ModChangelog.NotesText(dir, "1.0.13"));
+                Assert.Equal("- shipped", ModChangelog.NotesText(dir, "1.0.12"));
+                Assert.True(ModChangelog.IsStamped(dir, "1.0.12"));
+                Assert.False(ModChangelog.IsStamped(dir, "1.0.13"));
             }
             finally { Directory.Delete(dir, true); }
         }

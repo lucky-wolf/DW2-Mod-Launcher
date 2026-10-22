@@ -63,11 +63,14 @@ namespace DW2ModLauncher.Core.Services.Publishing
 
         /// <summary>
         /// The section the change notes of a publish as <paramref name="version"/> live in: Unreleased when it has lines; otherwise the section
-        /// of that version (a changelog whose newest section is the version about to go out has no Unreleased one); otherwise Unreleased
+        /// of that version when a publish stamped it (it is shown for reading) or when Unreleased has no lines (a changelog whose newest section is the version about to go out has no Unreleased one); otherwise Unreleased
         /// (null when there is not even that). The same choice <see cref="ChangeNote"/> makes.
         /// </summary>
         private static Section NotesTarget(List<Section> sections, string version)
         {
+            // A version a publish already stamped shows (and edits) its own published notes, so choosing it by hand is a way to read them.
+            Section stamped = string.IsNullOrWhiteSpace(version) ? null : sections.FirstOrDefault(s => IsStampedFor(s, version));
+            if (stamped != null) return stamped;
             Section unreleased = sections.FirstOrDefault(IsUnreleased);
             if (unreleased != null && Body(unreleased).Length > 0) return unreleased;
             Section ofVersion = string.IsNullOrWhiteSpace(version) ? null : sections.FirstOrDefault(s => HeadingVersion(s) == version.Trim());
@@ -148,6 +151,37 @@ namespace DW2ModLauncher.Core.Services.Publishing
             }
             Write(contentRoot, Render(sections));
             return true;
+        }
+
+        /// <summary>
+        /// The changelog text with line endings as LF and any "## Unreleased" heading that has no lines under it removed, so the empty heading a
+        /// publish leaves behind (or its absence) does not make two otherwise identical changelogs differ. Everything else is untouched.
+        /// </summary>
+        public static string WithoutEmptyUnreleased(string text)
+        {
+            List<string> lines = (text ?? "").Replace("\r\n", "\n").Split('\n').ToList();
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if (!lines[i].StartsWith("## ", StringComparison.Ordinal) || !lines[i].Substring(3).Trim().Equals(UnreleasedHeading, StringComparison.OrdinalIgnoreCase)) continue;
+                int end = i + 1;
+                while (end < lines.Count && !lines[end].StartsWith("## ", StringComparison.Ordinal) && string.IsNullOrWhiteSpace(lines[end])) end++;
+                if (end < lines.Count && !lines[end].StartsWith("## ", StringComparison.Ordinal)) continue;
+                lines.RemoveRange(i, end - i);
+                i--;
+            }
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>A heading with a date ("1.0.12 (2026-10-22)") is what a publish stamps: that version went out.</summary>
+        private static bool IsStampedFor(Section s, string version)
+        {
+            return HeadingVersion(s) == version.Trim() && s.Heading.Contains("(");
+        }
+
+        /// <summary>Whether a publish already stamped a section for <paramref name="version"/>, meaning that version is out and the next change is a new one.</summary>
+        public static bool IsStamped(string contentRoot, string version)
+        {
+            return !string.IsNullOrWhiteSpace(version) && Parse(ReadFile(contentRoot)).Any(s => IsStampedFor(s, version));
         }
 
         private static bool IsUnreleased(Section s)
