@@ -84,9 +84,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         // Version proposal: what the dialog last proposed (so a policy change only replaces an untouched proposal), and the X.Y.Z split.
         private readonly bool proposesBump;
         private BumpLevelOption bumpLevel;
+        private string proposedVersion;
         private readonly List<string> detectedBundles;
         private readonly List<string> missingBundles = new List<string>();
-        private string proposedVersion;
         private List<string> strayImages = new List<string>();
         // Where the last preview image came from (outside the mod), and how to store a new one; see BrowsePreviewAsync.
         private string lastArtFolder;
@@ -130,7 +130,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // Updating a published item proposes the next version per the mod's launcher-side policy (default: patch); nothing is
             // written to mod.json until the author accepts.
             bumpPolicy = bumpPolicy ?? new VersionBumpPolicy();
-            proposesBump = isUpdate && !propertiesOnly;
+            proposesBump = isUpdate;
             BumpLevels.Add(new BumpLevelOption { Value = "none", Label = l["VersionLevelNone"] });
             foreach (VersionBumpLevel level in new[] { VersionBumpLevel.Patch, VersionBumpLevel.Minor, VersionBumpLevel.Major })
                 BumpLevels.Add(new BumpLevelOption { Value = ModVersion.LevelName(level), Label = l["VersionLevel" + level] });
@@ -574,9 +574,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Raise(nameof(IsSemver));
         }
 
+        /// <summary>
+        /// The next version, per the mod's bump policy, when the version in mod.json already went out (its changelog section is stamped by a
+        /// publish); a version that was never published is the one being worked on and is proposed as it is. Both dialogs propose the same.
+        /// </summary>
         private string ProposeVersion()
         {
-            return proposesBump && !ModVersion.IsNoBump(bumpLevel.Value) ? ModVersion.Bump(OriginalVersion, ModVersion.ParseLevel(bumpLevel.Value)) : OriginalVersion;
+            bool bump = proposesBump && !ModVersion.IsNoBump(bumpLevel.Value) && ModChangelog.IsStamped(contentFolder, OriginalVersion);
+            return bump ? ModVersion.Bump(OriginalVersion, ModVersion.ParseLevel(bumpLevel.Value)) : OriginalVersion;
         }
 
         /// <summary>A policy change replaces the proposal, unless the author already typed their own version.</summary>
@@ -981,7 +986,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             debounce = null;
         }
 
-        /// <summary>Writes the edited fields back to mod.json. Returns an error message, or null on success.</summary>
+        /// <summary>Writes the edited fields back to mod.json . Returns an error message, or null on success.</summary>
         public string Commit()
         {
             metadata.DisplayName = (title ?? "").Trim();

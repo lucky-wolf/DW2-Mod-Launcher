@@ -86,7 +86,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 FileInfo info = new FileInfo(Path.Combine(contentFolder, file));
                 if (info.Length == recorded.Size && info.LastWriteTimeUtc.Ticks == recorded.ModifiedUtcTicks) continue;
                 // No size shortcut here: a text file saved with other line endings has another size and the same hash.
-                if (HashFile(info.FullName) != recorded.Hash) changes.Modified.Add(file);
+                if (HashFile(info.FullName) != recorded.Hash && ChangelogHash(info.FullName) != recorded.Hash) changes.Modified.Add(file);
             }
             foreach (string file in manifest.Files.Keys)
                 if (!seen.Contains(file)) changes.Removed.Add(file);
@@ -176,7 +176,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
         private static PublishedFile Describe(string contentFolder, string relativePath)
         {
             FileInfo info = new FileInfo(Path.Combine(contentFolder, relativePath));
-            return new PublishedFile { Size = info.Length, ModifiedUtcTicks = info.LastWriteTimeUtc.Ticks, Hash = HashFile(info.FullName) };
+            return new PublishedFile { Size = info.Length, ModifiedUtcTicks = info.LastWriteTimeUtc.Ticks, Hash = ChangelogHash(info.FullName) ?? HashFile(info.FullName) };
         }
 
         private static IEnumerable<string> EnumerateFiles(string contentFolder)
@@ -184,6 +184,19 @@ namespace DW2ModLauncher.Core.Services.Publishing
             string root = Path.GetFullPath(contentFolder);
             return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
                 .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'));
+        }
+
+        /// <summary>
+        /// For changelog.txt only (null for any other file): the hash with an empty "## Unreleased" heading left out. A publish leaves that
+        /// heading behind, so with or without it the changelog is the same as what was published. Records made before this existed hold the
+        /// plain hash, which <see cref="Compare"/> still accepts.
+        /// </summary>
+        private static string ChangelogHash(string path)
+        {
+            if (!string.Equals(Path.GetFileName(path), ModChangelog.FileName, StringComparison.OrdinalIgnoreCase)) return null;
+            string canonical = ModChangelog.WithoutEmptyUnreleased(File.ReadAllText(path, Encoding.UTF8));
+            using (SHA256 sha = SHA256.Create())
+                return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(canonical)));
         }
 
         /// <summary>

@@ -1,3 +1,7 @@
+## v1.0.22
+- Publish and Edit Properties both propose the next version and its unpublished notes
+- An empty Unreleased heading in changelog.txt is no longer a change
+
 ## v1.0.21
 - Open Game Folder button in About, and on right-click of the info button
 - Code mods can tell when a real game has started (game state), so they stop warning about menu data
