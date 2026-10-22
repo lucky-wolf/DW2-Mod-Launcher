@@ -1,4 +1,5 @@
 ## v1.0.21
+- Rename Mod renames the folder, cover art and stored settings with it
 
 ## v1.0.20
 - hooksCoordinatedWith can name one version ("Mod@1.2.3")

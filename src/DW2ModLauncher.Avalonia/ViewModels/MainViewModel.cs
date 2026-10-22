@@ -109,6 +109,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             CheckUpdatesCommand = new RelayCommand(() => BeginWorkshopUpdateCheck(true), () => !updateCheckRunning && workshopMods.Count > 0);
             CreateModCommand = new RelayCommand(CreateModAsync);
             DeleteModCommand = new RelayCommand(DeleteModAsync, () => selectedRow != null && LocalModManager.CanDelete(selectedRow.Mod, settings.ManagedModsRoot));
+            RenameModCommand = new RelayCommand(RenameModAsync, () => selectedRow != null && LocalModManager.CanRename(selectedRow.Mod, settings.ManagedModsRoot));
 
             Mods.CollectionChanged += delegate { if (!populating) SyncVisibleMods(); };
             PathDetector.Detect(settings, false);
@@ -285,6 +286,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand EditPropertiesCommand { get; }
         public RelayCommand CreateModCommand { get; }
         public RelayCommand DeleteModCommand { get; }
+        public RelayCommand RenameModCommand { get; }
         public RelayCommand MarkUpToDateCommand { get; }
 
         public ModRowViewModel SelectedRow
@@ -305,6 +307,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 PublishCommand.RaiseCanExecuteChanged();
                 EditPropertiesCommand.RaiseCanExecuteChanged();
                 DeleteModCommand.RaiseCanExecuteChanged();
+                RenameModCommand.RaiseCanExecuteChanged();
             }
         }
 
@@ -1275,6 +1278,52 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 Logger.LogException("Delete local Mod", ex);
                 await Dialogs.ShowMessageAsync(T("DeleteModFailed", ex.Message), "DW2 Mod Launcher");
+                Refresh();
+            }
+        }
+
+        private async Task RenameModAsync()
+        {
+            if (selectedRow == null) return;
+            ModInfo mod = selectedRow.Mod;
+            if (!LocalModManager.CanRename(mod, settings.ManagedModsRoot)) return;
+            string oldName = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
+            if (GameProcess.IsRunning())
+            {
+                await Dialogs.ShowMessageAsync(T("GameRunningWarning"), "DW2 Mod Launcher");
+                return;
+            }
+            string currentFolder = Path.GetFileName(mod.Folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            string typed = await Dialogs.PromptTextAsync(T("RenameModTitle"), T("RenameModLabel", oldName), oldName, T("OK"), T("Cancel"),
+                text =>
+                {
+                    if (string.IsNullOrWhiteSpace(text)) return "";
+                    string folder = LocalModManager.FolderNameFor(text);
+                    bool taken = !string.Equals(folder, currentFolder, StringComparison.OrdinalIgnoreCase) && Directory.Exists(Path.Combine(settings.ManagedModsRoot, folder));
+                    return taken ? T("RenameModFolderTaken", folder) : T("RenameModFolderPreview", folder);
+                },
+                isInvalid: text =>
+                {
+                    if (string.IsNullOrWhiteSpace(text)) return true;
+                    string folder = LocalModManager.FolderNameFor(text);
+                    return !string.Equals(folder, currentFolder, StringComparison.OrdinalIgnoreCase) && Directory.Exists(Path.Combine(settings.ManagedModsRoot, folder));
+                });
+            if (typed == null || string.Equals(typed.Trim(), oldName, StringComparison.Ordinal)) return;
+            try
+            {
+                ModRenameResult result = ModRenamer.Rename(mod, typed, settings, modOrder, AllMods);
+                if (result.SettingsChanged) SaveSettings();
+                Refresh();
+                SelectedRow = Mods.FirstOrDefault(r => string.Equals(r.Mod.ActiveToken, result.NewToken, StringComparison.OrdinalIgnoreCase)) ?? SelectedRow;
+                SetStatus(T("ModRenamedStatus", typed.Trim()));
+                List<string> notes = new List<string>(result.Problems);
+                if (result.BrokenDependents.Count > 0) notes.Add(T("RenameModBrokenDependents", string.Join(", ", result.BrokenDependents)));
+                if (notes.Count > 0) await Dialogs.ShowMessageAsync(T("RenameModProblems", string.Join("\n", notes)), "DW2 Mod Launcher");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Rename local Mod", ex);
+                await Dialogs.ShowMessageAsync(T("RenameModFailed", ex.Message), "DW2 Mod Launcher");
                 Refresh();
             }
         }
