@@ -60,6 +60,29 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Rename_MovesAsideDllsCarryingTheOldName_AndLeavesOthers()
+        {
+            string root = MakeRoot();
+            try
+            {
+                string folder = LocalModManager.Create(root, "Music Box");
+                File.WriteAllText(Path.Combine(folder, "DW2MusicBox.dll"), "x");
+                File.WriteAllText(Path.Combine(folder, "Unrelated.dll"), "x");
+                LauncherSettings settings = new LauncherSettings { ManagedModsRoot = root };
+                ModInfo mod = ModScanner.ReadModInfo(folder, Path.Combine(folder, "mod.json"), false, k => k);
+                Assert.Equal(new[] { "DW2MusicBox.dll" }, ModRenamer.DllsMovedByRename(mod));
+
+                ModRenameResult result = ModRenamer.Rename(mod, "Mo Music", settings, new ModOrderState(), new[] { mod }, Path.Combine(root, "backup"));
+
+                string newFolder = Path.Combine(root, "Mo Music");
+                Assert.False(File.Exists(Path.Combine(newFolder, "DW2MusicBox.dll")));
+                Assert.True(File.Exists(Path.Combine(newFolder, "Unrelated.dll")));
+                Assert.True(File.Exists(Path.Combine(result.DllBackupFolder, "DW2MusicBox.dll")));
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Fact]
         public void Rename_Refuses_ExistingFolder_AndChangesNothing()
         {
             string root = MakeRoot();

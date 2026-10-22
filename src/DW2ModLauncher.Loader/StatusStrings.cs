@@ -64,6 +64,7 @@ namespace DW2ModLauncher.Loader
             ["WidgetTextNoApi"] = "text file hook failed: no file API could be hooked",
             ["WidgetTitlesNoGetText"] = "translated tour/article titles are not matched: TextResolver.GetText not found",
             ["WidgetTitlesMethodMissing"] = "translated titles are not matched: {0} not found (game update?)",
+            ["WidgetGameStateNotHooked"] = "the start of a game is not tracked: {0} not found (game update?); mods that wait for a real game will not warn",
             ["WidgetPatchesNoFileSystem"] = "XML patches are not applied: the game's file system was not found",
             ["WidgetPatchesNoOpenStream"] = "XML patches are not applied: OpenStream could not be hooked",
             ["WidgetToursNotPatched"] = "tutorial tours are not patched: the data provider could not be hooked",

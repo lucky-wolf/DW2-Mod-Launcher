@@ -68,6 +68,7 @@ namespace DW2ModLauncher.Loader
             InstallFontBundles(manifest, logDir);
             InstallTextFiles(manifest, logDir);
             InstallTitleLookup(manifest, logDir);
+            InstallGameState(logDir);
 
             foreach (LoaderManifestEntry entry in manifest?.Entries ?? new System.Collections.Generic.List<LoaderManifestEntry>())
                 LoadOne(entry);
@@ -142,6 +143,21 @@ namespace DW2ModLauncher.Loader
             catch (Exception ex)
             {
                 Log("ERROR: font bundle support could not be installed (mods are unaffected): " + ex);
+            }
+        }
+
+        // Own method for the same reason as InstallXmlPatching. Before the mods, so GameState.Generation is already there when a mod asks.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InstallGameState(string baseDir)
+        {
+            try
+            {
+                GameState.Install(baseDir);
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR: game state could not be tracked (mods that wait for a real game will not warn): " + ex);
+                HookStatus.Warn("gamestate", StatusStrings.Get("WidgetGameStateNotHooked", ex.Message), _logPath);
             }
         }
 
