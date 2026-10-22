@@ -1,5 +1,7 @@
 ## v1.0.21
-- Rename Mod renames the folder, cover art and stored settings with it
+- Open Game Folder button in About, and on right-click of the info button
+- Code mods can tell when a real game has started (game state), so they stop warning about menu data
+- Rename Mod renames the folder, deletes the old DLL, renames the cover art and stored settings with it
 
 ## v1.0.20
 - hooksCoordinatedWith can name one version ("Mod@1.2.3")

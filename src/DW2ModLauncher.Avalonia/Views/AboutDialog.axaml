@@ -19,6 +19,8 @@
         <Button Name="CheckUpdateButton" Content="{Binding L[AboutCheckForUpdates]}" MinWidth="170" />
         <CheckBox IsChecked="{Binding CheckForLauncherUpdates}" Content="{Binding L[AboutAutoCheckUpdates]}" VerticalAlignment="Center" />
       </StackPanel>
+      <Button Content="{Binding L[OpenGameFolder]}" Command="{Binding OpenGameFolderCommand}" MinWidth="170" HorizontalAlignment="Left"
+              ToolTip.Tip="{Binding L[OpenGameFolderTooltip]}" />
       <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding L[AboutDisclaimer]}" />
     </StackPanel>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">

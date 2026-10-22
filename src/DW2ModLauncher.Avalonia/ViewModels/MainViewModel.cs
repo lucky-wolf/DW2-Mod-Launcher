@@ -99,6 +99,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             gameWatchTimer.Start();
             var first = WatchGameAsync();
             OpenSelectedFolderCommand = new RelayCommand(OpenModFolder, () => selectedRow != null);
+            OpenGameFolderCommand = new RelayCommand(OpenGameFolder);
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage, () => SteamPageId(selectedRow) != null);
             OpenDocsCommand = new RelayCommand(OpenDocsAsync, () => selectedRow != null && selectedRow.Mod.IncludedDocuments != null && selectedRow.Mod.IncludedDocuments.Count > 0);
             ModSettingsCommand = new RelayCommand(OpenModSettingsAsync, () => HasModSettings(selectedRow));
@@ -132,6 +133,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public RelayCommand OpenSettingsCommand { get; }
         public RelayCommand OpenAboutCommand { get; }
+        /// <summary>Opens the game's install folder (data/Logs, data/SavedGames and mods are under it) for players who are asked to send a log or a save.</summary>
+        public RelayCommand OpenGameFolderCommand { get; }
         public RelayCommand HookReportCommand { get; }
         /// <summary>The hooks report for the selected mod alone, at one level: only its conflicts or only its cautions, and acknowledging covers only those.</summary>
         public RelayCommand SelectedConflictReportCommand { get; }
@@ -1005,6 +1008,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex) { var _ = Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher"); }
         }
 
+        private void OpenGameFolder()
+        {
+            string path = settings.GameRoot;
+            try
+            {
+                if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) { var _ = Dialogs.ShowMessageAsync(T("FolderNotFound"), "DW2 Mod Launcher"); return; }
+                PlatformShell.Create().OpenFolder(path);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Open game folder", ex);
+                var _ = Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+            }
+        }
+
         private async Task OpenDocsAsync()
         {
             if (selectedRow == null) return;
@@ -1309,6 +1327,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     return !string.Equals(folder, currentFolder, StringComparison.OrdinalIgnoreCase) && Directory.Exists(Path.Combine(settings.ManagedModsRoot, folder));
                 });
             if (typed == null || string.Equals(typed.Trim(), oldName, StringComparison.Ordinal)) return;
+            string plannedFolder = LocalModManager.FolderNameFor(typed);
+            if (!string.Equals(plannedFolder, currentFolder, StringComparison.Ordinal))
+            {
+                List<string> oldDlls = ModRenamer.DllsMovedByRename(mod);
+                string dllLine = oldDlls.Count == 0 ? "" : T("RenameModConfirmDlls", string.Join(", ", oldDlls));
+                if (!await Dialogs.ConfirmAsync(T("RenameModConfirm", oldName, typed.Trim(), plannedFolder, dllLine), T("RenameModConfirmTitle"), T("OK"), T("Cancel"))) return;
+            }
             try
             {
                 ModRenameResult result = ModRenamer.Rename(mod, typed, settings, modOrder, AllMods);
@@ -1317,6 +1342,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 SelectedRow = Mods.FirstOrDefault(r => string.Equals(r.Mod.ActiveToken, result.NewToken, StringComparison.OrdinalIgnoreCase)) ?? SelectedRow;
                 SetStatus(T("ModRenamedStatus", typed.Trim()));
                 List<string> notes = new List<string>(result.Problems);
+                if (result.DllBackupFolder != null) notes.Add(T("RenameModDllMoved", result.DllBackupFolder));
                 if (result.BrokenDependents.Count > 0) notes.Add(T("RenameModBrokenDependents", string.Join(", ", result.BrokenDependents)));
                 if (notes.Count > 0) await Dialogs.ShowMessageAsync(T("RenameModProblems", string.Join("\n", notes)), "DW2 Mod Launcher");
             }
