@@ -1,5 +1,9 @@
 ## Unreleased
 
+## 1.0.23 (2026-10-23)
+- Cover art browse opens where you last picked art, first in Downloads
+- Mod folder settings accept %DW2%, %APPDATA%, %DOCUMENTS%, %USERPROFILE%
+
 ## 1.0.22 (2026-10-23)
 - Publish and Edit Properties both propose the next version and its unpublished notes
 - An empty Unreleased heading in changelog.txt is no longer a change

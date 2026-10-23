@@ -34,17 +34,29 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>
         /// Whether the text is acceptable for the kind. Blank is always fine (the mod falls back to its default);
         /// a folder must be an existing directory and a filename an existing file. Other kinds are never invalid.
+        /// A %TOKEN% folder name (see <see cref="PathTokens"/>) is expanded first; an unknown one is invalid.
         /// </summary>
-        public static bool IsValidPath(ModSettingKind kind, string text)
+        public static bool IsValidPath(ModSettingKind kind, string text, string gameRoot = null)
         {
-            if (kind != ModSettingKind.Folder && kind != ModSettingKind.File) return true;
-            if (string.IsNullOrWhiteSpace(text)) return true;
-            try
-            {
-                string path = text.Trim();
-                return kind == ModSettingKind.Folder ? System.IO.Directory.Exists(path) : System.IO.File.Exists(path);
-            }
-            catch { return false; }
+            return PathProblemKey(kind, text, gameRoot, out _, out _) == null;
+        }
+
+        /// <summary>
+        /// What is wrong with a folder/file text, as the suffix of a language key ("NotFound" or the <see cref="PathTokenProblem"/> name), or null.
+        /// A path written with a %NAME% is only wrong when the name is unknown: that the name resolves is what matters, not that the folders under
+        /// it exist, and a name that cannot be resolved yet (no game folder set) is reported when the game is launched, never here, so the
+        /// dialog can always be left. A plain path must exist. <paramref name="expanded"/> is the host path when it could be worked out.
+        /// </summary>
+        public static string PathProblemKey(ModSettingKind kind, string text, string gameRoot, out string expanded, out string detail)
+        {
+            expanded = null;
+            detail = null;
+            if ((kind != ModSettingKind.Folder && kind != ModSettingKind.File) || string.IsNullOrWhiteSpace(text)) return null;
+            PathExpansion result = PathTokens.ExpandForHost(text, gameRoot);
+            expanded = result.Ok ? result.Path : null;
+            if (result.Problem == PathTokenProblem.UnknownToken) { detail = result.Detail; return nameof(PathTokenProblem.UnknownToken); }
+            if (PathTokens.HasToken(text)) return null;
+            return (kind == ModSettingKind.Folder ? System.IO.Directory.Exists(result.Path) : System.IO.File.Exists(result.Path)) ? null : "NotFound";
         }
 
         public static bool ToBool(JsonNode current)

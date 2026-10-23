@@ -82,6 +82,12 @@ namespace DW2ModLauncher.Avalonia.Services
             return folders.Count == 0 ? null : folders[0].TryGetLocalPath();
         }
 
+        public async Task<string> DownloadsFolderAsync()
+        {
+            IStorageFolder folder = await owner().StorageProvider.TryGetWellKnownFolderAsync(WellKnownFolder.Downloads);
+            return folder?.TryGetLocalPath();
+        }
+
         public async Task<string> PickFileAsync(string title, string startFolder, string filterName, params string[] patterns)
         {
             FilePickerOpenOptions options = new FilePickerOpenOptions

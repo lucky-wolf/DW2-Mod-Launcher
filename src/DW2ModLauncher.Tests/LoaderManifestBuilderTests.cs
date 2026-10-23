@@ -193,6 +193,34 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Build_HandsTheModAnExpandedPath_AndKeepsTheStoredTokenIntact()
+        {
+            string game = Path.Combine(Path.GetTempPath(), "dw2-tokens-" + Guid.NewGuid().ToString("N"));
+            string dir = MakeModDir("SomeMod.dll");
+            string token = "test/tokens-" + Guid.NewGuid().ToString("N");
+            ModInfo mod = ModAt(dir);
+            mod.Id = token;
+            mod.ActiveToken = token;
+            string settingsPath = ModSettingsStore.GetSettingsPath(mod);
+            try
+            {
+                File.WriteAllText(Path.Combine(dir, "settings.schema.json"),
+                    @"{ ""fields"": [ { ""key"": ""Out"", ""type"": ""folder"", ""default"": ""%DW2%\\data\\Logs"" } ] }");
+
+                LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { mod }, null, game);
+
+                Assert.Equal(GamePaths.ToGameVisiblePath(game) + @"\data\Logs", System.Text.Json.Nodes.JsonNode.Parse(manifest.Entries[0].SettingsJson)["Out"].GetValue<string>());
+                Assert.Equal(@"%DW2%\data\Logs", ModSettingsStore.GetOrCreateValues(mod, ModSettingsSchemaReader.Read(dir))["Out"].GetValue<string>());
+                Assert.Throws<PathTokenException>(() => LoaderManifestBuilder.Build(new List<ModInfo> { mod }, null, null));
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+                if (File.Exists(settingsPath)) File.Delete(settingsPath);
+            }
+        }
+
+        [Fact]
         public void Build_ListsPatchFiles_ForModsWithoutAnyDll_InOrdinalPathOrder()
         {
             string dir = MakeModDir();

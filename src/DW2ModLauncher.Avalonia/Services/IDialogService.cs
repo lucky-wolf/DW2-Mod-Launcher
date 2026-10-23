@@ -30,6 +30,8 @@ namespace DW2ModLauncher.Avalonia.Services
         Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint, IList<string> choices = null, Func<string, bool> isInvalid = null);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFolderAsync(string title, string startFolder);
+        /// <summary>The user's Downloads folder as the system reports it (a redirected one is followed), or null if the system has none.</summary>
+        Task<string> DownloadsFolderAsync();
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFileAsync(string title, string startFolder, string filterName, params string[] patterns);
         /// <summary>Shows the launcher settings in a modal window; completes when it is closed. Pickers and messages opened from it sit on top of it.</summary>

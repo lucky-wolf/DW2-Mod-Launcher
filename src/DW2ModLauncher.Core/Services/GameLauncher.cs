@@ -48,9 +48,9 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>Writes manifest.json beside the loader DLL; the loader reads it at --low-level-inject time.</summary>
-        public static LoaderManifest WriteLoaderManifest(IEnumerable<ModInfo> orderedEnabledMods, string logDirectory = "", Dictionary<string, string> strings = null, string language = null)
+        public static LoaderManifest WriteLoaderManifest(IEnumerable<ModInfo> orderedEnabledMods, string logDirectory = "", Dictionary<string, string> strings = null, string language = null, string gameRoot = null)
         {
-            LoaderManifest manifest = LoaderManifestBuilder.Build(orderedEnabledMods.ToList(), language);
+            LoaderManifest manifest = LoaderManifestBuilder.Build(orderedEnabledMods.ToList(), language, gameRoot);
             manifest.LogDirectory = string.IsNullOrWhiteSpace(logDirectory) ? "" : GamePaths.ToGameVisiblePath(logDirectory.Trim());
             manifest.ObservedHooksPath = GamePaths.ToGameVisiblePath(HookFiles.ObservedPath());
             if (strings != null) manifest.Strings = strings;
