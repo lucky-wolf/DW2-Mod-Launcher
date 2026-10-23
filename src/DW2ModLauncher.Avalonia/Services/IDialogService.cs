@@ -17,6 +17,8 @@ namespace DW2ModLauncher.Avalonia.Services
     public interface IDialogService
     {
         /// <summary>Label of the single button on message boxes; the main view model keeps it in the current language.</summary>
+        /// <summary>Whether any window is open over the main one (settings, publish, a message): the list must not be rebuilt under it.</summary>
+        bool IsDialogOpen { get; }
         string OkText { get; set; }
         string CopyText { get; set; }
         string OpenLogText { get; set; }

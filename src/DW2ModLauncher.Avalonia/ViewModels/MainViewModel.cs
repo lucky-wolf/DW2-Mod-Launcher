@@ -99,7 +99,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 LaunchMode = (LaunchMode)Enum.Parse(typeof(LaunchMode), (string)mode);
             });
             gameWatchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-            gameWatchTimer.Tick += delegate { var _ = WatchGameAsync(); };
+            gameWatchTimer.Tick += delegate { var _ = WatchGameAsync(); RescanIfPending(); };
+            folderWatcher.Changed += () => Dispatcher.UIThread.Post(delegate { rescanPending = true; RescanIfPending(); });
+            folderWatcher.Failed += message => Dispatcher.UIThread.Post(delegate
+            {
+                if (watchFailureShown) return;
+                watchFailureShown = true;
+                AddProblem(message);
+                ReportProblems();
+            });
             gameWatchTimer.Start();
             var first = WatchGameAsync();
             OpenSelectedFolderCommand = new RelayCommand(OpenModFolder, () => selectedRow != null);
@@ -276,6 +284,32 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             SetGameState(GameState.Idle);
             RefreshAfterGame();
             SetStatus(T("GameStopped"));
+        }
+
+        private readonly ModFolderWatcher folderWatcher = new ModFolderWatcher(TimeSpan.FromMilliseconds(1500), TimeSpan.FromSeconds(4));
+        private bool rescanPending;
+        private bool watchFailureShown;
+
+        /// <summary>Set by the mod list while a row is being dragged.</summary>
+        public bool DragActive { get; set; }
+
+        /// <summary>The launcher's window came to the front: rescans if the mod folders changed while it was behind another.</summary>
+        public void CheckModFolders()
+        {
+            folderWatcher.CheckNow();
+        }
+
+        /// <summary>
+        /// Rescans after the mod folders changed. Not while the game runs (the rescan on exit covers it), and not under a dialog or mid-drag, which
+        /// would lose the user's place; it waits for the next tick of the game-watch timer instead.
+        /// </summary>
+        private void RescanIfPending()
+        {
+            if (!rescanPending || gameState != GameState.Idle || DragActive || Dialogs.IsDialogOpen) return;
+            rescanPending = false;
+            Logger.Log("ModFolderWatcher", "Mod folders changed; rescanning.");
+            RefreshAfterGame();
+            SetStatus(T("ModFoldersRescanned"));
         }
 
         /// <summary>Mods can write files while the game runs (generated mods, logs, reports), so rescan once it has exited, the same as pressing Refresh.</summary>
@@ -501,6 +535,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             SyncEnabledModSettings();
             Settings.LoadFromSettings();
             UpdateStatus();
+            folderWatcher.Watch(settings.ManagedModsRoot, settings.WorkshopRoot);
             ReportProblems();
         }
 
