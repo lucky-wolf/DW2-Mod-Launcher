@@ -1,24 +1,24 @@
 """changelog.txt (repo root): the running record of what every release changed, newest first, in the same layout the mods use.
 
-    ## v1.0.15
-    - what the branch for that version has done so far
+    ## Unreleased
+    - what the branch has done so far
 
-    ## v1.0.14
+    ## 1.0.14 (2026-10-01)
     - ...
 
-The top section is the work in progress: new-branch.py starts it (a heading for the next release tag above the old ones) and
-open-pr.py reads its '- ' lines as the PR description. Nothing is ever emptied or deleted, so the file grows into the full history.
-Contributors' merged PRs leave their own section on main, which is why a rebase rebuilds the file from main plus this branch's lines.
+The top section is always "Unreleased": it is the work in progress, and open-pr.py reads its '- ' lines as the PR description.
+Nothing here stamps it. The launcher stamps it with the version and date when it publishes (on the copy in the mod folder, which
+lib/mod_sync.py pulls back into this file). Contributors' merged PRs add lines to Unreleased on main, which is why a rebase rebuilds the
+file from main plus this branch's lines.
 """
 
 import subprocess
 from pathlib import Path
 
-from . import release_version
-
 CHANGELOG_PATH = Path("changelog.txt")
 
 HEADING_PREFIX = "## "
+UNRELEASED = "Unreleased"
 
 
 class Section:
@@ -63,13 +63,12 @@ def render(sections: list[Section]) -> str:
     return "\n\n".join(parts) + "\n"
 
 
-def top_section(text: str) -> Section | None:
-    """The newest section: the first one with a heading."""
-    return next((s for s in parse(text) if s.heading is not None), None)
+def is_unreleased(section: Section) -> bool:
+    return section.heading is not None and section.heading.strip().lower() == UNRELEASED.lower()
 
 
-def _section_named(text: str, heading: str | None) -> Section | None:
-    return next((s for s in parse(text) if s.heading is not None and s.heading == heading), None)
+def unreleased_section(text: str) -> Section | None:
+    return next((s for s in parse(text) if is_unreleased(s)), None)
 
 
 def _read(repo_root: Path) -> str:
@@ -88,66 +87,52 @@ def _text_at(repo_root: Path, rev: str) -> str:
     return shown.stdout if shown.returncode == 0 else ""
 
 
-def current_heading(repo_root: Path) -> str | None:
-    """The heading of the working-tree file's top section (the version being worked on), None when there is none."""
-    top = top_section(_read(repo_root))
-    return top.heading if top else None
-
-
 def read_entries(repo_root: Path) -> list[str]:
-    """The '- ' lines of the working-tree file's top section, bullet marker stripped. Empty when the file or section is missing."""
-    top = top_section(_read(repo_root))
-    return top.entries() if top else []
+    """The '- ' lines of the working-tree file's Unreleased section, bullet marker stripped. Empty when the file or section is missing."""
+    section = unreleased_section(_read(repo_root))
+    return section.entries() if section else []
 
 
 def _added(text: str, base_text: str) -> list[str]:
-    """The top section's entries in `text` that the same-named section of `base_text` does not have."""
-    top = top_section(text)
-    if top is None:
+    """The Unreleased entries in `text` that the Unreleased section of `base_text` does not have."""
+    section = unreleased_section(text)
+    if section is None:
         return []
-    base = _section_named(base_text, top.heading)
+    base = unreleased_section(base_text)
     already = set(base.entries()) if base else set()
-    return [entry for entry in top.entries() if entry not in already]
+    return [entry for entry in section.entries() if entry not in already]
 
 
 def entries_added_since(repo_root: Path, rev: str) -> list[str]:
-    """This branch's own entries: the working-tree top section's lines that the same section at `rev` did not have
+    """This branch's own entries: the working-tree Unreleased lines that the same section at `rev` did not have
     (committed on the branch or not)."""
     return _added(_read(repo_root), _text_at(repo_root, rev))
 
 
 def stash_entries(repo_root: Path, stash_sha: str) -> list[str]:
-    """The entries a stash added to the top section: those in the stashed file but not in the commit it was made on.
+    """The entries a stash added to Unreleased: those in the stashed file but not in the commit it was made on.
     Lets new-branch carry them onto a fresh branch without ever merging the file itself."""
     return _added(_text_at(repo_root, stash_sha), _text_at(repo_root, f"{stash_sha}^1"))
 
 
-def is_released(repo_root: Path) -> bool:
-    """True when the top section's heading names a release tag that already exists: the section is finished work,
-    so a branch that never started its own is about to describe its PR with someone else's lines."""
-    heading = current_heading(repo_root)
-    return heading is not None and release_version.tag_exists(repo_root, heading)
-
-
-def start_section(repo_root: Path, heading: str) -> None:
-    """Puts a section with this heading on top, above the older ones. Does nothing when the top section already has it
-    (an earlier branch for the same version that never released, e.g. a housekeeping one)."""
+def ensure_unreleased(repo_root: Path) -> None:
+    """Puts an empty Unreleased section on top, above the versions, when the file has none. Does nothing otherwise."""
     text = _read(repo_root)
-    top = top_section(text)
-    if top is not None and top.heading == heading:
+    if unreleased_section(text) is not None:
         return
     sections = parse(text)
     first = next((i for i, s in enumerate(sections) if s.heading is not None), len(sections))
-    sections.insert(first, Section(heading))
+    sections.insert(first, Section(UNRELEASED))
     _write(repo_root, render(sections))
 
 
 def append(repo_root: Path, entries: list[str]) -> None:
-    """Adds each entry the top section does not list yet, after its existing lines."""
-    top = top_section(_read(repo_root))
-    if top is None:
-        raise RuntimeError(f"{CHANGELOG_PATH} has no '## <version>' section to add entries to - start_section first")
-    present = set(top.entries())
+    """Adds each entry Unreleased does not list yet, after its existing lines."""
+    text = _read(repo_root)
+    section = unreleased_section(text)
+    if section is None:
+        raise RuntimeError(f"{CHANGELOG_PATH} has no '## {UNRELEASED}' section to add entries to - ensure_unreleased first")
+    present = set(section.entries())
     missing = []
     for entry in entries:
         if entry not in present:
@@ -155,14 +140,14 @@ def append(repo_root: Path, entries: list[str]) -> None:
             missing.append(entry)
     if not missing:
         return
-    sections = parse(_read(repo_root))
-    section = next(s for s in sections if s.heading is not None)
-    section.lines = _trimmed(section.lines) + [f"- {entry}" for entry in missing]
+    sections = parse(text)
+    target = next(s for s in sections if is_unreleased(s))
+    target.lines = _trimmed(target.lines) + [f"- {entry}" for entry in missing]
     _write(repo_root, render(sections))
 
 
-def rebuild_from(repo_root: Path, rev: str, heading: str, entries: list[str]) -> None:
-    """The file as it is at `rev`, plus a section for `heading` on top holding `entries`. What a rebase leaves behind."""
+def rebuild_from(repo_root: Path, rev: str, entries: list[str]) -> None:
+    """The file as it is at `rev`, plus these entries in its Unreleased section. What a rebase leaves behind."""
     _write(repo_root, _text_at(repo_root, rev))
-    start_section(repo_root, heading)
+    ensure_unreleased(repo_root)
     append(repo_root, entries)

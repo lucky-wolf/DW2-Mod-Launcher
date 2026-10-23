@@ -6,18 +6,17 @@ What the Steam page says about the launcher lives in that mod folder, which the 
     Kept in step the way the DLL mods in DW2-XL do it (scripts/build-dlls.py): a copy missing from either side is copied over;
     when both exist and differ, the newer one is offered as the replacement for the older (default yes). The description may use
     {version}, {date} and {changes} (see "Mod Author README.md"); the launcher fills them in when it publishes.
-  - changelog.txt  ->  mods/DW2 Mod Launcher/changelog.txt
-    This repo's changelog has no Unreleased section: its newest section is the version about to be published. The mod folder gets the
-    same sections (a leading "v" dropped from each heading, since the launcher names versions without it), so publishing that version
-    sends its section as the Steam change note and `{changes}` in the description lists it. Nothing is stamped afterwards (there is no
-    Unreleased section to stamp). An Unreleased section already in the mod folder, which the publish dialog's change notes box creates, is
-    kept above the mirrored sections. The mod folder's version is not touched; the newest section's version is what to publish it as.
+  - changelog.txt  <->  mods/DW2 Mod Launcher/changelog.txt
+    Both have an "Unreleased" section on top, as every other mod does; nothing in these scripts stamps a version. The launcher stamps
+    the mod folder's copy when it publishes ("## <version> (<date>)", a fresh empty Unreleased above it), and the next run adopts that
+    stamp into the repo's changelog and drops the Unreleased lines it shipped. The mod folder gets the repo's sections (a leading "v"
+    dropped from the old headings, since the launcher names versions without it); Unreleased lines only the mod folder has are kept.
+    The mod folder's version is not touched.
 
 Run by scripts/build.py and scripts/open-pr.py. The game folder comes from --path, else DW2_PATH, else the platform's usual Steam
 location. Without a game install or without the DW2 Mod Launcher folder there is nothing to sync, and it says so.
 """
 
-import json
 import os
 import re
 import shutil
@@ -28,7 +27,6 @@ from . import changelog, output
 MOD_FOLDER = "DW2 Mod Launcher"
 REPO_DIR = "mod"
 DESCRIPTION = "description.bbcode"
-UNRELEASED = "unreleased"
 
 
 def default_install_path() -> Path:
@@ -103,48 +101,62 @@ def _sync_file(repo_file: Path, mod_file: Path, dry_run: bool, assume_yes: bool)
         shutil.copy2(src, dst)
 
 
-def _is_unreleased(section: changelog.Section) -> bool:
-    return section.heading is not None and section.heading.strip().lower() == UNRELEASED
-
-
 def _mod_heading(heading: str | None) -> str | None:
-    """The repo's "v1.0.17" heading as the launcher names that version: "1.0.17"."""
+    """The repo's old "v1.0.17" heading as the launcher names that version: "1.0.17"."""
     if heading is not None and re.fullmatch(r"v\d.*", heading.strip()):
         return heading.strip()[1:]
     return heading
 
 
-def sync_changelog(repo_changelog: Path, mod_changelog: Path, mod_json: Path, dry_run: bool) -> None:
-    """Mirrors the repo changelog's sections into the mod folder's changelog, keeping an Unreleased section the mod folder already has."""
-    label = f"changelog.txt (repo -> mods/{MOD_FOLDER})"
+def _version_key(heading: str | None) -> tuple[int, ...]:
+    m = re.match(r"^v?(\d+(?:\.\d+)*)", (heading or "").strip())
+    return tuple(int(n) for n in m.group(1).split(".")) if m else ()
+
+
+def sync_changelog(repo_changelog: Path, mod_changelog: Path, dry_run: bool) -> None:
+    """Keeps the repo's changelog and the mod folder's in step. Both keep an Unreleased section on top; the launcher stamps the mod
+    folder's copy when it publishes, and that stamp (a version section newer than any the repo lists) is adopted into the repo, the
+    Unreleased lines it shipped dropped. Unreleased lines only the mod folder has (typed in the publish dialog) are kept."""
+    label = f"changelog.txt (repo <-> mods/{MOD_FOLDER})"
     if not repo_changelog.is_file():
         output.info(f"{label}: the repo has no changelog.txt")
         return
-    mirrored = [changelog.Section(_mod_heading(s.heading), list(s.lines)) for s in changelog.parse(repo_changelog.read_text(encoding="utf-8"))]
-    if any(_is_unreleased(s) for s in mirrored):
-        output.fail(f"{repo_changelog} has an Unreleased section; the launcher's changelog names its newest version instead")
-    kept = []
-    if mod_changelog.is_file():
-        kept = [s for s in changelog.parse(mod_changelog.read_text(encoding="utf-8")) if _is_unreleased(s) and s.entries()]
-    # the preamble (if any) stays first, then the kept Unreleased, then the versions newest first
-    sections = [mirrored[0], *kept, *mirrored[1:]]
-    text = changelog.render(sections)
-    if mod_changelog.is_file() and mod_changelog.read_bytes().decode("utf-8").splitlines() == text.splitlines():
+    repo = changelog.parse(repo_changelog.read_text(encoding="utf-8"))
+    mod = changelog.parse(mod_changelog.read_text(encoding="utf-8")) if mod_changelog.is_file() else []
+
+    repo_versions = [s for s in repo if s.heading is not None and not changelog.is_unreleased(s)]
+    newest = max((_version_key(s.heading) for s in repo_versions), default=())
+    # a publish stamps the lines it sent, so a newer version section with none is not a stamp (the old scripts mirrored an empty
+    # "## v1.0.23" into the mod folder); it is not adopted and the repo's copy overwrites it
+    adopted = [s for s in mod if s.heading is not None and not changelog.is_unreleased(s) and _version_key(s.heading) > newest and s.entries()]
+    shipped = {entry for s in adopted for entry in s.entries()}
+
+    unreleased = [e for s in repo if changelog.is_unreleased(s) for e in s.entries() if e not in shipped]
+    known = set(unreleased)
+    for s in mod:
+        if changelog.is_unreleased(s):
+            for entry in s.entries():
+                if entry not in known and entry not in shipped:
+                    known.add(entry)
+                    unreleased.append(entry)
+
+    versions = sorted(repo_versions + adopted, key=lambda s: _version_key(s.heading), reverse=True)
+    sections = [repo[0], changelog.Section(changelog.UNRELEASED, [f"- {e}" for e in unreleased]), *versions]
+    repo_text = changelog.render(sections)
+    mod_text = changelog.render([changelog.Section(s.heading if s.heading is None else _mod_heading(s.heading), s.lines) for s in sections])
+
+    for section in adopted:
+        output.replace(f"{label}: adopted '{section.heading}', stamped by the launcher when it published")
+    if repo_changelog.read_bytes().decode("utf-8").splitlines() != repo_text.splitlines():
+        output.replace(f"{label}: repo changelog updated")
+        if not dry_run:
+            repo_changelog.write_bytes(repo_text.encode("utf-8"))
+    if mod_changelog.is_file() and mod_changelog.read_bytes().decode("utf-8").splitlines() == mod_text.splitlines():
         output.info(f"{label}: in sync")
     else:
-        output.replace(f"{label}: mirrored the repo's sections" + (" (kept the mod folder's Unreleased notes)" if kept else ""))
+        output.replace(f"{label}: mods/{MOD_FOLDER} changelog updated from the repo")
         if not dry_run:
-            mod_changelog.write_bytes(text.encode("utf-8"))
-    newest = next((s.heading for s in sections if s.heading is not None and not _is_unreleased(s)), None)
-    version = _mod_version(mod_json)
-    if newest is not None and version != newest.split()[0]:
-        output.notice(f"the item's version is {version or 'unset'} but the newest changelog section is {newest}: publish it as {newest.split()[0]} so its section is the change note")
-
-
-def _mod_version(mod_json: Path) -> str | None:
-    if not mod_json.is_file():
-        return None
-    return json.loads(mod_json.read_text(encoding="utf-8-sig")).get("version")
+            mod_changelog.write_bytes(mod_text.encode("utf-8"))
 
 
 def _mod_dir(game_path: Path | None) -> Path | None:
@@ -160,31 +172,6 @@ def _mod_dir(game_path: Path | None) -> Path | None:
     return mod_dir
 
 
-def set_version(version: str, game_path: Path | None = None, dry_run: bool = False) -> None:
-    """Sets "version" in the mod folder's mod.json (just that value; the rest of the file is left byte for byte as it is), so the
-    launcher's publish dialog starts from the version the repo's newest changelog section is for. Used by new-branch.py after the
-    mod folder was synced, when a new version begins."""
-    output.step(f"launcher mod folder version -> {version}")
-    mod_dir = _mod_dir(game_path)
-    if mod_dir is None:
-        return
-    mod_json = mod_dir / "mod.json"
-    if not mod_json.is_file():
-        output.fail(f"{mod_json} does not exist, so its version cannot be set")
-    text = mod_json.read_bytes().decode("utf-8")
-    pattern = re.compile(r'("version"\s*:\s*")([^"]*)(")')
-    found = pattern.findall(text)
-    if len(found) != 1:
-        output.fail(f'{mod_json} has {len(found)} "version" values; expected exactly one')
-    if found[0][1] == version:
-        output.ok(f"mod.json already says {version}")
-        return
-    output.replace(f"mod.json version {found[0][1]} -> {version}")
-    if not dry_run:
-        mod_json.write_bytes(pattern.sub(lambda m: m.group(1) + version + m.group(3), text).encode("utf-8"))
-        output.ok("mod.json updated")
-
-
 def sync(repo_root: Path, game_path: Path | None = None, dry_run: bool = False, assume_yes: bool = False) -> None:
     """Brings mods/DW2 Mod Launcher in step with the repo (see the module docstring)."""
     output.step("sync launcher mod folder")
@@ -192,5 +179,5 @@ def sync(repo_root: Path, game_path: Path | None = None, dry_run: bool = False, 
     if mod_dir is None:
         return
     _sync_file(repo_root / REPO_DIR / DESCRIPTION, mod_dir / DESCRIPTION, dry_run, assume_yes)
-    sync_changelog(repo_root / changelog.CHANGELOG_PATH, mod_dir / "changelog.txt", mod_dir / "mod.json", dry_run)
+    sync_changelog(repo_root / changelog.CHANGELOG_PATH, mod_dir / "changelog.txt", dry_run)
     output.ok("launcher mod folder in step")
