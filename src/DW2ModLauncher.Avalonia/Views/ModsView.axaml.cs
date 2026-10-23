@@ -277,6 +277,7 @@ namespace DW2ModLauncher.Avalonia.Views
             ModList.Cursor = new Cursor(StandardCursorType.DragMove);
             e.Pointer.Capture(ModList);
             dragging = true;
+            if (DataContext is MainViewModel dragStarted) dragStarted.DragActive = true;
             Ghost.IsVisible = true;
             DropLine.IsVisible = true;
             return true;
@@ -350,6 +351,7 @@ namespace DW2ModLauncher.Avalonia.Views
             bool wasDragging = dragging;
             dragRow = null;
             dragging = false;
+            if (DataContext is MainViewModel dragEnded) dragEnded.DragActive = false;
 
             Ghost.IsVisible = false;
             DropLine.IsVisible = false;

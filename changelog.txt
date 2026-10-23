@@ -1,4 +1,5 @@
 ## Unreleased
+- List rescans itself when mod folders change
 
 ## 1.0.23 (2026-10-23)
 - Cover art browse opens where you last picked art, first in Downloads

@@ -123,6 +123,7 @@
   "LaunchingButton": "Launching...",
   "StopButton": "STOP DW2",
   "GameStopped": "Distant Worlds 2 stopped.",
+  "ModFoldersRescanned": "Mod folders changed; list refreshed.",
   "GameLaunchTimedOut": "Distant Worlds 2 did not appear to start. Check that Steam is running.",
   "CreatorSteamID": "Creator Steam ID: ",
   "DW2ModSettingsSaved": "DW2 Mod settings saved.",

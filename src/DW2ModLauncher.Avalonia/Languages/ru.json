@@ -123,6 +123,7 @@
   "LaunchingButton": "Запуск...",
   "StopButton": "СТОП DW2",
   "GameStopped": "Distant Worlds 2 остановлена.",
+  "ModFoldersRescanned": "Папки модов изменились; список обновлён.",
   "GameLaunchTimedOut": "Похоже, Distant Worlds 2 не запустилась. Проверьте, что Steam запущен.",
   "CreatorSteamID": "Steam ID автора: ",
   "DW2ModSettingsSaved": "Настройки модов DW2 сохранены.",

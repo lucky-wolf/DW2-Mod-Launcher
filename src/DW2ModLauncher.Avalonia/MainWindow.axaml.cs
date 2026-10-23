@@ -32,6 +32,8 @@ namespace DW2ModLauncher.Avalonia
                 await main.BeginWorkshopUpdateCheck(false);
                 await main.CheckForLauncherUpdateAsync(false);
             };
+            // Edits made in an editor or by Steam while the launcher sat behind it show up as soon as it comes back.
+            Activated += delegate { main.CheckModFolders(); };
             // Closing can't await, so cancel it, ask, and close again once the user has decided.
             bool exitConfirmed = false;
             Closing += async (sender, e) =>

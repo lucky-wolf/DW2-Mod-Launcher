@@ -27,6 +27,28 @@ from pathlib import Path
 from lib import changelog, dotnet_checks, github, launcher_build, mod_sync, output, proc, release_version
 
 
+def check_released(repo_root: Path, target: str, dry_run: bool) -> None:
+    """The release is published in the mod manager first, which leaves changelog.txt with an empty Unreleased section and a version
+    section newer than origin/<target>'s. Without that, warns to release first; the owner may go on anyway. Housekeeping
+    branches (nothing the release workflow watches) have no release to check."""
+    output.step("released in the mod manager")
+    if not release_version.branch_will_release(repo_root, target):
+        output.ok("housekeeping branch, no release to check")
+        return
+    unreleased = changelog.read_entries(repo_root)
+    stamped = changelog.stamped_entries_since(repo_root, f"origin/{target}")
+    if stamped and not unreleased:
+        output.ok("changelog.txt has the published release and an empty Unreleased section")
+        return
+    problem = "changelog.txt still has Unreleased entries" if unreleased else "changelog.txt has no new version section"
+    print(f"  {problem}: publish this release in the mod manager first, then run this again.")
+    if dry_run:
+        print("  [dry-run] would ask whether to go on anyway")
+        return
+    if not output.confirm("  Go on anyway (the description will not match a published release)?", default=False):
+        output.fail("aborted - publish the release in the mod manager first")
+
+
 def compute_pr_title(repo_root: Path, target: str, fallback: str) -> str:
     """"Housekeeping (no release)" when the branch touches nothing the release workflow watches (CI
     won't tag or build anything); else "Released as vX.Y.Z" when the next version can be predicted
@@ -37,10 +59,16 @@ def compute_pr_title(repo_root: Path, target: str, fallback: str) -> str:
     return f"Released as {tag}" if tag else fallback
 
 
-def compute_pr_description(repo_root: Path, target: str) -> str:
-    """The entries of changelog.txt's Unreleased section (see lib/changelog.py), one bullet each; when there are none,
-    one bullet per commit on this branch that isn't on origin/<target>, oldest first."""
+def release_entries(repo_root: Path, target: str) -> list[str]:
     entries = changelog.read_entries(repo_root)
+    return entries + [e for e in changelog.stamped_entries_since(repo_root, f"origin/{target}") if e not in entries]
+
+
+def compute_pr_description(repo_root: Path, target: str) -> str:
+    """What this branch releases, one bullet each: the entries of changelog.txt's Unreleased section, then those of any version
+    section the launcher stamped since origin/<target> (publishing first empties Unreleased into one; see lib/changelog.py).
+    Only when there are none of either, one bullet per commit on this branch that isn't on origin/<target>, oldest first."""
+    entries = release_entries(repo_root, target)
     if entries:
         return "\n".join(f"- {entry}" for entry in entries)
     log = proc.git(repo_root, "log", f"origin/{target}..HEAD", "--reverse", "--format=%s").stdout
@@ -165,6 +193,13 @@ def main() -> int:
     output.step("up to date with " + target)
     rebased = ensure_rebased(repo_root, target, args.dry_run)
 
+    # Right after the rebase (which rebuilds changelog.txt from main) and before anything else reads the changelog: a release
+    # published in the mod manager is stamped in the mod folder's copy, and this brings that stamp into the repo. A description
+    # copied in from the mod folder shows up as an uncommitted change below.
+    if not args.no_mod_sync:
+        mod_sync.sync(repo_root, args.game_path, dry_run=args.dry_run)
+    check_released(repo_root, target, args.dry_run)
+
     if not args.skip_checks:
         output.step("code quality")
         dotnet_checks.run_dotnet_restore(repo_root)
@@ -174,10 +209,8 @@ def main() -> int:
         dotnet_checks.run_dotnet_build(repo_root)
         dotnet_checks.run_dotnet_test(repo_root)
 
-    # After the changelog is final, so the launcher's Workshop item has this release's entries ready to publish; a description
-    # copied into the repo from the mod folder shows up as an uncommitted change just below.
-    if not args.no_mod_sync:
-        mod_sync.sync(repo_root, args.game_path, dry_run=args.dry_run)
+    # Computed before the commit so the suggested message is the release title ("Released as vX.Y.Z"), as in DW2-XL.
+    pr_title = compute_pr_title(repo_root, target, current_branch)
 
     output.step("uncommitted changes")
     if proc.git(repo_root, "status", "--porcelain").stdout.strip():
@@ -187,7 +220,7 @@ def main() -> int:
         if args.dry_run:
             print("  [dry-run] would offer to commit these")
         elif output.confirm("\n  Commit all changes?", default=True):
-            msg = input("  Commit message: ").strip()
+            msg = input(f"  Commit message [{pr_title}]: ").strip() or pr_title
             if not msg:
                 output.fail("empty commit message - aborted")
             proc.run(repo_root, "git add", ["git", "add", "-A"])
@@ -199,11 +232,10 @@ def main() -> int:
         output.ok("working tree clean")
 
     output.step("push & open PR")
-    pr_title = compute_pr_title(repo_root, target, current_branch)
 
-    entries = changelog.read_entries(repo_root)
+    entries = release_entries(repo_root, target)
     if not entries:
-        print("  note: the Unreleased section of changelog.txt has no entries, so the description falls back to commit subjects")
+        print("  note: changelog.txt has no Unreleased entries and no newly stamped version, so the description falls back to commit subjects")
     pr_description = compute_pr_description(repo_root, target)
     # Re-running for an open PR whose description was edited since: replacing it would drop those bullets, so offer to keep
     # them and add the new entries after them.

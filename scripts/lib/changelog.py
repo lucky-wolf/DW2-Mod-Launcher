@@ -109,6 +109,23 @@ def entries_added_since(repo_root: Path, rev: str) -> list[str]:
     return _added(_read(repo_root), _text_at(repo_root, rev))
 
 
+def _version_of(heading: str | None) -> str:
+    """"v1.0.21", "1.0.21 (2026-10-23)" and "1.0.21" all name version 1.0.21."""
+    return (heading or "").strip().split()[0].lstrip("vV") if (heading or "").strip() else ""
+
+
+def stamped_entries_since(repo_root: Path, rev: str) -> list[str]:
+    """The entries of version sections the working-tree file has that the file at `rev` lacks, newest first: what the launcher
+    stamped when it published (and mod_sync adopted) since `rev`. After a publish, Unreleased is empty and these are the release."""
+    base_versions = {_version_of(s.heading) for s in parse(_text_at(repo_root, rev)) if s.heading is not None}
+    entries: list[str] = []
+    for section in parse(_read(repo_root)):
+        if section.heading is None or is_unreleased(section) or _version_of(section.heading) in base_versions:
+            continue
+        entries.extend(e for e in section.entries() if e not in entries)
+    return entries
+
+
 def stash_entries(repo_root: Path, stash_sha: str) -> list[str]:
     """The entries a stash added to Unreleased: those in the stashed file but not in the commit it was made on.
     Lets new-branch carry them onto a fresh branch without ever merging the file itself."""

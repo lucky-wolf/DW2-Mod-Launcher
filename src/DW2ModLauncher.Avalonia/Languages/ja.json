@@ -123,6 +123,7 @@
   "LaunchingButton": "起動中...",
   "StopButton": "DW2を終了",
   "GameStopped": "Distant Worlds 2 を終了しました。",
+  "ModFoldersRescanned": "Modフォルダーの変更を検出し、一覧を更新しました。",
   "GameLaunchTimedOut": "Distant Worlds 2 の起動を確認できませんでした。Steamが起動しているか確認してください。",
   "CreatorSteamID": "作者Steam ID: ",
   "DW2ModSettingsSaved": "DW2のMod設定を保存しました。", 

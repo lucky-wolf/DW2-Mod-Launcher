@@ -28,6 +28,8 @@ namespace DW2ModLauncher.Avalonia.Services
             return (Window)modSettingsDialog ?? publishDialog ?? settingsDialog ?? mainWindow();
         }
 
+        public bool IsDialogOpen { get { return mainWindow().OwnedWindows.Count > 0; } }
+
         public async Task ShowSettingsAsync(SettingsViewModel settings)
         {
             if (settingsDialog != null) return;
