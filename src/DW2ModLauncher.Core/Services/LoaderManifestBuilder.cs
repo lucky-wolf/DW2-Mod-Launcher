@@ -22,8 +22,9 @@ namespace DW2ModLauncher.Core.Services
         /// <paramref name="language"/> is the resolved in-game language code (<see cref="WidgetLanguage.Choose"/>). When given, every code mod's
         /// options JSON carries it as <see cref="LanguageKey"/>, whether or not the mod has a settings schema; a schema field of the
         /// same name is overridden. Null leaves the options as they were.
+        /// <paramref name="gameRoot"/> is the launcher's game folder, the meaning of %DW2% in a folder/file setting.
         /// </summary>
-        public static LoaderManifest Build(List<ModInfo> orderedEnabledMods, string language = null)
+        public static LoaderManifest Build(List<ModInfo> orderedEnabledMods, string language = null, string gameRoot = null)
         {
             LoaderManifest manifest = new LoaderManifest();
             HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -32,7 +33,7 @@ namespace DW2ModLauncher.Core.Services
                 string modRoot = mod.ContentRoot ?? mod.Folder;
                 manifest.ModFolders.Add(LeafName(mod.Folder ?? modRoot));
                 foreach (InjectionTarget target in InjectionScanner.TargetsFor(mod))
-                    AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint, orderedEnabledMods, language);
+                    AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint, orderedEnabledMods, language, gameRoot);
                 AddPatches(manifest, mod, modRoot, manifest.ModFolders.Count - 1);
             }
             manifest.Fonts.AddRange(FontsOf(orderedEnabledMods));
@@ -171,7 +172,28 @@ namespace DW2ModLauncher.Core.Services
             manifest.Patches.Add(set);
         }
 
-        private static void AddEntry(LoaderManifest manifest, HashSet<string> seen, ModInfo mod, string modRoot, string dllRelative, string entryPoint, IList<ModInfo> enabled, string language)
+        /// <summary>
+        /// A copy of the mod's values in which every folder/file setting that names a %TOKEN% folder (see <see cref="PathTokens"/>) holds the real
+        /// path as the game sees it, so a mod only ever gets a plain path. A bad token is the user's (or the schema author's) mistake: it throws,
+        /// naming the mod and setting, rather than starting the game with a path the user did not choose.
+        /// </summary>
+        private static JsonObject ExpandPathSettings(ModInfo mod, ModSettingsSchema schema, JsonObject values, string gameRoot)
+        {
+            JsonObject expanded = JsonNode.Parse(values.ToJsonString()).AsObject();
+            foreach (ModSettingsField field in schema.Fields)
+            {
+                ModSettingKind kind = ModSettingsValues.KindOf(field);
+                if ((kind != ModSettingKind.Folder && kind != ModSettingKind.File) || string.IsNullOrWhiteSpace(field.Key)) continue;
+                string text = expanded[field.Key]?.ToString();
+                if (!PathTokens.HasToken(text)) continue;
+                PathExpansion path = PathTokens.ExpandForGame(text, gameRoot);
+                if (!path.Ok) throw new PathTokenException(mod.DisplayName ?? mod.Id, field.Key, text, path);
+                expanded[field.Key] = path.Path;
+            }
+            return expanded;
+        }
+
+        private static void AddEntry(LoaderManifest manifest, HashSet<string> seen, ModInfo mod, string modRoot, string dllRelative, string entryPoint, IList<ModInfo> enabled, string language, string gameRoot)
         {
             if (string.IsNullOrWhiteSpace(modRoot) || string.IsNullOrWhiteSpace(dllRelative) || string.IsNullOrWhiteSpace(entryPoint)) return;
             string full = Path.GetFullPath(Path.Combine(modRoot, dllRelative.Replace('/', Path.DirectorySeparatorChar)));
@@ -180,7 +202,7 @@ namespace DW2ModLauncher.Core.Services
             string settingsJson = null;
             ModSettingsSchema schema = ModSettingsSchemaReader.Read(modRoot);
             if (schema != null)
-                settingsJson = ModSettingsStore.GetOrCreateValues(mod, schema).ToJsonString();
+                settingsJson = ExpandPathSettings(mod, schema, ModSettingsStore.GetOrCreateValues(mod, schema), gameRoot).ToJsonString();
             if (!string.IsNullOrWhiteSpace(language))
             {
                 JsonObject options = settingsJson == null ? new JsonObject() : JsonNode.Parse(settingsJson).AsObject();

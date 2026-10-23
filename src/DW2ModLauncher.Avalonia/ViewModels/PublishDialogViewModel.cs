@@ -816,23 +816,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private async Task BrowsePreviewAsync()
         {
-            // A blank field opens where art was last picked from; one that already names a file opens in that file's folder (which never
-            // becomes the remembered folder).
-            string current = (previewImage ?? "").Trim();
-            string start = contentFolder;
-            if (current.Length > 0)
-            {
-                try
-                {
-                    string dir = System.IO.Path.GetDirectoryName(System.IO.Path.Combine(contentFolder, current));
-                    if (Directory.Exists(dir)) start = dir;
-                }
-                catch (Exception) { }
-            }
-            else if (!string.IsNullOrWhiteSpace(lastArtFolder) && Directory.Exists(lastArtFolder)) start = lastArtFolder;
+            // Always opens where art was last picked from, whether or not the field already names a file: the button is for changing the
+            // art, and the current art's own folder (the mod's) is not where new art comes from. Until something has been picked from outside
+            // the mod it opens in the Downloads folder (the mod folder if the system has none).
+            string start = !string.IsNullOrWhiteSpace(lastArtFolder) && Directory.Exists(lastArtFolder)
+                ? lastArtFolder
+                : await dialogs.DownloadsFolderAsync() ?? contentFolder;
             string picked = await dialogs.PickFileAsync(L["PublishInfoPreviewImage"], start, L["FilterImageFiles"], "*.jpg", "*.jpeg", "*.png");
             if (picked == null) return;
-            if (current.Length == 0 && !DW2ModLauncher.Core.Services.ModFileImporter.IsInside(contentFolder, picked))
+            if (!DW2ModLauncher.Core.Services.ModFileImporter.IsInside(contentFolder, picked))
             {
                 lastArtFolder = System.IO.Path.GetDirectoryName(picked);
                 rememberArtFolder?.Invoke(lastArtFolder);

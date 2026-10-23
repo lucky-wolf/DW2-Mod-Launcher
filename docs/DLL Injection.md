@@ -223,6 +223,38 @@ Per field:
 
 A mod's declared schema and `ModSettingsStore` values feed the launcher's settings editor (`ModSettingsEditorViewModel`).
 
+### Folder names in `folder` and `file` values
+
+A `folder` or `file` value (and its `default`) may start with a Windows-style folder name, so a default can be a real place instead of blank:
+
+| Name | Meaning |
+| --- | --- |
+| `%DW2%` | The game's install folder (the launcher's game folder setting). `%DW2%\data\Logs` is where the game keeps its own logs, the conventional place for a mod's log |
+| `%APPDATA%`, `%LOCALAPPDATA%` | The user's roaming and local app data |
+| `%DOCUMENTS%` | The real Documents folder, wherever it is redirected (Windows has no `%...%` variable for it) |
+| `%USERPROFILE%` | The user's profile folder |
+
+There is deliberately no name for a mod's own folder: a mod must not keep its data there.
+
+The launcher keeps the text exactly as typed (the box, the stored values and the reset default all show `%DW2%\data\Logs`) and expands it only
+when it needs a real path (`PathTokens`). Browse starts in the expanded folder and writes a picked folder back with the most specific name
+that contains it (`%DW2%` before `%APPDATA%` before `%USERPROFILE%`). A path that starts with a name is valid as long as the name is one of
+these: the folders under it need not exist yet (a plain path must still exist). An unknown name is a red box with a tooltip saying so.
+A name that cannot be resolved yet (`%DW2%` before the game folder is set) is never an error in the dialog, so it can always be left;
+the launch button is where it stops: the launcher expands the names itself, as the game sees the path (`Z:\...` for `%DW2%` under Proton),
+and if one cannot be resolved it refuses to start the game with a message naming the mod and setting. A mod receives a plain path and
+needs no code of its own.
+
+**What the launcher does not do.** It expands the name, and that is all: the name must resolve to a real base folder (`%DW2%` needs the game
+folder set, and the launch stops if it cannot be resolved). It does not create the folder, check that anything under the base exists,
+migrate files, or otherwise touch the path. Everything beyond the expanded string is the mod's own responsibility: a mod that is handed
+`C:\Users\me\Documents\DW2\Settings Keeper` must create that folder itself (`Directory.CreateDirectory` is harmless when it exists), decide what
+a blank value means, and move or report files left in an old place. The dialog's exists check applies only to plain paths for the same
+reason: a path written with a name is accepted as long as the name is known.
+
+Under Proton the game's profile is the Wine prefix's, so the other names resolve to `C:\users\steamuser\...` for the game and to the same
+folders inside `compatdata/<app id>/pfx/drive_c` (found from the game folder) for the launcher.
+
 ### Translating the settings dialog
 
 The schema is written in whatever language its author uses; that text is the base. Another language is a **sidecar file** next to

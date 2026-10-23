@@ -34,10 +34,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly JsonNode defaultNode;
         private readonly string defaultJson;
         private readonly string savedJson;
+        private readonly string gameRoot;
 
-        public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs, LocalizedStrings l, ModSettingsTranslation translation = null)
+        public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs, LocalizedStrings l, ModSettingsTranslation translation = null, string gameRoot = null)
         {
             translation = translation ?? ModSettingsTranslation.None;
+            this.gameRoot = gameRoot;
             schemaField = field;
             this.dialogs = dialogs;
             this.l = l;
@@ -89,24 +91,36 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool IsPath { get { return Kind == ModSettingKind.Folder || Kind == ModSettingKind.File; } }
         /// <summary>Plain strings and paths share the text box; paths add a browse button and validation.</summary>
         public bool IsTextBox { get { return IsText || IsPath; } }
-        public bool IsInvalid { get { return IsPath && !ModSettingsValues.IsValidPath(Kind, textValue); } }
+        public bool IsInvalid { get { return IsPath && !ModSettingsValues.IsValidPath(Kind, textValue, gameRoot); } }
         public RelayCommand BrowseCommand { get; }
         public RelayCommand ResetCommand { get; }
 
+        /// <summary>Why the path is red (a bad %FOLDER% name, or a folder/file that does not exist); null while it is fine. Shown as the box's tooltip.</summary>
+        public string PathProblemText
+        {
+            get
+            {
+                if (!IsPath) return null;
+                string key = ModSettingsValues.PathProblemKey(Kind, textValue, gameRoot, out string expanded, out string detail);
+                if (key == null) return null;
+                return key == "NotFound" ? l.Format("PathNotFound", expanded) : l.Format("PathProblem" + key, detail, PathTokens.KnownList);
+            }
+        }
+
         private async System.Threading.Tasks.Task BrowseAsync()
         {
-            string current = (textValue ?? "").Trim();
+            // the picker opens on the real folder behind any %TOKEN%; what comes back is written with the most specific token again
             string start = null;
-            try
+            PathExpansion current = PathTokens.ExpandForHost(textValue, gameRoot);
+            if (current.Ok && current.Path.Length > 0)
             {
-                if (current.Length > 0) start = Kind == ModSettingKind.Folder ? current : Path.GetDirectoryName(current);
+                start = Kind == ModSettingKind.Folder ? current.Path : Path.GetDirectoryName(current.Path);
                 if (!string.IsNullOrEmpty(start) && !Directory.Exists(start)) start = null;
             }
-            catch { start = null; }
             string picked = Kind == ModSettingKind.Folder
                 ? await dialogs.PickFolderAsync(Label, start)
                 : await dialogs.PickFileAsync(Label, start, l["FilterAllFiles"], "*");
-            if (picked != null) TextValue = picked;
+            if (picked != null) TextValue = PathTokens.Collapse(picked, gameRoot);
         }
 
         private void Load(JsonNode node)
@@ -146,6 +160,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Raise(nameof(SelectedChoice));
             Raise(nameof(NumberValue));
             Raise(nameof(IsInvalid));
+            Raise(nameof(PathProblemText));
             Raise(nameof(CanReset));
             Raise(nameof(IsModified));
         }
@@ -154,7 +169,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool BoolValue { get { return boolValue; } set { if (Set(ref boolValue, value)) { Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
         private string textValue = "";
-        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) { Raise(nameof(SelectedChoice)); Raise(nameof(IsInvalid)); Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
+        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) { Raise(nameof(SelectedChoice)); Raise(nameof(IsInvalid)); Raise(nameof(PathProblemText)); Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
         private decimal? numberValue = 0;
         public decimal? NumberValue { get { return numberValue; } set { if (Set(ref numberValue, value)) { Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
@@ -241,7 +256,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly JsonObject values;
         private bool showHidden;
 
-        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, ModInfo mod, JsonObject values, LocalizedStrings l, IDialogService dialogs, bool showHidden = false, IEnumerable<string> collapsedGroups = null, ModSettingsTranslation translation = null)
+        public ModSettingsEditorViewModel(string title, ModSettingsSchema schema, ModInfo mod, JsonObject values, LocalizedStrings l, IDialogService dialogs, bool showHidden = false, IEnumerable<string> collapsedGroups = null, ModSettingsTranslation translation = null, string gameRoot = null)
         {
             translation = translation ?? ModSettingsTranslation.None;
             HashSet<string> collapsed = new HashSet<string>(collapsedGroups ?? Enumerable.Empty<string>());
@@ -254,7 +269,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 foreach (ModSettingsField field in group.Fields)
                 {
                     if (string.IsNullOrWhiteSpace(field.Key)) continue;
-                    SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs, l, translation);
+                    SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs, l, translation, gameRoot);
                     row.PropertyChanged += (s, e) =>
                     {
                         if (e.PropertyName == nameof(SettingFieldViewModel.IsInvalid)) { Raise(nameof(AllValid)); Raise(nameof(CanSave)); }

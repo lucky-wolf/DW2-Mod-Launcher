@@ -15,7 +15,7 @@
                   <NumericUpDown IsVisible="{Binding IsNumber}" Value="{Binding NumberValue}" Minimum="{Binding MinValue}" Maximum="{Binding MaxValue}"
                                  Increment="{Binding Increment}" FormatString="{Binding NumberFormat}" HorizontalAlignment="Stretch" />
                   <Grid IsVisible="{Binding IsTextBox}" ColumnDefinitions="*,Auto">
-                    <TextBox Grid.Column="0" Classes.invalid="{Binding IsInvalid}" Text="{Binding TextValue}" />
+                    <TextBox Grid.Column="0" Classes.invalid="{Binding IsInvalid}" Text="{Binding TextValue}" ToolTip.Tip="{Binding PathProblemText}" />
                     <Button Grid.Column="1" Content="&#8230;" Command="{Binding BrowseCommand}" IsVisible="{Binding IsPath}" Margin="6,0,0,0" MinWidth="40" />
                   </Grid>
                 </Panel>

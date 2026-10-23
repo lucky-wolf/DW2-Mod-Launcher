@@ -1393,7 +1393,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 ModSettingsEditorViewModel editor = new ModSettingsEditorViewModel(
                     T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs, settings.ShowHiddenSettings, collapsedGroups,
                     // the dialog is the launcher's own window, so a mod's sidecar is picked by the launcher's language
-                    ModSettingsTranslation.Read(mod.ContentRoot ?? mod.Folder, settings.Language));
+                    ModSettingsTranslation.Read(mod.ContentRoot ?? mod.Folder, settings.Language), settings.GameRoot);
                 if (settings.SettingsScrollOffsets == null) settings.SettingsScrollOffsets = new Dictionary<string, double>();
                 editor.ScrollOffset = settings.SettingsScrollOffsets.TryGetValue(modKey, out double savedOffset) ? savedOffset : 0;
                 bool saved = await Dialogs.EditModSettingsAsync(editor);
@@ -2064,7 +2064,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             try
             {
                 diagnostics = LaunchDiagnostics.Build(enabled, AllMods, modOrder, GameLauncher.LoaderDllPath(),
-                    LoaderManifestBuilder.Build(OrderedEnabledMods()).Entries, key => T(key));
+                    LoaderManifestBuilder.Build(OrderedEnabledMods(), null, settings.GameRoot).Entries, key => T(key));
                 diagnostics.AddRange(dependencyOrder.Problems.Select(p => "⚠ " + p));
                 WidgetLanguage.Choose(OrderedEnabledMods(), settings, out string unknownLanguage);
                 if (unknownLanguage != null) diagnostics.Add("⚠ " + T("LaunchWidgetLanguageUnknown", unknownLanguage));
@@ -2072,7 +2072,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Pre-launch check", ex);
-                await Dialogs.ShowMessageAsync(T("LaunchSettingsUnreadable", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(ex is PathTokenException ? LaunchPathProblemText((PathTokenException)ex) : T("LaunchSettingsUnreadable", ex.Message), "DW2 Mod Launcher");
                 return;
             }
             if (diagnostics.Count > 0 && !await Dialogs.ConfirmAsync(
@@ -2092,7 +2092,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 foreach (string line in ModChannels.Describe(OrderedEnabledMods())) Logger.Log("Channel data", line);
                 string inGameLanguage = WidgetLanguage.Choose(OrderedEnabledMods(), settings, out _);
                 LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods(), settings.LogDirectory,
-                    WidgetLanguage.Strings(inGameLanguage), inGameLanguage);
+                    WidgetLanguage.Strings(inGameLanguage), inGameLanguage, settings.GameRoot);
                 Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(LaunchMode, launchManifest.Fonts.LastOrDefault()?.Name)));
                 SetStatus(T("DistantWorlds2Launched") + (dependencyOrder.Written ? " (load order adjusted to meet mod dependencies: " + string.Join("; ", dependencyOrder.Moves) + ")" : ""));
                 launchStartedUtc = DateTime.UtcNow;
@@ -2101,8 +2101,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Launch game", ex);
-                await Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(ex is PathTokenException ? LaunchPathProblemText((PathTokenException)ex) : ex.Message, "DW2 Mod Launcher");
             }
+        }
+
+        /// <summary>The launch-stopped message for a mod setting whose %FOLDER% name cannot be resolved, in the launcher's language.</summary>
+        private string LaunchPathProblemText(PathTokenException ex)
+        {
+            return T("LaunchPathTokenProblem", ex.Mod, ex.Setting, ex.Text, T("PathProblem" + ex.Problem.Problem, ex.Problem.Detail, PathTokens.KnownList));
         }
     }
 }
