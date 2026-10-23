@@ -3,7 +3,7 @@
 
 The PR is titled "Released as vX.Y.Z" (the version release.py will tag when it merges; see
 docs/CI Releases.md), or "Housekeeping (no release)" when the branch changes no file the release
-workflow watches. Its description is the newest section of changelog.txt
+workflow watches. Its description is the Unreleased section of changelog.txt
 (falling back to this branch's commit subjects when that is empty). When the branch's PR is already open with a
 description, it offers to keep that and append the new changelog.txt entries rather than replace it.
 
@@ -37,10 +37,10 @@ def compute_pr_title(repo_root: Path, target: str, fallback: str) -> str:
     return f"Released as {tag}" if tag else fallback
 
 
-def compute_pr_description(repo_root: Path, target: str, use_changelog: bool = True) -> str:
-    """The entries of changelog.txt's newest section (see lib/changelog.py), one bullet each; when there are none (or
-    use_changelog is False), one bullet per commit on this branch that isn't on origin/<target>, oldest first."""
-    entries = changelog.read_entries(repo_root) if use_changelog else []
+def compute_pr_description(repo_root: Path, target: str) -> str:
+    """The entries of changelog.txt's Unreleased section (see lib/changelog.py), one bullet each; when there are none,
+    one bullet per commit on this branch that isn't on origin/<target>, oldest first."""
+    entries = changelog.read_entries(repo_root)
     if entries:
         return "\n".join(f"- {entry}" for entry in entries)
     log = proc.git(repo_root, "log", f"origin/{target}..HEAD", "--reverse", "--format=%s").stdout
@@ -76,8 +76,8 @@ def ensure_rebased(repo_root: Path, target: str, dry_run: bool) -> bool:
         output.fail(f"aborted - rebase onto origin/{target} first (merges here are rebases)")
 
     # changelog.txt: main can carry sections this branch lacks (merged PRs, outside contributors' included), and both sides adding a
-    # section at the top always conflicts. So the branch's own entries are set aside, the file is taken from main, and the
-    # branch's section is rebuilt on top of it after the rebase.
+    # section at the top always conflicts. So the branch's own entries are set aside, the file is taken from main, and they are
+    # added back to its Unreleased section on top of it after the rebase.
     changelog_file = repo_root / changelog.CHANGELOG_PATH
     original_changelog = changelog_file.read_bytes() if changelog_file.exists() else None
     base = proc.git(repo_root, "merge-base", "HEAD", f"origin/{target}").stdout.strip()
@@ -106,31 +106,9 @@ def ensure_rebased(repo_root: Path, target: str, dry_run: bool) -> bool:
     if proc.git(repo_root, "diff", "--name-only", "--diff-filter=U").stdout.strip():
         give_up("rebased, but re-applying your uncommitted changes conflicted - resolve them (git stash list has the copy), then run this again")
 
-    # main's tags are only known locally once fetched, so the heading is the next release version as of now
-    heading = release_version.next_tag(repo_root)
-    if not heading:
-        output.fail("could not work out the next release version (.version is missing or malformed) to head the changelog.txt section")
-    changelog.rebuild_from(repo_root, f"origin/{target}", heading, mine)
+    changelog.rebuild_from(repo_root, f"origin/{target}", mine)
     output.ok(f"rebased onto origin/{target}")
     return True
-
-
-def choose_stale_changelog_action(heading: str) -> str:
-    """What to do about a changelog.txt whose newest section is a version that is already released: "reuse" it anyway,
-    describe the PR by its "commits" instead, or "abort" the whole run. Letters, not
-    digits, and anything else is re-asked - like output.confirm, so a stray key never picks an action."""
-    print(f"    [r] use the {heading} section as the PR description")
-    print("    [c] ignore it: describe the PR by its commit subjects")
-    print("    [a] abort: nothing is pushed, so you can add a section to changelog.txt first")
-    while True:
-        answer = input("  Stale changelog.txt - what now? [r/c/a] ").strip().lower()
-        if answer in ("r", "reuse"):
-            return "reuse"
-        if answer in ("c", "commits"):
-            return "commits"
-        if answer in ("a", "abort", "n", "no", "q"):
-            return "abort"
-        print("  please answer r, c or a")
 
 
 def offer_to_extend_open_pr(repo_root: Path, branch: str, entries: list[str], new_description: str) -> str:
@@ -223,28 +201,19 @@ def main() -> int:
     output.step("push & open PR")
     pr_title = compute_pr_title(repo_root, target, current_branch)
 
-    use_changelog = True
     entries = changelog.read_entries(repo_root)
     if not entries:
-        print("  note: the newest changelog.txt section has no entries, so the description falls back to commit subjects")
-    elif changelog.is_released(repo_root):
-        heading = changelog.current_heading(repo_root)
-        print(f"  WARNING: the newest changelog.txt section ({heading}) is a version that is already released - stale entries from earlier work?")
-        print("           (the release notes come from this description)")
-        choice = choose_stale_changelog_action(heading)
-        if choice == "abort":
-            output.fail("aborted - nothing pushed (add a section for the next version to changelog.txt, then run this again)")
-        use_changelog = choice == "reuse"
-    pr_description = compute_pr_description(repo_root, target, use_changelog)
+        print("  note: the Unreleased section of changelog.txt has no entries, so the description falls back to commit subjects")
+    pr_description = compute_pr_description(repo_root, target)
     # Re-running for an open PR whose description was edited since: replacing it would drop those bullets, so offer to keep
     # them and add the new entries after them.
-    if entries and use_changelog:
+    if entries:
         pr_description = offer_to_extend_open_pr(repo_root, current_branch, entries, pr_description)
     # Re-running for an open PR whose list was already cleared by an earlier run: the description written then is the
     # real one; rebuilding it from commit subjects would overwrite it with a worse one.
     keep_description = not entries and github.open_pr_exists(repo_root, current_branch)
     if keep_description:
-        print("  note: the newest changelog.txt section is empty and the PR is already open, so its description is left as it is")
+        print("  note: the Unreleased section of changelog.txt is empty and the PR is already open, so its description is left as it is")
     print(f"  Branch: {current_branch} -> {target}")
     print(f"  PR title: {pr_title}")
     print(f"  PR description:\n{pr_description}" if pr_description else "  PR description: (none)")

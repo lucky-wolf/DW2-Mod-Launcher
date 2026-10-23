@@ -7,9 +7,9 @@ Flow:
   2) switch to main, pull, fetch -p; if that PR was merged, wait until main really contains the merge
   3) if main's tip should have been released, wait for its release tag
   4) delete local branches that are merged or whose remote is gone (git branch -d only)
-  5) optionally create a new branch, suggested as <user>/v<next version>, and start that version's section in changelog.txt
-  6) bring the launcher's own Workshop item (the local mod folder DW2 Mod Launcher) in step with the repo, then set its mod.json
-     version to the new version, so the launcher's publish dialog starts from it (see lib/mod_sync.py)
+  5) optionally create a new branch, suggested as <user>/v<next version>
+     (changelog.txt is left alone: its Unreleased section is stamped by the launcher when it publishes)
+  6) bring the launcher's own Workshop item (the local mod folder DW2 Mod Launcher) in step with the repo (see lib/mod_sync.py)
 
 Usage:
   scripts/new-branch.py
@@ -73,10 +73,9 @@ def restore_stash(repo_root: Path, sha: str) -> bool:
     return True
 
 
-def restore_stashes(repo_root: Path, shas: list[str], heading: str) -> None:
-    """Restores each stash, carrying the changelog.txt entries it added into the section for `heading` (started
-    above the older ones when it is not already the top), so the previous branch's already-merged entries don't
-    leak into the new one."""
+def restore_stashes(repo_root: Path, shas: list[str]) -> None:
+    """Restores each stash, carrying the changelog.txt entries it added into Unreleased, so the previous branch's
+    already-merged entries don't leak into the new one."""
     carried_all: list[str] = []
     for sha in shas:
         subject = proc.git(repo_root, "log", "-1", "--format=%s", sha).stdout.strip()
@@ -86,7 +85,7 @@ def restore_stashes(repo_root: Path, shas: list[str], heading: str) -> None:
             output.ok(f"restored stash: {subject}" + (f" (+{len(carried)} changelog.txt entries)" if carried else ""))
         else:
             print(f"  could not restore stash cleanly ({subject}); it is still in 'git stash list' - resolve by hand")
-    changelog.start_section(repo_root, heading)
+    changelog.ensure_unreleased(repo_root)
     changelog.append(repo_root, carried_all)
 
 
@@ -284,7 +283,7 @@ def main() -> int:
     branch_user = get_branch_user(repo_root)
     next_tag = release_version.next_tag(repo_root)
     if not next_tag:
-        output.fail("could not work out the next release version (.version is missing or malformed) to head the changelog.txt section")
+        output.fail("could not work out the next release version (.version is missing or malformed) to name the branch")
     if release_version.tag_exists(repo_root, next_tag):
         output.fail(f"computed next version {next_tag} already exists as a tag; re-run in a moment")
 
@@ -302,7 +301,7 @@ def main() -> int:
         if not new_branch or new_branch.lower() in ("main", "skip"):
             output.ok("staying on main (no new branch)")
             if to_restore and not args.dry_run:
-                restore_stashes(repo_root, to_restore, next_tag)
+                restore_stashes(repo_root, to_restore)
             return 0
         if proc.git(repo_root, "check-ref-format", "--branch", new_branch).returncode != 0:
             output.warn(f"'{new_branch}' is not a valid git branch name (no spaces or ~ ^ : ? * [); try again")
@@ -314,7 +313,7 @@ def main() -> int:
         break
 
     if args.dry_run:
-        print(f"  [dry-run] would create and check out branch '{new_branch}' and start its {next_tag} section in changelog.txt")
+        print(f"  [dry-run] would create and check out branch '{new_branch}'")
         if to_restore:
             print("  [dry-run] stashes left in place; run again (without --dry-run) to restore them")
         return 0
@@ -322,14 +321,11 @@ def main() -> int:
     proc.run(repo_root, f"create branch {new_branch}", ["git", "checkout", "-b", new_branch])
     if to_restore:
         print("  » restore stashed changes")
-    # starts the new version's section *after* the stashes are applied (see restore_stash), holding
-    # only the entries the stashes added
-    restore_stashes(repo_root, to_restore, next_tag)
-    output.ok(f"changelog.txt: {next_tag} section started for the new branch")
+    # carries only the entries the stashes added into Unreleased, after they are applied (see restore_stash)
+    restore_stashes(repo_root, to_restore)
 
     if not args.no_mod_sync:
         mod_sync.sync(repo_root, args.game_path)
-        mod_sync.set_version(next_tag.removeprefix(release_version.TAG_PREFIX), args.game_path)
 
     output.ok(f"ready on branch '{new_branch}'")
     return 0
