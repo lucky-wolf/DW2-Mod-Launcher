@@ -54,6 +54,10 @@ namespace DW2ModLauncher.Core.Models
         public string DescriptionExtension { get; set; } = ".bbcode";
         /// <summary>Publishing an update sends the description to Steam whenever it differs from the Steam page. Off: the author pushes it by hand (the cloud-upload button).</summary>
         public bool AutoUpdateDescription { get; set; } = true;
+        /// <summary>On launching the game with unsaved mod profile edits: save them without asking (true, default), or ask.</summary>
+        public bool AutoSaveProfileOnLaunch { get; set; } = true;
+        /// <summary>On exit with unsaved mod profile edits: save them without asking (true), or ask (default).</summary>
+        public bool AutoSaveProfileOnExit { get; set; }
         /// <summary>After a successful publish: ask whether to open the item's Steam page (default), always open it, or never.</summary>
         public OpenSteamPageAfterPublish OpenSteamPageAfterPublish { get; set; } = OpenSteamPageAfterPublish.Prompt;
         /// <summary>The publish dialog's modified-files section is unfolded (folded by default; remembered).</summary>

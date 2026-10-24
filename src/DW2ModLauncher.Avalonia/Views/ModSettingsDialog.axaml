@@ -6,33 +6,40 @@
         Title="{Binding Title}" Width="980" Height="720" MinWidth="760" MinHeight="520"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Window.Styles>
-    <!-- Ladder matrix cells: filled up to the row's threshold; the shipped setting's column carries a gold underline. -->
+    <!-- Ladder matrix cells: filled up to the row's selected column; the selected column, the tip of the bar, is gold. -->
     <Style Selector="Button.ladderCell">
-      <Setter Property="Width" Value="64" />
+      <Setter Property="Width" Value="84" />
       <Setter Property="Height" Value="28" />
       <Setter Property="Margin" Value="0,0,4,0" />
       <Setter Property="Padding" Value="0" />
-      <Setter Property="BorderThickness" Value="0,0,0,2" />
-      <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
     <Style Selector="Button.ladderCell.on">
       <Setter Property="Background" Value="{StaticResource Dw2BlueGlow}" />
     </Style>
-    <Style Selector="Button.ladderCell.default">
-      <Setter Property="BorderBrush" Value="{StaticResource Dw2Gold}" />
+    <Style Selector="Button.ladderCell.blocked">
+      <Setter Property="Background" Value="{StaticResource Dw2Void}" />
+      <Setter Property="Opacity" Value="0.5" />
+    </Style>
+    <Style Selector="Button.ladderCell.selected">
+      <Setter Property="Background" Value="{StaticResource Dw2Gold}" />
     </Style>
   </Window.Styles>
   <Window.Resources>
     <DataTemplate x:Key="LadderRowTemplate" x:DataType="vm:LadderRowViewModel">
-      <Grid ColumnDefinitions="260,Auto,Auto" Margin="0,0,0,4" Background="Transparent" ToolTip.Tip="{Binding Field.Tooltip}">
-        <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0" Text="{Binding Field.Label}" />
+      <Grid Margin="0,0,0,4" Background="Transparent" ToolTip.Tip="{Binding Field.Tooltip}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" SharedSizeGroup="LadderLabel" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" MaxWidth="260" VerticalAlignment="Center" Margin="0,0,10,0" Text="{Binding Field.Label}" />
         <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:LadderCellViewModel">
-              <Button Classes="ladderCell" Classes.on="{Binding IsOn}" Classes.default="{Binding IsDefault}"
+              <Button Classes="ladderCell" Classes.on="{Binding IsOn}" Classes.selected="{Binding IsSelected}" Classes.blocked="{Binding IsBlocked}" IsEnabled="{Binding IsAvailable}"
                       Command="{Binding ClickCommand}" ToolTip.Tip="{Binding Tooltip}" />
             </DataTemplate>
           </ItemsControl.ItemTemplate>
@@ -45,16 +52,20 @@
       </Grid>
     </DataTemplate>
     <DataTemplate x:Key="LadderTemplate" x:DataType="vm:LadderViewModel">
-      <StackPanel Margin="0,0,0,4">
+      <StackPanel Margin="0,0,0,4" Grid.IsSharedSizeScope="True">
         <!-- Column headings: short text, the full option as a tooltip. -->
-        <Grid ColumnDefinitions="260,Auto" Margin="0,0,0,4">
+        <Grid Margin="0,0,0,4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" SharedSizeGroup="LadderLabel" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
           <ItemsControl Grid.Column="1" ItemsSource="{Binding Columns}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:LadderColumn">
-                <TextBlock Width="64" Margin="0,0,4,0" TextAlignment="Center" Opacity="0.85" Text="{Binding Heading}" ToolTip.Tip="{Binding Tooltip}" />
+                <TextBlock Width="84" Margin="0,0,4,0" TextAlignment="Center" Opacity="0.85" Text="{Binding Heading}" ToolTip.Tip="{Binding Tooltip}" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

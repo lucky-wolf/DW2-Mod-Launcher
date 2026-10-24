@@ -92,24 +92,38 @@ namespace DW2ModLauncher.Core.Services
             }
         }
 
+        private static bool IsSubsequence(List<string> part, List<string> whole)
+        {
+            int at = 0;
+            foreach (string option in part)
+            {
+                while (at < whole.Count && !string.Equals(whole[at], option, StringComparison.OrdinalIgnoreCase)) at++;
+                if (at == whole.Count) return false;
+                at++;
+            }
+            return true;
+        }
+
         private static void ValidateLadder(ModSettingsGroup group, ModSettingsLayout layout, string path)
         {
             string head = "settings.schema.json: group '" + group.Name + "' is a ladder, but ";
-            List<string> options = null;
             foreach (ModSettingsField field in group.Fields)
-            {
                 if (!string.Equals(field.Type, "enum", StringComparison.OrdinalIgnoreCase) || field.Options == null || field.Options.Count == 0)
                     throw new InvalidDataException(head + "field '" + field.Key + "' is not an enum with options: " + path);
-                if (options == null) options = field.Options;
-                else if (!options.SequenceEqual(field.Options, StringComparer.OrdinalIgnoreCase))
-                    throw new InvalidDataException(head + "field '" + field.Key + "' has different options from '" + group.Fields[0].Key + "': " + path);
-            }
+            // the columns are the longest option list; a row with fewer options leaves the rest of its cells blocked, so it must keep the same order
+            ModSettingsField widest = group.Fields.OrderByDescending(f => f.Options.Count).First();
+            List<string> options = widest.Options;
+            foreach (ModSettingsField field in group.Fields)
+                if (!IsSubsequence(field.Options, options))
+                    throw new InvalidDataException(head + "the options of field '" + field.Key + "' are not in the order of '" + widest.Key + "' (a row may leave options out, not reorder or add them): " + path);
             if (string.IsNullOrWhiteSpace(layout.None) || !options.Contains(layout.None, StringComparer.OrdinalIgnoreCase))
                 throw new InvalidDataException(head + "its 'none' option '" + layout.None + "' is not one of the options: " + path);
+            if (options.Count > 1 && !string.Equals(options[0], layout.None, StringComparison.OrdinalIgnoreCase) && !string.Equals(options[options.Count - 1], layout.None, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(head + "its 'none' option '" + layout.None + "' must be the first or the last option of '" + widest.Key + "', the end the bars grow from: " + path);
             if (options.Count < 2)
                 throw new InvalidDataException(head + "it has no column besides 'none': " + path);
             foreach (string key in layout.Short.Keys)
-                if (!options.Contains(key, StringComparer.OrdinalIgnoreCase) || string.Equals(key, layout.None, StringComparison.OrdinalIgnoreCase))
+                if (!options.Contains(key, StringComparer.OrdinalIgnoreCase))
                     throw new InvalidDataException(head + "'short' names '" + key + "', which is not a column: " + path);
         }
     }

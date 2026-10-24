@@ -42,6 +42,8 @@
             <RadioButton GroupName="WidgetLanguage" IsChecked="{Binding WidgetLanguageFromLauncher}" Content="{Binding L[SettingsWidgetLanguageFromLauncher]}" ToolTip.Tip="{Binding L[SettingsWidgetLanguageTooltip]}" />
           </StackPanel>
         </Grid>
+        <CheckBox IsChecked="{Binding AutoSaveProfileOnLaunch}" Content="{Binding L[SettingsAutoSaveProfileOnLaunch]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnLaunchTooltip]}" />
+        <CheckBox IsChecked="{Binding AutoSaveProfileOnExit}" Content="{Binding L[SettingsAutoSaveProfileOnExit]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnExitTooltip]}" />
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[EffectiveLaunchCommand]}" />
           <TextBox Text="{Binding CommandPreview, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"

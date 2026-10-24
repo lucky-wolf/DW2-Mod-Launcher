@@ -159,7 +159,7 @@ namespace DW2ModLauncher.Tests
         [InlineData(@"""_layouts"": { ""Missing"": { ""kind"": ""ladder"", ""none"": ""Never"" } }", "Missing")]
         [InlineData(@"""_layouts"": { ""Rules"": { ""kind"": ""grid"", ""none"": ""Never"" } }", "grid")]
         [InlineData(@"""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Nope"" } }", "Nope")]
-        [InlineData(@"""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"", ""short"": { ""Never"": ""N"" } } }", "not a column")]
+        [InlineData(@"""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"", ""short"": { ""Nope"": ""N"" } } }", "not a column")]
         public void Read_RejectsBadLadderLayout(string layouts, string expected)
         {
             var ex = Assert.Throws<InvalidDataException>(() => ReadSchema("{ " + LadderGroup + ", " + layouts + " }"));
@@ -175,7 +175,40 @@ namespace DW2ModLauncher.Tests
                 ""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"" } } }";
 
             var ex = Assert.Throws<InvalidDataException>(() => ReadSchema(json));
-            Assert.Contains("different options", ex.Message);
+            Assert.Contains("not in the order", ex.Message);
+        }
+
+        [Fact]
+        public void Read_AllowsLadderRowWithFewerOptions()
+        {
+            string json = @"{ ""Rules"": [
+                { ""key"": ""A"", ""type"": ""enum"", ""options"": [""Never"", ""High"", ""Low""] },
+                { ""key"": ""B"", ""type"": ""enum"", ""options"": [""High"", ""Low""] } ],
+                ""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"" } } }";
+
+            Assert.NotNull(ReadSchema(json).Groups[0].Layout);
+        }
+
+        [Fact]
+        public void Read_RejectsLadderRowWithReorderedOptions()
+        {
+            string json = @"{ ""Rules"": [
+                { ""key"": ""A"", ""type"": ""enum"", ""options"": [""Never"", ""High"", ""Low""] },
+                { ""key"": ""B"", ""type"": ""enum"", ""options"": [""Low"", ""High""] } ],
+                ""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"" } } }";
+
+            Assert.Contains("not in the order", Assert.Throws<InvalidDataException>(() => ReadSchema(json)).Message);
+        }
+
+        [Fact]
+        public void Read_AcceptsNoneLast_AndRejectsNoneInTheMiddle()
+        {
+            string last = @"{ ""Rules"": [ { ""key"": ""A"", ""type"": ""enum"", ""options"": [""High"", ""Low"", ""Never""] } ],
+                ""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"" } } }";
+            string middle = last.Replace(@"""High"", ""Low"", ""Never""", @"""High"", ""Never"", ""Low""");
+
+            Assert.NotNull(ReadSchema(last).Groups[0].Layout);
+            Assert.Contains("first or the last", Assert.Throws<InvalidDataException>(() => ReadSchema(middle)).Message);
         }
 
         [Fact]

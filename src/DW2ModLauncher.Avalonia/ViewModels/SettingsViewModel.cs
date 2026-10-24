@@ -77,6 +77,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private bool autoUpdateDescription = true;
         /// <summary>Publishing an update also sends the description when it differs from the Steam page.</summary>
         public bool AutoUpdateDescription { get { return autoUpdateDescription; } set { Set(ref autoUpdateDescription, value); } }
+        private bool autoSaveProfileOnLaunch = true;
+        /// <summary>Launching the game with unsaved profile edits saves them instead of asking.</summary>
+        public bool AutoSaveProfileOnLaunch { get { return autoSaveProfileOnLaunch; } set { Set(ref autoSaveProfileOnLaunch, value); } }
+        private bool autoSaveProfileOnExit;
+        /// <summary>Exiting with unsaved profile edits saves them instead of asking.</summary>
+        public bool AutoSaveProfileOnExit { get { return autoSaveProfileOnExit; } set { Set(ref autoSaveProfileOnExit, value); } }
         private OpenSteamPageAfterPublish openSteamPage = OpenSteamPageAfterPublish.Prompt;
         /// <summary>The "after publishing" choice, as the index of <see cref="OpenSteamPageChoices"/> (same order as the enum).</summary>
         public int OpenSteamPageIndex { get { return (int)openSteamPage; } set { if (value >= 0 && Set(ref openSteamPage, (OpenSteamPageAfterPublish)value)) Raise(); } }
@@ -157,6 +163,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             AuthorName = s.AuthorName ?? "";
             AutoUpdateDescription = s.AutoUpdateDescription;
             OpenSteamPageIndex = (int)s.OpenSteamPageAfterPublish;
+            AutoSaveProfileOnExit = s.AutoSaveProfileOnExit;
+            AutoSaveProfileOnLaunch = s.AutoSaveProfileOnLaunch;
         }
 
         /// <summary>Writes the editable fields into the settings object without validating (used right before launch).</summary>
@@ -193,8 +201,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool pathsSame = game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory;
             string author = (authorName ?? "").Trim();
             AuthorName = author;
-            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription && openSteamPage == s.OpenSteamPageAfterPublish) return true;
+            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription && openSteamPage == s.OpenSteamPageAfterPublish && autoSaveProfileOnExit == s.AutoSaveProfileOnExit && autoSaveProfileOnLaunch == s.AutoSaveProfileOnLaunch) return true;
+            s.AutoSaveProfileOnLaunch = autoSaveProfileOnLaunch;
             s.OpenSteamPageAfterPublish = openSteamPage;
+            s.AutoSaveProfileOnExit = autoSaveProfileOnExit;
             s.DescriptionExtension = extension;
             s.AuthorName = author;
             s.AutoUpdateDescription = autoUpdateDescription;
@@ -351,7 +361,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 RaiseDirty();
                 return true;
             }
-            if (ProfileDirty) return await WriteProfileAsync(profileName);
+            if (ProfileDirty)
+                return main.LauncherSettings.AutoSaveProfileOnLaunch
+                    ? await WriteProfileAsync(profileName)
+                    : await AskSaveOrDisconnectAsync(string.Format(main.T("UnsavedProfileExit"), profileName));
             try { main.GameProfiles.WriteCurrent(profileName); }
             catch (Exception ex) { Logger.LogException("Set active profile before launch", ex); }
             return true;
@@ -361,6 +374,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public async Task<bool> ConfirmSaveForExitAsync()
         {
             if (!ProfileDirty) return true;
+            // Chosen in settings: the edits were deliberate, so write them. The default profile has no file; its list is already in mods.json.
+            if (main.LauncherSettings.AutoSaveProfileOnExit) return !HasProfile || await WriteProfileAsync(profileName);
             return await AskSaveOrDisconnectAsync(string.Format(main.T("UnsavedProfileExit"), profileName));
         }
 
