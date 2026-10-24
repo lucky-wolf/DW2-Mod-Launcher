@@ -26,6 +26,7 @@ namespace DW2ModLauncher.Core.Services
     {
         private readonly Dictionary<string, string> groups = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> groupDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> shortHeadings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, FieldText> fields = new Dictionary<string, FieldText>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>The translated text of one field; any part may be null (not translated).</summary>
@@ -49,6 +50,12 @@ namespace DW2ModLauncher.Core.Services
         public string GroupDescription(string groupName, string schemaText)
         {
             return groupName != null && groupDescriptions.TryGetValue(groupName, out string text) && !string.IsNullOrWhiteSpace(text) ? text : schemaText;
+        }
+
+        /// <summary>The short column heading of a ladder group's option, translated if the sidecar has it (<c>"layouts": { "Group": { "short": { "Option": "…" } } }</c>).</summary>
+        public string ShortHeading(string groupName, string option, string schemaText)
+        {
+            return groupName != null && option != null && shortHeadings.TryGetValue(groupName + "\n" + option, out string text) && !string.IsNullOrWhiteSpace(text) ? text : schemaText;
         }
 
         public string Label(string key, string schemaText)
@@ -89,6 +96,7 @@ namespace DW2ModLauncher.Core.Services
                     foreach (JsonProperty root in document.RootElement.EnumerateObject())
                     {
                         if (string.Equals(root.Name, "groups", StringComparison.OrdinalIgnoreCase) && root.Value.ValueKind == JsonValueKind.Object) ReadGroups(root.Value, result);
+                        else if (string.Equals(root.Name, "layouts", StringComparison.OrdinalIgnoreCase) && root.Value.ValueKind == JsonValueKind.Object) ReadLayouts(root.Value, result);
                         else if (string.Equals(root.Name, "fields", StringComparison.OrdinalIgnoreCase) && root.Value.ValueKind == JsonValueKind.Object) ReadFields(root.Value, result, path);
                     }
                     return result;
@@ -113,6 +121,20 @@ namespace DW2ModLauncher.Core.Services
                         if (string.Equals(part.Name, "heading", StringComparison.OrdinalIgnoreCase)) result.groups[group.Name] = part.Value.GetString();
                         else if (string.Equals(part.Name, "description", StringComparison.OrdinalIgnoreCase)) result.groupDescriptions[group.Name] = part.Value.GetString();
                     }
+                }
+            }
+        }
+
+        private static void ReadLayouts(JsonElement element, ModSettingsTranslation result)
+        {
+            foreach (JsonProperty group in element.EnumerateObject())
+            {
+                if (group.Value.ValueKind != JsonValueKind.Object) continue;
+                foreach (JsonProperty part in group.Value.EnumerateObject())
+                {
+                    if (!string.Equals(part.Name, "short", StringComparison.OrdinalIgnoreCase) || part.Value.ValueKind != JsonValueKind.Object) continue;
+                    foreach (JsonProperty option in part.Value.EnumerateObject())
+                        if (option.Value.ValueKind == JsonValueKind.String) result.shortHeadings[group.Name + "\n" + option.Name] = option.Value.GetString();
                 }
             }
         }

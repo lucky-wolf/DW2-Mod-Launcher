@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
 using Xunit;
 
@@ -124,6 +125,67 @@ namespace DW2ModLauncher.Tests
                 Assert.Throws<InvalidDataException>(() => ModSettingsSchemaReader.Read(dir));
             }
             finally { Directory.Delete(dir, true); }
+        }
+
+        private static ModSettingsSchema ReadSchema(string json)
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "dw2-schema-" + System.Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                File.WriteAllText(Path.Combine(dir, "settings.schema.json"), json);
+                return ModSettingsSchemaReader.Read(dir);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        private const string LadderGroup = @"""Rules"": [
+            { ""key"": ""A"", ""type"": ""enum"", ""options"": [""Never"", ""High"", ""Low""], ""default"": ""Low"" },
+            { ""key"": ""B"", ""type"": ""enum"", ""options"": [""Never"", ""High"", ""Low""], ""default"": ""High"" }
+        ]";
+
+        [Fact]
+        public void Read_ParsesLadderLayout()
+        {
+            var schema = ReadSchema("{ " + LadderGroup + @", ""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"", ""short"": { ""High"": ""H"" } } } }");
+
+            var layout = schema.Groups[0].Layout;
+            Assert.NotNull(layout);
+            Assert.Equal("Never", layout.None);
+            Assert.Equal("H", layout.Short["high"]);
+        }
+
+        [Theory]
+        [InlineData(@"""_layouts"": { ""Missing"": { ""kind"": ""ladder"", ""none"": ""Never"" } }", "Missing")]
+        [InlineData(@"""_layouts"": { ""Rules"": { ""kind"": ""grid"", ""none"": ""Never"" } }", "grid")]
+        [InlineData(@"""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Nope"" } }", "Nope")]
+        [InlineData(@"""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"", ""short"": { ""Never"": ""N"" } } }", "not a column")]
+        public void Read_RejectsBadLadderLayout(string layouts, string expected)
+        {
+            var ex = Assert.Throws<InvalidDataException>(() => ReadSchema("{ " + LadderGroup + ", " + layouts + " }"));
+            Assert.Contains(expected, ex.Message);
+        }
+
+        [Fact]
+        public void Read_RejectsLadderWithMismatchedOptions()
+        {
+            string json = @"{ ""Rules"": [
+                { ""key"": ""A"", ""type"": ""enum"", ""options"": [""Never"", ""High""] },
+                { ""key"": ""B"", ""type"": ""enum"", ""options"": [""Never"", ""Low""] } ],
+                ""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"" } } }";
+
+            var ex = Assert.Throws<InvalidDataException>(() => ReadSchema(json));
+            Assert.Contains("different options", ex.Message);
+        }
+
+        [Fact]
+        public void Read_RejectsLadderWithNonEnumField()
+        {
+            string json = @"{ ""Rules"": [ { ""key"": ""A"", ""type"": ""bool"" } ],
+                ""_layouts"": { ""Rules"": { ""kind"": ""ladder"", ""none"": ""Never"" } } }";
+
+            var ex = Assert.Throws<InvalidDataException>(() => ReadSchema(json));
+            Assert.Contains("not an enum", ex.Message);
         }
     }
 }

@@ -5,7 +5,63 @@
         x:DataType="vm:ModSettingsEditorViewModel"
         Title="{Binding Title}" Width="980" Height="720" MinWidth="760" MinHeight="520"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <Window.Styles>
+    <!-- Ladder matrix cells: filled up to the row's threshold; the shipped setting's column carries a gold underline. -->
+    <Style Selector="Button.ladderCell">
+      <Setter Property="Width" Value="64" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderThickness" Value="0,0,0,2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.ladderCell.on">
+      <Setter Property="Background" Value="{StaticResource Dw2BlueGlow}" />
+    </Style>
+    <Style Selector="Button.ladderCell.default">
+      <Setter Property="BorderBrush" Value="{StaticResource Dw2Gold}" />
+    </Style>
+  </Window.Styles>
   <Window.Resources>
+    <DataTemplate x:Key="LadderRowTemplate" x:DataType="vm:LadderRowViewModel">
+      <Grid ColumnDefinitions="260,Auto,Auto" Margin="0,0,0,4" Background="Transparent" ToolTip.Tip="{Binding Field.Tooltip}">
+        <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0" Text="{Binding Field.Label}" />
+        <ItemsControl Grid.Column="1" ItemsSource="{Binding Cells}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LadderCellViewModel">
+              <Button Classes="ladderCell" Classes.on="{Binding IsOn}" Classes.default="{Binding IsDefault}"
+                      Command="{Binding ClickCommand}" ToolTip.Tip="{Binding Tooltip}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <!-- Reset to default: same "undo" icon as the plain field rows. -->
+        <Button Grid.Column="2" Margin="6,0,0,0" Padding="6,5" Width="30" Height="30" IsEnabled="{Binding Field.CanReset}"
+                Command="{Binding Field.ResetCommand}" ToolTip.Tip="{Binding Field.ResetTooltip}">
+          <PathIcon Width="14" Height="14" Data="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
+        </Button>
+      </Grid>
+    </DataTemplate>
+    <DataTemplate x:Key="LadderTemplate" x:DataType="vm:LadderViewModel">
+      <StackPanel Margin="0,0,0,4">
+        <!-- Column headings: short text, the full option as a tooltip. -->
+        <Grid ColumnDefinitions="260,Auto" Margin="0,0,0,4">
+          <ItemsControl Grid.Column="1" ItemsSource="{Binding Columns}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LadderColumn">
+                <TextBlock Width="64" Margin="0,0,4,0" TextAlignment="Center" Opacity="0.85" Text="{Binding Heading}" ToolTip.Tip="{Binding Tooltip}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Grid>
+        <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource LadderRowTemplate}" />
+      </StackPanel>
+    </DataTemplate>
     <DataTemplate x:Key="FieldTemplate" x:DataType="vm:SettingFieldViewModel">
               <Grid ColumnDefinitions="*,230,Auto" Margin="0,0,16,6" Background="Transparent" ToolTip.Tip="{Binding Tooltip}">
                 <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Margin="0,6,10,0" Text="{Binding Label}" />
@@ -43,7 +99,8 @@
           </Button>
         </Grid>
         <TextBlock IsVisible="{Binding ShowDescription}" Text="{Binding Description}" TextWrapping="Wrap" FontSize="12" Opacity="0.75" Margin="0,0,16,4" />
-        <ItemsControl IsVisible="{Binding IsExpanded}" ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource FieldTemplate}">
+        <ContentControl IsVisible="{Binding ShowLadder}" Content="{Binding Ladder}" ContentTemplate="{StaticResource LadderTemplate}" />
+        <ItemsControl IsVisible="{Binding ShowFieldList}" ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource FieldTemplate}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>

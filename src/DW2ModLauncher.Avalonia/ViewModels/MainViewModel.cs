@@ -1812,8 +1812,24 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (requested.HasValue && actual.HasValue && actual != requested)
                     message += "\n\n" + T("PublishVisibilityDiffers", T(PublishDialogViewModel.LabelKey(requested.Value)), T(PublishDialogViewModel.LabelKey(actual.Value)));
                 SetStatus(T("WorkshopIdSaved"));
-                if (await Dialogs.ConfirmAsync(message, T("PublishToWorkshop"), T("SteamPage"), T("Close")))
-                    OpenSteamPage(result.WorkshopId.Value.ToString());
+                string workshopId = result.WorkshopId.Value.ToString();
+                bool hasWarnings = result.NeedsWorkshopAgreement || stampProblem != null || recordProblem != null
+                    || (requested.HasValue && actual.HasValue && actual != requested);
+                switch (LauncherSettings.OpenSteamPageAfterPublish)
+                {
+                    case OpenSteamPageAfterPublish.Always:
+                        OpenSteamPage(workshopId);
+                        // Problems still need reading; a plain success does not.
+                        if (hasWarnings) await Dialogs.ShowMessageAsync(message, T("PublishToWorkshop"));
+                        break;
+                    case OpenSteamPageAfterPublish.Never:
+                        if (hasWarnings) await Dialogs.ShowMessageAsync(message, T("PublishToWorkshop"));
+                        break;
+                    default:
+                        if (await Dialogs.ConfirmAsync(message, T("PublishToWorkshop"), T("SteamPage"), T("Close")))
+                            OpenSteamPage(workshopId);
+                        break;
+                }
                 Refresh();
             }
             catch (Exception ex)
