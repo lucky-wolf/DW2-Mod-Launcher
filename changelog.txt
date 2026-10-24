@@ -1,4 +1,6 @@
 ## Unreleased
+
+## 1.0.24 (2026-10-24)
 - Attempting to launch twice brings the running launcher forward
 - Settings to save mod profile changes on launch and exit without asking
 - Setting to ask, always or never open Steam page after publishing
