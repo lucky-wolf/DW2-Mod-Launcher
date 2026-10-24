@@ -7,11 +7,13 @@ What the Steam page says about the launcher lives in that mod folder, which the 
     when both exist and differ, the newer one is offered as the replacement for the older (default yes). The description may use
     {version}, {date} and {changes} (see "Mod Author README.md"); the launcher fills them in when it publishes.
   - changelog.txt  <->  mods/DW2 Mod Launcher/changelog.txt
-    Both have an "Unreleased" section on top, as every other mod does; nothing in these scripts stamps a version. The launcher stamps
-    the mod folder's copy when it publishes ("## <version> (<date>)", a fresh empty Unreleased above it), and the next run adopts that
-    stamp into the repo's changelog and drops the Unreleased lines it shipped. The mod folder gets the repo's sections (a leading "v"
-    dropped from the old headings, since the launcher names versions without it); Unreleased lines only the mod folder has are kept.
-    The mod folder's version is not touched.
+    Both have an "Unreleased" section on top, as every other mod does; nothing in these scripts stamps a version. The most recently
+    saved copy wins, the way DW2-XL's scripts/dw2/changelog_sync.py does it, and nothing is merged line by line: the copy being
+    overwritten is saved under temp/backups first (lib/backups.py) and every line it loses is reported. When the mod folder's copy is
+    newer (edited there, or stamped by a publish) it replaces the repo's whole. When the repo's is newer, the launcher's newest stamp
+    ("## <version> (<date>)", a version newer than any the repo lists) is adopted into it, the Unreleased lines that stamp shipped are
+    dropped, and the result replaces the mod folder's copy (a leading "v" dropped from the old headings, since the launcher names
+    versions without it). The mod folder's version is not touched.
 
 Run by scripts/build.py and scripts/open-pr.py. The game folder comes from --path, else DW2_PATH, else the platform's usual Steam
 location. Without a game install or without the DW2 Mod Launcher folder there is nothing to sync, and it says so.
@@ -22,7 +24,7 @@ import re
 import shutil
 from pathlib import Path
 
-from . import changelog, output
+from . import backups, changelog, output
 
 MOD_FOLDER = "DW2 Mod Launcher"
 REPO_DIR = "mod"
@@ -94,7 +96,8 @@ def _sync_file(repo_file: Path, mod_file: Path, dry_run: bool, assume_yes: bool)
     if not copy:
         output.info(f"{label}: differs, left alone")
         return
-    output.replace(f"{label}: copied from {where_src} to {where_dst}")
+    backup = backups.save(dst, "repo" if dst == repo_file else "mod")
+    output.replace(f"{label}: copied from {where_src} to {where_dst} (previous copy: {backup})")
     if dst == repo_file:
         _copy_into_repo(src, dst)
     else:
@@ -113,50 +116,92 @@ def _version_key(heading: str | None) -> tuple[int, ...]:
     return tuple(int(n) for n in m.group(1).split(".")) if m else ()
 
 
+def _lost_lines(label: str, overwritten: list[changelog.Section], winner: list[changelog.Section], where: str, why: str) -> None:
+    """Says which '- ' lines of the copy being overwritten the winning copy does not have."""
+    kept = {entry for s in winner for entry in s.entries()}
+    for section in overwritten:
+        lost = [entry for entry in section.entries() if entry not in kept]
+        if lost:
+            output.warn(f"{label}: {why}; {where}'s '{section.heading}' lines it lacks:" + "".join(f"\n      - {entry}" for entry in lost))
+
+
+def _repo_heading(heading: str | None, repo: list[changelog.Section]) -> str | None:
+    """A mod folder heading as the repo spells it: "1.0.21" stays the repo's "v1.0.21"."""
+    return next((s.heading for s in repo if s.heading is not None and _mod_heading(s.heading) == heading), heading)
+
+
 def sync_changelog(repo_changelog: Path, mod_changelog: Path, dry_run: bool) -> None:
-    """Keeps the repo's changelog and the mod folder's in step. Both keep an Unreleased section on top; the launcher stamps the mod
-    folder's copy when it publishes, and that stamp (a version section newer than any the repo lists) is adopted into the repo, the
-    Unreleased lines it shipped dropped. Unreleased lines only the mod folder has (typed in the publish dialog) are kept."""
+    """Keeps the repo's changelog and the mod folder's in step; the most recently saved copy wins and the other is saved under
+    temp/backups before it is overwritten, every line it loses reported. No line-by-line merge: a line deleted from the winner stays deleted."""
     label = f"changelog.txt (repo <-> mods/{MOD_FOLDER})"
     if not repo_changelog.is_file():
         output.info(f"{label}: the repo has no changelog.txt")
         return
     repo = changelog.parse(repo_changelog.read_text(encoding="utf-8"))
-    mod = changelog.parse(mod_changelog.read_text(encoding="utf-8")) if mod_changelog.is_file() else []
 
+    def mod_text_of(sections: list[changelog.Section]) -> str:
+        return changelog.render([changelog.Section(_mod_heading(s.heading), s.lines) for s in sections])
+
+    if not mod_changelog.is_file():
+        output.replace(f"{label}: copied to mods/{MOD_FOLDER}, which had none")
+        if not dry_run:
+            mod_changelog.write_bytes(mod_text_of(repo).encode("utf-8"))
+        return
+    mod = changelog.parse(mod_changelog.read_text(encoding="utf-8"))
+
+    if mod_changelog.stat().st_mtime > repo_changelog.stat().st_mtime:
+        # the mod folder's copy was saved after the repo's (edited there, or stamped by a publish): it becomes the repo's
+        sections = [changelog.Section(_repo_heading(s.heading, repo), s.lines) for s in mod]
+        text = changelog.render(sections)
+        if text.splitlines() == repo_changelog.read_bytes().decode("utf-8").splitlines():
+            output.info(f"{label}: in sync")
+            return
+        _lost_lines(label, repo, sections, "the repo", f"mods/{MOD_FOLDER} is newer and replaces the repo copy")
+        if dry_run:
+            print(f"  [dry-run] would update {repo_changelog} from the newer {mod_changelog}")
+            return
+        backup = backups.save(repo_changelog, "repo")
+        output.replace(f"{label}: repo copy replaced with the newer mods/{MOD_FOLDER} copy (previous copy: {backup})")
+        repo_changelog.write_bytes(text.encode("utf-8"))
+        return
+
+    # the repo's copy is the newer: the launcher's newest stamp (a version newer than any the repo lists, with the lines it shipped) is
+    # adopted into it, and the result overwrites the mod folder's copy
     repo_versions = [s for s in repo if s.heading is not None and not changelog.is_unreleased(s)]
     newest = max((_version_key(s.heading) for s in repo_versions), default=())
     # a publish stamps the lines it sent, so a newer version section with none is not a stamp (the old scripts mirrored an empty
     # "## v1.0.23" into the mod folder); it is not adopted and the repo's copy overwrites it
     adopted = [s for s in mod if s.heading is not None and not changelog.is_unreleased(s) and _version_key(s.heading) > newest and s.entries()]
     shipped = {entry for s in adopted for entry in s.entries()}
-
     unreleased = [e for s in repo if changelog.is_unreleased(s) for e in s.entries() if e not in shipped]
-    known = set(unreleased)
-    for s in mod:
-        if changelog.is_unreleased(s):
-            for entry in s.entries():
-                if entry not in known and entry not in shipped:
-                    known.add(entry)
-                    unreleased.append(entry)
-
     versions = sorted(repo_versions + adopted, key=lambda s: _version_key(s.heading), reverse=True)
     sections = [repo[0], changelog.Section(changelog.UNRELEASED, [f"- {e}" for e in unreleased]), *versions]
     repo_text = changelog.render(sections)
-    mod_text = changelog.render([changelog.Section(s.heading if s.heading is None else _mod_heading(s.heading), s.lines) for s in sections])
+    mod_text = mod_text_of(sections)
 
-    for section in adopted:
-        output.replace(f"{label}: adopted '{section.heading}', stamped by the launcher when it published")
     if repo_changelog.read_bytes().decode("utf-8").splitlines() != repo_text.splitlines():
-        output.replace(f"{label}: repo changelog updated")
-        if not dry_run:
+        for section in adopted:
+            output.replace(f"{label}: adopted '{section.heading}', stamped by the launcher when it published")
+        for entry in shipped:
+            output.replace(f"{label}: no longer Unreleased, it shipped: {entry}")
+        if dry_run:
+            print(f"  [dry-run] would update {repo_changelog}")
+        else:
+            backup = backups.save(repo_changelog, "repo")
+            output.replace(f"{label}: repo changelog updated (previous copy: {backup})")
             repo_changelog.write_bytes(repo_text.encode("utf-8"))
-    if mod_changelog.is_file() and mod_changelog.read_bytes().decode("utf-8").splitlines() == mod_text.splitlines():
+    if mod_changelog.read_bytes().decode("utf-8").splitlines() == mod_text.splitlines():
         output.info(f"{label}: in sync")
-    else:
-        output.replace(f"{label}: mods/{MOD_FOLDER} changelog updated from the repo")
-        if not dry_run:
-            mod_changelog.write_bytes(mod_text.encode("utf-8"))
+        return
+    adopted_headings = {s.heading for s in adopted}
+    _lost_lines(label, [s for s in mod if s.heading not in adopted_headings], [changelog.Section(_mod_heading(s.heading), s.lines) for s in sections],
+                f"mods/{MOD_FOLDER}", "the repo's changelog is newer and overwrites the mod folder copy")
+    if dry_run:
+        print(f"  [dry-run] would update {mod_changelog} from the repo")
+        return
+    backup = backups.save(mod_changelog, "mod")
+    output.replace(f"{label}: mods/{MOD_FOLDER} overwritten with the repo's changelog (previous copy: {backup})")
+    mod_changelog.write_bytes(mod_text.encode("utf-8"))
 
 
 def _mod_dir(game_path: Path | None) -> Path | None:
