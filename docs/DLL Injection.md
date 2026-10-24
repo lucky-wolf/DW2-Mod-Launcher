@@ -208,6 +208,18 @@ then only has to say what that one switch changes). The names are matched ignori
 }
 ```
 
+A group can be drawn as a **ladder matrix** instead of the two-column list: a root `_layouts` object maps a group's name to `{ "kind": "ladder", "none": "<option>", "short": { "<option>": "<heading>" } }`. Every field of the group must be an `enum` with the same options, in the same order, and `none` names the option that selects nothing. Each field becomes a row and each other option a column; a cell is filled from the first column up to and including the field's value, so a row reads "allowed from this column and everything before it". Clicking a cell moves the value there, and clicking the value's own cell sets `none`. The shipped default's column carries a gold underline, and each row has its own reset button. The stored values stay the ordinary enum keys, so the mod reads them exactly as it would from the list. `short` gives narrow column headings (the full option text becomes the tooltip); options without an entry show in full. A layout the launcher cannot draw (unknown group, different options, a `none` that is not an option) is reported when the dialog opens. A sidecar translates the headings with `"layouts": { "Group": { "short": { "Option": "…" } } }`, and column text otherwise comes from the first field's option translations.
+
+```json
+{
+  "Treaties": [
+    {"key": "AllowedFrom_Research", "type": "enum", "options": ["Never", "CloseAlly", "Ally", "Befriend", "Neutral"], "default": "Ally"},
+    {"key": "AllowedFrom_Defense",  "type": "enum", "options": ["Never", "CloseAlly", "Ally", "Befriend", "Neutral"], "default": "CloseAlly"}
+  ],
+  "_layouts": { "Treaties": { "kind": "ladder", "none": "Never", "short": { "CloseAlly": "CA", "Ally": "A", "Befriend": "B", "Neutral": "N" } } }
+}
+```
+
 Per field:
 
 | Attribute | Required | Meaning |

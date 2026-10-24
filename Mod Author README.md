@@ -60,6 +60,7 @@ Ship a `settings.schema.json` next to `mod.json`. Each field has a `key`, a `typ
 - A field with `"hidden": true` shows only for your local copy, not for the Workshop copy players have. Use it for developer switches such as logging.
 - Make your code's defaults equal the schema's defaults. The launcher does not write a value that sits at its default.
 - Each array in the schema is a group, headed by its key. To say what a group is about (a feature behind an "Enable for Player" switch, say), add a root `"_groups": { "GroupName": "text" }` object (underscore, so it sorts first and never clashes with a group of your own named "groups"); the text shows under the heading. A sidecar can translate it with `"groups": { "GroupName": { "heading": "…", "description": "…" } }`.
+- A group of enums that share one ordered option list ("allowed from this level up") can be drawn as a ladder matrix with a root `"_layouts"` entry; stored values stay plain enum keys. See [DLL Injection.md](<docs/DLL Injection.md#settings-schema>).
 - Translations are sidecars (`settings.schema.ja.json`, `settings.schema.ru.json`) that translate field labels and descriptions, option text, group headings and group descriptions. No code is needed. All the launcher's translation paths are in [Localization.md](docs/Localization.md).
 
 Reference: [DLL Injection.md](<docs/DLL Injection.md#settings-schema>).

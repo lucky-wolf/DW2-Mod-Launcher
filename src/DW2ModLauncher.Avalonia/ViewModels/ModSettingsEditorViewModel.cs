@@ -79,6 +79,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get { return ChoiceOptions.FirstOrDefault(o => o.Value == textValue); }
             set { if (value != null) TextValue = value.Value; }
         }
+        /// <summary>The schema default of a choice field, as option text; what a ladder marks as the shipped setting.</summary>
+        public string DefaultChoice { get { return defaultNode.ToString(); } }
         public decimal MinValue { get; }
         public decimal MaxValue { get; }
         public decimal Increment { get { return ModSettingsValues.StepOf(schemaField); } }
@@ -189,13 +191,136 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
     }
 
+    /// <summary>One column of a ladder: the short heading, with the full option text as its tooltip.</summary>
+    public class LadderColumn
+    {
+        public LadderColumn(string option, string heading, string display)
+        {
+            Option = option;
+            Heading = heading;
+            Display = display;
+        }
+
+        /// <summary>The schema's option text (what is stored).</summary>
+        public string Option { get; }
+        public string Heading { get; }
+        public string Display { get; }
+        /// <summary>Only a shortened heading needs the full text as a tooltip.</summary>
+        public string Tooltip { get { return Heading == Display ? null : Display; } }
+    }
+
+    /// <summary>One cell of a ladder row: filled while its column is at or before the row's threshold. Clicking moves the threshold here, or clears the row when it is already the threshold.</summary>
+    public class LadderCellViewModel : ViewModelBase
+    {
+        private readonly LadderRowViewModel row;
+        private readonly int index;
+
+        public LadderCellViewModel(LadderRowViewModel row, int index)
+        {
+            this.row = row;
+            this.index = index;
+            ClickCommand = new RelayCommand(() => row.Click(index));
+        }
+
+        public RelayCommand ClickCommand { get; }
+        public bool IsOn { get { return row.Threshold >= 0 && index <= row.Threshold; } }
+        public bool IsThreshold { get { return index == row.Threshold; } }
+        /// <summary>This column is the row's shipped setting.</summary>
+        public bool IsDefault { get { return index == row.DefaultThreshold; } }
+        public string Tooltip { get { return row.CellTooltip(index); } }
+
+        public void Changed()
+        {
+            Raise(nameof(IsOn));
+            Raise(nameof(IsThreshold));
+            Raise(nameof(Tooltip));
+        }
+    }
+
+    /// <summary>One row of a ladder: a field drawn as cells. The field stays the single source of truth, so reset, "modified" and saving are the field's own.</summary>
+    public class LadderRowViewModel : ViewModelBase
+    {
+        private readonly LadderViewModel owner;
+
+        public LadderRowViewModel(LadderViewModel owner, SettingFieldViewModel field)
+        {
+            this.owner = owner;
+            Field = field;
+            for (int i = 0; i < owner.Columns.Count; i++) Cells.Add(new LadderCellViewModel(this, i));
+            field.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName != nameof(SettingFieldViewModel.TextValue)) return;
+                foreach (LadderCellViewModel cell in Cells) cell.Changed();
+            };
+        }
+
+        public SettingFieldViewModel Field { get; }
+        public List<LadderCellViewModel> Cells { get; } = new List<LadderCellViewModel>();
+
+        /// <summary>Index of the selected column, or -1 while the row holds the none option.</summary>
+        public int Threshold { get { return owner.ColumnOf(Field.SelectedChoice?.Value); } }
+        public int DefaultThreshold { get { return owner.ColumnOf(Field.DefaultChoice); } }
+
+        public void Click(int index)
+        {
+            Field.TextValue = index == Threshold ? owner.NoneOption : owner.Columns[index].Option;
+        }
+
+        public string CellTooltip(int index)
+        {
+            return owner.Strings.Format("ModSettingsLadderSet", Field.Label, index == Threshold ? owner.NoneDisplay : owner.Columns[index].Display);
+        }
+    }
+
+    /// <summary>
+    /// A group drawn as a ladder matrix (the schema's "_layouts" entry): columns are the fields' shared options minus the none option,
+    /// rows are the fields. Column text comes from the first field's option translations, as every row shares the options.
+    /// </summary>
+    public class LadderViewModel
+    {
+        private readonly List<LadderRowViewModel> allRows = new List<LadderRowViewModel>();
+
+        public LadderViewModel(string groupName, ModSettingsLayout layout, IReadOnlyList<SettingFieldViewModel> fields, LocalizedStrings l, ModSettingsTranslation translation)
+        {
+            Strings = l;
+            List<ChoiceOption> options = fields[0].ChoiceOptions;
+            ChoiceOption none = options.First(o => string.Equals(o.Value, layout.None, System.StringComparison.OrdinalIgnoreCase));
+            NoneOption = none.Value;
+            NoneDisplay = none.Display;
+            foreach (ChoiceOption option in options.Where(o => o != none))
+            {
+                layout.Short.TryGetValue(option.Value, out string schemaShort);
+                Columns.Add(new LadderColumn(option.Value, translation.ShortHeading(groupName, option.Value, schemaShort ?? option.Display), option.Display));
+            }
+            foreach (SettingFieldViewModel field in fields) allRows.Add(new LadderRowViewModel(this, field));
+        }
+
+        public LocalizedStrings Strings { get; }
+        public string NoneOption { get; }
+        public string NoneDisplay { get; }
+        public List<LadderColumn> Columns { get; } = new List<LadderColumn>();
+        /// <summary>The rows currently shown (hidden fields only while "Show hidden" is on).</summary>
+        public ObservableCollection<LadderRowViewModel> Rows { get; } = new ObservableCollection<LadderRowViewModel>();
+
+        public int ColumnOf(string option)
+        {
+            return Columns.FindIndex(c => string.Equals(c.Option, option, System.StringComparison.OrdinalIgnoreCase));
+        }
+
+        public void Show(IEnumerable<SettingFieldViewModel> shown)
+        {
+            Rows.Clear();
+            foreach (SettingFieldViewModel field in shown) Rows.Add(allRows.First(r => r.Field == field));
+        }
+    }
+
     /// <summary>One group of the settings schema: an optional heading and its fields, shown in their own grid.</summary>
     public class SettingGroupViewModel : ViewModelBase
     {
         private readonly List<SettingFieldViewModel> allFields;
         private bool isExpanded = true;
 
-        public SettingGroupViewModel(string heading, bool hasHeading, List<SettingFieldViewModel> fields, LocalizedStrings l = null, string displayHeading = null, string description = null)
+        public SettingGroupViewModel(string heading, bool hasHeading, List<SettingFieldViewModel> fields, LocalizedStrings l = null, string displayHeading = null, string description = null, ModSettingsLayout layout = null, ModSettingsTranslation translation = null)
         {
             Heading = heading;
             Description = description;
@@ -207,8 +332,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ResetGroupCommand = new RelayCommand(ResetAll);
             foreach (SettingFieldViewModel f in fields)
                 f.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.CanReset)) Raise(nameof(CanReset)); };
+            if (layout != null)
+            {
+                if (l == null) throw new System.ArgumentException("A ladder group needs the launcher's strings for its tooltips.", nameof(l));
+                ladder = new LadderViewModel(heading, layout, fields, l, translation ?? ModSettingsTranslation.None);
+            }
             Refresh(false);
         }
+
+        private readonly LadderViewModel ladder;
+        /// <summary>The group is drawn as a ladder matrix (rows = fields, columns = options) instead of the field list.</summary>
+        public bool IsLadder { get { return ladder != null; } }
+        public LadderViewModel Ladder { get { return ladder; } }
+        public bool ShowFieldList { get { return isExpanded && !IsLadder; } }
+        public bool ShowLadder { get { return isExpanded && IsLadder; } }
 
         /// <summary>The schema's group name; also what the launcher remembers collapsed groups by.</summary>
         public string Heading { get; }
@@ -233,7 +370,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool IsExpanded
         {
             get { return isExpanded; }
-            set { if (Set(ref isExpanded, value)) { Raise(nameof(Chevron)); Raise(nameof(ShowDescription)); } }
+            set { if (Set(ref isExpanded, value)) { Raise(nameof(Chevron)); Raise(nameof(ShowDescription)); Raise(nameof(ShowFieldList)); Raise(nameof(ShowLadder)); } }
         }
         public bool ShowDescription { get { return isExpanded && HasDescription; } }
         public string Chevron { get { return isExpanded ? "▾" : "▸"; } }
@@ -248,6 +385,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Fields.Clear();
             foreach (SettingFieldViewModel field in allFields)
                 if (showHidden || !field.IsHiddenField) Fields.Add(field);
+            ladder?.Show(Fields);
         }
     }
 
@@ -278,7 +416,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     rows.Add(row);
                 }
                 if (rows.Count == 0) continue;
-                SettingGroupViewModel g = new SettingGroupViewModel(group.Name, group.HasHeading, rows, l, translation.Heading(group.Name, group.Name), translation.GroupDescription(group.Name, group.Description));
+                SettingGroupViewModel g = new SettingGroupViewModel(group.Name, group.HasHeading, rows, l, translation.Heading(group.Name, group.Name), translation.GroupDescription(group.Name, group.Description), group.Layout, translation);
                 if (g.HasHeading && collapsed.Contains(g.Heading ?? "")) g.IsExpanded = false;
                 Groups.Add(g);
             }

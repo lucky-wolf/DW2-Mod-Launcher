@@ -77,6 +77,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private bool autoUpdateDescription = true;
         /// <summary>Publishing an update also sends the description when it differs from the Steam page.</summary>
         public bool AutoUpdateDescription { get { return autoUpdateDescription; } set { Set(ref autoUpdateDescription, value); } }
+        private OpenSteamPageAfterPublish openSteamPage = OpenSteamPageAfterPublish.Prompt;
+        /// <summary>The "after publishing" choice, as the index of <see cref="OpenSteamPageChoices"/> (same order as the enum).</summary>
+        public int OpenSteamPageIndex { get { return (int)openSteamPage; } set { if (value >= 0 && Set(ref openSteamPage, (OpenSteamPageAfterPublish)value)) Raise(); } }
+        public List<string> OpenSteamPageChoices
+        {
+            get { return new List<string> { main.T("SettingsOpenSteamPagePrompt"), main.T("SettingsOpenSteamPageAlways"), main.T("SettingsOpenSteamPageNever") }; }
+        }
         /// <summary>Whether the in-game widget follows the enabled translation mod (true) or the launcher's own language (false).</summary>
         public bool WidgetLanguageFromMods
         {
@@ -149,6 +156,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             DescriptionExtension = ModDescriptionFile.NormalizeExtension(s.DescriptionExtension);
             AuthorName = s.AuthorName ?? "";
             AutoUpdateDescription = s.AutoUpdateDescription;
+            OpenSteamPageIndex = (int)s.OpenSteamPageAfterPublish;
         }
 
         /// <summary>Writes the editable fields into the settings object without validating (used right before launch).</summary>
@@ -185,7 +193,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool pathsSame = game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory;
             string author = (authorName ?? "").Trim();
             AuthorName = author;
-            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription) return true;
+            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription && openSteamPage == s.OpenSteamPageAfterPublish) return true;
+            s.OpenSteamPageAfterPublish = openSteamPage;
             s.DescriptionExtension = extension;
             s.AuthorName = author;
             s.AutoUpdateDescription = autoUpdateDescription;
