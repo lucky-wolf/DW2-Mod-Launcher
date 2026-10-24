@@ -26,3 +26,6 @@ desktop.ini
 
 # Local direnv environment
 .envrc
+
+# Script backups
+temp/

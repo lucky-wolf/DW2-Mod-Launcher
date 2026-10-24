@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
 namespace DW2ModLauncher.Avalonia
 {
@@ -31,7 +32,23 @@ namespace DW2ModLauncher.Avalonia
         public override void OnFrameworkInitializationCompleted()
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                desktop.MainWindow = new MainWindow();
+            {
+                MainWindow window = new MainWindow();
+                desktop.MainWindow = window;
+                // A second launch asked this instance to come to the front.
+                Program.SingleInstance.Activated += delegate
+                {
+                    Dispatcher.UIThread.Post(delegate
+                    {
+                        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                        window.Show();
+                        window.Activate();
+                        // Nudge: some window managers only raise a window that was briefly topmost.
+                        window.Topmost = true;
+                        window.Topmost = false;
+                    });
+                };
+            }
             base.OnFrameworkInitializationCompleted();
         }
     }

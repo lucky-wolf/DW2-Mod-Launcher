@@ -33,6 +33,22 @@ namespace DW2ModLauncher.Avalonia
             };
             try
             {
+                SingleInstance = DW2ModLauncher.Core.Services.SingleInstanceGuard.ForCurrentUser();
+                if (!SingleInstance.TryAcquire())
+                {
+                    // Another launcher is running: ask it to come to the front instead of opening a second one.
+                    try
+                    {
+                        SingleInstance.SignalExisting();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogException("Another launcher is running but did not answer", ex);
+                        Environment.Exit(1);
+                    }
+                    return;
+                }
+                SingleInstance.StartListening();
                 BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
             }
             catch (Exception ex)
@@ -41,6 +57,9 @@ namespace DW2ModLauncher.Avalonia
                 throw;
             }
         }
+
+        /// <summary>Held for the whole run; a second launch defers to this process.</summary>
+        public static DW2ModLauncher.Core.Services.SingleInstanceGuard SingleInstance { get; private set; }
 
         public static AppBuilder BuildAvaloniaApp()
         {
