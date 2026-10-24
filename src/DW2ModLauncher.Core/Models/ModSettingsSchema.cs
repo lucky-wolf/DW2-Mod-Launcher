@@ -57,16 +57,16 @@ namespace DW2ModLauncher.Core.Models
     }
 
     /// <summary>
-    /// A group drawn as a ladder matrix: one row per field, one column per option. Every field of the group is an enum with the same
-    /// options; the stored value is the row's threshold, and a cell is filled from the first column up to and including the threshold.
-    /// <see cref="None"/> is the option that fills nothing (it has no column of its own).
+    /// A group drawn as a ladder matrix: one row per field, one column per option. Every field of the group is an enum; the columns are the longest option list, and a field with fewer options
+    /// (in the same order) has the missing columns blocked, never selectable; the stored value is the row's threshold, and a cell is filled from the first column up to and including the threshold.
+    /// <see cref="None"/> is the option that fills nothing; it is drawn as a column of its own, at the end of the list it is in (first or last), and the bars grow from that end.
     /// </summary>
     public class ModSettingsLayout
     {
         public const string LadderKind = "ladder";
 
         public string Kind { get; set; }
-        /// <summary>The option meaning "no column filled"; clicking the filled threshold cell again selects it.</summary>
+        /// <summary>The option meaning "no column filled"; it must be the first or last option, is a column of its own, and is filled only while the row holds it.</summary>
         public string None { get; set; }
         /// <summary>Short column headings by option ({"Close ally": "CA"}); the full option text becomes the heading's tooltip. Options without an entry show in full.</summary>
         public Dictionary<string, string> Short { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

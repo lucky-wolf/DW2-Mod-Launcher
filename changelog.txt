@@ -1,4 +1,5 @@
 ## Unreleased
+- Settings to save mod profile changes on launch and exit without asking
 - Setting to ask, always or never open Steam page after publishing
 - Settings groups can be drawn as ladder matrices
 - Mod list is auto-scanned when mod folders change

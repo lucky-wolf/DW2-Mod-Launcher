@@ -79,8 +79,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get { return ChoiceOptions.FirstOrDefault(o => o.Value == textValue); }
             set { if (value != null) TextValue = value.Value; }
         }
-        /// <summary>The schema default of a choice field, as option text; what a ladder marks as the shipped setting.</summary>
-        public string DefaultChoice { get { return defaultNode.ToString(); } }
         public decimal MinValue { get; }
         public decimal MaxValue { get; }
         public decimal Increment { get { return ModSettingsValues.StepOf(schemaField); } }
@@ -209,7 +207,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string Tooltip { get { return Heading == Display ? null : Display; } }
     }
 
-    /// <summary>One cell of a ladder row: filled while its column is at or before the row's threshold. Clicking moves the threshold here, or clears the row when it is already the threshold.</summary>
+    /// <summary>One cell of a ladder row. The none column is filled only while the row holds none; any other cell is filled from the column next to none out to the row's selected one. Clicking selects that column (a no-op when it already is).</summary>
     public class LadderCellViewModel : ViewModelBase
     {
         private readonly LadderRowViewModel row;
@@ -219,20 +217,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             this.row = row;
             this.index = index;
-            ClickCommand = new RelayCommand(() => row.Click(index));
+            ClickCommand = new RelayCommand(() => { if (IsAvailable) row.Click(index); });
         }
 
         public RelayCommand ClickCommand { get; }
-        public bool IsOn { get { return row.Threshold >= 0 && index <= row.Threshold; } }
-        public bool IsThreshold { get { return index == row.Threshold; } }
-        /// <summary>This column is the row's shipped setting.</summary>
-        public bool IsDefault { get { return index == row.DefaultThreshold; } }
+        /// <summary>The row's field offers this option; otherwise the cell is blocked out and cannot be clicked.</summary>
+        public bool IsAvailable { get { return row.Offers(index); } }
+        public bool IsBlocked { get { return !IsAvailable; } }
+        public bool IsOn { get { return IsAvailable && row.IsFilled(index); } }
+        /// <summary>This column is the row's current value: the tip of the bar.</summary>
+        public bool IsSelected { get { return index == row.Threshold; } }
         public string Tooltip { get { return row.CellTooltip(index); } }
 
         public void Changed()
         {
             Raise(nameof(IsOn));
-            Raise(nameof(IsThreshold));
+            Raise(nameof(IsSelected));
             Raise(nameof(Tooltip));
         }
     }
@@ -257,24 +257,38 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public SettingFieldViewModel Field { get; }
         public List<LadderCellViewModel> Cells { get; } = new List<LadderCellViewModel>();
 
-        /// <summary>Index of the selected column, or -1 while the row holds the none option.</summary>
+        /// <summary>Index of the selected column (0, the none column, while the row holds none).</summary>
         public int Threshold { get { return owner.ColumnOf(Field.SelectedChoice?.Value); } }
-        public int DefaultThreshold { get { return owner.ColumnOf(Field.DefaultChoice); } }
+
+        /// <summary>The bar grows from the none end: with none first, columns 1..selected are filled; with none last, selected..last-1.</summary>
+        public bool IsFilled(int index)
+        {
+            int t = Threshold;
+            int n = owner.NoneIndex;
+            if (index == t) return true;
+            if (t < 0 || t == n) return false;
+            return n == 0 ? index > 0 && index <= t : index < n && index >= t;
+        }
+
+        public bool Offers(int index)
+        {
+            return Field.ChoiceOptions.Any(o => string.Equals(o.Value, owner.Columns[index].Option, System.StringComparison.OrdinalIgnoreCase));
+        }
 
         public void Click(int index)
         {
-            Field.TextValue = index == Threshold ? owner.NoneOption : owner.Columns[index].Option;
+            Field.TextValue = owner.Columns[index].Option;
         }
 
         public string CellTooltip(int index)
         {
-            return owner.Strings.Format("ModSettingsLadderSet", Field.Label, index == Threshold ? owner.NoneDisplay : owner.Columns[index].Display);
+            return owner.Strings.Format(Offers(index) ? "ModSettingsLadderSet" : "ModSettingsLadderBlocked", Field.Label, owner.Columns[index].Display);
         }
     }
 
     /// <summary>
-    /// A group drawn as a ladder matrix (the schema's "_layouts" entry): columns are the fields' shared options minus the none option,
-    /// rows are the fields. Column text comes from the first field's option translations, as every row shares the options.
+    /// A group drawn as a ladder matrix (the schema's "_layouts" entry): columns are the widest row's options in the order the schema lists them,
+    /// rows are the fields. Column text comes from the first field's option translations, as the columns are the widest row's options.
     /// </summary>
     public class LadderViewModel
     {
@@ -283,21 +297,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public LadderViewModel(string groupName, ModSettingsLayout layout, IReadOnlyList<SettingFieldViewModel> fields, LocalizedStrings l, ModSettingsTranslation translation)
         {
             Strings = l;
-            List<ChoiceOption> options = fields[0].ChoiceOptions;
+            List<ChoiceOption> options = fields.OrderByDescending(f => f.ChoiceOptions.Count).First().ChoiceOptions;
             ChoiceOption none = options.First(o => string.Equals(o.Value, layout.None, System.StringComparison.OrdinalIgnoreCase));
-            NoneOption = none.Value;
-            NoneDisplay = none.Display;
-            foreach (ChoiceOption option in options.Where(o => o != none))
+            // the none option is a column of its own, wherever the list puts it (first or last), so "nothing" is a deliberate choice and clicking a column is never a toggle
+            foreach (ChoiceOption option in options)
             {
                 layout.Short.TryGetValue(option.Value, out string schemaShort);
                 Columns.Add(new LadderColumn(option.Value, translation.ShortHeading(groupName, option.Value, schemaShort ?? option.Display), option.Display));
             }
+            NoneIndex = ColumnOf(none.Value);
             foreach (SettingFieldViewModel field in fields) allRows.Add(new LadderRowViewModel(this, field));
         }
 
         public LocalizedStrings Strings { get; }
-        public string NoneOption { get; }
-        public string NoneDisplay { get; }
+        /// <summary>Column of the none option: the first or the last, the end the bars grow from.</summary>
+        public int NoneIndex { get; private set; }
         public List<LadderColumn> Columns { get; } = new List<LadderColumn>();
         /// <summary>The rows currently shown (hidden fields only while "Show hidden" is on).</summary>
         public ObservableCollection<LadderRowViewModel> Rows { get; } = new ObservableCollection<LadderRowViewModel>();
