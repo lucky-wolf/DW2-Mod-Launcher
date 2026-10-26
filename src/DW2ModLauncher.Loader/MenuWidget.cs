@@ -212,7 +212,7 @@ namespace DW2ModLauncher.Loader
                 string version = loader.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? loader.GetName().Version?.ToString() ?? "unknown";
                 int plus = version.IndexOf('+');
                 if (plus > 0) version = version.Substring(0, plus);
-                string text = StatusStrings.Get("WidgetAbout", version, ModStatus.Registry.Snapshot().Count);
+                string text = StatusStrings.Get("WidgetAbout", ("Version", version), ("Loaded", ModStatus.Registry.Snapshot().Count));
                 _m.ShowAbout("DW2 MOD LAUNCHER", text, _m.ScreenWidth(), _m.ScreenHeight());
             }
             catch (Exception ex)

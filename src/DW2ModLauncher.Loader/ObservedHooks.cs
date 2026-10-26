@@ -59,7 +59,7 @@ namespace DW2ModLauncher.Loader
                     {
                         _error = ex.Message;
                         Entry.Log("ERROR observed hooks could not be written to " + _manifest.ObservedHooksPath + ": " + ex);
-                        HookStatus.Warn("observedhooks", StatusStrings.Get("WidgetObservedHooksFailed", _manifest.ObservedHooksPath, ex.Message), null);
+                        HookStatus.Warn("observedhooks", StatusStrings.Get("WidgetObservedHooksFailed", ("File", _manifest.ObservedHooksPath), ("Problem", ex.Message)), null);
                     }
                 }
             }

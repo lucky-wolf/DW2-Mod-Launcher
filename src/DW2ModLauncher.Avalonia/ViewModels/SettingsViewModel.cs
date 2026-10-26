@@ -242,7 +242,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     ProfileNames.Insert(i, names[i]);
                 }
                 string current = store.ReadCurrent();
-                if (store.ReadError != null) main.AddProblem(main.T("ProfilesUnreadable", store.ModsFolder, store.ReadError));
+                if (store.ReadError != null) main.AddProblem(main.T("ProfilesUnreadable", ("Folder", store.ModsFolder), ("Problem", store.ReadError)));
                 profileName = string.IsNullOrWhiteSpace(current) || IsDefaultProfileLabel(current) ? ""
                     : ProfileNames.FirstOrDefault(n => string.Equals(n, current, StringComparison.OrdinalIgnoreCase)) ?? "";
                 defaultBaseline = HasProfile ? null : defaultBaseline ?? main.ModOrder.Order.ToList();
@@ -297,7 +297,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 profileName = target; // the ComboBox already shows it; keep the view-model in step (a failure below refreshes it back)
                 UpdateProfileCommands();
                 if (dirty
-                    && !await main.Dialogs.ConfirmAsync(main.T("DiscardUnsavedProfileChanges") + current, main.T("ModProfiles"), main.T("Yes"), main.T("No")))
+                    && !await main.Dialogs.ConfirmAsync(main.T("DiscardUnsavedProfileChanges", ("Profile", current)), main.T("ModProfiles"), main.T("Yes"), main.T("No")))
                 {
                     RefreshProfiles();
                     return;
@@ -305,7 +305,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 ModOrderStore.Write(main.ModsJsonPath(), profile.Order);
                 store.WriteCurrent(target);
                 main.Refresh();
-                main.SetStatus(main.T("SwitchedModProfile") + target);
+                main.SetStatus(main.T("SwitchedModProfile", ("Profile", target)));
             }
             catch (Exception ex)
             {
@@ -325,7 +325,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 store.Write(name, main.ModOrder.Order);
                 store.WriteCurrent(name);
                 RefreshProfiles();
-                main.SetStatus(main.T("ModProfileSaved") + name);
+                main.SetStatus(main.T("ModProfileSaved", ("Profile", name)));
                 return true;
             }
             catch (Exception ex)
@@ -364,7 +364,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (ProfileDirty)
                 return main.LauncherSettings.AutoSaveProfileOnLaunch
                     ? await WriteProfileAsync(profileName)
-                    : await AskSaveOrDisconnectAsync(string.Format(main.T("UnsavedProfileExit"), profileName));
+                    : await AskSaveOrDisconnectAsync(main.T("UnsavedProfileExit", ("Profile", profileName)));
             try { main.GameProfiles.WriteCurrent(profileName); }
             catch (Exception ex) { Logger.LogException("Set active profile before launch", ex); }
             return true;
@@ -376,7 +376,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (!ProfileDirty) return true;
             // Chosen in settings: the edits were deliberate, so write them. The default profile has no file; its list is already in mods.json.
             if (main.LauncherSettings.AutoSaveProfileOnExit) return !HasProfile || await WriteProfileAsync(profileName);
-            return await AskSaveOrDisconnectAsync(string.Format(main.T("UnsavedProfileExit"), profileName));
+            return await AskSaveOrDisconnectAsync(main.T("UnsavedProfileExit", ("Profile", profileName)));
         }
 
         /// <summary>
@@ -408,7 +408,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 ModOrderStore.Write(main.ModsJsonPath(), profile != null ? profile.Order : defaultBaseline);
                 main.Refresh();
-                main.SetStatus(main.T("SwitchedModProfile") + name);
+                main.SetStatus(main.T("SwitchedModProfile", ("Profile", name)));
             }
             catch (Exception ex)
             {
@@ -424,7 +424,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 // The default profile is backed by mods.json itself, which already holds the live list: saving just accepts it.
                 defaultBaseline = main.ModOrder.Order.ToList();
                 RaiseDirty();
-                main.SetStatus(main.T("ModProfileSaved") + ProfileName);
+                main.SetStatus(main.T("ModProfileSaved", ("Profile", ProfileName)));
                 return;
             }
             if (!await GameClosedAsync()) return;
@@ -489,7 +489,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             // Choosing the active profile's own name is just a Save: nothing to warn about.
             bool own = string.Equals(name, profileName, StringComparison.OrdinalIgnoreCase);
-            if (!own && main.GameProfiles.Exists(name) && !await main.Dialogs.ConfirmAsync(main.T("OverwriteProfileConfirm") + name, main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
+            if (!own && main.GameProfiles.Exists(name) && !await main.Dialogs.ConfirmAsync(main.T("OverwriteProfileConfirm", ("Profile", name)), main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
             await WriteProfileAsync(name);
         }
 
@@ -504,7 +504,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (IsDefaultProfileLabel(name))
             {
                 // The profile gives up its name: its file goes, and the live list carries on as the default profile.
-                if (!await main.Dialogs.ConfirmAsync(main.T("RenameToUnnamedConfirm") + old, main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
+                if (!await main.Dialogs.ConfirmAsync(main.T("RenameToUnnamedConfirm", ("Profile", old)), main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
                 try
                 {
                     store.Delete(old);
@@ -522,7 +522,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // Renaming to its own name changes nothing, so it counts as a Save.
             if (name == old) { await WriteProfileAsync(old); return; }
             bool overwrites = store.Exists(name) && !string.Equals(name, old, StringComparison.OrdinalIgnoreCase);
-            if (overwrites && !await main.Dialogs.ConfirmAsync(main.T("OverwriteProfileConfirm") + name, main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
+            if (overwrites && !await main.Dialogs.ConfirmAsync(main.T("OverwriteProfileConfirm", ("Profile", name)), main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
             try
             {
                 string target = store.CanonicalName(name);
@@ -547,7 +547,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string name = (await AskNewProfileNameAsync())?.Trim();
             if (string.IsNullOrWhiteSpace(name)) return;
             if (store.Exists(name)) { await main.Dialogs.ShowMessageAsync(main.T("ProfileNameExists"), "DW2 Mod Launcher"); return; }
-            if (ProfileDirty && !await main.Dialogs.ConfirmAsync(main.T("DiscardUnsavedProfileChanges") + profileName, main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
+            if (ProfileDirty && !await main.Dialogs.ConfirmAsync(main.T("DiscardUnsavedProfileChanges", ("Profile", profileName)), main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
             try
             {
                 List<string> empty = new List<string>();
@@ -555,7 +555,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 ModOrderStore.Write(main.ModsJsonPath(), empty);
                 store.WriteCurrent(name);
                 main.Refresh();
-                main.SetStatus(main.T("SwitchedModProfile") + name);
+                main.SetStatus(main.T("SwitchedModProfile", ("Profile", name)));
             }
             catch (Exception ex)
             {
@@ -571,7 +571,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             GameProfileStore store = main.GameProfiles;
             if (string.IsNullOrWhiteSpace(name) || !store.Exists(name)) { await main.Dialogs.ShowMessageAsync(main.T("ProfileNotFound"), "DW2 Mod Launcher"); return; }
             if (!await GameClosedAsync()) return;
-            if (!await main.Dialogs.ConfirmAsync(main.T("DeleteProfileConfirm") + name, main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
+            if (!await main.Dialogs.ConfirmAsync(main.T("DeleteProfileConfirm", ("Profile", name)), main.T("ModProfiles"), main.T("Yes"), main.T("No"))) return;
             try
             {
                 int index = store.ListNames().IndexOf(name);
@@ -586,7 +586,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     ModOrderStore.Write(main.ModsJsonPath(), store.Read(next).Order);
                     store.WriteCurrent(next);
                     main.Refresh();
-                    main.SetStatus(main.T("SwitchedModProfile") + next);
+                    main.SetStatus(main.T("SwitchedModProfile", ("Profile", next)));
                 }
                 else RefreshProfiles();
             }

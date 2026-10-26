@@ -75,7 +75,7 @@ namespace DW2ModLauncher.Loader
         private static void Report(string what)
         {
             Log("ERROR: game state is not tracked: " + what + " not found (game update?). Mods that wait for a real game will not warn.");
-            HookStatus.Warn("gamestate", StatusStrings.Get("WidgetGameStateNotHooked", what), _logPath);
+            HookStatus.Warn("gamestate", StatusStrings.Get("WidgetGameStateNotHooked", ("Method", what)), _logPath);
         }
 
         private static void Log(string message)

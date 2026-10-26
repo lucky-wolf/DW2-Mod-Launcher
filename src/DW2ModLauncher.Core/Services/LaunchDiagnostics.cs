@@ -19,12 +19,12 @@ namespace DW2ModLauncher.Core.Services
             issues.AddRange(ModChannels.Problems(enabled.OrderBy(m => order.IndexOf(m.ActiveToken) < 0 ? int.MaxValue : order.IndexOf(m.ActiveToken)).ToList()));
             foreach (LoaderManifestEntry entry in manifestEntries ?? new List<LoaderManifestEntry>())
                 if (entry.Files != null && entry.Files.Count > 0 && !InjectionScanner.AcceptsFiles(entry.HostDllPath ?? entry.DllPath))
-                    issues.Add("⚠ " + string.Format(t("LaunchDiagFilesNotAccepted"), entry.DisplayName));
+                    issues.Add("⚠ " + NamedText.Fill(t("LaunchDiagFilesNotAccepted"), ("Mod", entry.DisplayName)));
             foreach (ModInfo mod in enabled)
             {
-                if (mod.ScanError != null) issues.Add("⚠ " + string.Format(t("LaunchDiagScanError"), mod.DisplayName ?? mod.Id, mod.ScanError));
-                if (mod.ModJsonError != null) issues.Add("⚠ " + string.Format(t("LaunchDiagModJson"), mod.DisplayName ?? mod.Id, mod.ModJsonError));
-                if (LauncherRequirement.IsUnmet(mod)) issues.Add("⚠ " + (mod.DisplayName ?? mod.Id) + ": " + t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
+                if (mod.ScanError != null) issues.Add("⚠ " + NamedText.Fill(t("LaunchDiagScanError"), ("Mod", mod.DisplayName ?? mod.Id), ("Problem", mod.ScanError)));
+                if (mod.ModJsonError != null) issues.Add("⚠ " + NamedText.Fill(t("LaunchDiagModJson"), ("Mod", mod.DisplayName ?? mod.Id), ("Problem", mod.ModJsonError)));
+                if (LauncherRequirement.IsUnmet(mod)) issues.Add("⚠ " + NamedText.Fill(t("LaunchDiagLauncherTooOld"), ("Mod", mod.DisplayName ?? mod.Id), ("Required", mod.MinLauncherVersion), ("Current", AppVersion.Display)));
                 ValidateJsonFile(mod.ModJsonPath, issues, t);
                 ValidateJsonFile(Path.Combine(mod.Folder ?? "", "dw2modlauncher.json"), issues, t);
                 try
@@ -32,18 +32,18 @@ namespace DW2ModLauncher.Core.Services
                     foreach (string xml in Directory.GetFiles(mod.ContentRoot ?? mod.Folder, "*.xml", SearchOption.AllDirectories))
                     {
                         try { XmlDocument document = new XmlDocument(); document.Load(xml); }
-                        catch (Exception ex) { issues.Add("⚠ " + t("InvalidXML") + xml + " (" + ex.Message + ")"); }
+                        catch (Exception ex) { issues.Add("⚠ " + NamedText.Fill(t("InvalidXML"), ("File", xml), ("Problem", ex.Message))); }
                     }
                 }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
                 {
-                    issues.Add("⚠ " + string.Format(t("LaunchDiagXmlUnchecked"), mod.DisplayName ?? mod.Id, ex.Message));
+                    issues.Add("⚠ " + NamedText.Fill(t("LaunchDiagXmlUnchecked"), ("Mod", mod.DisplayName ?? mod.Id), ("Problem", ex.Message)));
                 }
             }
             foreach (var font in LoaderManifestBuilder.FontIssues(enabled))
             {
-                if (font.Kind == "missing") issues.Add("⚠ " + font.Mod + ": " + t("FontBundleMissing") + font.Font + ".bundle");
-                else issues.Add("⚠ " + font.Mod + ": " + t("FontOverridden") + font.Font + " → " + font.Winner);
+                if (font.Kind == "missing") issues.Add("⚠ " + NamedText.Fill(t("FontBundleMissing"), ("Mod", font.Mod), ("File", font.Font + ".bundle")));
+                else issues.Add("⚠ " + NamedText.Fill(t("FontOverridden"), ("Mod", font.Mod), ("Font", font.Font), ("Winner", font.Winner)));
             }
             Dictionary<string, List<string>> dlls = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (ModInfo mod in enabled)
@@ -59,14 +59,14 @@ namespace DW2ModLauncher.Core.Services
                 }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
                 {
-                    issues.Add("⚠ " + string.Format(t("LaunchDiagDllUnchecked"), mod.DisplayName ?? mod.Id, ex.Message));
+                    issues.Add("⚠ " + NamedText.Fill(t("LaunchDiagDllUnchecked"), ("Mod", mod.DisplayName ?? mod.Id), ("Problem", ex.Message)));
                 }
             }
             foreach (KeyValuePair<string, List<string>> pair in dlls.Where(x => x.Value.Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))
-                issues.Add("⚠ " + t("DuplicateDLL") + pair.Key + " — " + string.Join(" / ", pair.Value.Distinct().ToArray()));
-            if (!File.Exists(loaderDllPath)) issues.Add("⚠ " + t("LaunchArgumentDLLNotFound") + loaderDllPath);
+                issues.Add("⚠ " + NamedText.Fill(t("DuplicateDLL"), ("Dll", pair.Key), ("Mods", string.Join(" / ", pair.Value.Distinct().ToArray()))));
+            if (!File.Exists(loaderDllPath)) issues.Add("⚠ " + NamedText.Fill(t("LaunchArgumentDLLNotFound"), ("File", loaderDllPath)));
             foreach (LoaderManifestEntry entry in manifestEntries)
-                if (!File.Exists(entry.HostDllPath)) issues.Add("⚠ " + t("LaunchArgumentDLLNotFound") + entry.HostDllPath);
+                if (!File.Exists(entry.HostDllPath)) issues.Add("⚠ " + NamedText.Fill(t("LaunchArgumentDLLNotFound"), ("File", entry.HostDllPath)));
             return issues.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
@@ -92,7 +92,7 @@ namespace DW2ModLauncher.Core.Services
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
             try { LooseJson.Parse(File.ReadAllText(path, Encoding.UTF8)); }
-            catch (Exception ex) { issues.Add("⚠ " + t("InvalidJSON") + path + " (" + ex.Message + ")"); }
+            catch (Exception ex) { issues.Add("⚠ " + NamedText.Fill(t("InvalidJSON"), ("File", path), ("Problem", ex.Message))); }
         }
     }
 }

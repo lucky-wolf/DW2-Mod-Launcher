@@ -51,8 +51,7 @@ namespace DW2ModLauncher.Tests
             }
         }
 
-        private static string Placeholders(string text) =>
-            string.Join(",", System.Text.RegularExpressions.Regex.Matches(text, @"\{\d+\}").Select(m => m.Value).OrderBy(x => x));
+        private static string Placeholders(string text) => string.Join(",", NamedText.Names(text).OrderBy(x => x));
 
         [Fact]
         public void TheLastEnabledModThatDeclaresALanguageWins()
@@ -100,13 +99,13 @@ namespace DW2ModLauncher.Tests
         [Fact]
         public void TheLoaderUsesTheManifestTableAndShowsAMissingKeyByName()
         {
-            StatusStrings.Use(new Dictionary<string, string> { ["WidgetStateLoaded"] = "geladen" });
+            StatusStrings.Use(new Dictionary<string, string> { ["WidgetBlockLoaded"] = "{Heading}  geladen" });
 
-            Assert.Equal("geladen", StatusStrings.Get("WidgetStateLoaded"));
-            Assert.Equal("WidgetStateError", StatusStrings.Get("WidgetStateError"));
+            Assert.Equal("M  geladen", StatusStrings.Get("WidgetBlockLoaded", ("Heading", "M")));
+            Assert.Equal("WidgetBlockError", StatusStrings.Get("WidgetBlockError", ("Heading", "M")));
 
             StatusStrings.Use(new Dictionary<string, string>());
-            Assert.Equal("loaded", StatusStrings.Get("WidgetStateLoaded"));
+            Assert.Equal("M  loaded", StatusStrings.Get("WidgetBlockLoaded", ("Heading", "M")));
         }
 
         [Fact]

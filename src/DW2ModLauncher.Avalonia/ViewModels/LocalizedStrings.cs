@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using DW2ModLauncher.Core.Diagnostics;
 using DW2ModLauncher.Core.Services;
 
 namespace DW2ModLauncher.Avalonia.ViewModels
@@ -25,10 +26,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach (string name in ChangedNames) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
-        public string Format(string key, params object[] args)
+        /// <summary>The text for a key with its named placeholders filled: <c>Format("DeleteProfileConfirm", ("Profile", name))</c>.</summary>
+        public string Format(string key, params (string Name, object Value)[] values)
         {
             string template = this[key];
-            return args != null && args.Length > 0 ? string.Format(template, args) : template;
+            if (values.Length == 0) return template;
+            return NamedText.Fill(template, placeholder => Logger.Log("Language pack", "'" + key + "' (" + language + ") has the placeholder {" + placeholder + "}, which the code does not give."), values);
         }
     }
 }

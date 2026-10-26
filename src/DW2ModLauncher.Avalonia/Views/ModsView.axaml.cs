@@ -207,6 +207,12 @@ namespace DW2ModLauncher.Avalonia.Views
         private void ScrollToSelection()
         {
             if (DataContext is not MainViewModel m || m.SelectedRow == null) return;
+            // A row that is already fully on screen stays where it is (a publish re-selects the same mod; nothing needs to move).
+            ScrollViewer view = ModList.FindDescendantOfType<ScrollViewer>();
+            int current = m.VisibleMods.IndexOf(m.SelectedRow);
+            if (view != null && current >= 0 && ModList.ContainerFromIndex(current) is Control shown
+                && shown.TranslatePoint(new Point(0, 0), view) is Point at
+                && at.Y >= 0 && at.Y + shown.Bounds.Height <= view.Viewport.Height) return;
             ModList.ScrollIntoView(m.SelectedRow);
             // Then centre the row in the viewport where there is room (the offset is clamped, so rows near either end just stay put).
             ModList.UpdateLayout();

@@ -12,7 +12,7 @@ namespace DW2ModLauncher.Loader
 
         // A log that cannot be written would otherwise lose every later message silently; the status line is the one place left to say so.
         public static void LogFailed(string logPath, Exception ex) =>
-            Failed("log:" + logPath, StatusStrings.Get("WidgetLogCannotBeWritten", ex.Message, logPath), null);
+            Failed("log:" + logPath, StatusStrings.Get("WidgetLogCannotBeWritten", ("Problem", ex.Message), ("File", logPath)), null);
 
         public static void Warn(string key, string text, string logFile) => Set(key, text, StatusLevel.Warn, logFile);
 

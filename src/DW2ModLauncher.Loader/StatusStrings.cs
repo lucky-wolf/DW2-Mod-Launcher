@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DW2ModLauncher.Core.Services;
 
 namespace DW2ModLauncher.Loader
 {
@@ -13,30 +14,25 @@ namespace DW2ModLauncher.Loader
         public static readonly IReadOnlyDictionary<string, string> English = new Dictionary<string, string>
         {
             ["WidgetNoneLoaded"] = "DW2 mods: none loaded",
-            ["WidgetLoadedCount"] = "DW2 mods: {0} loaded",
-            ["WidgetDismissedLine"] = "DW2 mods: {0} loaded (problems dismissed)",
-            ["WidgetBuilt"] = "(built {0})",
-            ["WidgetSingleError"] = "{0} ERROR: ",
-            ["WidgetSingleWarning"] = "{0} warning: ",
-            ["WidgetOneModProblem"] = "1 mod with a problem: {0}: ",
-            ["WidgetOneModWarning"] = "1 mod with a warning: {0}: ",
-            ["WidgetManyModsProblems"] = "{0} mods with problems: {1}: ",
-            ["WidgetMoreProblems"] = " (+{0} more)",
-            ["WidgetMoreMods"] = " (+{0} more mods)",
-            ["WidgetStateFailed"] = "FAILED TO LOAD",
-            ["WidgetStateError"] = "ERROR",
-            ["WidgetStateWarning"] = "warning",
-            ["WidgetStateLoaded"] = "loaded",
-            ["WidgetFailedToLoad"] = "failed to load: {0}",
+            ["WidgetLoadedCount"] = "DW2 mods: {Count} loaded",
+            ["WidgetDismissedLine"] = "DW2 mods: {Count} loaded (problems dismissed)",
+            ["WidgetSingleError"] = "{Mod} ERROR: {Problem}{More}",
+            ["WidgetSingleWarning"] = "{Mod} warning: {Problem}{More}",
+            ["WidgetOneModProblem"] = "1 mod with a problem: {Mod}: {Problem}{More}",
+            ["WidgetOneModWarning"] = "1 mod with a warning: {Mod}: {Problem}{More}",
+            ["WidgetManyModsProblems"] = "{Count} mods with problems: {Mod}: {Problem}{More}",
+            ["WidgetMoreProblems"] = " (+{Count} more)",
+            ["WidgetMoreMods"] = " (+{Count} more mods)",
+            ["WidgetFailedToLoad"] = "failed to load: {Problem}",
             ["WidgetSeeDetails"] = "see details",
-            ["WidgetFeatures"] = "features: {0}",
-            ["WidgetLog"] = "log: {0}",
-            ["WidgetHeader"] = "DW2 Mod Launcher: code mods loaded: {0}. Click a mod for details, anywhere else to close.",
+            ["WidgetFeatures"] = "features: {Features}",
+            ["WidgetLog"] = "log: {File}",
+            ["WidgetHeader"] = "DW2 Mod Launcher: code mods loaded: {Count}. Click a mod for details, anywhere else to close.",
             ["WidgetDismiss"] = "[Dismiss warnings and errors]  (the line stops showing them until something new is reported)",
             ["WidgetMinimize"] = "[Minimize the status line]",
             ["WidgetShowLine"] = "[Show the full status line]",
-            ["WidgetPreviousPage"] = "[Previous mods]  (page {0} of {1})",
-            ["WidgetNextPage"] = "[More mods]  (page {0} of {1}, {2} in all)",
+            ["WidgetPreviousPage"] = "[Previous mods]  (page {Page} of {Pages})",
+            ["WidgetNextPage"] = "[More mods]  (page {Page} of {Pages}, {Count} in all)",
             ["WidgetCopied"] = "[Copied to clipboard]",
             ["WidgetMenuMods"] = "Mods",
             ["WidgetMenuHeader"] = "MODS",
@@ -45,34 +41,42 @@ namespace DW2ModLauncher.Loader
             ["WidgetMenuSeed"] = "Random Seed",
             ["WidgetMenuCopied"] = "Copied to clipboard",
             ["WidgetLoaderName"] = "Mod Launcher (loader)",
-            ["WidgetLogFolderCreate"] = "the game's log folder could not be created ({0}); the loader logs are in {1}",
-            ["WidgetLogFolderMissing"] = "log folder '{0}' does not exist; the loader logs are in {1}",
-            ["WidgetLogCannotBeWritten"] = "A loader log cannot be written ({0}): {1}",
-            ["WidgetChannelProblem"] = "Mod data channel: {0}",
-            ["WidgetChannelVersionMismatch"] = "{0} uses live channel '{1}' v{2} but {3} provides v{4}",
-            ["WidgetChannelTypeMismatch"] = "{0} expects live channel '{1}' to be a {2} but {3} provides a {4}",
-            ["WidgetObservedHooksFailed"] = "The list of patched game code could not be saved to {0} ({1}); the launcher cannot warn about overlapping mods",
+            ["WidgetLogFolderCreate"] = "the game's log folder could not be created ({Problem}); the loader logs are in {LogFolder}",
+            ["WidgetLogFolderMissing"] = "log folder '{Folder}' does not exist; the loader logs are in {LogFolder}",
+            ["WidgetLogCannotBeWritten"] = "A loader log cannot be written ({Problem}): {File}",
+            ["WidgetChannelProblem"] = "Mod data channel: {Problem}",
+            ["WidgetChannelVersionMismatch"] = "{Mod} uses live channel '{Channel}' v{Wanted} but {Provider} provides v{Provided}",
+            ["WidgetChannelTypeMismatch"] = "{Mod} expects live channel '{Channel}' to be a {Expected} but {Provider} provides a {Provided}",
+            ["WidgetObservedHooksFailed"] = "The list of patched game code could not be saved to {File} ({Problem}); the launcher cannot warn about overlapping mods",
             ["WidgetLoadIncomplete"] = "incomplete manifest entry",
-            ["WidgetLoadDllMissing"] = "DLL not found at {0}",
-            ["WidgetLoadEntryForm"] = "entry type '{0}' is not Namespace.Type.Method form",
-            ["WidgetLoadTypeMissing"] = "type '{0}' not found",
-            ["WidgetLoadNoMethod"] = "no '{0}()' or 'InitWithOptions(string)' on {1}",
+            ["WidgetLoadDllMissing"] = "DLL not found at {File}",
+            ["WidgetLoadEntryForm"] = "entry type '{EntryType}' is not Namespace.Type.Method form",
+            ["WidgetLoadTypeMissing"] = "type '{Type}' not found",
+            ["WidgetLoadNoMethod"] = "no '{Method}()' or 'InitWithOptions(string)' on {Type}",
             ["WidgetFontNoFileSystem"] = "font hook failed: the game's file system was not found, so the mod's font will not load",
             ["WidgetFontNoFileExists"] = "font hook failed: VirtualFileSystem.FileExists not found (game update?)",
             ["WidgetFontNoOpenStream"] = "font hook failed: VirtualFileSystem.OpenStream not found (game update?)",
             ["WidgetTextNoProvider"] = "text file hook failed: the game's data provider was not found (Hints, dialog, Galactopedia stay unreplaced)",
             ["WidgetTextNoApi"] = "text file hook failed: no file API could be hooked",
             ["WidgetTitlesNoGetText"] = "translated tour/article titles are not matched: TextResolver.GetText not found",
-            ["WidgetTitlesMethodMissing"] = "translated titles are not matched: {0} not found (game update?)",
-            ["WidgetGameStateNotHooked"] = "the start of a game is not tracked: {0} not found (game update?); mods that wait for a real game will not warn",
+            ["WidgetTitlesMethodMissing"] = "translated titles are not matched: {Method} not found (game update?)",
+            ["WidgetGameStateNotHooked"] = "the start of a game is not tracked: {Method} not found (game update?); mods that wait for a real game will not warn",
             ["WidgetPatchesNoFileSystem"] = "XML patches are not applied: the game's file system was not found",
             ["WidgetPatchesNoOpenStream"] = "XML patches are not applied: OpenStream could not be hooked",
             ["WidgetToursNotPatched"] = "tutorial tours are not patched: the data provider could not be hooked",
-            ["WidgetPatchProblems"] = "XML patches: {0} item(s) skipped, {1} warning(s) - see dw2modlauncher-patches.log",
-            ["WidgetPatchLogUnwritable"] = "XML patch log cannot be written: {0}",
-            ["WidgetMenuHandlerThrew"] = "menu handler '{0}' threw",
+            ["WidgetPatchProblems"] = "XML patches: items skipped: {Skipped}, warnings: {Warnings} - see dw2modlauncher-patches.log",
+            ["WidgetPatchLogUnwritable"] = "XML patch log cannot be written: {Problem}",
+            ["WidgetMenuHandlerThrew"] = "menu handler '{Handler}' threw",
             ["WidgetMenuCallFailed"] = "menu call failed",
-            ["WidgetAbout"] = "Version {0}\n\nCode mods loaded: {1}. The line at the lower left of the screen lists them; click it for details.\n\nLog: data/Logs/dw2modlauncher.log",
+            ["WidgetAbout"] = "Version {Version}\n\nCode mods loaded: {Loaded}. The line at the lower left of the screen lists them; click it for details.\n\nLog: data/Logs/dw2modlauncher.log",
+            ["WidgetHeadingPlain"] = "{Mod}",
+            ["WidgetHeadingVersion"] = "{Mod} {Version}",
+            ["WidgetHeadingBuilt"] = "{Mod} (built {Built})",
+            ["WidgetHeadingVersionBuilt"] = "{Mod} {Version} (built {Built})",
+            ["WidgetBlockFailed"] = "{Heading}  FAILED TO LOAD",
+            ["WidgetBlockError"] = "{Heading}  ERROR",
+            ["WidgetBlockWarning"] = "{Heading}  warning",
+            ["WidgetBlockLoaded"] = "{Heading}  loaded",
         };
 
         static IReadOnlyDictionary<string, string> _table = English;
@@ -83,11 +87,11 @@ namespace DW2ModLauncher.Loader
             _table = strings != null && strings.Count > 0 ? strings : English;
         }
 
-        public static string Get(string key, params object[] args)
+        public static string Get(string key, params (string Name, object Value)[] values)
         {
             // a key the table lacks shows as its own name
             string format = _table.TryGetValue(key, out string text) ? text : key;
-            return args.Length == 0 ? format : string.Format(format, args);
+            return NamedText.Fill(format, values);
         }
     }
 }

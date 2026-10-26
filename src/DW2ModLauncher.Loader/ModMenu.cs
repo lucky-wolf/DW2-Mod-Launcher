@@ -60,7 +60,7 @@ namespace DW2ModLauncher.Loader
                 catch (Exception ex)
                 {
                     // a mod's handler must not take the game's input loop down, but the failure is recorded against the mod
-                    Report("menu handler '" + id + "' threw", StatusStrings.Get("WidgetMenuHandlerThrew", id), id, ex);
+                    Report("menu handler '" + id + "' threw", StatusStrings.Get("WidgetMenuHandlerThrew", ("Handler", id)), id, ex);
                 }
             };
         }
