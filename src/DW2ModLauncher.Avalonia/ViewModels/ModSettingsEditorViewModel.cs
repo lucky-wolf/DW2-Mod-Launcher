@@ -103,7 +103,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (!IsPath) return null;
                 string key = ModSettingsValues.PathProblemKey(Kind, textValue, gameRoot, out string expanded, out string detail);
                 if (key == null) return null;
-                return key == "NotFound" ? l.Format("PathNotFound", expanded) : l.Format("PathProblem" + key, detail, PathTokens.KnownList);
+                return key == "NotFound" ? l.Format("PathNotFound", ("Path", expanded)) : l.Format("PathProblem" + key, ("Token", detail), ("Known", PathTokens.KnownList));
             }
         }
 
@@ -147,7 +147,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 string shown = defaultNode.ToString();
                 if (defaultNode is JsonValue v && v.TryGetValue(out bool b)) shown = b ? "true" : "false";
-                return l.Format("ModSettingsResetToDefault", shown.Length == 0 ? l["ModSettingsBlankValue"] : shown);
+                return l.Format("ModSettingsResetToDefault", ("Default", shown.Length == 0 ? l["ModSettingsBlankValue"] : shown));
             }
         }
 
@@ -282,7 +282,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public string CellTooltip(int index)
         {
-            return owner.Strings.Format(Offers(index) ? "ModSettingsLadderSet" : "ModSettingsLadderBlocked", Field.Label, owner.Columns[index].Display);
+            return owner.Strings.Format(Offers(index) ? "ModSettingsLadderSet" : "ModSettingsLadderBlocked", ("Setting", Field.Label), ("Option", owner.Columns[index].Display));
         }
     }
 

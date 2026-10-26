@@ -26,7 +26,7 @@ namespace DW2ModLauncher.Avalonia.Views
                 Close();
                 main.CheckLauncherUpdateCommand.Execute(null);
             };
-            VersionText.Text = main.T("AboutVersion", AppVersion.Display);
+            VersionText.Text = main.T("AboutVersion", ("Version", AppVersion.Display));
             ReleasesLink.Text = AppVersion.ReleasesUrl;
         }
 

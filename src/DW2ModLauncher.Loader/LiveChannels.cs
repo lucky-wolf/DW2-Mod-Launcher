@@ -196,7 +196,7 @@ namespace DW2ModLauncher.Loader
     {
         internal static readonly LiveChannelRegistry Registry = new LiveChannelRegistry(Entry.Log,
             m => HookStatus.Warn("livechannel:" + m.Text,
-                StatusStrings.Get(m.Kind == ChannelMismatch.Version ? "WidgetChannelVersionMismatch" : "WidgetChannelTypeMismatch", m.Consumer, m.Channel, m.ConsumerHas, m.Provider, m.ProviderHas), null));
+                StatusStrings.Get(m.Kind == ChannelMismatch.Version ? "WidgetChannelVersionMismatch" : "WidgetChannelTypeMismatch", ("Mod", m.Consumer), ("Channel", m.Channel), (m.Kind == ChannelMismatch.Version ? "Wanted" : "Expected", m.ConsumerHas), ("Provider", m.Provider), ("Provided", m.ProviderHas)), null));
 
         public static Delegate Provide(string provider, string channel, int version, Delegate handler) => Registry.Provide(provider, channel, version, handler);
 

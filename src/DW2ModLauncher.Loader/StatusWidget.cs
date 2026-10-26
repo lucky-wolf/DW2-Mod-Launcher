@@ -141,7 +141,7 @@ namespace DW2ModLauncher.Loader
             if (dismissed) worst = StatusLevel.Ok;
 
             string marker = _expanded ? "[-]" : "[+]";
-            string line = dismissed ? StatusStrings.Get("WidgetDismissedLine", mods.Count) : StatusText.Line(mods);
+            string line = dismissed ? StatusStrings.Get("WidgetDismissedLine", ("Count", mods.Count)) : StatusText.Line(mods);
             string text = _minimized && !_expanded
                 ? marker + (worst == StatusLevel.Error ? " /!\\" : worst == StatusLevel.Warn ? " !" : "")
                 : marker + (worst == StatusLevel.Error ? " /!\\ " : " ") + line;
@@ -174,7 +174,7 @@ namespace DW2ModLauncher.Loader
             if (_selectedId != null && !ordered.Exists(m => m.Id == _selectedId)) _selectedId = null;
             var panel = new List<PanelRow>
             {
-                new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetHeader", mods.Count) }
+                new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetHeader", ("Count", mods.Count)) }
             };
             _modRowIds.Clear();
             foreach (ModStatusSnapshot m in ordered)
@@ -192,12 +192,12 @@ namespace DW2ModLauncher.Loader
             if (_page > 0)
             {
                 _actions.Add(RowAction.PreviousPage);
-                panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetPreviousPage", _page, pages) });
+                panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetPreviousPage", ("Page", _page), ("Pages", pages)) });
             }
             if (_page < pages - 1)
             {
                 _actions.Add(RowAction.NextPage);
-                panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetNextPage", _page + 2, pages, all.Count) });
+                panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get("WidgetNextPage", ("Page", _page + 2), ("Pages", pages), ("Count", all.Count)) });
             }
             _actions.Add(RowAction.Minimize);
             panel.Add(new PanelRow { Level = StatusLevel.Ok, Text = StatusStrings.Get(_minimized ? "WidgetShowLine" : "WidgetMinimize") });

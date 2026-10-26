@@ -16,7 +16,7 @@ namespace DW2ModLauncher.Tests
         public DetailsAndSettingsValueTests() { Directory.CreateDirectory(dir); }
         public void Dispose() { Directory.Delete(dir, true); }
 
-        private static string T(string key) { return "<" + key + ">"; }
+        private static string T(string key) { return "<" + key + ">" + (key == "ConflictsWith" ? "{Mods}" : ""); }
 
         // ---- ModDocuments
 

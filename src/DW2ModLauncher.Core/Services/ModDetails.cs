@@ -75,13 +75,13 @@ namespace DW2ModLauncher.Core.Services
             if (mod.IncludedTools != null && mod.IncludedTools.Count > 0)
             {
                 b.AppendLine();
-                b.AppendLine(t("IncludedToolsLabel") + mod.IncludedTools.Count);
+                b.AppendLine(NamedText.Fill(t("IncludedToolsLabel"), ("Count", mod.IncludedTools.Count)));
                 foreach (string tool in mod.IncludedTools) b.AppendLine("  • " + tool);
             }
             if (mod.IncludedDocuments != null && mod.IncludedDocuments.Count > 0)
             {
                 b.AppendLine();
-                b.AppendLine(t("IncludedDocuments") + mod.IncludedDocuments.Count);
+                b.AppendLine(NamedText.Fill(t("IncludedDocuments"), ("Count", mod.IncludedDocuments.Count)));
                 foreach (string document in mod.IncludedDocuments) b.AppendLine("  • " + document);
             }
 
@@ -101,15 +101,15 @@ namespace DW2ModLauncher.Core.Services
                     b.AppendLine(t("WorkshopStateUnknown"));
 
                 if (mod.LocalWorkshopTimeUpdated > 0)
-                    b.AppendLine(t("LocalUpdate") + WorkshopUpdateService.UnixTimeText(mod.LocalWorkshopTimeUpdated));
+                    b.AppendLine(NamedText.Fill(t("LocalUpdate"), ("Time", WorkshopUpdateService.UnixTimeText(mod.LocalWorkshopTimeUpdated))));
                 if (mod.RemoteWorkshopTimeUpdated > 0)
-                    b.AppendLine(t("SteamUpdate") + WorkshopUpdateService.UnixTimeText(mod.RemoteWorkshopTimeUpdated));
+                    b.AppendLine(NamedText.Fill(t("SteamUpdate"), ("Time", WorkshopUpdateService.UnixTimeText(mod.RemoteWorkshopTimeUpdated))));
 
                 b.AppendLine();
-                if (mod.WorkshopFileSize > 0) b.AppendLine(t("FileSize") + mod.WorkshopFileSize + " bytes");
-                if (!string.IsNullOrWhiteSpace(mod.WorkshopCreator)) b.AppendLine(t("CreatorSteamID") + mod.WorkshopCreator);
-                if (mod.WorkshopTimeCreated > 0) b.AppendLine(t("Created") + WorkshopUpdateService.UnixTimeText(mod.WorkshopTimeCreated));
-                if (!string.IsNullOrWhiteSpace(mod.WorkshopTags)) b.AppendLine(t("Tags") + mod.WorkshopTags);
+                if (mod.WorkshopFileSize > 0) b.AppendLine(NamedText.Fill(t("FileSize"), ("Bytes", mod.WorkshopFileSize)));
+                if (!string.IsNullOrWhiteSpace(mod.WorkshopCreator)) b.AppendLine(NamedText.Fill(t("CreatorSteamID"), ("Id", mod.WorkshopCreator)));
+                if (mod.WorkshopTimeCreated > 0) b.AppendLine(NamedText.Fill(t("Created"), ("Time", WorkshopUpdateService.UnixTimeText(mod.WorkshopTimeCreated))));
+                if (!string.IsNullOrWhiteSpace(mod.WorkshopTags)) b.AppendLine(NamedText.Fill(t("Tags"), ("Tags", mod.WorkshopTags)));
             }
             return b.ToString();
         }
@@ -121,7 +121,7 @@ namespace DW2ModLauncher.Core.Services
             {
                 case PublishStatus.Unpublished: return t("PublishStateUnpublished");
                 case PublishStatus.Unknown: return t("PublishStateUnknown");
-                case PublishStatus.Current: return string.Format(t("PublishStateCurrent"), PublishedWhen(mod));
+                case PublishStatus.Current: return NamedText.Fill(t("PublishStateCurrent"), ("When", PublishedWhen(mod)));
                 case PublishStatus.Changed: return t("PublishStateChanged");
                 default: return "";
             }
@@ -143,8 +143,8 @@ namespace DW2ModLauncher.Core.Services
             {
                 case PublishStatus.Unpublished: return t("PublishStateUnpublishedDetail");
                 case PublishStatus.Unknown: return t("PublishStateUnknownDetail");
-                case PublishStatus.Current: return string.Format(t("PublishStateCurrentDetail"), when);
-                case PublishStatus.Changed: return string.Format(t("PublishStateChangedDetail"), mod.UnpublishedChanges.Count, when);
+                case PublishStatus.Current: return NamedText.Fill(t("PublishStateCurrentDetail"), ("When", when));
+                case PublishStatus.Changed: return NamedText.Fill(t("PublishStateChangedDetail"), ("Count", mod.UnpublishedChanges.Count), ("When", when));
                 default: return "";
             }
         }
@@ -160,7 +160,7 @@ namespace DW2ModLauncher.Core.Services
             if (mod.PublishStatus != PublishStatus.Changed) return text;
             string notes = includeChangeLog ? ModChangelog.UnreleasedText(mod.ContentRoot ?? mod.Folder) : "";
             if (notes.Length > 0)
-                text = t("PublishStateChangeLog") + "\n" + string.Join("\n", notes.Split('\n').Select(l => "  " + l)) + "\n\n" + text;
+                text = NamedText.Fill(t("PublishStateChangeLog"), ("Notes", string.Join("\n", notes.Split('\n').Select(l => "  " + l)))) + "\n\n" + text;
             text += "\n" + string.Join("\n", mod.UnpublishedChanges.Take(maxFiles).Select(c => "  " + c));
             if (mod.UnpublishedChanges.Count > maxFiles) text += "\n  ... +" + (mod.UnpublishedChanges.Count - maxFiles);
             return text;
@@ -202,19 +202,28 @@ namespace DW2ModLauncher.Core.Services
             if (mod.HighRiskConflictCount > 0 || mod.LowRiskConflictCount > 0)
             {
                 List<string> files = mod.HighRiskConflictCount > 0 ? conflicts : cautions;
-                files.Add(t("Conflicts") + mod.ConflictCount + t("Files") +
-                    t("High") + mod.HighRiskConflictCount + t("Low") + mod.LowRiskConflictCount + "）");
+                files.Add(ConflictsSummary(mod, t));
                 if (mod.ConflictMods != null && mod.ConflictMods.Count > 0)
-                    files.Add(t("ConflictsWith") + string.Join(", ", mod.ConflictMods.Take(8).ToArray()));
+                    files.Add(ConflictsWith(mod, t));
             }
             foreach (string note in mod.HookNotes ?? new List<string>()) (mod.HookConflictNotes != null && mod.HookConflictNotes.Contains(note) ? conflicts : cautions).Add(note);
             if (mod.EnabledCopyCount > 0) conflicts.Add(t("EnabledMoreThanOnce"));
-            if (mod.IdenticalFileCount > 0) cautions.Add(t("SamePathAndIdenticalContent") + mod.IdenticalFileCount);
+            if (mod.IdenticalFileCount > 0) cautions.Add(NamedText.Fill(t("SamePathAndIdenticalContent"), ("Count", mod.IdenticalFileCount)));
             if (mod.IsWorkshop && mod.UpdateState == "update") cautions.Add(t("SteamWorkshopUpdateAvailable"));
-            if (LauncherRequirement.IsUnmet(mod)) conflicts.Add(t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
+            if (LauncherRequirement.IsUnmet(mod)) conflicts.Add(NamedText.Fill(t("LauncherTooOld"), ("Required", mod.MinLauncherVersion), ("Current", AppVersion.Display)));
             foreach (string problem in mod.DependencyProblems ?? new List<string>()) cautions.Add(problem);
             if (mod.ModJsonError != null) cautions.Add("mod.json is not valid JSON: " + mod.ModJsonError);
             return (conflicts, cautions);
+        }
+
+        private static string ConflictsSummary(ModInfo mod, Func<string, string> t)
+        {
+            return NamedText.Fill(t("ConflictsSummary"), ("Count", mod.ConflictCount), ("High", mod.HighRiskConflictCount), ("Low", mod.LowRiskConflictCount));
+        }
+
+        private static string ConflictsWith(ModInfo mod, Func<string, string> t)
+        {
+            return NamedText.Fill(t("ConflictsWith"), ("Mods", string.Join(t("ListSeparator"), mod.ConflictMods.Take(8).ToArray())));
         }
 
         public static List<string> BuildProblems(ModInfo mod, int severity, Func<string, string> t)
@@ -223,16 +232,15 @@ namespace DW2ModLauncher.Core.Services
             if (severity < 2) return lines;
             if (mod.HighRiskConflictCount > 0 || mod.LowRiskConflictCount > 0)
             {
-                lines.Add(t("Conflicts") + mod.ConflictCount + t("Files") +
-                    t("High") + mod.HighRiskConflictCount + t("Low") + mod.LowRiskConflictCount + "）");
+                lines.Add(ConflictsSummary(mod, t));
                 if (mod.ConflictMods != null && mod.ConflictMods.Count > 0)
-                    lines.Add(t("ConflictsWith") + string.Join(", ", mod.ConflictMods.Take(8).ToArray()));
+                    lines.Add(ConflictsWith(mod, t));
             }
             foreach (string note in mod.HookNotes ?? new List<string>()) lines.Add(note);
             if (mod.EnabledCopyCount > 0) lines.Add(t("EnabledMoreThanOnce"));
-            if (mod.IdenticalFileCount > 0) lines.Add(t("SamePathAndIdenticalContent") + mod.IdenticalFileCount);
+            if (mod.IdenticalFileCount > 0) lines.Add(NamedText.Fill(t("SamePathAndIdenticalContent"), ("Count", mod.IdenticalFileCount)));
             if (mod.IsWorkshop && mod.UpdateState == "update") lines.Add(t("SteamWorkshopUpdateAvailable"));
-            if (LauncherRequirement.IsUnmet(mod)) lines.Add(t("LauncherTooOld") + mod.MinLauncherVersion + " (" + AppVersion.Display + ")");
+            if (LauncherRequirement.IsUnmet(mod)) lines.Add(NamedText.Fill(t("LauncherTooOld"), ("Required", mod.MinLauncherVersion), ("Current", AppVersion.Display)));
             foreach (string problem in mod.DependencyProblems ?? new List<string>()) lines.Add(problem);
             if (mod.ModJsonError != null) lines.Add("mod.json is not valid JSON: " + mod.ModJsonError);
             return lines;

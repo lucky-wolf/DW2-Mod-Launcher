@@ -198,7 +198,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // "Unchanged" is only needed when Steam couldn't tell us what the item currently is.
             if (isUpdate && currentVisibility == null) Visibilities.Add(new VisibilityOption { Value = null, Label = l["VisibilityUnchanged"] });
             foreach (ModVisibility v in ModPublisherFactory.SupportedVisibilities())
-                Visibilities.Add(new VisibilityOption { Value = v, Label = l[LabelKey(v)] + (v == currentVisibility ? l["VisibilityCurrentSuffix"] : "") });
+                Visibilities.Add(new VisibilityOption { Value = v, Label = v == currentVisibility ? l.Format("VisibilityCurrent", ("Visibility", l[LabelKey(v)])) : l[LabelKey(v)] });
             // New items default to private; updates default to what the item already has on Steam (or unchanged if unknown).
             visibility = Visibilities.First(o => isUpdate ? o.Value == currentVisibility : o.Value == ModVisibility.Private);
 
@@ -222,7 +222,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private static string UpToDate(ModInfo mod, ModPublishMetadata metadata, LocalizedStrings l)
         {
             string detail = string.Join(", ", new[] { (metadata.Version ?? "").Trim(), ModDetails.PublishedWhen(mod) }.Where(x => x.Length > 0));
-            return detail.Length == 0 ? l["PublishStateUpToDateBare"] : string.Format(l["PublishStateUpToDate"], detail);
+            return detail.Length == 0 ? l["PublishStateUpToDateBare"] : l.Format("PublishStateUpToDate", ("When", detail));
         }
         private readonly ModInfo mod;
         private string publishStatusLine = "";
@@ -234,7 +234,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void ComputeStatus()
         {
             string statusShort = ModDetails.PublishStatusShort(mod, key => L[key]);
-            PublishStatusLine = mod.PublishStatus == PublishStatus.Changed ? string.Format(L["PublishStateChangedCount"], mod.UnpublishedChanges.Count)
+            PublishStatusLine = mod.PublishStatus == PublishStatus.Changed ? L.Format("PublishStateChangedCount", ("Count", mod.UnpublishedChanges.Count))
                 : mod.PublishStatus == PublishStatus.Current ? UpToDate(mod, metadata, L)
                 : mod.PublishStatus == PublishStatus.Unpublished ? L["PublishStateUnpublishedTitle"]
                 : mod.PublishStatus == PublishStatus.Unknown ? L["PublishStateUntracked"]
@@ -256,7 +256,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             if (!CanMarkUpToDate) return;
             string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
-            if (!await dialogs.ConfirmAsync(L.Format("ConfirmMarkUpToDate", name, mod.UnpublishedChanges.Count), L["MarkUpToDate"], L["MarkUpToDate"], L["Cancel"])) return;
+            if (!await dialogs.ConfirmAsync(L.Format("ConfirmMarkUpToDate", ("Mod", name), ("Count", mod.UnpublishedChanges.Count)), L["MarkUpToDate"], L["MarkUpToDate"], L["Cancel"])) return;
             // What is typed in this dialog (change notes included) is written first, so the record covers the files as they now are.
             if (HasUnsavedEdits)
             {
@@ -274,7 +274,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 DW2ModLauncher.Core.Diagnostics.Logger.LogException("Mark " + name + " up to date", ex);
-                await dialogs.ShowMessageAsync(L.Format("MarkUpToDateFailed", ex.Message), "DW2 Mod Launcher");
+                await dialogs.ShowMessageAsync(L.Format("MarkUpToDateFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 return;
             }
             RefreshStatus();
@@ -438,7 +438,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public List<BundleRow> BundleRows { get; }
 
         /// <summary>Null when saving loses nothing; otherwise the OK/Cancel question about the missing bundles that saving removes from mod.json.</summary>
-        public string MissingBundlesQuestion { get { return missingBundles.Count == 0 ? null : L.Format("PublishBundlesRemoveConfirm", string.Join("\n", missingBundles)); } }
+        public string MissingBundlesQuestion { get { return missingBundles.Count == 0 ? null : L.Format("PublishBundlesRemoveConfirm", ("Bundles", string.Join("\n", missingBundles))); } }
 
         private BundleRow BundleRowFor(string name, LocalizedStrings l)
         {
@@ -595,7 +595,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         /// <summary>Loose images in the mod folder other than the preview: unused by the mod, yet uploaded with it.</summary>
         public bool HasStrayImages { get { return strayImages.Count > 0; } }
-        public string StrayImagesWarning { get { return L.Format("PublishStrayImagesWarning", strayImages.Count); } }
+        public string StrayImagesWarning { get { return L.Format("PublishStrayImagesWarning", ("Count", strayImages.Count)); } }
         public string StrayImagesTooltip { get { return string.Join("\n", strayImages); } }
         public RelayCommand CleanStrayImagesCommand { get; }
 
@@ -615,7 +615,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             RefreshStrayImages();
             if (strayImages.Count == 0) return false;
-            if (!await dialogs.ConfirmAsync(L.Format("PublishStrayImagesQuestion", string.Join("\n", strayImages)), "DW2 Mod Launcher", L["Yes"], L["No"])) return false;
+            if (!await dialogs.ConfirmAsync(L.Format("PublishStrayImagesQuestion", ("Files", string.Join("\n", strayImages))), "DW2 Mod Launcher", L["Yes"], L["No"])) return false;
             try
             {
                 foreach (string name in strayImages) DW2ModLauncher.Core.Services.RecycleBin.Send(System.IO.Path.Combine(contentFolder, name));
@@ -714,7 +714,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 DW2ModLauncher.Core.Diagnostics.Logger.LogException("Pull Steam description", ex);
-                await dialogs.ShowMessageAsync(L.Format("PublishPullSteamDescriptionFailed", ex.Message), "DW2 Mod Launcher");
+                await dialogs.ShowMessageAsync(L.Format("PublishPullSteamDescriptionFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
             }
             finally { pullingDescription = false; }
         }
@@ -766,17 +766,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     catch (Exception ex)
                     {
                         DW2ModLauncher.Core.Diagnostics.Logger.LogException("Record pushed description", ex);
-                        recordProblem = L.Format("PublishStateRecordFailed", ex.Message);
+                        recordProblem = L.Format("PublishStateRecordFailed", ("Problem", ex.Message));
                     }
                 }
                 await dialogs.ShowMessageAsync(string.IsNullOrEmpty(result.ErrorMessage)
                     ? L["PublishPushSteamDescriptionDone"] + (recordProblem == null ? "" : "\n\n" + recordProblem)
-                    : L.Format("PublishPushSteamDescriptionFailed", result.ErrorMessage), "DW2 Mod Launcher");
+                    : L.Format("PublishPushSteamDescriptionFailed", ("Problem", result.ErrorMessage)), "DW2 Mod Launcher");
             }
             catch (Exception ex)
             {
                 DW2ModLauncher.Core.Diagnostics.Logger.LogException("Push Steam description", ex);
-                await dialogs.ShowMessageAsync(L.Format("PublishPushSteamDescriptionFailed", ex.Message), "DW2 Mod Launcher");
+                await dialogs.ShowMessageAsync(L.Format("PublishPushSteamDescriptionFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
             }
             finally { pullingDescription = false; }
         }
@@ -811,7 +811,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             revertingVisibility = true;
             Visibility = previous;
             revertingVisibility = false;
-            if (problem.Length > 0) await dialogs.ShowMessageAsync(L.Format("PublishPushVisibilityFailed", problem), "DW2 Mod Launcher");
+            if (problem.Length > 0) await dialogs.ShowMessageAsync(L.Format("PublishPushVisibilityFailed", ("Problem", problem)), "DW2 Mod Launcher");
         }
 
         private async Task BrowsePreviewAsync()
@@ -853,7 +853,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 fitted = await Task.Run(() => PreviewImageResizer.TryFit(picked));
                 if (fitted == null)
-                    await dialogs.ShowMessageAsync(L.Format("PublishPreviewResizeFailed", fileName), "DW2 Mod Launcher");
+                    await dialogs.ShowMessageAsync(L.Format("PublishPreviewResizeFailed", ("File", fileName)), "DW2 Mod Launcher");
             }
 
             try
@@ -862,14 +862,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 {
                     // Already in the mod: replace it in place (original to the recycle bin) so no oversized copy is left to be uploaded.
                     bool replace = await dialogs.ConfirmAsync(
-                        L.Format("PublishPreviewReplaceLabel", fileName, DW2ModLauncher.Core.Services.ByteSize.Format(bytes), fitted.Width, fitted.Height, DW2ModLauncher.Core.Services.ByteSize.Format(fitted.Data.LongLength)),
+                        L.Format("PublishPreviewReplaceLabel", ("File", fileName), ("Size", DW2ModLauncher.Core.Services.ByteSize.Format(bytes)), ("Width", fitted.Width), ("Height", fitted.Height), ("NewSize", DW2ModLauncher.Core.Services.ByteSize.Format(fitted.Data.LongLength))),
                         "DW2 Mod Launcher", L["Yes"], L["Cancel"]);
                     return replace ? PreviewImageResizer.Replace(fitted, picked) : null;
                 }
                 if (fitted != null)
                 {
                     string name = await PromptFileNameAsync(
-                        L.Format("PublishPreviewResizeNameLabel", fileName, DW2ModLauncher.Core.Services.ByteSize.Format(bytes), fitted.Width, fitted.Height, DW2ModLauncher.Core.Services.ByteSize.Format(fitted.Data.LongLength)),
+                        L.Format("PublishPreviewResizeNameLabel", ("File", fileName), ("Size", DW2ModLauncher.Core.Services.ByteSize.Format(bytes)), ("Width", fitted.Width), ("Height", fitted.Height), ("NewSize", DW2ModLauncher.Core.Services.ByteSize.Format(fitted.Data.LongLength))),
                         CoverFileName(fitted.Extension), fitted.Extension);
                     return name == null ? null : PreviewImageResizer.Save(fitted, contentFolder, name);
                 }
@@ -879,7 +879,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 string identical = DW2ModLauncher.Core.Services.ModFileImporter.FindIdentical(contentFolder, picked);
                 if (identical != null) return identical;
                 string extension = System.IO.Path.GetExtension(picked);
-                string copyName = await PromptFileNameAsync(L.Format("PublishImportFileNameLabel", fileName),
+                string copyName = await PromptFileNameAsync(L.Format("PublishImportFileNameLabel", ("File", fileName)),
                     CoverFileName(extension), extension);
                 if (copyName == null) return null;
                 string target = System.IO.Path.Combine(contentFolder, copyName);
@@ -916,7 +916,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     if (string.IsNullOrWhiteSpace(text)) return "";
                     string name = PreviewImagePlan.FileNameFor(text, extension);
                     if (name == null) return L["PublishPreviewResizeNameBad"];
-                    return File.Exists(System.IO.Path.Combine(contentFolder, name)) ? L.Format("PublishPreviewResizeNameTaken", name) : L.Format("PublishPreviewResizeNameHint", name);
+                    return File.Exists(System.IO.Path.Combine(contentFolder, name)) ? L.Format("PublishPreviewResizeNameTaken", ("File", name)) : L.Format("PublishPreviewResizeNameHint", ("File", name));
                 },
                 isInvalid: text => PreviewImagePlan.FileNameFor(text, extension) == null);
             return typed == null ? null : PreviewImagePlan.FileNameFor(typed, extension);

@@ -15,7 +15,7 @@ namespace DW2ModLauncher.Core.Services
     {
         private static string Name(ModInfo mod) { return mod.DisplayName ?? mod.Id; }
 
-        private static string F(Func<string, string> t, string key, params object[] args) { return HookOverlapAnalyzer.F(t, key, args); }
+        private static string F(Func<string, string> t, string key, params (string Name, object Value)[] values) { return HookOverlapAnalyzer.F(t, key, values); }
 
         /// <summary>Namespace.Type:Method(args) as Type:Method.</summary>
         public static string Short(string target)
@@ -39,14 +39,14 @@ namespace DW2ModLauncher.Core.Services
             if (mine.Count > 0)
             {
                 bool seen = mine.Any(x => x.Value.Any(p => p.Mod == mod && p.Observed));
-                text.AppendLine(F(t, "HookDetailsHeader", mine.Count, t(seen ? "HookSeenLastSession" : "HookDeclaredByMod")));
+                text.AppendLine(F(t, seen ? "HookDetailsHeaderSeen" : "HookDetailsHeaderDeclared", ("Count", mine.Count)));
                 foreach (KeyValuePair<string, List<HookParticipant>> target in mine)
                 {
                     text.AppendLine("  " + Short(target.Key) + "    " + Patches(target.Value.Where(p => p.Mod == mod)));
                     // an enabled mod's details do not dwell on mods that are not enabled; a mod that is not enabled shows who it would share with
                     bool modEnabled = analysis.Enabled.Contains(mod);
                     foreach (IGrouping<ModInfo, HookParticipant> other in target.Value.Where(p => p.Mod != mod && (p.Enabled || !modEnabled)).GroupBy(p => p.Mod))
-                        text.AppendLine("      " + F(t, "HookSharedWith", Name(other.Key), Patches(other)) + (analysis.Enabled.Contains(other.Key) ? "" : " " + t("HookNotEnabledTag")));
+                        text.AppendLine("      " + F(t, analysis.Enabled.Contains(other.Key) ? "HookSharedWith" : "HookSharedWithDisabled", ("Mod", Name(other.Key)), ("Hooks", Patches(other))));
                 }
             }
             foreach (HookNote note in analysis.Drift.Concat(analysis.Notes).Where(n => n.Mod == mod)) text.AppendLine(note.Text);
@@ -62,16 +62,15 @@ namespace DW2ModLauncher.Core.Services
             Func<HookParticipant, bool> counts = p => p.Enabled || (only != null && !analysis.Enabled.Contains(only));
             List<KeyValuePair<string, List<HookParticipant>>> shared = analysis.ByTarget.Where(x => x.Value.Where(counts).Select(p => p.Mod).Distinct().Count() > 1 && (only == null || x.Value.Any(p => p.Mod == only)) && InLevel(analysis, x.Key, only, level))
                 .OrderByDescending(x => x.Value.Where(counts).Select(p => p.Mod).Distinct().Count()).ThenBy(x => x.Key, StringComparer.Ordinal).ToList();
-            text.AppendLine(F(t, only == null ? "HookFullHeader" : "HookScopedHeader", shared.Count, only == null ? "" : Name(only)) + (analysis.AcknowledgedCount > 0 ? " " + F(t, "HookFullAcknowledgedPairs", analysis.AcknowledgedCount) : ""));
+            string header = (only == null ? "HookFullHeader" : "HookScopedHeader") + (analysis.AcknowledgedCount > 0 ? "Acknowledged" : "");
+            text.AppendLine(F(t, header, ("Count", shared.Count), ("Mod", only == null ? "" : Name(only)), ("Pairs", analysis.AcknowledgedCount)));
             foreach (KeyValuePair<string, List<HookParticipant>> target in shared)
             {
                 HookOverlap overlap = analysis.Overlaps.FirstOrDefault(o => o.Target == target.Key);
                 text.AppendLine();
-                text.AppendLine(target.Key + "  " + (overlap == null ? t("HookAcknowledged") : "[" + SeverityWord(overlap.Severity, t) + "]"));
+                text.AppendLine(F(t, overlap == null ? "HookTargetAcknowledged" : TargetKey(overlap.Severity), ("Target", target.Key)));
                 foreach (IGrouping<ModInfo, HookParticipant> mod in target.Value.Where(counts).GroupBy(p => p.Mod))
-                    text.AppendLine("  " + Name(mod.Key) + (string.IsNullOrWhiteSpace(mod.Key.Author) ? "" : " " + F(t, "HookBy", mod.Key.Author)) + (string.IsNullOrWhiteSpace(mod.Key.Version) ? "" : " v" + mod.Key.Version)
-                        + (analysis.Enabled.Contains(mod.Key) ? "" : " " + t("HookNotEnabledTag"))
-                        + ": " + string.Join(", ", mod.Select(p => p.Kind + " " + p.Effect + " " + t(p.Observed ? "HookSeenTag" : "HookDeclaredTag"))));
+                    text.AppendLine("  " + ParticipantLine(analysis, mod.Key, mod, t));
             }
             List<ChannelIssue> channelIssues = analysis.ChannelIssues.Where(i => (only == null || i.Mods.Contains(only)) && level != HookSeverity.Conflict).ToList();
             if (channelIssues.Count > 0)
@@ -104,9 +103,23 @@ namespace DW2ModLauncher.Core.Services
             return level == HookSeverity.Conflict ? conflict : !conflict && mine.Any(p => p.Severity == HookSeverity.Caution);
         }
 
-        private static string SeverityWord(HookSeverity severity, Func<string, string> t)
+        private static string TargetKey(HookSeverity severity)
         {
-            return t(severity == HookSeverity.Conflict ? "HealthConflict" : severity == HookSeverity.Caution ? "HealthCaution" : "HookInfo");
+            return severity == HookSeverity.Conflict ? "HookTargetConflict" : severity == HookSeverity.Caution ? "HookTargetCaution" : "HookTargetInfo";
+        }
+
+        /// <summary>One mod's row under a shared target: its name, what is known about it (author, version, not enabled) and the hooks it has there.</summary>
+        private static string ParticipantLine(HookAnalysis analysis, ModInfo mod, IEnumerable<HookParticipant> hooks, Func<string, string> t)
+        {
+            string separator = t("ListSeparator");
+            List<string> details = new List<string>();
+            if (!string.IsNullOrWhiteSpace(mod.Author)) details.Add(F(t, "HookBy", ("Author", mod.Author)));
+            if (!string.IsNullOrWhiteSpace(mod.Version)) details.Add(F(t, "HookVersionTag", ("Version", mod.Version)));
+            if (!analysis.Enabled.Contains(mod)) details.Add(t("HookNotEnabledTag"));
+            string list = string.Join(separator, hooks.Select(p => F(t, p.Observed ? "HookKindSeen" : "HookKindDeclared", ("Kind", p.Kind), ("Effect", p.Effect))));
+            return details.Count == 0
+                ? F(t, "HookParticipantBare", ("Mod", Name(mod)), ("Hooks", list))
+                : F(t, "HookParticipant", ("Mod", Name(mod)), ("Details", string.Join(separator, details)), ("Hooks", list));
         }
     }
 }

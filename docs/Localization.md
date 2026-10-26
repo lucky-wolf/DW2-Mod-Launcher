@@ -15,7 +15,9 @@ Three different things get translated in this project, and they work differently
 - A pack is a plain JSON file of key to text, named by language code (`en.json`, `ja.json`, `ru.json`). It sits in the `Languages` folder next to the launcher's executable, and every `.json` there is offered in the language picker.
 - `en.json` is canonical: every key exists there. Another pack may contain only the keys translated so far. A key a pack lacks shows as the raw key name (not English), so gaps are obvious.
 - `_displayName` in a pack is the name shown in the picker (`日本語`).
-- Text with `{0}`, `{1}` placeholders is formatted with the values the code supplies. Keep the placeholders; the order may change.
+- **Every text is a whole sentence (or paragraph).** Anything that varies is a named placeholder: `Delete the mod profile "{Profile}"?`, `Saved {Count} of {Total}`. A translator sees what each one is and may put it anywhere in the sentence. A name is a letter followed by letters and digits (`{Mod}`, `{Count}`); `{Count:0.#}` adds a number or date format; `{{` and `}}` are literal braces. Keep the placeholders of the English text, the order may change. Code supplies them by name, `T("DeleteProfileConfirm", ("Profile", name))` (`NamedText.Fill` in Core, also compiled into the loader). A placeholder the code does not give stays in the text as written and is logged, so a typo is visible.
+- No text ends where the code appends the rest, and the code never puts a translated piece into another translated sentence. Where wording depends on the situation there is one key per situation (`HookSharedWith`, `HookSharedWithDisabled`), not a fragment glued on. Independent paragraphs of one dialog may be joined by a blank line. A count is shown as a label (`Conflict files: {Count}`), not as "N file(s)". The few controlled exceptions: a list of names is joined with the pack's `ListSeparator`, and a count phrase like `HookCountMods` is a complete phrase of its own that a summary sentence places.
+- `LanguagePackTests` enforces this: no `{0}`-style placeholder, no text that ends with a space or line break, every pack uses the same placeholder names as English, no code appends to a translated text, and every key the code names exists in `en.json`.
 - In the UI, text is `{Binding L[Key]}` in XAML and `T("Key", args)` in code. Core code has no lookup of its own; the few Core messages that reach the player take a `Func<string, string>` (`LaunchDiagnostics`).
 - **First run:** with no saved settings the launcher speaks the system's language (`CultureInfo.CurrentUICulture`) if a pack matches: a pack named exactly like the culture (`pt-BR`) first, then its language (`ja` for `ja-JP`), else English. A saved choice always wins.
 
@@ -60,6 +62,6 @@ The launcher adds `"Language": "<code>"` to every code mod's options JSON at lau
 
 ## Known gaps
 
-- Messages from Core that are not routed through a lookup: the rule warnings of `ModChannels`, `ModDependencies` and `ModLibrary` (mod dependency, data channel and load-order problems).
+- Messages from Core that are not routed through a lookup: the rule warnings of `ModChannels`, `ModDependencies` and `ModLibrary` (mod dependency, data channel and load-order problems), and a few labels in the details panel. The inventory is in [plans/launcher-localization.md](plans/launcher-localization.md).
 - Text that comes out of exceptions (.NET, the game, a mod), which is shown as it is.
 - The window banner and credits, and the "DW2 Mod Launcher" dialog title, which are branding.

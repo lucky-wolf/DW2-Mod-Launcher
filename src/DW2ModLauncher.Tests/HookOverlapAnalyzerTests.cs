@@ -240,7 +240,7 @@ namespace DW2ModLauncher.Tests
             HookAnalysis open = Run(new List<ModInfo> { a, b }, manifests);
             string report = HookReport.Full(open, T);
             Assert.Contains("N.G:Hit(System.Int32)  [Caution]", report);
-            Assert.Contains("A by x", report);
+            Assert.Contains("A (by x, v1.0)", report);
             Assert.Contains("shared with: B", HookReport.ForMod(open, a, T));
 
             HookAnalysis known = Run(new List<ModInfo> { a, b }, manifests, null, new HashSet<string> { HookOverlapAnalyzer.AcknowledgementKey("N.G:Hit(System.Int32)", a, b) });
@@ -345,8 +345,8 @@ namespace DW2ModLauncher.Tests
             Assert.Equal(0, enabled.HookCautionCount);
             Assert.Empty(enabled.HookNotes);
             Assert.Contains("E", Assert.Single(removed.HookNotes));
-            Assert.Contains("R by y v1.0 (not enabled)", HookReport.Full(analysis, T, removed));
-            Assert.DoesNotContain("(not enabled)", HookReport.ForMod(analysis, enabled, T));
+            Assert.Contains("R (by y, v1.0, not enabled)", HookReport.Full(analysis, T, removed));
+            Assert.DoesNotContain("not enabled", HookReport.ForMod(analysis, enabled, T));
             // the report of the whole launcher is about the enabled mods only
             Assert.DoesNotContain("G:Hit()", HookReport.Full(analysis, T));
             Assert.DoesNotContain(analysis.Overlaps.SelectMany(o => o.Pairs), p => p.BothEnabled);
@@ -476,14 +476,16 @@ namespace DW2ModLauncher.Tests
 {
     public class HookTextTests
     {
-        // every language-pack key the hook code asks for exists in every pack, with the same {n} holes as English
+        // every language-pack key the hook code asks for exists in every pack, with the same named placeholders as English
         [Fact]
         public void EveryHookKeyIsTranslatedWithTheSameHoles()
         {
             string sources = string.Join("\n", new[] { "HookOverlapAnalyzer.cs", "HookReport.cs", "HookFiles.cs" }
                 .Select(f => System.IO.File.ReadAllText(System.IO.Path.Combine(FindSource(), f))));
+            // the quoted names that open a ("Name", value) pair are placeholders, not keys
+            System.Collections.Generic.HashSet<string> placeholders = System.Text.RegularExpressions.Regex.Matches(sources, "\\(\"([A-Za-z]+)\", ").Select(m => m.Groups[1].Value).ToHashSet();
             System.Collections.Generic.List<string> keys = System.Text.RegularExpressions.Regex.Matches(sources, "(?<!cref=)\"(Hook[A-Za-z]+)\"").Select(m => m.Groups[1].Value)
-                .Concat(new[] { "HealthCaution", "HealthConflict" }).Distinct().ToList();
+                .Where(k => !placeholders.Contains(k)).Concat(new[] { "HealthCaution", "HealthConflict" }).Distinct().ToList();
             Assert.True(keys.Count > 20);
             foreach (string code in new[] { "en", "ja", "ru" })
                 foreach (string key in keys)
@@ -496,7 +498,7 @@ namespace DW2ModLauncher.Tests
 
         private static string Holes(string text)
         {
-            return string.Join(",", System.Text.RegularExpressions.Regex.Matches(text, "\\{(\\d+)\\}").Select(m => m.Groups[1].Value).Distinct().OrderBy(x => x));
+            return string.Join(",", DW2ModLauncher.Core.Services.NamedText.Names(text).OrderBy(x => x));
         }
 
         private static string FindSource()

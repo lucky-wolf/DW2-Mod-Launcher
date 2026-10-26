@@ -96,9 +96,9 @@ namespace DW2ModLauncher.Core.Services
         private static string Name(ModInfo mod) { return mod.DisplayName ?? mod.Id; }
 
         /// <summary>The text for a language-pack key, with the arguments put in.</summary>
-        internal static string F(Func<string, string> t, string key, params object[] args)
+        internal static string F(Func<string, string> t, string key, params (string Name, object Value)[] values)
         {
-            return string.Format(t(key), args);
+            return NamedText.Fill(t(key), placeholder => Diagnostics.Logger.Log("Language pack", "'" + key + "' has the placeholder {" + placeholder + "}, which the code does not give."), values);
         }
 
         /// <summary>
@@ -140,8 +140,8 @@ namespace DW2ModLauncher.Core.Services
                 {
                     foreach (DeclaredHook hook in manifest.Hooks ?? new List<DeclaredHook>())
                     {
-                        if (string.IsNullOrWhiteSpace(hook?.Target)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookNoTarget", Name(mod), HookFiles.ManifestFileName), Error = enabled }); continue; }
-                        if (!HookEffects.IsKnown(hook.Effect)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnknownEffect", Name(mod), hook.Target, hook.Effect, string.Join(", ", HookEffects.All)), Error = enabled }); continue; }
+                        if (string.IsNullOrWhiteSpace(hook?.Target)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookNoTarget", ("Mod", Name(mod)), ("File", HookFiles.ManifestFileName)), Error = enabled }); continue; }
+                        if (!HookEffects.IsKnown(hook.Effect)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnknownEffect", ("Mod", Name(mod)), ("Hook", hook.Target), ("Effect", hook.Effect), ("Allowed", string.Join(", ", HookEffects.All))), Error = enabled }); continue; }
                         if (enabled && !string.IsNullOrWhiteSpace(hook.Setting) && isSettingOn != null && !isSettingOn(mod, hook.Setting)) continue;
                         Add(byTarget, hook.Target, new HookParticipant { Mod = mod, Kind = hook.Kind, Effect = hook.Effect.ToLowerInvariant(), Enabled = enabled });
                     }
@@ -154,20 +154,20 @@ namespace DW2ModLauncher.Core.Services
             {
                 if (manifest != null || Observes(observed, mod)) return;
                 ObservedModInfo old = observed?.Mods?.FirstOrDefault(m => string.Equals(m.Key, mod.Key, StringComparison.OrdinalIgnoreCase));
-                if (old != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnrunVersion", Name(mod), old.Version ?? "?", mod.Version ?? "?") });
+                if (old != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnrunVersion", ("Mod", Name(mod)), ("Recorded", old.Version ?? "?"), ("Installed", mod.Version ?? "?")) });
             }
 
             foreach (ModInfo mod in orderedEnabled)
             {
                 (HookManifest manifest, string error) = readManifest(mod);
                 NoteUnrunVersion(mod, manifest);
-                if (error != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookModError", Name(mod), error), Error = true });
+                if (error != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookModError", ("Mod", Name(mod)), ("Problem", error)), Error = true });
                 if (manifest != null) manifests[mod] = manifest;
                 if (manifest != null && !string.IsNullOrWhiteSpace(manifest.ModVersion) && !string.IsNullOrWhiteSpace(mod.Version)
                     && manifest.ModVersion.Trim() != mod.Version.Trim())
-                    result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookStaleMod", Name(mod), manifest.ModVersion, mod.Version) });
+                    result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookStaleMod", ("Mod", Name(mod)), ("Declared", manifest.ModVersion), ("Installed", mod.Version)) });
                 if (manifest != null && gameVersion != null && !string.IsNullOrWhiteSpace(manifest.GameVersion) && manifest.GameVersion.Trim() != gameVersion.Trim())
-                    result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookStaleGame", Name(mod), manifest.GameVersion, gameVersion) });
+                    result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookStaleGame", ("Mod", Name(mod)), ("Declared", manifest.GameVersion), ("Installed", gameVersion)) });
 
                 if (Observes(observed, mod) && manifest != null) result.Drift.AddRange(Drift(mod, observed, manifest, isSettingOn, t));
                 Participate(mod, manifest, true);
@@ -178,7 +178,7 @@ namespace DW2ModLauncher.Core.Services
             foreach (ModInfo mod in notEnabledMods)
             {
                 (HookManifest manifest, string error) = readManifest(mod);
-                if (error != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookModError", Name(mod), error) });
+                if (error != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookModError", ("Mod", Name(mod)), ("Problem", error)) });
                 NoteUnrunVersion(mod, manifest);
                 Participate(mod, manifest, false);
             }
@@ -264,7 +264,7 @@ namespace DW2ModLauncher.Core.Services
             {
                 bool conflict = partner.Value.Conflicts > 0;
                 int hooks = conflict ? partner.Value.Conflicts : partner.Value.Cautions;
-                string note = F(t, "HookPartnerLine", Name(partner.Key.Item2), hooks);
+                string note = F(t, "HookPartnerLine", ("Mod", Name(partner.Key.Item2)), ("Count", hooks));
                 partner.Key.Item1.HookNotes.Add(note);
                 if (conflict) partner.Key.Item1.HookConflictNotes.Add(note);
             }
@@ -284,8 +284,8 @@ namespace DW2ModLauncher.Core.Services
             HashSet<string> declared = new HashSet<string>((manifest.Hooks ?? new List<DeclaredHook>())
                 .Where(h => !string.IsNullOrWhiteSpace(h?.Target) && (string.IsNullOrWhiteSpace(h.Setting) || isSettingOn == null || isSettingOn(mod, h.Setting)))
                 .Select(h => h.Target + " " + h.Kind), StringComparer.Ordinal);
-            foreach (string missing in declared.Except(seen).OrderBy(x => x, StringComparer.Ordinal)) yield return new HookNote { Mod = mod, Text = F(t, "HookDriftMissing", Name(mod), missing) };
-            foreach (string extra in seen.Except(declared).OrderBy(x => x, StringComparer.Ordinal)) yield return new HookNote { Mod = mod, Text = F(t, "HookDriftExtra", Name(mod), extra) };
+            foreach (string missing in declared.Except(seen).OrderBy(x => x, StringComparer.Ordinal)) yield return new HookNote { Mod = mod, Text = F(t, "HookDriftMissing", ("Mod", Name(mod)), ("Hooks", missing)) };
+            foreach (string extra in seen.Except(declared).OrderBy(x => x, StringComparer.Ordinal)) yield return new HookNote { Mod = mod, Text = F(t, "HookDriftExtra", ("Mod", Name(mod)), ("Hooks", extra)) };
         }
 
         private static void Add(Dictionary<string, List<HookParticipant>> byTarget, string target, HookParticipant participant)
@@ -368,12 +368,12 @@ namespace DW2ModLauncher.Core.Services
                             yield return new ChannelIssue
                             {
                                 Channel = c.Name.Trim(),
-                                Text = F(t, "HookChannelVersion", Name(mod), c.Name.Trim(), c.Version, Name(provider.Mod), provider.Version),
+                                Text = F(t, "HookChannelVersion", ("Mod", Name(mod)), ("Channel", c.Name.Trim()), ("Wanted", c.Version), ("Provider", Name(provider.Mod)), ("Provided", provider.Version)),
                                 Mods = new List<ModInfo> { mod, provider.Mod }
                             };
             // observed: what the loader itself refused to connect last session
             foreach (string problem in observed?.Channels?.Problems ?? new List<string>())
-                yield return new ChannelIssue { Channel = "", Text = F(t, "HookLastSession", problem), Mods = new List<ModInfo>() };
+                yield return new ChannelIssue { Channel = "", Text = F(t, "HookLastSession", ("Problem", problem)), Mods = new List<ModInfo>() };
         }
     }
 }

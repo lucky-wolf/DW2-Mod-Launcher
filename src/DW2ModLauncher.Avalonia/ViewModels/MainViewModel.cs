@@ -209,7 +209,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (gameState == GameState.Idle && LaunchMode == LaunchMode.Continue)
                 {
                     string save = SaveGames.LatestName(settings.GameRoot);
-                    return save == null ? T("PlayContinueNoSave") : T("PlayContinueTooltip", save);
+                    return save == null ? T("PlayContinueNoSave") : T("PlayContinueTooltip", ("Save", save));
                 }
                 return T(gameState == GameState.Launching ? "LaunchingButton" : gameState == GameState.Running ? "StopTooltip" : LaunchMode == LaunchMode.NewGame ? "PlayNewGameTooltip" : "PlayTooltip");
             }
@@ -418,7 +418,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         public string T(string key) { return L[key]; }
-        public string T(string key, params object[] args) { return L.Format(key, args); }
+        public string T(string key, params (string Name, object Value)[] values) { return L.Format(key, values); }
 
         public void SetStatus(string text) { StatusText = text; }
 
@@ -440,14 +440,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
                 Logger.LogException("Read the logged-in Steam user", ex);
-                AddProblem(T("AuthorDetectFailed", ex.Message));
+                AddProblem(T("AuthorDetectFailed", ("Problem", ex.Message)));
             }
         }
 
         public void SaveSettings()
         {
             try { settingsStore.Save(settings); }
-            catch (Exception ex) { SetStatus(T("SettingsSaveError", ex.Message)); }
+            catch (Exception ex) { SetStatus(T("SettingsSaveError", ("Problem", ex.Message))); }
         }
 
         /// <summary>Stored the moment a preview image is picked, so the folder is remembered even if the publish dialog is then cancelled.</summary>
@@ -508,7 +508,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Scan managed mods", ex);
-                AddProblem(T("ModsFolderUnreadable", settings.ManagedModsRoot, ex.Message));
+                AddProblem(T("ModsFolderUnreadable", ("Folder", settings.ManagedModsRoot), ("Problem", ex.Message)));
                 managedMods = new List<ModInfo>();
             }
             try { workshopMods = ModScanner.ScanMods(settings.WorkshopRoot, true, key => T(key)) ?? new List<ModInfo>(); }
@@ -774,13 +774,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     return;
                 case SetEnabledOutcome.WriteFailed:
                     Logger.LogException("Write DW2 mods.json", result.Error);
-                    await Dialogs.ShowMessageAsync(T("ModsJsonSaveFailed", result.Error.Message), "DW2 Mod Launcher");
+                    await Dialogs.ShowMessageAsync(T("ModsJsonSaveFailed", ("Problem", result.Error.Message)), "DW2 Mod Launcher");
                     modOrder = ModOrderStore.Read(ModsJsonPath());
                     break;
                 case SetEnabledOutcome.Saved:
-                    SetStatus(T("DW2ModSettingsSaved") + (snapNote.Length > 0 ? " " + snapNote : ""));
+                    SetStatus(snapNote.Length > 0 ? T("DW2ModSettingsSavedAndMoved", ("Mod", snapNote)) : T("DW2ModSettingsSaved"));
                     if (result.SettingsError != null)
-                        await Dialogs.ShowMessageAsync(T("ModEnabledSettingsFailed", row.Mod.DisplayName, result.SettingsError.Message), "DW2 Mod Launcher");
+                        await Dialogs.ShowMessageAsync(T("ModEnabledSettingsFailed", ("Mod", row.Mod.DisplayName), ("Problem", result.SettingsError.Message)), "DW2 Mod Launcher");
                     break;
             }
             Analyze();
@@ -807,7 +807,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             int from = Mods.IndexOf(row);
             if (from < target) target--;
             if (from != target) Mods.Move(from, target);
-            snapNote = T("LoadOrderSnapped", row.Name);
+            snapNote = row.Name;
         }
 
         /// <summary>Raised when the view should scroll the selected row into view, centred where there is room.</summary>
@@ -828,7 +828,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 List<string> broken = ModDependencies.Violations(proposed.Where(r => IsSelected(r.Mod)).Select(r => r.Mod).ToList(), row.Mod);
                 if (broken.Count > 0)
                 {
-                    SetStatus(T("LoadOrderRuleBlocked", string.Join("; ", broken)));
+                    SetStatus(T("LoadOrderRuleBlocked", ("Mods", string.Join(T("ListSeparator"), broken))));
                     SelectedRow = row;
                     return;
                 }
@@ -861,7 +861,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Write load order", ex);
-                var _ = Dialogs.ShowMessageAsync(T("LoadOrderSaveFailed", ex.Message), "DW2 Mod Launcher");
+                var _ = Dialogs.ShowMessageAsync(T("LoadOrderSaveFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
             }
         }
 
@@ -900,10 +900,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // a mod that is not enabled has no health, but what its code would clash with is shown so the player knows before adding it
             int severity = selected ? ModHealth.Severity(mod, true) : ModHealth.HookSeverityIfEnabled(mod);
             DetailTitle = mod.DisplayName ?? "";
-            DetailVersion = string.IsNullOrWhiteSpace(mod.Version) ? "" : T("Version") + ": " + mod.Version;
+            DetailVersion = string.IsNullOrWhiteSpace(mod.Version) ? "" : T("VersionLine", ("Version", mod.Version));
             DetailText = ModDetails.BuildText(mod, selected, key => T(key));
-            DetailSource = T("Source") + ": " + ModDetails.SourceText(mod, settings.ManagedModsRoot);
-            DetailWorkshopId = T("PublishWorkshopId") + ": " + (ModDetails.WorkshopId(mod) ?? "—");
+            DetailSource = T("SourceLine", ("Source", ModDetails.SourceText(mod, settings.ManagedModsRoot)));
+            DetailWorkshopId = T("WorkshopIdLine", ("Id", ModDetails.WorkshopId(mod) ?? "—"));
             DetailLinks = ModDetails.BuildLinkLines(mod, OrderedEnabledMods());
             (List<string> conflicts, List<string> cautions) = ModDetails.BuildProblemGroups(mod, severity, key => T(key));
             ConflictCallout.Show(conflicts.Count == 0 ? "" : ProblemsHeader("HealthConflict", conflicts.Count, mod.HookConflictMods, mod.HookConflictMethods, mod.HookConflictNotes.Count),
@@ -917,13 +917,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string ProblemsHeader(string headingKey, int listed, int mods, int methods, int hookLines)
         {
             string heading = T(headingKey);
-            if (mods == 0 || mods != listed) return heading + " (" + listed + ")";
-            return heading + ": " + string.Format(T(mods == 1 ? "HookCountModsOne" : "HookCountMods"), mods) + ", " + string.Format(T(methods == 1 ? "HookCountHooksOne" : "HookCountHooks"), methods);
+            if (mods == 0 || mods != listed) return T("HookProblemsCount", ("Heading", heading), ("Count", listed));
+            return T("HookProblemsSummary", ("Heading", heading), ("Mods", T(mods == 1 ? "HookCountModsOne" : "HookCountMods", ("Count", mods))), ("Hooks", T(methods == 1 ? "HookCountHooksOne" : "HookCountHooks", ("Count", methods))));
         }
 
         private string VisibilityLine(ModInfo mod)
         {
-            return mod.Visibility.HasValue ? T("PublishVisibility") + ": " + T(PublishDialogViewModel.LabelKey(mod.Visibility.Value)) : "";
+            return mod.Visibility.HasValue ? T("VisibilityLine", ("Visibility", T(PublishDialogViewModel.LabelKey(mod.Visibility.Value)))) : "";
         }
 
         /// <summary>
@@ -1140,7 +1140,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             await AnalyzeInBackgroundAsync();
         }
 
-        private bool launcherUpdateRunning;
+        private volatile bool launcherUpdateRunning;
         private bool isBusy;
         private string busyText = "";
         /// <summary>True while a long job runs: the window shows a darkened, non-dismissable overlay with <see cref="BusyText"/>.</summary>
@@ -1209,9 +1209,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string typedLanguage = null;
             if (localization)
             {
-                Func<string, string> modName = lang => targetLabel == null ? T("LocalizationModName", lang.Trim()) : T("LocalizationModNameFor", lang.Trim(), targetLabel);
+                Func<string, string> modName = lang => targetLabel == null ? T("LocalizationModName", ("Language", lang.Trim())) : T("LocalizationModNameFor", ("Language", lang.Trim()), ("Target", targetLabel));
                 string language = await Dialogs.PromptTextAsync(T("CreateModKindLocalization"), T("LocalizationLanguagePrompt"), "", T("OK"), T("Cancel"),
-                    text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", LocalModManager.FolderNameFor(modName(text))));
+                    text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", ("Folder", LocalModManager.FolderNameFor(modName(text)))));
                 if (language == null) return;
                 typedLanguage = language;
                 name = modName(language);
@@ -1219,7 +1219,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             else
             {
                 name = await Dialogs.PromptTextAsync(T("CreateModTitle"), T("CreateModPrompt"), "", T("OK"), T("Cancel"),
-                    text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", LocalModManager.FolderNameFor(text)));
+                    text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", ("Folder", LocalModManager.FolderNameFor(text))));
                 if (name == null) return;
             }
             try
@@ -1246,21 +1246,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     {
                         // Nothing to translate (e.g. a Mod without data files): do not leave an empty Mod behind.
                         Directory.Delete(folder, true);
-                        await Dialogs.ShowMessageAsync(T("LocalizationNothing", targetLabel ?? ""), "DW2 Mod Launcher");
+                        await Dialogs.ShowMessageAsync(T("LocalizationNothing", ("Target", targetLabel ?? "")), "DW2 Mod Launcher");
                         return;
                     }
-                    await Dialogs.ShowMessageAsync(T("LocalizationDone", built.Strings, built.Files, built.Unreadable.Count, built.TextFiles), "DW2 Mod Launcher");
+                    await Dialogs.ShowMessageAsync(T("LocalizationDone", ("Strings", built.Strings), ("Files", built.Files), ("Unreadable", built.Unreadable.Count), ("TextFiles", built.TextFiles)), "DW2 Mod Launcher");
                 }
                 Refresh();
                 SelectedRow = Mods.FirstOrDefault(r => !r.Mod.IsWorkshop && string.Equals(r.Mod.Folder, folder, StringComparison.OrdinalIgnoreCase));
-                SetStatus(T("ModCreatedStatus", name));
+                SetStatus(T("ModCreatedStatus", ("Mod", name)));
                 // Straight into the properties dialog so the author can fill in the rest of mod.json.
                 if (SelectedRow != null) await EditPropertiesAsync(SelectedRow.Mod);
             }
             catch (Exception ex)
             {
                 Logger.LogException("Create local Mod", ex);
-                await Dialogs.ShowMessageAsync(T("CreateModFailed", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("CreateModFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
             }
         }
 
@@ -1273,15 +1273,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
             if (mod.IsWorkshop || id == null)
             {
-                await Dialogs.ShowMessageAsync(T("MarkUpToDateNotTracked", name), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateNotTracked", ("Mod", name)), "DW2 Mod Launcher");
                 return;
             }
             if (mod.PublishStatus != PublishStatus.Changed)
             {
-                await Dialogs.ShowMessageAsync(T("MarkUpToDateNothing", name, mod.PublishStatus), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateNothing", ("Mod", name), ("State", mod.PublishStatus)), "DW2 Mod Launcher");
                 return;
             }
-            if (!await Dialogs.ConfirmAsync(T("ConfirmMarkUpToDate", name, mod.UnpublishedChanges.Count), T("MarkUpToDate"), T("MarkUpToDate"), T("Cancel"))) return;
+            if (!await Dialogs.ConfirmAsync(T("ConfirmMarkUpToDate", ("Mod", name), ("Count", mod.UnpublishedChanges.Count)), T("MarkUpToDate"), T("MarkUpToDate"), T("Cancel"))) return;
             string folder = mod.ContentRoot ?? mod.Folder;
             try
             {
@@ -1290,7 +1290,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Mark " + name + " up to date", ex);
-                await Dialogs.ShowMessageAsync(T("MarkUpToDateFailed", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 return;
             }
             Logger.Log("Mark up to date", name + " (" + id + "): recorded " + folder + " in " + PublishedState.GetRecordPath(id));
@@ -1298,10 +1298,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (mod.PublishStatus != PublishStatus.Current)
             {
                 // The record was just taken from this folder, so anything still listed changed since (or the folder it compares is not the one recorded).
-                await Dialogs.ShowMessageAsync(T("MarkUpToDateStillChanged", name, string.Join("\n", mod.UnpublishedChanges)), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateStillChanged", ("Mod", name), ("Files", string.Join("\n", mod.UnpublishedChanges))), "DW2 Mod Launcher");
                 return;
             }
-            SetStatus(T("MarkedUpToDateStatus", name));
+            SetStatus(T("MarkedUpToDateStatus", ("Mod", name)));
         }
 
         private async Task DeleteModAsync()
@@ -1310,8 +1310,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModInfo mod = selectedRow.Mod;
             if (!LocalModManager.CanDelete(mod, settings.ManagedModsRoot)) return;
             string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
-            string message = T("ConfirmDeleteMod", name, mod.Folder);
-            if (!string.IsNullOrWhiteSpace(mod.WorkshopId)) message += "\n\n" + T("ConfirmDeleteModPublished", mod.WorkshopId);
+            string message = string.IsNullOrWhiteSpace(mod.WorkshopId)
+                ? T("ConfirmDeleteMod", ("Mod", name), ("Folder", mod.Folder))
+                : T("ConfirmDeleteModPublished", ("Mod", name), ("Folder", mod.Folder), ("Item", mod.WorkshopId));
             if (!await Dialogs.ConfirmAsync(message, T("DeleteModTitle"), T("Delete"), T("Cancel"))) return;
             if (GameProcess.IsRunning())
             {
@@ -1328,7 +1329,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     {
                         string reason = result.Outcome == SetEnabledOutcome.ModsJsonInvalid ? T("ModsJsonInvalidWarning")
                             : result.Error != null ? result.Error.Message : T("ModsJsonERROR");
-                        await Dialogs.ShowMessageAsync(T("DeleteModFailed", reason), "DW2 Mod Launcher");
+                        await Dialogs.ShowMessageAsync(T("DeleteModFailed", ("Problem", reason)), "DW2 Mod Launcher");
                         Refresh();
                         return;
                     }
@@ -1337,12 +1338,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 SaveSettings();
                 LocalModManager.Delete(mod, settings.ManagedModsRoot);
                 Refresh();
-                SetStatus(T("ModDeletedStatus", name));
+                SetStatus(T("ModDeletedStatus", ("Mod", name)));
             }
             catch (Exception ex)
             {
                 Logger.LogException("Delete local Mod", ex);
-                await Dialogs.ShowMessageAsync(T("DeleteModFailed", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("DeleteModFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 Refresh();
             }
         }
@@ -1359,13 +1360,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return;
             }
             string currentFolder = Path.GetFileName(mod.Folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            string typed = await Dialogs.PromptTextAsync(T("RenameModTitle"), T("RenameModLabel", oldName), oldName, T("OK"), T("Cancel"),
+            string typed = await Dialogs.PromptTextAsync(T("RenameModTitle"), T("RenameModLabel", ("Mod", oldName)), oldName, T("OK"), T("Cancel"),
                 text =>
                 {
                     if (string.IsNullOrWhiteSpace(text)) return "";
                     string folder = LocalModManager.FolderNameFor(text);
                     bool taken = !string.Equals(folder, currentFolder, StringComparison.OrdinalIgnoreCase) && Directory.Exists(Path.Combine(settings.ManagedModsRoot, folder));
-                    return taken ? T("RenameModFolderTaken", folder) : T("RenameModFolderPreview", folder);
+                    return taken ? T("RenameModFolderTaken", ("Folder", folder)) : T("RenameModFolderPreview", ("Folder", folder));
                 },
                 isInvalid: text =>
                 {
@@ -1378,8 +1379,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (!string.Equals(plannedFolder, currentFolder, StringComparison.Ordinal))
             {
                 List<string> oldDlls = ModRenamer.DllsMovedByRename(mod);
-                string dllLine = oldDlls.Count == 0 ? "" : T("RenameModConfirmDlls", string.Join(", ", oldDlls));
-                if (!await Dialogs.ConfirmAsync(T("RenameModConfirm", oldName, typed.Trim(), plannedFolder, dllLine), T("RenameModConfirmTitle"), T("OK"), T("Cancel"))) return;
+                string confirm = oldDlls.Count == 0
+                    ? T("RenameModConfirm", ("OldName", oldName), ("NewName", typed.Trim()), ("Folder", plannedFolder))
+                    : T("RenameModConfirmWithDlls", ("OldName", oldName), ("NewName", typed.Trim()), ("Folder", plannedFolder), ("Dlls", string.Join(T("ListSeparator"), oldDlls)));
+                if (!await Dialogs.ConfirmAsync(confirm, T("RenameModConfirmTitle"), T("OK"), T("Cancel"))) return;
             }
             try
             {
@@ -1387,16 +1390,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (result.SettingsChanged) SaveSettings();
                 Refresh();
                 SelectedRow = Mods.FirstOrDefault(r => string.Equals(r.Mod.ActiveToken, result.NewToken, StringComparison.OrdinalIgnoreCase)) ?? SelectedRow;
-                SetStatus(T("ModRenamedStatus", typed.Trim()));
+                SetStatus(T("ModRenamedStatus", ("Mod", typed.Trim())));
                 List<string> notes = new List<string>(result.Problems);
-                if (result.DllBackupFolder != null) notes.Add(T("RenameModDllMoved", result.DllBackupFolder));
-                if (result.BrokenDependents.Count > 0) notes.Add(T("RenameModBrokenDependents", string.Join(", ", result.BrokenDependents)));
-                if (notes.Count > 0) await Dialogs.ShowMessageAsync(T("RenameModProblems", string.Join("\n", notes)), "DW2 Mod Launcher");
+                if (result.DllBackupFolder != null) notes.Add(T("RenameModDllMoved", ("Folder", result.DllBackupFolder)));
+                if (result.BrokenDependents.Count > 0) notes.Add(T("RenameModBrokenDependents", ("Mods", string.Join(T("ListSeparator"), result.BrokenDependents))));
+                if (notes.Count > 0) await Dialogs.ShowMessageAsync(T("RenameModProblems", ("Problems", string.Join("\n", notes))), "DW2 Mod Launcher");
             }
             catch (Exception ex)
             {
                 Logger.LogException("Rename local Mod", ex);
-                await Dialogs.ShowMessageAsync(T("RenameModFailed", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("RenameModFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 Refresh();
             }
         }
@@ -1426,7 +1429,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (settings.CollapsedSettingGroups == null) settings.CollapsedSettingGroups = new Dictionary<string, List<string>>();
                 List<string> collapsedGroups = settings.CollapsedSettingGroups.TryGetValue(modKey, out List<string> saved0) ? saved0 : new List<string>();
                 ModSettingsEditorViewModel editor = new ModSettingsEditorViewModel(
-                    T("ModSettingsTitle") + (mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder)), schema, mod, values, L, Dialogs, settings.ShowHiddenSettings, collapsedGroups,
+                    T("ModSettingsTitle", ("Mod", mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder))), schema, mod, values, L, Dialogs, settings.ShowHiddenSettings, collapsedGroups,
                     // the dialog is the launcher's own window, so a mod's sidecar is picked by the launcher's language
                     ModSettingsTranslation.Read(mod.ContentRoot ?? mod.Folder, settings.Language), settings.GameRoot);
                 if (settings.SettingsScrollOffsets == null) settings.SettingsScrollOffsets = new Dictionary<string, double>();
@@ -1503,7 +1506,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
                 if (cleared == 0) return;
                 Refresh();
-                SetStatus(T("WorkshopItemsDeletedStatus", cleared));
+                SetStatus(T("WorkshopItemsDeletedStatus", ("Count", cleared)));
             }
             catch (Exception ex) { Logger.LogException("Refresh Steam status of published mods", ex); }
             finally { refreshingSteamStatus = false; }
@@ -1550,7 +1553,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
-                await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 return;
             }
             bool accepted = await Dialogs.EditPublishAsync(editor);
@@ -1563,7 +1566,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string folder = mod.Folder;
             Refresh();
             SelectedRow = Mods.FirstOrDefault(r => !r.Mod.IsWorkshop && string.Equals(r.Mod.Folder, folder, StringComparison.OrdinalIgnoreCase));
-            SetStatus(T("PropertiesSavedStatus", mod.DisplayName ?? mod.Id));
+            SetStatus(T("PropertiesSavedStatus", ("Mod", mod.DisplayName ?? mod.Id)));
         }
 
         /// <summary>
@@ -1577,7 +1580,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FittedPreview fitted = await Task.Run(() => PreviewImageResizer.TryFit(previewFile));
             if (fitted == null)
             {
-                await Dialogs.ShowMessageAsync(T("PublishPreviewResizeFailed", Path.GetFileName(previewFile)), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("PublishPreviewResizeFailed", ("File", Path.GetFileName(previewFile))), "DW2 Mod Launcher");
                 return null;
             }
             string previous = metadata.PreviewImage;
@@ -1636,7 +1639,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
-                await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("ModFolderUnreadable", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 return;
             }
             bool accepted = await Dialogs.EditPublishAsync(editor);
@@ -1658,12 +1661,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (preview.Exists && PreviewImagePlan.NeedsResize(preview.Length))
                 {
                     string size = (preview.Length / 1048576.0).ToString("0.##");
-                    int choice = await Dialogs.ChooseAsync(T("PublishImageTooLargeFix", metadata.PreviewImage, size), "DW2 Mod Launcher",
+                    int choice = await Dialogs.ChooseAsync(T("PublishImageTooLargeFix", ("File", metadata.PreviewImage), ("Size", size)), "DW2 Mod Launcher",
                         new[] { T("PublishShrinkAndPublish"), T("PublishAnyway"), T("Cancel") });
                     if (choice == 0)
                     {
                         string shrunk = await ShrinkPreviewAsync(mod, metadata, preview.FullName, previewRoot);
-                        if (shrunk == null && !await Dialogs.ConfirmAsync(T("PublishImageTooLarge", metadata.PreviewImage, size), "DW2 Mod Launcher", T("Yes"), T("No")))
+                        if (shrunk == null && !await Dialogs.ConfirmAsync(T("PublishImageTooLarge", ("File", metadata.PreviewImage), ("Size", size)), "DW2 Mod Launcher", T("Yes"), T("No")))
                         {
                             RollBackVersion(mod, versionBefore, versionWritten);
                             return;
@@ -1698,7 +1701,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (bigFiles.Count > 0)
             {
                 string list = string.Join("\n", bigFiles.Take(10)) + (bigFiles.Count > 10 ? "\n..." : "");
-                if (!await Dialogs.ConfirmAsync(T("PublishFilesTooLarge", list), "DW2 Mod Launcher", T("Yes"), T("No")))
+                if (!await Dialogs.ConfirmAsync(T("PublishFilesTooLarge", ("Files", list)), "DW2 Mod Launcher", T("Yes"), T("No")))
                 {
                     RollBackVersion(mod, versionBefore, versionWritten);
                     return;
@@ -1710,7 +1713,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 Logger.LogException("Stamp author in " + mod.Folder, ex);
                 RollBackVersion(mod, versionBefore, versionWritten);
-                await Dialogs.ShowMessageAsync(T("AuthorStampFailed", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("AuthorStampFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 return;
             }
 
@@ -1742,7 +1745,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (FormatException ex)
             {
                 RollBackVersion(mod, versionBefore, versionWritten);
-                await Dialogs.ShowMessageAsync(T("PublishFailed", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("PublishFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 return;
             }
             publishRunning = true;
@@ -1780,7 +1783,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     // A created-but-failed upload still has an id: keep it so a retry updates instead of duplicating.
                     if (result.WorkshopId.HasValue) ModJsonWorkshopIdWriter.Write(mod.ModJsonPath, result.WorkshopId.Value);
                     RollBackVersion(mod, versionBefore, versionWritten);
-                    await Dialogs.ShowMessageAsync(T("PublishFailed", result.ErrorMessage ?? ""), "DW2 Mod Launcher");
+                    await Dialogs.ShowMessageAsync(T("PublishFailed", ("Problem", result.ErrorMessage ?? "")), "DW2 Mod Launcher");
                     SetStatus(T("PublishFailedStatus"));
                     return;
                 }
@@ -1791,7 +1794,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 catch (Exception ex)
                 {
                     Logger.LogException("Stamp changelog of " + mod.DisplayName, ex);
-                    stampProblem = T("PublishChangelogStampFailed", ex.Message);
+                    stampProblem = T("PublishChangelogStampFailed", ("Problem", ex.Message));
                 }
                 // After every write the publish itself makes to the folder (version bump, author stamp, the id just written), so it starts clean.
                 string recordProblem = null;
@@ -1799,10 +1802,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 catch (Exception ex)
                 {
                     Logger.LogException("Record published state of " + mod.DisplayName, ex);
-                    recordProblem = T("PublishStateRecordFailed", ex.Message);
+                    recordProblem = T("PublishStateRecordFailed", ("Problem", ex.Message));
                 }
                 string url = "https://steamcommunity.com/sharedfiles/filedetails/?id=" + result.WorkshopId.Value;
-                string message = T("PublishCapturedIdMessage", result.WorkshopId.Value, url);
+                string message = T("PublishCapturedIdMessage", ("Id", result.WorkshopId.Value), ("Url", url));
                 if (result.NeedsWorkshopAgreement) message += "\n\n" + T("PublishNeedsWorkshopAgreement");
                 if (stampProblem != null) message += "\n\n" + stampProblem;
                 if (recordProblem != null) message += "\n\n" + recordProblem;
@@ -1810,7 +1813,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 ModVisibility? requested = editor.SelectedVisibility;
                 ModVisibility? actual = requested.HasValue ? await ReadVisibilityAsync(result.WorkshopId.Value) : null;
                 if (requested.HasValue && actual.HasValue && actual != requested)
-                    message += "\n\n" + T("PublishVisibilityDiffers", T(PublishDialogViewModel.LabelKey(requested.Value)), T(PublishDialogViewModel.LabelKey(actual.Value)));
+                    message += "\n\n" + T("PublishVisibilityDiffers", ("Requested", T(PublishDialogViewModel.LabelKey(requested.Value))), ("Actual", T(PublishDialogViewModel.LabelKey(actual.Value))));
                 SetStatus(T("WorkshopIdSaved"));
                 string workshopId = result.WorkshopId.Value.ToString();
                 bool hasWarnings = result.NeedsWorkshopAgreement || stampProblem != null || recordProblem != null
@@ -1836,7 +1839,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 Logger.LogException("Publish Mod to Workshop", ex);
                 RollBackVersion(mod, versionBefore, versionWritten);
-                await Dialogs.ShowMessageAsync(T("PublishFailed", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("PublishFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 SetStatus(T("PublishFailedStatus"));
             }
             finally
@@ -1927,6 +1930,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Task.Run(async delegate
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
+                // An update the player started in the meantime is downloading into this very folder; wait for it to finish or be declined.
+                while (launcherUpdateRunning) await Task.Delay(TimeSpan.FromSeconds(5));
                 LauncherUpdater.CleanUp(UpdateWorkDir);
             });
         }
@@ -1941,7 +1946,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 if (manual && !LauncherUpdater.CanSelfUpdate)
                 {
-                    await Dialogs.ShowMessageAsync(T("LauncherUpdateNotSupported", AppVersion.ReleasesUrl), T("LauncherUpdateTitle"));
+                    await Dialogs.ShowMessageAsync(T("LauncherUpdateNotSupported", ("Url", AppVersion.ReleasesUrl)), T("LauncherUpdateTitle"));
                     return;
                 }
                 LauncherRelease release;
@@ -1949,19 +1954,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 catch (Exception ex)
                 {
                     Logger.LogException("Launcher update check", ex);
-                    if (manual) await Dialogs.ShowMessageAsync(T("LauncherUpdateCheckFailed", ex.Message), T("LauncherUpdateTitle"));
+                    if (manual) await Dialogs.ShowMessageAsync(T("LauncherUpdateCheckFailed", ("Problem", ex.Message)), T("LauncherUpdateTitle"));
                     return;
                 }
                 if (release == null)
                 {
-                    if (manual) await Dialogs.ShowMessageAsync(T("LauncherUpdateUpToDate", AppVersion.Display), T("LauncherUpdateTitle"));
+                    if (manual) await Dialogs.ShowMessageAsync(T("LauncherUpdateUpToDate", ("Version", AppVersion.Display)), T("LauncherUpdateTitle"));
                     return;
                 }
                 if (!manual && string.Equals(settings.SkippedLauncherVersion, release.Version, StringComparison.Ordinal)) return;
 
                 string notes = release.Notes.Trim();
                 if (notes.Length > 700) notes = notes.Substring(0, 700).TrimEnd() + "...";
-                string message = T("LauncherUpdateAvailable", release.Version, AppVersion.Display) + (notes.Length > 0 ? "\n\n" + notes : "");
+                string message = T("LauncherUpdateAvailable", ("Version", release.Version), ("Current", AppVersion.Display)) + (notes.Length > 0 ? "\n\n" + notes : "");
                 int choice = await Dialogs.ChooseAsync(message, T("LauncherUpdateTitle"), new[] { T("LauncherUpdateNow"), T("LauncherUpdateSkip"), T("LauncherUpdateLater") });
                 if (choice == 1)
                 {
@@ -1978,7 +1983,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             CancellationTokenSource cancel = new CancellationTokenSource();
             string staged;
-            using (IProgressHandle box = Dialogs.ShowProgress(T("LauncherUpdateDownloading", release.Version), T("LauncherUpdateTitle"), T("Cancel"), cancel))
+            using (IProgressHandle box = Dialogs.ShowProgress(T("LauncherUpdateDownloading", ("Version", release.Version)), T("LauncherUpdateTitle"), T("Cancel"), cancel))
             {
                 // Progress<T> built here posts back to the UI thread, which is where the box must be touched.
                 Progress<UpdateProgress> progress = new Progress<UpdateProgress>(delegate (UpdateProgress p)
@@ -1997,7 +2002,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 {
                     Logger.LogException("Launcher update download", ex);
                     box.Dispose();
-                    await Dialogs.ShowMessageAsync(T("LauncherUpdateFailed", ex.Message), T("LauncherUpdateTitle"));
+                    await Dialogs.ShowMessageAsync(T("LauncherUpdateFailed", ("Problem", ex.Message)), T("LauncherUpdateTitle"));
                     return;
                 }
             }
@@ -2012,7 +2017,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex)
             {
                 Logger.LogException("Launcher update start", ex);
-                await Dialogs.ShowMessageAsync(T("LauncherUpdateFailed", ex.Message), T("LauncherUpdateTitle"));
+                await Dialogs.ShowMessageAsync(T("LauncherUpdateFailed", ("Problem", ex.Message)), T("LauncherUpdateTitle"));
                 return;
             }
             Dialogs.RequestExit();
@@ -2036,10 +2041,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 settings.LastWorkshopUpdateCheckUtc = DateTime.UtcNow.ToString("o");
                 SaveSettings();
                 RefreshRowStates();
-                if (!string.IsNullOrWhiteSpace(result.Error)) SetStatus(T("WorkshopCheckSteamFailed") + result.Error);
+                if (!string.IsNullOrWhiteSpace(result.Error)) SetStatus(T("WorkshopCheckSteamFailed", ("Problem", result.Error)));
                 else if (updates > 0)
                 {
-                    SetStatus(T("WorkshopUpdatesAvailableStatus") + updates);
+                    SetStatus(T("WorkshopUpdatesAvailableStatus", ("Count", updates)));
                     if (manual && await Dialogs.ConfirmAsync(T("BackupBeforeUpdatePrompt"), T("PreUpdateBackup"), T("Yes"), T("No")))
                         await BackupAsync(workshopMods.Where(m => m.UpdateState == "update").ToList());
                 }
@@ -2074,7 +2079,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             try
             {
                 int count = await Task.Run(() => WorkshopUpdateService.Backup(root, mods));
-                await Dialogs.ShowMessageAsync(T("WorkshopBackupsSaved") + count + "\n" + root, "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("WorkshopBackupsSaved", ("Count", count), ("Folder", root)), "DW2 Mod Launcher");
             }
             catch (Exception ex)
             {
@@ -2087,10 +2092,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             int updates = workshopMods.Count(m => m.UpdateState == "update");
             int selected = AllMods.Count(IsSelected);
-            string conflictText = collisions.Count == 0 ? T("NoConflictsStatus") : T("ConflictFiles") + collisions.Count;
-            string updateText = updates == 0 ? T("NoUpdatesUnchecked") : T("Updates") + updates;
+            string conflictText = collisions.Count == 0 ? T("NoConflictsStatus") : T("ConflictFiles", ("Count", collisions.Count));
+            string updateText = updates == 0 ? T("NoUpdatesUnchecked") : T("Updates", ("Count", updates));
             if (modOrder.ReadFailed) updateText = T("ModsJsonERROR");
-            SetStatus(string.Format(T("DW2ModsWorkshopEnabled"), managedMods.Count, workshopMods.Count, selected, conflictText, updateText));
+            SetStatus(T("DW2ModsWorkshopEnabled", ("Local", managedMods.Count), ("Workshop", workshopMods.Count), ("Enabled", selected), ("Conflicts", conflictText), ("Updates", updateText)));
         }
 
         public List<ModInfo> OrderedEnabledMods()
@@ -2118,16 +2123,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     LoaderManifestBuilder.Build(OrderedEnabledMods(), null, settings.GameRoot).Entries, key => T(key));
                 diagnostics.AddRange(dependencyOrder.Problems.Select(p => "⚠ " + p));
                 WidgetLanguage.Choose(OrderedEnabledMods(), settings, out string unknownLanguage);
-                if (unknownLanguage != null) diagnostics.Add("⚠ " + T("LaunchWidgetLanguageUnknown", unknownLanguage));
+                if (unknownLanguage != null) diagnostics.Add("⚠ " + T("LaunchWidgetLanguageUnknown", ("Language", unknownLanguage)));
             }
             catch (Exception ex)
             {
                 Logger.LogException("Pre-launch check", ex);
-                await Dialogs.ShowMessageAsync(ex is PathTokenException ? LaunchPathProblemText((PathTokenException)ex) : T("LaunchSettingsUnreadable", ex.Message), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(ex is PathTokenException ? LaunchPathProblemText((PathTokenException)ex) : T("LaunchSettingsUnreadable", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 return;
             }
             if (diagnostics.Count > 0 && !await Dialogs.ConfirmAsync(
-                T("DiagnosticsFoundIssues") + string.Join("\n", diagnostics.Take(30)) + T("LaunchAnyway"),
+                T("LaunchDiagnosticsQuestion", ("Issues", string.Join("\n", diagnostics.Take(30)))),
                 T("PreLaunchDiagnostics"), T("Yes"), T("No"))) return;
             if (collisions.Count > 0 && !await Dialogs.ConfirmAsync(
                 LaunchDiagnostics.BuildConflictWarning(collisions, key => T(key)), T("ModConflictWarning"), T("Yes"), T("No"))) return;
@@ -2145,7 +2150,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 LoaderManifest launchManifest = GameLauncher.WriteLoaderManifest(OrderedEnabledMods(), settings.LogDirectory,
                     WidgetLanguage.Strings(inGameLanguage), inGameLanguage, settings.GameRoot);
                 Process.Start(GameLauncher.BuildStartInfo(settings.GameRoot, GameLauncher.BuildArguments(LaunchMode, launchManifest.Fonts.LastOrDefault()?.Name)));
-                SetStatus(T("DistantWorlds2Launched") + (dependencyOrder.Written ? " (load order adjusted to meet mod dependencies: " + string.Join("; ", dependencyOrder.Moves) + ")" : ""));
+                SetStatus(dependencyOrder.Written ? T("DistantWorlds2LaunchedAdjusted", ("Moves", string.Join("; ", dependencyOrder.Moves))) : T("DistantWorlds2Launched"));
                 launchStartedUtc = DateTime.UtcNow;
                 SetGameState(GameState.Launching);
             }
@@ -2159,7 +2164,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>The launch-stopped message for a mod setting whose %FOLDER% name cannot be resolved, in the launcher's language.</summary>
         private string LaunchPathProblemText(PathTokenException ex)
         {
-            return T("LaunchPathTokenProblem", ex.Mod, ex.Setting, ex.Text, T("PathProblem" + ex.Problem.Problem, ex.Problem.Detail, PathTokens.KnownList));
+            return T("LaunchPathTokenProblem", ("Mod", ex.Mod), ("Setting", ex.Setting), ("Value", ex.Text), ("Problem", T("PathProblem" + ex.Problem.Problem, ("Token", ex.Problem.Detail), ("Known", PathTokens.KnownList))));
         }
     }
 }

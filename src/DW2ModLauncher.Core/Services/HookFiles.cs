@@ -104,7 +104,7 @@ namespace DW2ModLauncher.Core.Services
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
-                return (merged, string.Format(t("HookHistoryNotSaved"), historyPath, ex.Message));
+                return (merged, NamedText.Fill(t("HookHistoryNotSaved"), ("File", historyPath), ("Problem", ex.Message)));
             }
             return (merged, null);
         }
@@ -129,11 +129,11 @@ namespace DW2ModLauncher.Core.Services
             try
             {
                 T value = JsonSerializer.Deserialize<T>(File.ReadAllText(path), Options);
-                return value == null ? (null, string.Format(t("HookFileEmpty"), path)) : (value, null);
+                return value == null ? (null, NamedText.Fill(t("HookFileEmpty"), ("File", path))) : (value, null);
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is JsonException)
             {
-                return (null, string.Format(t("HookFileUnreadable"), path, ex.Message));
+                return (null, NamedText.Fill(t("HookFileUnreadable"), ("File", path), ("Problem", ex.Message)));
             }
         }
     }

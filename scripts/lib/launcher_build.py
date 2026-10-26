@@ -41,9 +41,34 @@ def _process_is_running(windows_image: str, unix_pattern: str) -> bool:
         return False  # no tasklist/pgrep to ask: don't block the PR on a check we can't make
 
 
-def launcher_is_running() -> bool:
-    """True while a DW2ModLauncher process is alive. A running launcher locks its own exe, which breaks the release build."""
-    return _process_is_running("DW2ModLauncher.exe", "^(.*/)?DW2ModLauncher$")
+def _launcher_paths() -> list[Path | None]:
+    """The executable path of every running DW2ModLauncher process (None where the OS would not tell us)."""
+    if sys.platform == "win32":
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", "Get-Process -Name DW2ModLauncher -ErrorAction SilentlyContinue | ForEach-Object { if ($_.Path) { $_.Path } else { '?' } }"],
+            capture_output=True, text=True,
+        )
+        return [None if line.strip() == "?" else Path(line.strip()) for line in result.stdout.splitlines() if line.strip()]
+    result = subprocess.run(["pgrep", "-f", "^(.*/)?DW2ModLauncher$"], capture_output=True, text=True)
+    paths: list[Path | None] = []
+    for pid in result.stdout.split():
+        try:
+            paths.append(Path(os.readlink(f"/proc/{pid}/exe")))
+        except OSError:
+            paths.append(None)
+    return paths
+
+
+def launcher_is_running(repo_root: Path | None = None) -> bool:
+    """True while a launcher that this build would overwrite is alive. A running launcher locks its own exe, which breaks the
+    build, but only the copy in this repo's output folders: a release edition installed elsewhere has its own files and does
+    not matter. A process whose path cannot be read counts as running, since it might be the one in the way."""
+    root = (repo_root or Path(__file__).resolve().parents[2]).resolve()
+    try:
+        paths = _launcher_paths()
+    except OSError:
+        return False  # no powershell/pgrep to ask: don't block the build on a check we can't make
+    return any(path is None or path.resolve().is_relative_to(root) for path in paths)
 
 
 def game_is_running() -> bool:
@@ -56,7 +81,7 @@ def require_launcher_closed() -> None:
     for many seconds before failing with a less obvious error."""
     output.step("launcher not running")
     if launcher_is_running():
-        output.fail("DW2 Mod Launcher is running - close it first (it locks its own exe and breaks the build), then re-run")
+        output.fail("A DW2 Mod Launcher started from this repo is running - close it first (it locks its own exe and breaks the build), then re-run. A launcher installed elsewhere does not matter.")
     output.ok("launcher is closed")
 
 

@@ -32,7 +32,7 @@ namespace DW2ModLauncher.Loader
             {
                 string[] p = spec.Split('|');
                 MethodInfo m = Type.GetType(p[0] + ", DistantWorlds.Types", false)?.GetMethod(p[1], new[] { typeof(string) });
-                if (m == null) { Log(p[1] + " not found."); HookStatus.Warn("titles", StatusStrings.Get("WidgetTitlesMethodMissing", p[1]), _logPath); continue; }
+                if (m == null) { Log(p[1] + " not found."); HookStatus.Warn("titles", StatusStrings.Get("WidgetTitlesMethodMissing", ("Method", p[1])), _logPath); continue; }
                 harmony.Patch(m, postfix: new HarmonyMethod(typeof(TitleLookupHooks).GetMethod(p[2] == "TourItem" ? nameof(TourPostfix) : nameof(ArticlePostfix), BindingFlags.Static | BindingFlags.NonPublic)));
                 hooked++;
             }
