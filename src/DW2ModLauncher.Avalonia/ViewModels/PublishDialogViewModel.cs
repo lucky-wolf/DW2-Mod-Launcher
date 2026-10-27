@@ -221,7 +221,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>"Up to date (version, when it was published)"; just "Up to date" when neither is known.</summary>
         private static string UpToDate(ModInfo mod, ModPublishMetadata metadata, LocalizedStrings l)
         {
-            string detail = string.Join(", ", new[] { (metadata.Version ?? "").Trim(), ModDetails.PublishedWhen(mod) }.Where(x => x.Length > 0));
+            string detail = string.Join(l["ListSeparator"], new[] { (metadata.Version ?? "").Trim(), ModDetails.PublishedWhen(mod) }.Where(x => x.Length > 0));
             return detail.Length == 0 ? l["PublishStateUpToDateBare"] : l.Format("PublishStateUpToDate", ("When", detail));
         }
         private readonly ModInfo mod;

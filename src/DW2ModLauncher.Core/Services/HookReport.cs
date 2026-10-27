@@ -26,9 +26,9 @@ namespace DW2ModLauncher.Core.Services
             return dot >= 0 ? head.Substring(dot + 1) : head;
         }
 
-        private static string Patches(IEnumerable<HookParticipant> patches)
+        private static string Patches(IEnumerable<HookParticipant> patches, Func<string, string> t)
         {
-            return string.Join(", ", patches.Select(p => p.Kind + " " + p.Effect));
+            return string.Join(t("ListSeparator"), patches.Select(p => p.Kind + " " + p.Effect));
         }
 
         /// <summary>The mod's hooks with who else patches each, then the staleness and channel lines that concern it. Empty when there is nothing to say.</summary>
@@ -42,11 +42,11 @@ namespace DW2ModLauncher.Core.Services
                 text.AppendLine(F(t, seen ? "HookDetailsHeaderSeen" : "HookDetailsHeaderDeclared", ("Count", mine.Count)));
                 foreach (KeyValuePair<string, List<HookParticipant>> target in mine)
                 {
-                    text.AppendLine("  " + Short(target.Key) + "    " + Patches(target.Value.Where(p => p.Mod == mod)));
+                    text.AppendLine("  " + Short(target.Key) + "    " + Patches(target.Value.Where(p => p.Mod == mod), t));
                     // an enabled mod's details do not dwell on mods that are not enabled; a mod that is not enabled shows who it would share with
                     bool modEnabled = analysis.Enabled.Contains(mod);
                     foreach (IGrouping<ModInfo, HookParticipant> other in target.Value.Where(p => p.Mod != mod && (p.Enabled || !modEnabled)).GroupBy(p => p.Mod))
-                        text.AppendLine("      " + F(t, analysis.Enabled.Contains(other.Key) ? "HookSharedWith" : "HookSharedWithDisabled", ("Mod", Name(other.Key)), ("Hooks", Patches(other))));
+                        text.AppendLine("      " + F(t, analysis.Enabled.Contains(other.Key) ? "HookSharedWith" : "HookSharedWithDisabled", ("Mod", Name(other.Key)), ("Hooks", Patches(other, t))));
                 }
             }
             foreach (HookNote note in analysis.Drift.Concat(analysis.Notes).Where(n => n.Mod == mod)) text.AppendLine(note.Text);

@@ -79,9 +79,9 @@ namespace DW2ModLauncher.Tests
             cr.Dependencies.Add(new LauncherDependency { mod = "XL", required = true, minVersion = "1.36.0", loadAfter = true });
             cr.Dependencies.Add(new LauncherDependency { mod = "ghost" });
 
-            string receiver = ModDetails.BuildLinks(cr, new[] { xl, cr });
-            string provider = ModDetails.BuildLinks(xl, new[] { xl, cr });
-            string providerAlone = ModDetails.BuildLinks(xl, new[] { xl });
+            string receiver = ModDetails.BuildLinks(cr, new[] { xl, cr }, HookOverlapAnalyzerTests.T);
+            string provider = ModDetails.BuildLinks(xl, new[] { xl, cr }, HookOverlapAnalyzerTests.T);
+            string providerAlone = ModDetails.BuildLinks(xl, new[] { xl }, HookOverlapAnalyzerTests.T);
 
             Assert.Contains("Receives: A.Channel\nProviders: XL", receiver);
             Assert.Contains("Receives: lonely.channel\nProviders: none enabled", receiver);
@@ -90,7 +90,7 @@ namespace DW2ModLauncher.Tests
             Assert.Contains("Provides: a.channel\nReceivers: CR", provider);
             Assert.DoesNotContain("one.json", provider);
             Assert.Contains("Receivers: none enabled", providerAlone);
-            Assert.Equal("", ModDetails.BuildLinks(new ModInfo { Id = "plain" }, new ModInfo[0]));
+            Assert.Equal("", ModDetails.BuildLinks(new ModInfo { Id = "plain" }, new ModInfo[0], HookOverlapAnalyzerTests.T));
         }
 
         [Fact]

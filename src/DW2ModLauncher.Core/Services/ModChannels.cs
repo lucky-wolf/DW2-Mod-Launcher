@@ -28,6 +28,9 @@ namespace DW2ModLauncher.Core.Services
 
         private static string Name(ModInfo mod) { return mod.DisplayName ?? mod.Id; }
 
+        /// <summary>The lookup for callers that only want the merged data: the problems Merge finds are collected and thrown away, so their wording does not matter.</summary>
+        private static readonly Func<string, string> ProblemsDiscarded = key => key;
+
         private static bool IsJson(string slot) { return slot.EndsWith(".json", StringComparison.OrdinalIgnoreCase); }
 
         /// <summary>One slot of a channel as merged: the text, and which mods supplied it in load order.</summary>
@@ -46,7 +49,7 @@ namespace DW2ModLauncher.Core.Services
         {
             Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (string channel in (receiver.Receives ?? new List<string>()).Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct(StringComparer.OrdinalIgnoreCase))
-                foreach (KeyValuePair<string, Slot> slot in Merge(orderedEnabled, channel, new List<string>()))
+                foreach (KeyValuePair<string, Slot> slot in Merge(orderedEnabled, channel, new List<string>(), ProblemsDiscarded))
                     result[channel + "/" + slot.Key] = slot.Value.Json != null ? slot.Value.Json.ToJsonString() : slot.Value.Text;
             return result;
         }
@@ -56,23 +59,23 @@ namespace DW2ModLauncher.Core.Services
         {
             List<string> lines = new List<string>();
             foreach (string channel in ChannelsProvided(orderedEnabled))
-                foreach (KeyValuePair<string, Slot> slot in Merge(orderedEnabled, channel, new List<string>()))
+                foreach (KeyValuePair<string, Slot> slot in Merge(orderedEnabled, channel, new List<string>(), ProblemsDiscarded))
                     lines.Add(channel + "/" + slot.Key + ": " + string.Join(", ", slot.Value.Sources));
             return lines;
         }
 
         /// <summary>Why a provider's files cannot be handed over, for every channel any enabled mod provides.</summary>
-        public static List<string> Problems(IList<ModInfo> orderedEnabled)
+        public static List<string> Problems(IList<ModInfo> orderedEnabled, Func<string, string> t)
         {
             List<string> problems = new List<string>();
             foreach (ModInfo mod in orderedEnabled)
                 foreach (LauncherProvision provision in mod.Provides ?? new List<LauncherProvision>())
                 {
-                    if (provision == null || string.IsNullOrWhiteSpace(provision.channel)) problems.Add("⚠ " + Name(mod) + ": a provision in dw2modlauncher.json names no channel");
-                    else if (provision.files == null || provision.files.Count == 0) problems.Add("⚠ " + Name(mod) + ": provides channel " + provision.channel + " but names no files");
+                    if (provision == null || string.IsNullOrWhiteSpace(provision.channel)) problems.Add("⚠ " + NamedText.Fill(t("ChannelProvisionNoChannel"), ("Mod", Name(mod))));
+                    else if (provision.files == null || provision.files.Count == 0) problems.Add("⚠ " + NamedText.Fill(t("ChannelProvisionNoFiles"), ("Mod", Name(mod)), ("Channel", provision.channel)));
                 }
             foreach (string channel in ChannelsProvided(orderedEnabled))
-                Merge(orderedEnabled, channel, problems);
+                Merge(orderedEnabled, channel, problems, t);
             return problems;
         }
 
@@ -83,7 +86,7 @@ namespace DW2ModLauncher.Core.Services
                 .Select(p => p.channel.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
-        private static Dictionary<string, Slot> Merge(IList<ModInfo> orderedEnabled, string channel, List<string> problems)
+        private static Dictionary<string, Slot> Merge(IList<ModInfo> orderedEnabled, string channel, List<string> problems, Func<string, string> t)
         {
             Dictionary<string, Slot> slots = new Dictionary<string, Slot>(StringComparer.OrdinalIgnoreCase);
             foreach (ModInfo provider in orderedEnabled)
@@ -93,11 +96,11 @@ namespace DW2ModLauncher.Core.Services
                     foreach (KeyValuePair<string, string> file in provision.files)
                     {
                         string slotName = (file.Key ?? "").Trim();
-                        if (slotName.Length == 0) { problems.Add("⚠ " + Name(provider) + ": a file for channel " + channel + " has no slot name"); continue; }
-                        string text = ReadFile(provider, channel, slotName, file.Value, problems);
+                        if (slotName.Length == 0) { problems.Add("⚠ " + NamedText.Fill(t("ChannelSlotNoName"), ("Mod", Name(provider)), ("Channel", channel))); continue; }
+                        string text = ReadFile(provider, channel, slotName, file.Value, problems, t);
                         if (text == null) continue;
                         if (!slots.TryGetValue(slotName, out Slot slot)) { slot = new Slot(); slots[slotName] = slot; }
-                        if (IsJson(slotName)) MergeJson(provider, channel, slotName, text, slot, problems);
+                        if (IsJson(slotName)) MergeJson(provider, channel, slotName, text, slot, problems, t);
                         else slot.Text = text;
                         if (slot.Json != null || slot.Text != null) slot.Sources.Add(Name(provider));
                     }
@@ -107,14 +110,15 @@ namespace DW2ModLauncher.Core.Services
             return slots;
         }
 
-        private static void MergeJson(ModInfo provider, string channel, string slotName, string text, Slot slot, List<string> problems)
+        private static void MergeJson(ModInfo provider, string channel, string slotName, string text, Slot slot, List<string> problems, Func<string, string> t)
         {
             JsonNode patch;
             try { patch = JsonNode.Parse(text, null, Lenient); }
-            catch (JsonException ex) { problems.Add("⚠ " + Name(provider) + ": " + channel + "/" + slotName + " is not valid JSON: " + ex.Message); return; }
+            catch (JsonException ex) { problems.Add("⚠ " + NamedText.Fill(t("ChannelNotValidJson"), ("Mod", Name(provider)), ("Channel", channel), ("Slot", slotName), ("Problem", ex.Message))); return; }
             if (slot.Json != null && patch is JsonObject patchObject && slot.Json is JsonObject known
                 && patchObject["version"] != null && known["version"] != null && patchObject["version"].ToJsonString() != known["version"].ToJsonString())
-                problems.Add("⚠ " + channel + "/" + slotName + ": " + Name(provider) + " has version " + patchObject["version"].ToJsonString() + " but " + string.Join(", ", slot.Sources) + " has " + known["version"].ToJsonString() + "; the merged data takes the later");
+                problems.Add("⚠ " + NamedText.Fill(t("ChannelVersionMismatch"), ("Channel", channel), ("Slot", slotName), ("Mod", Name(provider)), ("Version", patchObject["version"].ToJsonString()),
+                    ("Others", string.Join(t("ListSeparator"), slot.Sources)), ("Known", known["version"].ToJsonString())));
             slot.Json = MergePatch(slot.Json, patch);
         }
 
@@ -132,30 +136,33 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>The text of a provider's file. A path that is absolute, leaves the mod's folder, is a link, is missing, is too big or is not UTF-8 text is reported and gives null.</summary>
-        private static string ReadFile(ModInfo provider, string channel, string slot, string path, List<string> problems)
+        private static string ReadFile(ModInfo provider, string channel, string slot, string path, List<string> problems, Func<string, string> t)
         {
-            string why = null;
+            string reasonKey = null;
+            (string, object)[] reasonValues = new (string, object)[0];
             string root = provider.ContentRoot ?? provider.Folder;
-            if (string.IsNullOrWhiteSpace(path)) why = "names no path";
-            else if (string.IsNullOrWhiteSpace(root)) why = "the mod has no folder";
-            else if (Path.IsPathRooted(path.Trim()) || path.Trim().Split('/', '\\').Contains("..")) why = "'" + path + "' is not a path inside the mod's folder";
+            if (string.IsNullOrWhiteSpace(path)) reasonKey = "ChannelCannotSupplyNoPath";
+            else if (string.IsNullOrWhiteSpace(root)) reasonKey = "ChannelCannotSupplyNoFolder";
+            else if (Path.IsPathRooted(path.Trim()) || path.Trim().Split('/', '\\').Contains("..")) reasonKey = "ChannelCannotSupplyOutside";
             else
             {
                 string rootFull = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
                 string full = Path.GetFullPath(Path.Combine(rootFull, path.Trim().Replace('/', Path.DirectorySeparatorChar)));
                 FileInfo info = new FileInfo(full);
-                if (!full.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase)) why = "'" + path + "' is not a path inside the mod's folder";
-                else if (!info.Exists) why = "'" + path + "' does not exist";
-                else if (info.LinkTarget != null) why = "'" + path + "' is a link";
-                else if (info.Length > MaxFileBytes) why = "'" + path + "' is larger than " + (MaxFileBytes / 1024) + " KB";
+                if (!full.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase)) reasonKey = "ChannelCannotSupplyOutside";
+                else if (!info.Exists) reasonKey = "ChannelCannotSupplyMissing";
+                else if (info.LinkTarget != null) reasonKey = "ChannelCannotSupplyLink";
+                else if (info.Length > MaxFileBytes) { reasonKey = "ChannelCannotSupplyTooBig"; reasonValues = new (string, object)[] { ("Kilobytes", MaxFileBytes / 1024) }; }
                 else
                 {
                     try { return new UTF8Encoding(false, true).GetString(File.ReadAllBytes(full)); }
                     catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is DecoderFallbackException)
-                    { why = "'" + path + "' could not be read as UTF-8 text: " + ex.Message; }
+                    { reasonKey = "ChannelCannotSupplyUnreadable"; reasonValues = new (string, object)[] { ("Problem", ex.Message) }; }
                 }
             }
-            problems.Add("⚠ " + Name(provider) + ": cannot supply " + channel + "/" + slot + ": " + why);
+            List<(string Name, object Value)> values = new List<(string Name, object Value)> { ("Mod", Name(provider)), ("Channel", channel), ("Slot", slot), ("Path", path) };
+            foreach ((string, object) extra in reasonValues) values.Add(extra);
+            problems.Add("⚠ " + NamedText.Fill(t(reasonKey), values.ToArray()));
             return null;
         }
     }

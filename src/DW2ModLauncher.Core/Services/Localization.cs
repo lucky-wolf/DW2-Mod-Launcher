@@ -21,6 +21,9 @@ namespace DW2ModLauncher.Core.Services
         private static readonly object Gate = new object();
         private static Dictionary<string, Dictionary<string, string>> languages;
         private static Dictionary<string, string> displayNames;
+        // the packs shipped in the Languages folder, as loaded; installed mods' packs are merged over copies of these
+        private static Dictionary<string, Dictionary<string, string>> shipped;
+        private static Dictionary<string, string> shippedNames;
 
         public static string LanguagesDirectory
         {
@@ -86,6 +89,30 @@ namespace DW2ModLauncher.Core.Services
             return result;
         }
 
+        /// <summary>
+        /// Adds the launcher languages that installed mods supply (<see cref="InstalledLanguagePacks"/>) to the packs shipped with the launcher, replacing
+        /// what an earlier call added. Call it before the language is chosen, so a saved language that only a mod supplies is still there. A key a mod's file
+        /// replaces is logged; a file that cannot be used is returned for the caller to show, and adds nothing.
+        /// </summary>
+        public static List<InstalledLanguagePacks.Problem> UseInstalledPacks(string managedModsRoot, string workshopRoot)
+        {
+            EnsureLoaded();
+            lock (Gate)
+            {
+                Dictionary<string, Dictionary<string, string>> merged = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+                foreach (KeyValuePair<string, Dictionary<string, string>> pack in shipped)
+                    merged[pack.Key] = new Dictionary<string, string>(pack.Value, StringComparer.Ordinal);
+                Dictionary<string, string> names = new Dictionary<string, string>(shippedNames, StringComparer.OrdinalIgnoreCase);
+                List<string> replaced = new List<string>();
+                List<InstalledLanguagePacks.Problem> problems = InstalledLanguagePacks.Merge(merged, names, InstalledLanguagePacks.Find(managedModsRoot, workshopRoot), replaced);
+                foreach (string line in replaced) Diagnostics.Logger.Log("Installed language packs", "A mod's launcher.json replaces " + line);
+                foreach (InstalledLanguagePacks.Problem problem in problems) Diagnostics.Logger.Log("Installed language packs", "Not used: " + problem.File + ": " + problem.Message);
+                languages = merged;
+                displayNames = names;
+                return problems;
+            }
+        }
+
         private static void EnsureLoaded()
         {
             if (languages != null) return;
@@ -120,6 +147,8 @@ namespace DW2ModLauncher.Core.Services
                 if (!loaded.ContainsKey("en")) loaded["en"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 languages = loaded;
                 displayNames = names;
+                shipped = loaded.ToDictionary(p => p.Key, p => new Dictionary<string, string>(p.Value, StringComparer.Ordinal), StringComparer.OrdinalIgnoreCase);
+                shippedNames = new Dictionary<string, string>(names, StringComparer.OrdinalIgnoreCase);
             }
         }
     }

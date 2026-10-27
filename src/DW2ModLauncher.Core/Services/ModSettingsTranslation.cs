@@ -77,29 +77,42 @@ namespace DW2ModLauncher.Core.Services
         private static readonly JsonDocumentOptions DocumentOptions = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
 
         /// <summary>
-        /// The mod's sidecar for <paramref name="languageCode"/>, or <see cref="None"/> when the mod ships none (or the language is blank).
-        /// A sidecar that exists but is not valid throws InvalidDataException, so the author hears about it instead of the
+        /// The mod's sidecar for <paramref name="languageCode"/> with the translation packs' files over it (<paramref name="packFiles"/>, from
+        /// <see cref="TranslationPacks.FilesFor"/>, in the order they apply): per key the last file that has it wins, and a part a file leaves out
+        /// (a field's description, an option) stays as an earlier file had it. <see cref="None"/> when there is no file at all (or the language is
+        /// blank). A file that exists but is not valid throws InvalidDataException naming it, so its author hears about it instead of the
         /// translation silently not appearing.
         /// </summary>
-        public static ModSettingsTranslation Read(string modContentRoot, string languageCode)
+        public static ModSettingsTranslation Read(string modContentRoot, string languageCode, IEnumerable<string> packFiles = null)
         {
-            if (string.IsNullOrWhiteSpace(modContentRoot) || string.IsNullOrWhiteSpace(languageCode)) return None;
-            string path = Path.Combine(modContentRoot, "settings.schema." + languageCode.Trim() + ".json");
-            if (!File.Exists(path)) return None;
+            if (string.IsNullOrWhiteSpace(languageCode)) return None;
+            List<string> paths = new List<string>();
+            if (!string.IsNullOrWhiteSpace(modContentRoot))
+            {
+                string own = Path.Combine(modContentRoot, "settings.schema." + languageCode.Trim() + ".json");
+                if (File.Exists(own)) paths.Add(own);
+            }
+            paths.AddRange(packFiles ?? new List<string>());
+            if (paths.Count == 0) return None;
+            ModSettingsTranslation result = new ModSettingsTranslation();
+            foreach (string path in paths) Load(path, result);
+            return result;
+        }
+
+        private static void Load(string path, ModSettingsTranslation result)
+        {
             try
             {
                 using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(path, Encoding.UTF8), DocumentOptions))
                 {
                     if (document.RootElement.ValueKind != JsonValueKind.Object)
                         throw new InvalidDataException(Path.GetFileName(path) + " must be a JSON object: " + path);
-                    ModSettingsTranslation result = new ModSettingsTranslation();
                     foreach (JsonProperty root in document.RootElement.EnumerateObject())
                     {
                         if (string.Equals(root.Name, "groups", StringComparison.OrdinalIgnoreCase) && root.Value.ValueKind == JsonValueKind.Object) ReadGroups(root.Value, result);
                         else if (string.Equals(root.Name, "layouts", StringComparison.OrdinalIgnoreCase) && root.Value.ValueKind == JsonValueKind.Object) ReadLayouts(root.Value, result);
                         else if (string.Equals(root.Name, "fields", StringComparison.OrdinalIgnoreCase) && root.Value.ValueKind == JsonValueKind.Object) ReadFields(root.Value, result, path);
                     }
-                    return result;
                 }
             }
             catch (JsonException ex)
@@ -143,7 +156,7 @@ namespace DW2ModLauncher.Core.Services
         {
             foreach (JsonProperty field in element.EnumerateObject())
             {
-                FieldText text = new FieldText();
+                if (!result.fields.TryGetValue(field.Name, out FieldText text)) text = new FieldText();
                 if (field.Value.ValueKind == JsonValueKind.String)
                 {
                     text.Label = field.Value.GetString();

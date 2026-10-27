@@ -53,7 +53,7 @@ namespace DW2ModLauncher.Tests
             JsonNode got = JsonNode.Parse(files[Channel + "/x.json"]);
             Assert.Equal(1, (int)got["version"]);
             Assert.Equal(2, (int)got["A"]["b"]);
-            Assert.Empty(ModChannels.Problems(new[] { xl, cr }));
+            Assert.Empty(ModChannels.Problems(new[] { xl, cr }, HookOverlapAnalyzerTests.T));
         }
 
         [Fact]
@@ -122,7 +122,7 @@ namespace DW2ModLauncher.Tests
             ModInfo cr = Receives(MakeMod("cr"), Channel);
 
             Dictionary<string, string> files = ModChannels.FilesFor(cr, new[] { bad, cr });
-            List<string> problems = ModChannels.Problems(new[] { bad, cr });
+            List<string> problems = ModChannels.Problems(new[] { bad, cr }, HookOverlapAnalyzerTests.T);
 
             Assert.Equal(new[] { Channel + "/ok.json" }, files.Keys);
             Assert.Equal(6, problems.Count);
@@ -134,7 +134,7 @@ namespace DW2ModLauncher.Tests
             ModInfo xl = Provides(MakeMod("xl"), Channel, ("b.dat", "b.dat"));
             File.WriteAllBytes(Path.Combine(xl.Folder, "b.dat"), new byte[] { 0xFF, 0xFE, 0x00, 0xC3, 0x28 });
 
-            Assert.Single(ModChannels.Problems(new[] { xl }));
+            Assert.Single(ModChannels.Problems(new[] { xl }, HookOverlapAnalyzerTests.T));
         }
 
         [Fact]
@@ -143,7 +143,7 @@ namespace DW2ModLauncher.Tests
             ModInfo a = Provides(MakeMod("a", ("x.json", "{\"version\":1}")), Channel, ("x.json", "x.json"));
             ModInfo b = Provides(MakeMod("b", ("x.json", "{\"version\":2}")), Channel, ("x.json", "x.json"));
 
-            List<string> problems = ModChannels.Problems(new[] { a, b });
+            List<string> problems = ModChannels.Problems(new[] { a, b }, HookOverlapAnalyzerTests.T);
 
             Assert.Single(problems);
             Assert.Contains("version", problems[0]);
@@ -156,7 +156,7 @@ namespace DW2ModLauncher.Tests
             a.Provides.Add(new LauncherProvision { channel = " ", files = new Dictionary<string, string> { ["x"] = "x" } });
             a.Provides.Add(new LauncherProvision { channel = Channel });
 
-            Assert.Equal(2, ModChannels.Problems(new[] { a }).Count);
+            Assert.Equal(2, ModChannels.Problems(new[] { a }, HookOverlapAnalyzerTests.T).Count);
         }
 
         [Fact]

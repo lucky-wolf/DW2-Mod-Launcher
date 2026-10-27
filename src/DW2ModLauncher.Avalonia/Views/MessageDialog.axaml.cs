@@ -20,7 +20,7 @@ namespace DW2ModLauncher.Avalonia.Views
         // "check" icon, Material Design Icons, Apache-2.0: shown briefly after a copy as confirmation.
         private static readonly Geometry CheckIcon = Geometry.Parse("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z");
 
-        public MessageDialog(string message, string title, string yesText, string noText, string copyText = "Copy to clipboard", string openLogText = "Open log") : this()
+        public MessageDialog(string message, string title, string yesText, string noText, string copyText, string openLogText) : this()
         {
             Title = title;
             MessageText.Text = message;

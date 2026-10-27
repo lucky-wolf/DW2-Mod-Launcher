@@ -168,6 +168,10 @@ At launch the launcher adds `"Language": "<code>"` (`en`, `ja`, `ru`, the code o
 
 A mod that wants to speak it reads the key and translates the text it shows in the game (its status-widget lines, for instance); a mod that does not care ignores it. The key is reserved: a schema field of the same name is overridden. The mod's settings values on disk never contain it.
 
+### The `TranslationFiles` option
+
+Beside `Language` the launcher adds `"TranslationFiles": ["<path>", ...]` when enabled [translation packs](Localization.md#translation-packs) supply `translations/<language code>/<this mod>/status.json` for the in-game language: the full paths, as the game sees them (`Z:\...` under Proton), in the order they apply. A mod that translates its own in-game text reads each file after its own `status.<code>.json`, so a later file wins key by key, and the format is the mod's own (the launcher never reads the text). The key is absent when no pack supplies a file. It is reserved like `Language`, never stored, and a mod that does not know it ignores it.
+
 ## Settings schema
 
 A mod may optionally ship `settings.schema.json` next to its `mod.json`, describing the shape of
@@ -297,6 +301,7 @@ Limits, defaults and types never go in it.
 - Keys are matched ignoring case. A sidecar for the base language is used like any other, so a mod written in Japanese can ship
   `settings.schema.en.json`.
 - A sidecar that exists but is not valid is reported when the dialog is opened, rather than silently ignored.
+- Another mod can supply the same file for this mod as a [translation pack](Localization.md#translation-packs) (`translations/<code>/<this mod>/settings.schema.json`, same format); enabled packs' files are merged over the sidecar, key by key, the later pack in load order winning. A broken pack file is reported by name.
 
 The actual **values** for these fields are stored under the current user's AppData folder
 (`%AppData%\DW2ModLauncher\ModSettings\<mod token>.json`, via `DW2ModLauncher.Core.Services.

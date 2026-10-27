@@ -14,9 +14,9 @@ namespace DW2ModLauncher.Core.Services
         public static List<string> Build(IList<ModInfo> enabled, IEnumerable<ModInfo> installed, ModOrderState order, string loaderDllPath, IEnumerable<LoaderManifestEntry> manifestEntries, Func<string, string> t)
         {
             List<string> issues = new List<string>();
-            issues.AddRange(ModDependencies.Problems(enabled, installed));
+            issues.AddRange(ModDependencies.Problems(enabled, installed, t));
             // providers are merged in load order, so the checks of what they supply need the mods in that order
-            issues.AddRange(ModChannels.Problems(enabled.OrderBy(m => order.IndexOf(m.ActiveToken) < 0 ? int.MaxValue : order.IndexOf(m.ActiveToken)).ToList()));
+            issues.AddRange(ModChannels.Problems(enabled.OrderBy(m => order.IndexOf(m.ActiveToken) < 0 ? int.MaxValue : order.IndexOf(m.ActiveToken)).ToList(), t));
             foreach (LoaderManifestEntry entry in manifestEntries ?? new List<LoaderManifestEntry>())
                 if (entry.Files != null && entry.Files.Count > 0 && !InjectionScanner.AcceptsFiles(entry.HostDllPath ?? entry.DllPath))
                     issues.Add("⚠ " + NamedText.Fill(t("LaunchDiagFilesNotAccepted"), ("Mod", entry.DisplayName)));
@@ -63,7 +63,7 @@ namespace DW2ModLauncher.Core.Services
                 }
             }
             foreach (KeyValuePair<string, List<string>> pair in dlls.Where(x => x.Value.Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))
-                issues.Add("⚠ " + NamedText.Fill(t("DuplicateDLL"), ("Dll", pair.Key), ("Mods", string.Join(" / ", pair.Value.Distinct().ToArray()))));
+                issues.Add("⚠ " + NamedText.Fill(t("DuplicateDLL"), ("Dll", pair.Key), ("Mods", string.Join(t("ListSeparator"), pair.Value.Distinct().ToArray()))));
             if (!File.Exists(loaderDllPath)) issues.Add("⚠ " + NamedText.Fill(t("LaunchArgumentDLLNotFound"), ("File", loaderDllPath)));
             foreach (LoaderManifestEntry entry in manifestEntries)
                 if (!File.Exists(entry.HostDllPath)) issues.Add("⚠ " + NamedText.Fill(t("LaunchArgumentDLLNotFound"), ("File", entry.HostDllPath)));
@@ -82,7 +82,7 @@ namespace DW2ModLauncher.Core.Services
                 b.AppendLine("• " + kv.Key);
                 b.AppendLine("  " + string.Join("  ↔  ", kv.Value.Select(m => m.DisplayName ?? m.Id).ToArray()));
             }
-            if (collisions.Count > 10) b.AppendLine("... +" + (collisions.Count - 10));
+            if (collisions.Count > 10) b.AppendLine(NamedText.Fill(t("MoreItems"), ("Count", collisions.Count - 10)));
             b.AppendLine();
             b.AppendLine(t("LaunchAnywayConfirm"));
             return b.ToString();
