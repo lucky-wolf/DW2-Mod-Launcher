@@ -48,7 +48,7 @@ namespace DW2ModLauncher.Tests
         {
             ModInfo target = Mod("DW2Troops");
             target.DisplayName = "Troop Logistics";
-            ModInfo pack = Mod("Pack", "translations/RU/troop logistics/settings.schema.json", "translations/ru/OTHERMOD/settings.schema.json");
+            ModInfo pack = Mod("Pack", "translations/RU/troop logistics/settings.schema.json", "translations/RU/OTHERMOD/settings.schema.json");
 
             Assert.Single(TranslationPacks.FilesFor(new[] { pack }, target, TranslationPacks.SettingsSchema, "ru"));
             Assert.Empty(TranslationPacks.FilesFor(new[] { pack }, Mod("Unrelated"), TranslationPacks.SettingsSchema, "ru"));
