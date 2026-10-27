@@ -71,9 +71,30 @@ def launcher_is_running(repo_root: Path | None = None) -> bool:
     return any(path is None or path.resolve().is_relative_to(root) for path in paths)
 
 
-def game_is_running() -> bool:
-    """True while Distant Worlds 2 is alive. The tests refuse to save a load order while it runs, and it keeps mod DLLs locked."""
-    return _process_is_running("DistantWorlds2.exe", "DistantWorlds2")
+def _game_loader_paths() -> list[Path | None]:
+    """Where every running Distant Worlds 2 process has the launcher's Loader DLL loaded from (None where Windows would not say)."""
+    command = (
+        "Get-Process -Name DistantWorlds2 -ErrorAction SilentlyContinue | ForEach-Object { try { "
+        "$_.Modules | Where-Object { $_.ModuleName -eq 'DW2ModLauncher.Loader.dll' } | ForEach-Object { $_.FileName } "
+        "} catch { '?' } }"
+    )
+    result = subprocess.run(["powershell", "-NoProfile", "-Command", command], capture_output=True, text=True)
+    return [None if line.strip() == "?" else Path(line.strip()) for line in result.stdout.splitlines() if line.strip()]
+
+
+def game_holds_loader(repo_root: Path | None = None) -> bool:
+    """True while a running Distant Worlds 2 has this repo's Loader DLL loaded, which locks it so the build cannot replace it. A game
+    that loaded no Loader, or one from another folder (a test copy of the game launched by an installed launcher), is not in the way,
+    and neither are the tests: they do not look at any game. A game whose modules cannot be read counts, since it might be the one.
+    Where there is no PowerShell to ask (Linux/Proton) any game process counts."""
+    root = (repo_root or Path(__file__).resolve().parents[2]).resolve()
+    if sys.platform != "win32":
+        return _process_is_running("DistantWorlds2.exe", "DistantWorlds2")
+    try:
+        paths = _game_loader_paths()
+    except OSError:
+        return False  # no powershell to ask: don't block the build on a check we can't make
+    return any(path is None or path.resolve().is_relative_to(root) for path in paths)
 
 
 def require_launcher_closed() -> None:
@@ -86,11 +107,11 @@ def require_launcher_closed() -> None:
 
 
 def require_game_closed() -> None:
-    """Fail immediately if Distant Worlds 2 is running: it locks mod DLLs and makes the load-order tests fail."""
-    output.step("game not running")
-    if game_is_running():
-        output.fail("Distant Worlds 2 is running (it locks mod DLLs and fails the load-order tests) - exit the game first, then re-run")
-    output.ok("game is closed")
+    """Fail immediately if a running Distant Worlds 2 has this repo's Loader DLL loaded: the build cannot replace it."""
+    output.step("game not holding this build's Loader")
+    if game_holds_loader():
+        output.fail("A running Distant Worlds 2 has this repo's Loader DLL loaded (it locks the file) - exit that game first, then re-run")
+    output.ok("no game holds the Loader")
 
 
 def default_ui() -> Ui:
@@ -132,12 +153,11 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
         return repo_root / Path(ui.project).parent / "bin" / config
 
     require_launcher_closed()
-    # A running game has the Loader DLL (the copy in the launcher's output folder) loaded and locked, and the load-order tests
-    # refuse to run beside it. Those are the only two things that need the game closed, so with it open they are skipped and
-    # everything else is built and deployed.
-    game_open = game_is_running()
+    # A game that has the Loader DLL (the copy in the launcher's output folder) loaded locks it. That is the only thing that needs the
+    # game closed (the tests look at no game), so with such a game open the Loader update is skipped and everything else is built and deployed.
+    game_open = game_holds_loader(repo_root)
     if game_open:
-        output.notice("Distant Worlds 2 is running: the tests and the Loader DLL update are skipped; everything else is built")
+        output.notice("A running Distant Worlds 2 has this repo's Loader DLL loaded: the Loader DLL update is skipped; everything else is built")
 
     output.step("restore")
     dotnet_checks.run_dotnet_restore(repo_root)
@@ -154,7 +174,7 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
     proc.run(repo_root, f"dotnet build {ui.project}", build_args)
     output.ok("dotnet build")
 
-    if validate and not game_open:
+    if validate:
         output.step("test")
         # builds the tests too (the launcher project doesn't reference them), unlike validate.py's --no-build
         proc.run(repo_root, f"dotnet test {TEST_PROJECT}", ["dotnet", "test", TEST_PROJECT, "-c", config, "--no-restore"])

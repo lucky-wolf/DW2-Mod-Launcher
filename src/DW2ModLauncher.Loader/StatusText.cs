@@ -80,7 +80,7 @@ namespace DW2ModLauncher.Loader
             {
                 sb.Append("\n  ").Append(d.Level >= StatusLevel.Warn ? "! " : "").Append(d.Key).Append(": ").Append(d.Text);
             }
-            if (m.Features.Count > 0) sb.Append("\n  ").Append(StatusStrings.Get("WidgetFeatures", ("Features", string.Join(", ", m.Features))));
+            if (m.Features.Count > 0) sb.Append("\n  ").Append(StatusStrings.Get("WidgetFeatures", ("Features", string.Join(StatusStrings.Get("WidgetListSeparator"), m.Features))));
             if (m.LogPath != null) sb.Append("\n  ").Append(StatusStrings.Get("WidgetLog", ("File", m.LogPath)));
             return sb.ToString();
         }

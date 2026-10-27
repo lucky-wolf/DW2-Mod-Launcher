@@ -31,7 +31,7 @@ namespace DW2ModLauncher.Avalonia.Views
                 await editor.OfferStrayImageCleanupAsync();
                 // Saving mod.json is part of publishing: a failed write keeps the dialog open.
                 string error = editor.Commit();
-                if (error != null) await new MessageDialog(error, Title, editor.L["OK"], null).ShowDialog<bool>(this);
+                if (error != null) await new MessageDialog(error, Title, editor.L["OK"], null, editor.L["CopyToClipboard"], editor.L["OpenLog"]).ShowDialog<bool>(this);
                 else Close(true);
             };
         }

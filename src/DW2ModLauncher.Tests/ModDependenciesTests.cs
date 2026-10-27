@@ -42,10 +42,10 @@ namespace DW2ModLauncher.Tests
             a.Dependencies.Add(Dep("c", after: true));
             c.Dependencies.Add(Dep("b", before: true));   // c must load before b
 
-            Assert.Empty(ModDependencies.Violations(new[] { b, c, a }, a));
-            Assert.Single(ModDependencies.Violations(new[] { a, b, c }, a));
-            Assert.Single(ModDependencies.Violations(new[] { b, c, a }, b));   // b must load after c (c loads before b)
-            Assert.Empty(ModDependencies.Violations(new[] { c, b, a }, a));
+            Assert.Empty(ModDependencies.Violations(new[] { b, c, a }, a, HookOverlapAnalyzerTests.T));
+            Assert.Single(ModDependencies.Violations(new[] { a, b, c }, a, HookOverlapAnalyzerTests.T));
+            Assert.Single(ModDependencies.Violations(new[] { b, c, a }, b, HookOverlapAnalyzerTests.T));   // b must load after c (c loads before b)
+            Assert.Empty(ModDependencies.Violations(new[] { c, b, a }, a, HookOverlapAnalyzerTests.T));
         }
 
         [Fact]
@@ -68,7 +68,7 @@ namespace DW2ModLauncher.Tests
             ModInfo a = MakeMod("a"); ModInfo b = MakeMod("b"); ModInfo c = MakeMod("c");
             a.Dependencies.Add(Dep("c", after: true));
 
-            var result = ModDependencies.Enforce(new[] { a, b, c });
+            var result = ModDependencies.Enforce(new[] { a, b, c }, HookOverlapAnalyzerTests.T);
 
             Assert.Equal(new[] { "b", "c", "a" }, result.Order.Select(m => m.Id));
             Assert.True(result.Changed);
@@ -81,14 +81,14 @@ namespace DW2ModLauncher.Tests
             ModInfo a = MakeMod("a"); ModInfo b = MakeMod("b");
             b.Dependencies.Add(Dep("a", before: true));
 
-            var result = ModDependencies.Enforce(new[] { b, a });
+            var result = ModDependencies.Enforce(new[] { b, a }, HookOverlapAnalyzerTests.T);
 
             Assert.Equal(new[] { "b", "a" }, result.Order.Select(m => m.Id));
             Assert.False(result.Changed);
 
             a.Dependencies.Add(Dep("b", before: true));
             b.Dependencies.Clear();
-            result = ModDependencies.Enforce(new[] { b, a });
+            result = ModDependencies.Enforce(new[] { b, a }, HookOverlapAnalyzerTests.T);
             Assert.Equal(new[] { "a", "b" }, result.Order.Select(m => m.Id));
         }
 
@@ -98,7 +98,7 @@ namespace DW2ModLauncher.Tests
             ModInfo a = MakeMod("a"); ModInfo b = MakeMod("b"); ModInfo c = MakeMod("c");
             c.Dependencies.Add(Dep("a", after: true));
 
-            var result = ModDependencies.Enforce(new[] { a, b, c });
+            var result = ModDependencies.Enforce(new[] { a, b, c }, HookOverlapAnalyzerTests.T);
 
             Assert.Equal(new[] { "a", "b", "c" }, result.Order.Select(m => m.Id));
             Assert.False(result.Changed);
@@ -110,7 +110,7 @@ namespace DW2ModLauncher.Tests
             ModInfo a = MakeMod("a");
             a.Dependencies.Add(Dep("ghost", after: true));
 
-            var result = ModDependencies.Enforce(new[] { a });
+            var result = ModDependencies.Enforce(new[] { a }, HookOverlapAnalyzerTests.T);
 
             Assert.False(result.Changed);
             Assert.Empty(result.Cycle);
@@ -123,7 +123,7 @@ namespace DW2ModLauncher.Tests
             a.Dependencies.Add(Dep("b", after: true));
             b.Dependencies.Add(Dep("a", after: true));
 
-            var result = ModDependencies.Enforce(new[] { a, b });
+            var result = ModDependencies.Enforce(new[] { a, b }, HookOverlapAnalyzerTests.T);
 
             Assert.Equal(2, result.Cycle.Count);
             Assert.Equal(new[] { "a", "b" }, result.Order.Select(m => m.Id));
@@ -136,7 +136,7 @@ namespace DW2ModLauncher.Tests
             xl.DisplayName = "DW2-XL";
             a.Dependencies.Add(Dep("dw2-xl", after: true));
 
-            var result = ModDependencies.Enforce(new[] { a, xl });
+            var result = ModDependencies.Enforce(new[] { a, xl }, HookOverlapAnalyzerTests.T);
 
             Assert.Equal(new[] { "xl", "a" }, result.Order.Select(m => m.Id));
         }
@@ -150,7 +150,7 @@ namespace DW2ModLauncher.Tests
             a.Dependencies.Add(Dep("needed", required: true));
             a.Dependencies.Add(Dep("nice", required: false));
 
-            List<string> problems = ModDependencies.Problems(new[] { a }, new[] { a });
+            List<string> problems = ModDependencies.Problems(new[] { a }, new[] { a }, HookOverlapAnalyzerTests.T);
 
             Assert.Single(problems);
             Assert.Contains("needed", problems[0]);
@@ -170,7 +170,7 @@ namespace DW2ModLauncher.Tests
             ModInfo xl = MakeMod("xl", actual);
             a.Dependencies.Add(Dep("xl", minVersion: minVersion));
 
-            Assert.Equal(problem, ModDependencies.Problems(new[] { a, xl }, new[] { a, xl }).Count > 0);
+            Assert.Equal(problem, ModDependencies.Problems(new[] { a, xl }, new[] { a, xl }, HookOverlapAnalyzerTests.T).Count > 0);
         }
 
         [Fact]
@@ -180,7 +180,7 @@ namespace DW2ModLauncher.Tests
             a.Dependencies.Add(Dep("b", after: true, before: true));
             a.Dependencies.Add(Dep(" "));
 
-            Assert.Equal(2, ModDependencies.Problems(new[] { a, b }, new[] { a, b }).Count);
+            Assert.Equal(2, ModDependencies.Problems(new[] { a, b }, new[] { a, b }, HookOverlapAnalyzerTests.T).Count);
         }
 
         [Fact]

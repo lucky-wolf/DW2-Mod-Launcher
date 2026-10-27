@@ -278,7 +278,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private async Task<bool> GameClosedAsync()
         {
-            if (!GameProcess.IsRunning()) return true;
+            if (!GameProcess.IsRunning(main.LauncherSettings.GameRoot)) return true;
             await main.Dialogs.ShowMessageAsync(main.T("CloseGameBeforeProfileSwitch"), "DW2 Mod Launcher");
             return false;
         }

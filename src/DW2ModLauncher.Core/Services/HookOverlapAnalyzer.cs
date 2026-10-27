@@ -141,7 +141,7 @@ namespace DW2ModLauncher.Core.Services
                     foreach (DeclaredHook hook in manifest.Hooks ?? new List<DeclaredHook>())
                     {
                         if (string.IsNullOrWhiteSpace(hook?.Target)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookNoTarget", ("Mod", Name(mod)), ("File", HookFiles.ManifestFileName)), Error = enabled }); continue; }
-                        if (!HookEffects.IsKnown(hook.Effect)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnknownEffect", ("Mod", Name(mod)), ("Hook", hook.Target), ("Effect", hook.Effect), ("Allowed", string.Join(", ", HookEffects.All))), Error = enabled }); continue; }
+                        if (!HookEffects.IsKnown(hook.Effect)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnknownEffect", ("Mod", Name(mod)), ("Hook", hook.Target), ("Effect", hook.Effect), ("Allowed", string.Join(t("ListSeparator"), HookEffects.All))), Error = enabled }); continue; }
                         if (enabled && !string.IsNullOrWhiteSpace(hook.Setting) && isSettingOn != null && !isSettingOn(mod, hook.Setting)) continue;
                         Add(byTarget, hook.Target, new HookParticipant { Mod = mod, Kind = hook.Kind, Effect = hook.Effect.ToLowerInvariant(), Enabled = enabled });
                     }

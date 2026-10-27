@@ -18,6 +18,9 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>The key added to every code mod's options JSON: the language the mod's in-game text should speak.</summary>
         public const string LanguageKey = "Language";
 
+        /// <summary>The key added beside <see cref="LanguageKey"/> to a code mod's options JSON: the full paths (as the game sees them) of the translation files that enabled packs supply for the mod's in-game text, in the order they apply (<see cref="TranslationPacks"/>). Absent when there are none; a mod that does not know it ignores it.</summary>
+        public const string TranslationFilesKey = "TranslationFiles";
+
         /// <summary>
         /// <paramref name="language"/> is the resolved in-game language code (<see cref="WidgetLanguage.Choose"/>). When given, every code mod's
         /// options JSON carries it as <see cref="LanguageKey"/>, whether or not the mod has a settings schema; a schema field of the
@@ -39,7 +42,7 @@ namespace DW2ModLauncher.Core.Services
             manifest.Fonts.AddRange(FontsOf(orderedEnabledMods));
             manifest.TextFiles.AddRange(TextFilesOf(orderedEnabledMods));
             manifest.GalactopediaReplacesVanilla = (orderedEnabledMods ?? new List<ModInfo>()).Any(ReplacesGalactopedia);
-            manifest.ChannelProblems.AddRange(ModChannels.Problems(orderedEnabledMods ?? new List<ModInfo>()));
+            manifest.ChannelProblems.AddRange(ModChannels.Problems(orderedEnabledMods ?? new List<ModInfo>(), key => Localization.Get(language ?? "en", key)));
             return manifest;
         }
 
@@ -207,6 +210,9 @@ namespace DW2ModLauncher.Core.Services
             {
                 JsonObject options = settingsJson == null ? new JsonObject() : JsonNode.Parse(settingsJson).AsObject();
                 options[LanguageKey] = language.Trim();
+                List<string> translations = TranslationPacks.FilesFor(enabled, mod, TranslationPacks.Status, language);
+                if (translations.Count > 0)
+                    options[TranslationFilesKey] = new JsonArray(translations.Select(f => (JsonNode)JsonValue.Create(GamePaths.ToGameVisiblePath(Path.GetFullPath(f)))).ToArray());
                 settingsJson = options.ToJsonString();
             }
 

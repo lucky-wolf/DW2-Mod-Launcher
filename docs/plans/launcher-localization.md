@@ -18,9 +18,9 @@ Plan and inventory (owner + Claude), 2026-10-26. The launcher is the first piece
 - Unused keys removed (`Documents`, `IncludedTools`, `State`, `Location`, `Updated`) and the keys that the split made redundant.
 - Guards in `LanguagePackTests` (see Localization.md).
 
-## Still to do (step 2): English that never reaches a pack
+## Done (step 2): English that never reached a pack
 
-Messages built in Core as English text, shown to the player:
+The messages below were built in Core as English text. They now take the lookup (`Func<string, string>`) and are whole-sentence keys with named placeholders in `en`, `ja` and `ru`: the dependency, data channel and load-order problems (each `why` of a channel file is its own key, `ChannelCannotSupply*`), the details panel link lines (`Link*`), `ModJsonNotValid`, the overflow line `MoreItems`, and the Workshop-folder and scan/settings notices in `MainViewModel`. A dependency problem now names its mod in the sentence (`{Mod} requires {Target}, ...`) instead of a prefix, so the same text serves the launch check and the details panel. `MessageDialog` no longer has English default button texts. The inventory, for the record:
 
 | Where | What |
 | --- | --- |
@@ -32,15 +32,23 @@ Messages built in Core as English text, shown to the player:
 | `MainViewModel` | "The Workshop folder could not be read ..." |
 | `MessageDialog` | default button texts "Copy to clipboard" and "Open log" |
 
-The approach: these return a key plus named values (or take the lookup like `LaunchDiagnostics`), and each `why` becomes its own whole-sentence key instead of a fragment.
+Mod language switches re-word the stored dependency problems (`AnalyzeDependencies`).
 
-Smaller things noticed:
+## Smaller things noticed
 
-- `WidgetGameStateNotHooked` is given an exception message in `Entry.cs` where the sentence expects a method name.
-- Lists of names are still joined with a literal ", " in places; `ListSeparator` exists and is used by the hook report, the rename dialog and the details lines.
+- Done with step 2: `WidgetGameStateNotHooked` is only given a method name (a thrown error uses `WidgetGameStateNotTracked`), and name lists use `ListSeparator` (`WidgetListSeparator` in the loader). Internal log lines and the XML patch runner's own messages are English by design.
 - `PublishVisibilityDiffers` and `VisibilityLine` place single-word labels (Public/Private) into a sentence, `HookProblemsSummary` places count phrases: controlled exceptions, listed in Localization.md.
 - No plural forms are needed yet: counts are shown as labels (`Conflict files: {Count}`). Add `_ONE`/`_OTHER` keys when a sentence has to read "1 file" / "3 files".
 
-## Step 3
+## Step 3: translation packs
 
-The pack features of the mods plan (settings-dialog merge, `TranslationFiles`, packs from installed mods, the coverage report) build on this and are independent of the mods' own key migration.
+The pack features of DW2-XL `docs/plans/translation-keys.md`, independent of the mods' own key migration.
+
+Done: `TranslationPacks` (Core: ordered files for a mod, kind and language from enabled mods, base language first), the settings dialog merge (`ModSettingsTranslation.Read` takes the pack files; per key, last wins; a broken pack file throws `InvalidDataException` naming it), and `TranslationFiles` in the options JSON of every code mod (`LoaderManifestBuilder`). Tests: `TranslationPacksTests`. Docs: [Localization.md](../Localization.md#translation-packs), [DLL Injection.md](../DLL%20Injection.md#the-translationfiles-option).
+
+Still to do:
+
+- Done: `Localization` also lists `translations/<code>/launcher.json` from *installed* packs (`InstalledLanguagePacks`, `Localization.UseInstalledPacks`, called once at start-up before the saved language is checked), so the language can be picked before anything is enabled. A pack code that a launcher pack already has adds keys over it (last wins, logged). Order is mod folder name, not load order, since the load order is not read yet; a pack installed while the launcher runs needs a restart.
+- Coverage report at launch: per enabled mod and non-English language, keys without text, shown as Info. Needs the mods' English catalogue (`en.json` / `status.en.json`), so it waits for the key migration.
+- *Create Mod... > Translation Pack*: a skeleton for a language and chosen target mods, prefilled with the untranslated keys (same dependency).
+- XL side: `Loc.Use` merges `TranslationFiles`; ja/ru move out into first-party packs after the key migration.

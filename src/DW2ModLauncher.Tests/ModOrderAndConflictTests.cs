@@ -264,5 +264,21 @@ namespace DW2ModLauncher.Tests
         {
             Assert.Equal(expected, GameProcess.IsGameProcessName(name));
         }
+
+        [Fact]
+        public void GameProcess_IsInside_IgnoresASiblingFolderWithTheSamePrefix()
+        {
+            string game = Path.Combine(Path.GetTempPath(), "dw2-game");
+            Assert.True(GameProcess.IsInside(game, Path.Combine(game, "DistantWorlds2.exe")));
+            Assert.True(GameProcess.IsInside(game + Path.DirectorySeparatorChar, Path.Combine(game, "bin", "DistantWorlds2.exe")));
+            Assert.False(GameProcess.IsInside(game, Path.Combine(game + " - Copy", "DistantWorlds2.exe")));
+        }
+
+        [Fact]
+        public void GameProcess_NoGameFolder_NothingIsRunningFromIt()
+        {
+            Assert.False(GameProcess.IsRunning(""));
+            Assert.False(GameProcess.IsRunning(null));
+        }
     }
 }

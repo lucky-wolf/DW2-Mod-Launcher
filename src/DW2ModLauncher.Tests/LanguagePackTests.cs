@@ -59,7 +59,7 @@ namespace DW2ModLauncher.Tests
             // "Delete this profile?\r\n\r\n" + name: the sentence must hold the name itself, so a language can put it anywhere
             foreach (KeyValuePair<string, string> kv in Pack("en"))
             {
-                if (kv.Key.StartsWith("_", StringComparison.Ordinal) || kv.Key == "ListSeparator") continue;
+                if (kv.Key.StartsWith("_", StringComparison.Ordinal) || kv.Key.EndsWith("ListSeparator", StringComparison.Ordinal)) continue;
                 Assert.False(kv.Value.EndsWith(" ", StringComparison.Ordinal) || kv.Value.EndsWith("\n", StringComparison.Ordinal), kv.Key + " ends with a space or a line break");
                 Assert.False(kv.Value.StartsWith(" ", StringComparison.Ordinal) && !kv.Key.StartsWith("WidgetMore", StringComparison.Ordinal), kv.Key + " starts with a space");
             }

@@ -157,7 +157,7 @@ namespace DW2ModLauncher.Loader
             catch (Exception ex)
             {
                 Log("ERROR: game state could not be tracked (mods that wait for a real game will not warn): " + ex);
-                HookStatus.Warn("gamestate", StatusStrings.Get("WidgetGameStateNotHooked", ("Method", ex.Message)), _logPath);
+                HookStatus.Warn("gamestate", StatusStrings.Get("WidgetGameStateNotTracked", ("Problem", ex.Message)), _logPath);
             }
         }
 

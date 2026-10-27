@@ -61,6 +61,8 @@ namespace DW2ModLauncher.Loader
             ["WidgetTitlesNoGetText"] = "translated tour/article titles are not matched: TextResolver.GetText not found",
             ["WidgetTitlesMethodMissing"] = "translated titles are not matched: {Method} not found (game update?)",
             ["WidgetGameStateNotHooked"] = "the start of a game is not tracked: {Method} not found (game update?); mods that wait for a real game will not warn",
+            ["WidgetGameStateNotTracked"] = "the start of a game is not tracked: {Problem}; mods that wait for a real game will not warn",
+            ["WidgetListSeparator"] = ", ",
             ["WidgetPatchesNoFileSystem"] = "XML patches are not applied: the game's file system was not found",
             ["WidgetPatchesNoOpenStream"] = "XML patches are not applied: OpenStream could not be hooked",
             ["WidgetToursNotPatched"] = "tutorial tours are not patched: the data provider could not be hooked",

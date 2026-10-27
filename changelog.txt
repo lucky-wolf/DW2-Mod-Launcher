@@ -1,6 +1,10 @@
 ## Unreleased
+
+## 1.0.25 (2026-10-26)
 - Language packs use named placeholders and whole sentences
 - Update download no longer loses its folder to the startup cleanup
+- Translation packs: a mod can translate another mod's settings
+- Installed mods can add launcher languages
 
 ## 1.0.24 (2026-10-24)
 - Attempting to launch twice brings the running launcher forward
