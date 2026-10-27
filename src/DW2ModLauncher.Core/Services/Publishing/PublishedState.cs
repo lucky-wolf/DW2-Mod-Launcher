@@ -22,6 +22,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
     public class PublishedManifest
     {
         public DateTime PublishedUtc { get; set; }
+        /// <summary>The mod.json version the last publish sent; null in a record made before this was kept.</summary>
+        public string Version { get; set; }
         /// <summary>The description text as it was last sent to Steam (placeholders already filled in); null when none was recorded. Steam's own copy is compared with this to spot edits made on the Steam page.</summary>
         public string Description { get; set; }
         /// <summary>Keyed by path relative to the content folder, with '/' separators.</summary>
@@ -136,12 +138,26 @@ namespace DW2ModLauncher.Core.Services.Publishing
         }
 
         /// <summary>Captures the folder as it is now and stores it as the item's published state.</summary>
-        public static void Record(string workshopId, string contentFolder, string dataRoot = null, string sentDescription = null)
+        public static void Record(string workshopId, string contentFolder, string dataRoot = null, string sentDescription = null, string version = null)
         {
             PublishedManifest manifest = Capture(contentFolder);
+            PublishedManifest existing = Load(workshopId, dataRoot);
             // A publish that left the Steam description alone keeps what was recorded for it.
-            manifest.Description = sentDescription ?? Load(workshopId, dataRoot)?.Description;
+            manifest.Description = sentDescription ?? existing?.Description;
+            manifest.Version = version ?? existing?.Version;
             Save(workshopId, manifest, dataRoot);
+        }
+
+        /// <summary>
+        /// Whether <paramref name="version"/> is the one the item's last publish sent, so the next publish must be a new version. A record
+        /// made before versions were kept has none: it is taken to hold the version mod.json had at that publish, which is the one asked about.
+        /// False when the item has no record (never published from here).
+        /// </summary>
+        public static bool VersionWentOut(string workshopId, string version, string dataRoot = null)
+        {
+            PublishedManifest manifest = Load(workshopId, dataRoot);
+            if (manifest == null) return false;
+            return manifest.Version == null || manifest.Version.Trim() == (version ?? "").Trim();
         }
 
         /// <summary>
@@ -155,6 +171,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
             PublishedManifest manifest = Capture(contentFolder);
             manifest.PublishedUtc = existing.PublishedUtc;
             manifest.Description = existing.Description;
+            manifest.Version = existing.Version;
             Save(workshopId, manifest, dataRoot);
         }
 

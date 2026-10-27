@@ -575,13 +575,24 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>
-        /// The next version, per the mod's bump policy, when the version in mod.json already went out (its changelog section is stamped by a
-        /// publish); a version that was never published is the one being worked on and is proposed as it is. Both dialogs propose the same.
+        /// The next version, per the mod's bump policy, when the version in mod.json already went out (the last publish's record holds it, or its
+        /// changelog section is stamped); a version that was never published is the one being worked on and is proposed as it is. Both dialogs propose the same.
         /// </summary>
         private string ProposeVersion()
         {
-            bool bump = proposesBump && !ModVersion.IsNoBump(bumpLevel.Value) && ModChangelog.IsStamped(contentFolder, OriginalVersion);
+            bool bump = proposesBump && !ModVersion.IsNoBump(bumpLevel.Value) && VersionWentOut();
             return bump ? ModVersion.Bump(OriginalVersion, ModVersion.ParseLevel(bumpLevel.Value)) : OriginalVersion;
+        }
+
+        private bool VersionWentOut()
+        {
+            if (ModChangelog.IsStamped(contentFolder, OriginalVersion)) return true;
+            try { return PublishedState.VersionWentOut(ModDetails.WorkshopId(mod), OriginalVersion); }
+            catch (Exception ex)
+            {
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Read the recorded version", ex);
+                return false;
+            }
         }
 
         /// <summary>A policy change replaces the proposal, unless the author already typed their own version.</summary>

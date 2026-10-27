@@ -1,4 +1,5 @@
 ## Unreleased
+- Publishing bumps the version even for mods without a changelog
 
 ## 1.0.25 (2026-10-26)
 - Language packs use named placeholders and whole sentences
