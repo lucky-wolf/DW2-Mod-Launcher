@@ -117,6 +117,26 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void VersionWentOut_FollowsTheRecordedVersion()
+        {
+            Assert.False(PublishedState.VersionWentOut("55", "1.0.0", Data));
+            PublishedState.Record("55", Content, Data, version: "1.0.0");
+            Assert.True(PublishedState.VersionWentOut("55", "1.0.0", Data));
+            Assert.False(PublishedState.VersionWentOut("55", "1.0.1", Data));
+            PublishedState.Record("55", Content, Data);
+            Assert.Equal("1.0.0", PublishedState.Load("55", Data).Version);
+            PublishedState.MarkCurrent("55", Content, Data);
+            Assert.Equal("1.0.0", PublishedState.Load("55", Data).Version);
+        }
+
+        [Fact]
+        public void VersionWentOut_TakesARecordWithoutAVersionAsTheCurrentOne()
+        {
+            PublishedState.Record("56", Content, Data);
+            Assert.True(PublishedState.VersionWentOut("56", "1.0.0", Data));
+        }
+
+        [Fact]
         public void Load_Throws_OnCorruptRecord()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(PublishedState.GetRecordPath("9", Data)));

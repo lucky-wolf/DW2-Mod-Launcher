@@ -1807,7 +1807,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
                 // After every write the publish itself makes to the folder (version bump, author stamp, the id just written), so it starts clean.
                 string recordProblem = null;
-                try { PublishedState.Record(result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), contentFolder, sentDescription: useSteamDescription ? editor.SteamDescriptionText : newDescription); }
+                try { PublishedState.Record(result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), contentFolder, sentDescription: useSteamDescription ? editor.SteamDescriptionText : newDescription, version: metadata.Version); }
                 catch (Exception ex)
                 {
                     Logger.LogException("Record published state of " + mod.DisplayName, ex);
