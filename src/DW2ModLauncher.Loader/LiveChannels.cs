@@ -178,6 +178,8 @@ namespace DW2ModLauncher.Loader
     {
         public string Channel { get; set; }
         public string Provider { get; set; }
+        // the launcher's key of the mod the provider's assembly was loaded from (ObservedHooks.OwnerOf); null when no launched mod owns it
+        public string ProviderKey { get; set; }
         public int Version { get; set; }
         public string DelegateType { get; set; }
     }
@@ -186,6 +188,8 @@ namespace DW2ModLauncher.Loader
     {
         public string Channel { get; set; }
         public string Consumer { get; set; }
+        // as ObservedChannelProvision.ProviderKey, for the consumer
+        public string ConsumerKey { get; set; }
         public int Version { get; set; }
         public string DelegateType { get; set; }
     }

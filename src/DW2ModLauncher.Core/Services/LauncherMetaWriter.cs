@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -30,17 +31,34 @@ namespace DW2ModLauncher.Core.Services
             Stamp(modFolder, "language", languageCode, overwrite);
         }
 
+        /// <summary>
+        /// Sets "hooksCoordinatedWith" (see LauncherMeta) to <paramref name="entries"/>, in the order given. An empty list removes the key, and
+        /// writes nothing when there is no file. Throws if the existing file cannot be parsed, so a file with other content in it is never replaced.
+        /// </summary>
+        public static void SetCoordinatedWith(string modFolder, IList<string> entries)
+        {
+            const string field = "hooksCoordinatedWith";
+            List<string> names = (entries ?? new List<string>()).Select(e => (e ?? "").Trim()).Where(e => e.Length > 0).ToList();
+            string path = Path.Combine(modFolder, FileName);
+            if (names.Count == 0 && !File.Exists(path)) return;
+            JsonObject root = Load(path);
+            string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(field, StringComparison.OrdinalIgnoreCase));
+            if (key != null) root.Remove(key);
+            if (names.Count > 0)
+            {
+                JsonArray array = new JsonArray();
+                foreach (string name in names) array.Add(name);
+                root[field] = array;
+            }
+            Save(path, root);
+        }
+
         private static void Stamp(string modFolder, string field, string value, bool overwrite)
         {
             string name = (value ?? "").Trim();
             if (name.Length == 0) return;
             string path = Path.Combine(modFolder, FileName);
-            JsonObject root = new JsonObject();
-            if (File.Exists(path))
-            {
-                JsonNode node = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8), null, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
-                root = node as JsonObject ?? throw new InvalidDataException(path + " is not a JSON object.");
-            }
+            JsonObject root = Load(path);
             string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(field, StringComparison.OrdinalIgnoreCase));
             if (key != null)
             {
@@ -48,6 +66,19 @@ namespace DW2ModLauncher.Core.Services
                 root.Remove(key);
             }
             root[field] = name;
+            Save(path, root);
+        }
+
+        /// <summary>The file's JSON object, or an empty one when there is no file. Throws when the file is not a JSON object.</summary>
+        private static JsonObject Load(string path)
+        {
+            if (!File.Exists(path)) return new JsonObject();
+            JsonNode node = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8), null, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+            return node as JsonObject ?? throw new InvalidDataException(path + " is not a JSON object.");
+        }
+
+        private static void Save(string path, JsonObject root)
+        {
             // LF always, whatever the platform: mod repos keep LF-only files, and a CRLF stamp would read as a change once the file
             // is copied back through one (the published-state comparison hashes the bytes).
             File.WriteAllText(path, root.ToJsonString(Indented).Replace("\r\n", "\n"), new UTF8Encoding(false));

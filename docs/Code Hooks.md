@@ -22,7 +22,7 @@ One level lower when the two patches order themselves explicitly (Harmony before
 
 **Same author** means the same `author` in `dw2modlauncher.json`, or Workshop items created by the same Steam user (`WorkshopCreator`, read by the update check). A Workshop mod that states no author is shown with its creator's Steam handle (looked up from the public profile, remembered by id in `launcher_settings.json`; never written into the mod's files; a failed lookup is logged and leaves the author blank). A mod with no author and no Workshop creator is never assumed to share an author.
 
-`"hooksCoordinatedWith": ["Other Mod"]` in `dw2modlauncher.json` (names matched like a dependency's `mod`) says its author has already dealt with that mod; it is for mods by different authors. `"Other Mod@1.2.3"` covers only that version of it (compared with its mod.json `version`): once the other mod updates, the overlap is graded again, so the author re-checks it. Prefer the pinned form for mods you do not control. Older launchers do not know the `@` form and simply ignore the entry.
+`"hooksCoordinatedWith": ["Other Mod"]` in `dw2modlauncher.json` (names matched like a dependency's `mod`) says its author has already dealt with that mod; it is for mods by different authors. `"Other Mod@1.2.3"` covers only that version of it (compared with its mod.json `version`): once the other mod updates, the overlap is graded again, so the author re-checks it. Prefer the pinned form for mods you do not control. Older launchers do not know the `@` form and simply ignore the entry. The Edit Properties and Publish dialogs have a **Compatible with** list that edits this key: the + button picks one of the installed mods and records it pinned to the version it has now, each row has a remove button, and a row says when the pinned version is no longer the installed one.
 
 ## Observed hooks (written by the loader)
 
@@ -68,6 +68,7 @@ A channel is a contract owned by its consumer. Using one is cooperation, never a
 - **File channels** carry a `"version"` inside the data; differing versions between providers already warn (`ModChannels`).
 - The declared `channels` section lets the launcher compare a consumer's expected version with the winning provider's before launch.
 - Two providers of one live channel is by design (the last wins and is handed the earlier handler).
+- A mod's details list its live channels from its declared `channels` plus those the last session saw it use (the loader records the mod each provider and consumer belongs to, as `providerKey` and `consumerKey`), so a mod that ships no manifest still shows them. The session only counts when it ran the installed version of the mod, and a consumer is seen only once it has asked for the channel.
 
 ## Limits
 

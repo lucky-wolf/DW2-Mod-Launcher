@@ -42,6 +42,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string Tooltip { get; set; }
     }
 
+    /// <summary>One line of the editable "Compatible with" list: a dw2modlauncher.json "hooksCoordinatedWith" entry and what it means for the mods installed now.</summary>
+    public class CompatibleRow
+    {
+        /// <summary>The entry as it is written in the file ("Name" or "Name@1.2.3").</summary>
+        public string Entry { get; set; }
+        public string Name { get; set; }
+        /// <summary>The version the check was made against, or "any version".</summary>
+        public string Version { get; set; }
+        /// <summary>The installed mod's version when it differs from the pinned one, or "not installed"; empty when the entry matches what is installed.</summary>
+        public string Note { get; set; }
+        public bool HasNote { get { return !string.IsNullOrEmpty(Note); } }
+        public RelayCommand Remove { get; set; }
+        public string RemoveTooltip { get; set; }
+    }
+
     public class BumpLevelOption
     {
         public string Value { get; set; }
@@ -92,9 +107,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null)
         {
             this.dialogs = dialogs;
+            // every installed mod (this one too): what a "Compatible with" entry can name, and what the entries are checked against
+            installedMods = (otherMods ?? new List<ModInfo>()).Where(m => m != null).ToList();
+            compatibleEntries = new List<string>((mod.HooksCoordinatedWith ?? new List<string>()).Where(e => !string.IsNullOrWhiteSpace(e)).Select(e => e.Trim()));
+            savedCompatible = new List<string>(compatibleEntries);
+            AddCompatibleCommand = new RelayCommand(AddCompatibleAsync);
             this.lastArtFolder = lastArtFolder;
             this.rememberArtFolder = rememberArtFolder;
             this.metadata = metadata;
@@ -459,7 +479,71 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private string FieldsSnapshot()
         {
-            return string.Join("", new[] { title, version, previewImage, shortDescription, bumpLevel.Value }.Select(x => (x ?? "").Trim()));
+            return string.Join("", new[] { title, version, previewImage, shortDescription, bumpLevel.Value }.Select(x => (x ?? "").Trim())) + "\n" + string.Join("\n", compatibleEntries);
+        }
+
+        // The "Compatible with" list: dw2modlauncher.json "hooksCoordinatedWith" as it stands in the dialog, and as it was last read or saved.
+        private readonly List<ModInfo> installedMods;
+        private readonly List<string> compatibleEntries;
+        private List<string> savedCompatible;
+
+        public RelayCommand AddCompatibleCommand { get; }
+        public bool HasCompatible { get { return compatibleEntries.Count > 0; } }
+        public bool NoCompatible { get { return compatibleEntries.Count == 0; } }
+
+        /// <summary>The list as rows, each checked against the installed mods so a stale pin shows what is installed now.</summary>
+        public List<CompatibleRow> CompatibleRows
+        {
+            get
+            {
+                List<CompatibleRow> rows = new List<CompatibleRow>();
+                foreach (string entry in compatibleEntries)
+                {
+                    (string name, string pinned) = HookOverlapAnalyzer.SplitCoordinationEntry(entry);
+                    ModInfo installed = ModDependencies.Find(installedMods, name);
+                    string note = installed == null ? L["PublishCompatibleNotInstalled"]
+                        : pinned != null && !string.Equals(pinned, (installed.Version ?? "").Trim(), StringComparison.OrdinalIgnoreCase)
+                            ? L.Format("PublishCompatibleInstalledNow", ("Version", string.IsNullOrWhiteSpace(installed.Version) ? "?" : installed.Version.Trim())) : "";
+                    rows.Add(new CompatibleRow { Entry = entry, Name = name, Version = pinned ?? L["PublishCompatibleAnyVersion"], Note = note, Remove = new RelayCommand(() => RemoveCompatible(entry)), RemoveTooltip = L["PublishCompatibleRemove"] });
+                }
+                return rows;
+            }
+        }
+
+        private void RaiseCompatible() { Raise(nameof(CompatibleRows)); Raise(nameof(HasCompatible)); Raise(nameof(NoCompatible)); RaiseModified(); }
+
+        private void RemoveCompatible(string entry)
+        {
+            if (!compatibleEntries.Remove(entry)) return;
+            RaiseCompatible();
+        }
+
+        /// <summary>Asks which of the installed mods to add and records it as its name pinned to the version it has now.</summary>
+        private async Task AddCompatibleAsync()
+        {
+            // not this mod, and not one an entry already covers (whatever version it is pinned to)
+            Func<ModInfo, string> label = m => (m.DisplayName ?? m.Id) + (string.IsNullOrWhiteSpace(m.Version) ? "" : "  " + m.Version.Trim());
+            List<ModInfo> candidates = installedMods
+                .Where(m => !string.Equals(m.Folder, mod.Folder, StringComparison.OrdinalIgnoreCase))
+                .Where(m => !compatibleEntries.Any(e => ModDependencies.Find(new[] { m }, HookOverlapAnalyzer.SplitCoordinationEntry(e).Name) == m))
+                .OrderBy(m => m.DisplayName ?? m.Id, StringComparer.OrdinalIgnoreCase).ToList();
+            if (candidates.Count == 0)
+            {
+                await dialogs.ShowMessageAsync(L["PublishCompatibleNothingToAdd"], "DW2 Mod Launcher");
+                return;
+            }
+            Dictionary<string, ModInfo> byLabel = new Dictionary<string, ModInfo>(StringComparer.Ordinal);
+            foreach (ModInfo candidate in candidates)
+            {
+                string text = label(candidate);
+                // two installed mods can share a name and version (a Workshop copy and a local one): the folder tells them apart
+                if (byLabel.ContainsKey(text)) text += "  (" + System.IO.Path.GetFileName((candidate.Folder ?? "").TrimEnd('/', '\\')) + ")";
+                byLabel[text] = candidate;
+            }
+            string picked = await dialogs.PickFromListAsync(L["PublishCompatiblePickTitle"], L["PublishCompatiblePickNote"], byLabel.Keys.ToList());
+            if (picked == null || !byLabel.TryGetValue(picked, out ModInfo chosen)) return;
+            compatibleEntries.Add(HookOverlapAnalyzer.CoordinationEntryFor(chosen));
+            RaiseCompatible();
         }
 
         /// <summary>Something in the dialog differs from what it opened with.</summary>
@@ -1024,6 +1108,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
             }
             metadata.Bundles = detectedBundles;
+            // dw2modlauncher.json is only touched when the list was edited here
+            if (!compatibleEntries.SequenceEqual(savedCompatible))
+            {
+                try { LauncherMetaWriter.SetCoordinatedWith(mod.Folder, compatibleEntries); savedCompatible = new List<string>(compatibleEntries); }
+                catch (Exception ex)
+                {
+                    DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write dw2modlauncher.json compatible mods", ex);
+                    return ex.Message;
+                }
+            }
             try
             {
                 ModPublishMetadataEditor.Write(modJsonPath, metadata);

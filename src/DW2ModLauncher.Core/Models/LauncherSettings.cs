@@ -34,6 +34,9 @@ namespace DW2ModLauncher.Core.Models
         public bool ConflictsExpanded { get; set; }
         /// <summary>Whether the details pane's caution list is open; one choice for every mod.</summary>
         public bool CautionsExpanded { get; set; }
+
+        /// <summary>Whether the details pane's requirements and connections section is open.</summary>
+        public bool LinksExpanded { get; set; }
         /// <summary>Main window's top-left corner when it last closed; null until first saved.</summary>
         public int? WindowX { get; set; }
         public int? WindowY { get; set; }

@@ -15,15 +15,16 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>
         /// What the mod declares in dw2modlauncher.json about other mods, as "label: value" lines with who is on the other end among the enabled mods (in load order):
         /// the channels it receives and who supplies them, the channels it provides and who receives them, and its dependencies.
+        /// File channels come from dw2modlauncher.json, live channels from the hooks manifest <paramref name="declaredHooks"/> returns (null: none).
         /// Empty when it declares nothing.
         /// </summary>
-        public static string BuildLinks(ModInfo mod, IList<ModInfo> orderedEnabled, Func<string, string> t)
+        public static string BuildLinks(ModInfo mod, IList<ModInfo> orderedEnabled, Func<string, string> t, Func<ModInfo, HookManifest> declaredHooks = null, ObservedHooksFile observed = null)
         {
-            return string.Join("\n", BuildLinkLines(mod, orderedEnabled, t).Select(l => l.Text));
+            return string.Join("\n", BuildLinkLines(mod, orderedEnabled, t, declaredHooks, observed).Select(l => l.Text));
         }
 
         /// <summary>The lines of <see cref="BuildLinks"/>, each with whether it is met (shown with a green check mark) or unmet and required (shown in red).</summary>
-        public static List<DetailLine> BuildLinkLines(ModInfo mod, IList<ModInfo> orderedEnabled, Func<string, string> t)
+        public static List<DetailLine> BuildLinkLines(ModInfo mod, IList<ModInfo> orderedEnabled, Func<string, string> t, Func<ModInfo, HookManifest> declaredHooks = null, ObservedHooksFile observed = null)
         {
             List<DetailLine> lines = new List<DetailLine>();
             Func<IEnumerable<ModInfo>, string> names = mods => string.Join(t("ListSeparator"), mods.Select(m => m.DisplayName ?? m.Id));
@@ -50,6 +51,19 @@ namespace DW2ModLauncher.Core.Services
                 lines.Add(new DetailLine(NamedText.Fill(t("LinkProvides"), ("Channel", channel)), taken));
                 lines.Add(new DetailLine(receivers.Count == 0 ? t("LinkReceiversNone") : NamedText.Fill(t("LinkReceivers"), ("Mods", names(receivers))), taken));
             }
+            // Live channels (declared in dw2modlauncher.hooks.json) read the same to the player as file channels: what the mod takes, what it gives, who is on the other end.
+            foreach (string role in new[] { "consumes", "provides" })
+            {
+                string otherRole = role == "consumes" ? "provides" : "consumes";
+                foreach (string channel in LiveChannelNames(mod, role, declaredHooks, observed))
+                {
+                    List<ModInfo> others = orderedEnabled.Where(m => m != mod && LiveChannelNames(m, otherRole, declaredHooks, observed).Contains(channel, StringComparer.OrdinalIgnoreCase)).ToList();
+                    LineState met = others.Count == 0 ? LineState.None : LineState.Met;
+                    bool receives = role == "consumes";
+                    lines.Add(new DetailLine(NamedText.Fill(t(receives ? "LinkReceives" : "LinkProvides"), ("Channel", channel)), met));
+                    lines.Add(new DetailLine(others.Count == 0 ? t(receives ? "LinkProvidersNone" : "LinkReceiversNone") : NamedText.Fill(t(receives ? "LinkProviders" : "LinkReceivers"), ("Mods", names(others))), met));
+                }
+            }
             foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
             {
                 if (dep == null || string.IsNullOrWhiteSpace(dep.mod)) continue;
@@ -57,6 +71,26 @@ namespace DW2ModLauncher.Core.Services
                 else lines.Add(new DetailLine(NamedText.Fill(t("LinkDependsOnNotEnabled"), ("Mod", dep.mod.Trim())), dep.required ? LineState.Unmet : LineState.None));
             }
             return lines;
+        }
+
+        /// <summary>
+        /// The live channels the mod has for a role ("provides" or "consumes"), by name: those it declares in its hooks manifest, plus those the last
+        /// game session saw it use, when that session ran the installed version of the mod (so a mod that ships no manifest still shows its channels).
+        /// A manifest that cannot be read is reported by the hook analysis, so it declares none here.
+        /// </summary>
+        private static List<string> LiveChannelNames(ModInfo mod, string role, Func<ModInfo, HookManifest> declaredHooks, ObservedHooksFile observed)
+        {
+            HookManifest manifest = declaredHooks?.Invoke(mod);
+            IEnumerable<string> names = (manifest?.Channels ?? new List<DeclaredChannel>())
+                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Name) && string.Equals(c.Role, role, StringComparison.OrdinalIgnoreCase))
+                .Select(c => c.Name);
+            if (observed?.Channels != null && HookOverlapAnalyzer.Observes(observed, mod))
+            {
+                names = names.Concat(role == "provides"
+                    ? (observed.Channels.Provided ?? new List<ObservedChannelProvisionInfo>()).Where(c => string.Equals(c?.ProviderKey, mod.Key, StringComparison.OrdinalIgnoreCase)).Select(c => c.Channel)
+                    : (observed.Channels.Consumed ?? new List<ObservedChannelUseInfo>()).Where(c => string.Equals(c?.ConsumerKey, mod.Key, StringComparison.OrdinalIgnoreCase)).Select(c => c.Channel));
+            }
+            return names.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         public static string BuildText(ModInfo mod, bool isSelected, Func<string, string> t)
