@@ -78,6 +78,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach (var problem in installedPackProblems)
                 AddProblem(T("InstalledLanguagePackNotValid", ("File", problem.File), ("Problem", problem.Message)));
             Dialogs.OkText = T("OK");
+            Dialogs.CancelText = T("Cancel");
             Dialogs.CopyText = T("CopyToClipboard");
             Dialogs.OpenLogText = T("OpenLog");
             foreach (string code in Localization.AvailableLanguageCodes())
@@ -426,6 +427,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 settings.Language = value.Code;
                 L.SetLanguage(value.Code);
                 Dialogs.OkText = T("OK");
+                Dialogs.CancelText = T("Cancel");
                 Dialogs.CopyText = T("CopyToClipboard");
                 Dialogs.OpenLogText = T("OpenLog");
                 Raise(nameof(PlayLabel));
@@ -839,6 +841,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Raised when the view should scroll the selected row into view, centred where there is room.</summary>
         public event Action RevealSelectionRequested;
 
+        /// <summary>The rows an enabled row may not be dragged past: those it must load after (above it) and before (below it). Both empty for a disabled row.</summary>
+        public void DragLimits(ModRowViewModel row, out List<ModRowViewModel> mustFollow, out List<ModRowViewModel> mustPrecede)
+        {
+            mustFollow = new List<ModRowViewModel>();
+            mustPrecede = new List<ModRowViewModel>();
+            if (!IsSelected(row.Mod)) return;
+            ModDependencies.Limits(Mods.Where(r => IsSelected(r.Mod)).Select(r => r.Mod).ToList(), row.Mod, out List<ModInfo> follow, out List<ModInfo> precede);
+            mustFollow = Mods.Where(r => follow.Contains(r.Mod)).ToList();
+            mustPrecede = Mods.Where(r => precede.Contains(r.Mod)).ToList();
+        }
+
         /// <summary>Moves a row (drag and drop) and writes the new load order.</summary>
         public void MoveRow(ModRowViewModel row, int toIndex)
         {
@@ -1202,7 +1215,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (localization)
             {
                 int scope = await Dialogs.ChooseAsync(T("LocalizationScopePrompt"), T("CreateModKindLocalization"),
-                    new[] { T("LocalizationScopeBaseGame"), T("LocalizationScopeMod"), T("Cancel") });
+                    new[] { T("LocalizationScopeBaseGame"), T("LocalizationScopeMod"), T("Cancel") },
+                    new[] { T("LocalizationScopeBaseGameTip"), T("LocalizationScopeModTip"), null });
                 if (scope < 0 || scope > 1) return;
                 if (scope == 0 && !Directory.Exists(Path.Combine(settings.GameRoot ?? "", "data")))
                 {

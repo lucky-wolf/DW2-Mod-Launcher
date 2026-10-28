@@ -87,11 +87,12 @@
   <Style Selector="views|ColumnRowPanel.conflict TextBlock.health">
     <Setter Property="Foreground" Value="{StaticResource Dw2Red}" />
   </Style>
-  <Style Selector="TextBlock.linkUnmet">
-    <Setter Property="Foreground" Value="{StaticResource Dw2Red}" />
-  </Style>
-  <Style Selector="TextBlock.muted">
+  <Style Selector=":is(TextBlock).muted">
     <Setter Property="Foreground" Value="{StaticResource Dw2Muted}" />
+  </Style>
+  <!-- after "muted" so it wins; :is() so the selectable text lines in the details match too -->
+  <Style Selector=":is(TextBlock).linkUnmet">
+    <Setter Property="Foreground" Value="{StaticResource Dw2Red}" />
   </Style>
   <Style Selector="TextBlock.eyebrow">
     <Setter Property="FontSize" Value="11" />
@@ -111,6 +112,11 @@
   </Style>
   <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{StaticResource Dw2PanelAlt}" />
+  </Style>
+
+  <!-- The row a dragged mod cannot be moved past (a loadAfter / loadBefore rule). -->
+  <Style Selector="ListBoxItem.dragLimit /template/ ContentPresenter">
+    <Setter Property="Background" Value="#66E6B422" />
   </Style>
 
   <!-- List header: flat, gold, sortable. -->

@@ -70,6 +70,28 @@ namespace DW2ModLauncher.Core.Services
                 if (ModDependencies.Find(orderedEnabled, dep.mod) != null) lines.Add(new DetailLine(NamedText.Fill(t("LinkDependsOn"), ("Mod", dep.mod.Trim())), LineState.Met));
                 else lines.Add(new DetailLine(NamedText.Fill(t("LinkDependsOnNotEnabled"), ("Mod", dep.mod.Trim())), dep.required ? LineState.Unmet : LineState.None));
             }
+            // Load order the mod insists on: met when the other mod is enabled and on the right side, unmet when it is on the wrong side, plain when it is not enabled.
+            foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
+            {
+                if (dep == null || string.IsNullOrWhiteSpace(dep.mod)) continue;
+                ModInfo other = ModDependencies.Find(orderedEnabled, dep.mod);
+                int own = orderedEnabled.IndexOf(mod);
+                foreach (bool after in new[] { true, false })
+                {
+                    if (after ? !dep.loadAfter : !dep.loadBefore) continue;
+                    string key = after ? "LinkLoadsAfter" : "LinkLoadsBefore";
+                    if (other == null || other == mod || own < 0) { lines.Add(new DetailLine(NamedText.Fill(t(key + "NotEnabled"), ("Mod", dep.mod.Trim())), LineState.None)); continue; }
+                    bool inOrder = after ? orderedEnabled.IndexOf(other) < own : orderedEnabled.IndexOf(other) > own;
+                    lines.Add(new DetailLine(NamedText.Fill(t(inOrder ? key : key + "Wrong"), ("Mod", other.DisplayName ?? other.Id)), inOrder ? LineState.Met : LineState.Unmet));
+                }
+            }
+            // music is merged with the other mods' at runtime, so it is information, never a conflict (ModMusic)
+            ConflictAnalyzer.EnumeratePaths(mod);
+            if (mod.MusicFileCount > 0)
+            {
+                lines.Add(new DetailLine(NamedText.Fill(t("MusicMerged"), ("Count", mod.MusicFileCount))));
+                if (mod.MusicUnleveledCount > 0) lines.Add(new DetailLine(NamedText.Fill(t("MusicUnleveled"), ("Count", mod.MusicUnleveledCount))));
+            }
             return lines;
         }
 

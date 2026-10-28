@@ -92,10 +92,11 @@ namespace DW2ModLauncher.Tests
                 Write(Path.Combine(game, "data", "Galactopedia", "GameConcepts", "Alliances.txt"), "text");
                 Write(Path.Combine(game, "data", "Logs", "x.txt"), "log");
                 Write(Path.Combine(mod, "gametext.txt"), "A ;mod");
+                Write(Path.Combine(mod, "GameText_XL.txt"), "B ;mod extra");
 
                 List<LocalizationTextFile> files = LocalizationModBuilder.CollectTextFiles(game, new[] { new ModInfo { Id = "m", Folder = mod, ContentRoot = mod } });
 
-                Assert.Equal(new[] { "dialog/zenox.txt", "Galactopedia/GameConcepts/Alliances.txt", "gametext.txt", "Hints.txt" }, files.ConvertAll(f => f.Relative));
+                Assert.Equal(new[] { "dialog/zenox.txt", "Galactopedia/GameConcepts/Alliances.txt", "gametext.txt", "GameText_XL.txt", "Hints.txt" }, files.ConvertAll(f => f.Relative));
                 Assert.Equal(Path.Combine(mod, "gametext.txt"), files.Single(f => f.Relative == "gametext.txt").Source);
             }
             finally { Directory.Delete(root, true); }

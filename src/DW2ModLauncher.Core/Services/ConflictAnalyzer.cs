@@ -22,6 +22,8 @@ namespace DW2ModLauncher.Core.Services
         private static List<string> ScanPaths(ModInfo mod)
         {
             List<string> cache = new List<string>();
+            mod.MusicFileCount = 0;
+            mod.MusicUnleveledCount = 0;
             string root = RootOf(mod);
             if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return cache;
             string[] files;
@@ -47,6 +49,11 @@ namespace DW2ModLauncher.Core.Services
                     Diagnostics.Logger.LogException("Conflict path: " + file, ex);
                     mod.ScanError = ex.Message;
                     continue;
+                }
+                if (ModMusic.IsMusicFile(rel, out bool leveled))
+                {
+                    mod.MusicFileCount++;
+                    if (!leveled) mod.MusicUnleveledCount++;
                 }
                 if (ConflictRules.IsIgnored(rel)) continue;
                 cache.Add(rel.ToLowerInvariant());

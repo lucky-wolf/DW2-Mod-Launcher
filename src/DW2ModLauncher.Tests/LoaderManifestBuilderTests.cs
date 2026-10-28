@@ -221,6 +221,41 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Build_HandsTheGameAPlainFolderAsItSeesIt()
+        {
+            string dir = MakeModDir("SomeMod.dll");
+            string token = "test/plain-" + Guid.NewGuid().ToString("N");
+            ModInfo mod = ModAt(dir);
+            mod.Id = token;
+            mod.ActiveToken = token;
+            string settingsPath = ModSettingsStore.GetSettingsPath(mod);
+            string music = Path.Combine(Path.GetTempPath(), "dw2-music");
+            try
+            {
+                var schema = new System.Text.Json.Nodes.JsonObject
+                {
+                    ["fields"] = new System.Text.Json.Nodes.JsonArray(
+                        new System.Text.Json.Nodes.JsonObject { ["key"] = "Music", ["type"] = "folder", ["default"] = music },
+                        new System.Text.Json.Nodes.JsonObject { ["key"] = "Blank", ["type"] = "folder", ["default"] = "" })
+                };
+                File.WriteAllText(Path.Combine(dir, "settings.schema.json"), schema.ToJsonString());
+
+                LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { mod }, null, null);
+
+                var handed = System.Text.Json.Nodes.JsonNode.Parse(manifest.Entries[0].SettingsJson);
+                // on Linux "/tmp/dw2-music" must reach the game as "Z:\tmp\dw2-music"; on Windows the path is already the game's
+                Assert.Equal(GamePaths.ToGameVisiblePath(music), handed["Music"].GetValue<string>());
+                Assert.Equal("", handed["Blank"].GetValue<string>());
+                Assert.Equal(music, ModSettingsStore.GetOrCreateValues(mod, ModSettingsSchemaReader.Read(dir))["Music"].GetValue<string>());
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+                if (File.Exists(settingsPath)) File.Delete(settingsPath);
+            }
+        }
+
+        [Fact]
         public void Build_ListsPatchFiles_ForModsWithoutAnyDll_InOrdinalPathOrder()
         {
             string dir = MakeModDir();

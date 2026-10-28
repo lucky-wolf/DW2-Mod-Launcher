@@ -95,6 +95,16 @@ namespace DW2ModLauncher.Core.Services
             }
         }
 
+        /// <summary>The enabled mods <paramref name="mover"/> must load after (<paramref name="mustFollow"/>) and before (<paramref name="mustPrecede"/>), by the rules on either side.</summary>
+        public static void Limits(IList<ModInfo> enabled, ModInfo mover, out List<ModInfo> mustFollow, out List<ModInfo> mustPrecede)
+        {
+            mustFollow = new List<ModInfo>();
+            mustPrecede = new List<ModInfo>();
+            Relations(enabled.Contains(mover) ? enabled : enabled.Concat(new[] { mover }).ToList(), mover, mustFollow, mustPrecede);
+            mustFollow = mustFollow.Distinct().ToList();
+            mustPrecede = mustPrecede.Distinct().ToList();
+        }
+
         /// <summary>The loadAfter / loadBefore rules that involve <paramref name="mover"/> and that the given order of the enabled mods breaks, one line each.</summary>
         public static List<string> Violations(IList<ModInfo> ordered, ModInfo mover, Func<string, string> t)
         {

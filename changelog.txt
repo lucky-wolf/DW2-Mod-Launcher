@@ -1,5 +1,15 @@
 ## Unreleased
 
+## 1.0.27 (2026-10-28)
+- Localization Mod also collects a mod's extra GameText_*.txt files
+- Localization Mod scope choices are clearer, with tooltips, in a wider dialog
+- Mod picker dialog has OK and Cancel buttons, and a click toggles the selection
+- Folder settings outside the usual locations reach the game on Linux
+- Requirements and connections wrap long lines and can be selected
+- Dragging a mod past a load-order limit stops at the limit and tints it
+- Requirements and connections show must-load-before and must-load-after rules, with padding
+- Music mods are no longer flagged as conflicts (game merges them)
+
 ## 1.0.26 (2026-10-27)
 - Mod details list live channels with who is connected, from the last game session when a mod declares none
 - Edit Properties and Publish can edit a mod's compatible-with list

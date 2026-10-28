@@ -188,7 +188,12 @@ namespace DW2ModLauncher.Core.Services
                 ModSettingKind kind = ModSettingsValues.KindOf(field);
                 if ((kind != ModSettingKind.Folder && kind != ModSettingKind.File) || string.IsNullOrWhiteSpace(field.Key)) continue;
                 string text = expanded[field.Key]?.ToString();
-                if (!PathTokens.HasToken(text)) continue;
+                if (!PathTokens.HasToken(text))
+                {
+                    // a plain path the player picked is a host path; under Proton the game sees the host's root as Z: (a blank stays blank)
+                    if (!string.IsNullOrWhiteSpace(text)) expanded[field.Key] = GamePaths.ToGameVisiblePath(text.Trim());
+                    continue;
+                }
                 PathExpansion path = PathTokens.ExpandForGame(text, gameRoot);
                 if (!path.Ok) throw new PathTokenException(mod.DisplayName ?? mod.Id, field.Key, text, path);
                 expanded[field.Key] = path.Path;

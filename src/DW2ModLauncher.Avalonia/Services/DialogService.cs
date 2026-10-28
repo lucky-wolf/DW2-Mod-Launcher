@@ -45,6 +45,8 @@ namespace DW2ModLauncher.Avalonia.Services
 
         public string OkText { get; set; } = "OK";
 
+        public string CancelText { get; set; } = "Cancel";
+
         public string CopyText { get; set; } = "Copy to clipboard";
 
         public string OpenLogText { get; set; } = "Open log";
@@ -59,15 +61,15 @@ namespace DW2ModLauncher.Avalonia.Services
             return new MessageDialog(message, title, yesText, noText, CopyText, OpenLogText).ShowDialog<bool>(owner());
         }
 
-        public async Task<int> ChooseAsync(string message, string title, IList<string> buttons)
+        public async Task<int> ChooseAsync(string message, string title, IList<string> buttons, IList<string> tooltips = null)
         {
-            int? choice = await new ChoiceDialog(message, title, buttons).ShowDialog<int?>(owner());
+            int? choice = await new ChoiceDialog(message, title, buttons, tooltips).ShowDialog<int?>(owner());
             return choice ?? -1;
         }
 
         public Task<string> PickFromListAsync(string title, string note, IList<string> items)
         {
-            return new ListPickerDialog(title, note, items).ShowDialog<string>(owner());
+            return new ListPickerDialog(title, note, items, OkText, CancelText).ShowDialog<string>(owner());
         }
 
         public Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint, IList<string> choices = null, Func<string, bool> isInvalid = null)
