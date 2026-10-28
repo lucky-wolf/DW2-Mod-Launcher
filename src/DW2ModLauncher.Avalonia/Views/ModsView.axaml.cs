@@ -27,6 +27,8 @@ namespace DW2ModLauncher.Avalonia.Views
         private int insertIndex;
         private Control sourceContainer;
         private RenderTargetBitmap ghostBitmap;
+        private List<ModRowViewModel> limitFollow = new List<ModRowViewModel>();   // rows the dragged mod must stay below
+        private List<ModRowViewModel> limitPrecede = new List<ModRowViewModel>();  // rows it must stay above
 
         public ModsView()
         {
@@ -279,6 +281,7 @@ namespace DW2ModLauncher.Avalonia.Views
             grabOffset = new Point(pressPoint.X - origin.X, pressPoint.Y - origin.Y);
 
             sourceContainer = container;
+            if (DataContext is MainViewModel limits) limits.DragLimits(dragRow, out limitFollow, out limitPrecede);
             container.Opacity = 0.35;
             ModList.Cursor = new Cursor(StandardCursorType.DragMove);
             e.Pointer.Capture(ModList);
@@ -297,14 +300,30 @@ namespace DW2ModLauncher.Avalonia.Views
             // Insertion point: before the first row whose midpoint is below the pointer, else after the last.
             int count = ModList.ItemCount;
             insertIndex = count;
-            double lineY = 0;
-            bool haveLine = false;
             for (int i = 0; i < count; i++)
             {
                 if (ModList.ContainerFromIndex(i) is not Control c) continue;
                 Point top = c.TranslatePoint(new Point(0, 0), ModList) ?? new Point(0, 0);
-                if (now.Y < top.Y + c.Bounds.Height / 2) { insertIndex = i; lineY = top.Y; haveLine = true; break; }
-                lineY = top.Y + c.Bounds.Height;
+                if (now.Y < top.Y + c.Bounds.Height / 2) { insertIndex = i; break; }
+            }
+            // A rule (loadAfter / loadBefore) stops the row at the nearest place it may go; every row it cannot pass is tinted from the start of the drag.
+            ClampToLimits();
+            for (int i = 0; i < count; i++)
+            {
+                if (ModList.ContainerFromIndex(i) is ListBoxItem item)
+                    item.Classes.Set("dragLimit", item.DataContext is ModRowViewModel r && (limitFollow.Contains(r) || limitPrecede.Contains(r)));
+            }
+            // The line sits above the row now at the insertion point, or under the last row; rows that are not on screen leave it where it was.
+            double lineY = 0;
+            bool haveLine = false;
+            if (insertIndex < count && ModList.ContainerFromIndex(insertIndex) is Control at)
+            {
+                lineY = (at.TranslatePoint(new Point(0, 0), ModList) ?? new Point(0, 0)).Y;
+                haveLine = true;
+            }
+            else if (insertIndex >= count && count > 0 && ModList.ContainerFromIndex(count - 1) is Control last)
+            {
+                lineY = (last.TranslatePoint(new Point(0, 0), ModList) ?? new Point(0, 0)).Y + last.Bounds.Height;
                 haveLine = true;
             }
             ApplyGap(insertIndex < count ? insertIndex : int.MaxValue);
@@ -316,6 +335,28 @@ namespace DW2ModLauncher.Avalonia.Views
             DropLine.IsVisible = haveLine;
 
             AutoScroll(now.Y);
+        }
+
+        /// <summary>
+        /// Moves <see cref="insertIndex"/> to the nearest place the dragged mod's load-order rules allow. Returns the row it could not pass
+        /// (the one the pointer is beyond), or null when the pointer is somewhere allowed. Rules that contradict each other clamp nothing.
+        /// </summary>
+        private ModRowViewModel ClampToLimits()
+        {
+            if (DataContext is not MainViewModel main || dragRow == null || (limitFollow.Count == 0 && limitPrecede.Count == 0)) return null;
+            int from = main.Mods.IndexOf(dragRow);
+            if (from < 0) return null;
+            int wanted = insertIndex > from ? insertIndex - 1 : insertIndex;   // where the row would end up
+            int Pos(ModRowViewModel r) { int i = main.Mods.IndexOf(r); return i > from ? i - 1 : i; }
+            ModRowViewModel lowerRow = limitFollow.OrderByDescending(Pos).FirstOrDefault();
+            ModRowViewModel upperRow = limitPrecede.OrderBy(Pos).FirstOrDefault();
+            int lower = lowerRow == null ? 0 : Pos(lowerRow) + 1;
+            int upper = upperRow == null ? main.Mods.Count - 1 : Pos(upperRow);
+            if (lower > upper) return null;
+            int clamped = Math.Max(lower, Math.Min(upper, wanted));
+            if (clamped == wanted) return null;
+            insertIndex = clamped >= from ? clamped + 1 : clamped;
+            return wanted < lower ? lowerRow : upperRow;
         }
 
         // Opens the visual gap by translating the realized rows (render-only; layout and hit-testing are unchanged).
@@ -366,6 +407,12 @@ namespace DW2ModLauncher.Avalonia.Views
             ghostBitmap = null;
             ModList.Cursor = Cursor.Default;
             ApplyGap(int.MaxValue);
+            for (int i = 0; i < ModList.ItemCount; i++)
+            {
+                if (ModList.ContainerFromIndex(i) is ListBoxItem item) item.Classes.Set("dragLimit", false);
+            }
+            limitFollow = new List<ModRowViewModel>();
+            limitPrecede = new List<ModRowViewModel>();
             if (sourceContainer != null) sourceContainer.Opacity = 1;
             sourceContainer = null;
 

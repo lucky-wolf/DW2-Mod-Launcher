@@ -211,7 +211,13 @@
           </Border>
         </StackPanel>
         <!-- Requirements, dependencies and who is connected on each channel: folded by default (the choice is remembered). The warning mark shows when something required is missing. -->
-        <Expander IsVisible="{Binding HasLinks}" IsExpanded="{Binding LinksExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,6,0,0" Margin="0,0,0,10">
+        <Expander IsVisible="{Binding HasLinks}" IsExpanded="{Binding LinksExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12,10" Margin="0,0,0,10">
+          <Expander.Styles>
+            <Style Selector="Expander /template/ ToggleButton#ExpanderHeader">
+              <Setter Property="MinHeight" Value="0" />
+              <Setter Property="Padding" Value="10,4" />
+            </Style>
+          </Expander.Styles>
           <Expander.Header>
             <StackPanel Orientation="Horizontal" Spacing="6">
               <TextBlock Text="{Binding L[DetailLinksHeader]}" Foreground="{StaticResource Dw2Muted}" />
@@ -221,10 +227,11 @@
           <ItemsControl ItemsSource="{Binding DetailLinks}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="svc:DetailLine">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Classes.linkUnmet="{Binding IsUnmet}" />
-                  <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding IsMet}" />
-                </StackPanel>
+                <!-- A star column, not a horizontal StackPanel: a StackPanel measures its children at unlimited width, so the text never wrapped and was cut off at the pane's edge. -->
+                <Grid ColumnDefinitions="*,Auto">
+                  <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap" Classes="muted" Classes.linkUnmet="{Binding IsUnmet}" />
+                  <TextBlock Grid.Column="1" Margin="6,0,0,0" Text="✓" FontWeight="Bold" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding IsMet}" />
+                </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

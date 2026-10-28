@@ -43,6 +43,9 @@ namespace DW2ModLauncher.Core.Models
         public List<string> ConflictFiles { get; set; }
         public List<string> ConflictMods { get; set; }
         public List<string> ConflictPathCache { get; set; }
+        /// <summary>Audio files under music\ (set with <see cref="ConflictPathCache"/>), and how many of them are not in a music\&lt;mood&gt;\&lt;intensity&gt; folder.</summary>
+        public int MusicFileCount { get; set; }
+        public int MusicUnleveledCount { get; set; }
         public string ModJsonPath { get; set; }
         /// <summary>Why mod.json could not be parsed (its display name and description were then recovered loosely), or null when it parsed.</summary>
         public string ModJsonError { get; set; }

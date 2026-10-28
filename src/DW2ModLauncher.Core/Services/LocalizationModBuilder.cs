@@ -70,7 +70,8 @@ namespace DW2ModLauncher.Core.Services
             string[] parts = relative.Split('/');
             if (!relative.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) return false;
             if (parts.Length == 1)
-                return relative.Equals("GameText.txt", StringComparison.OrdinalIgnoreCase) || relative.Equals("Hints.txt", StringComparison.OrdinalIgnoreCase)
+                // The game loads GameText*.txt, so a mod's GameText_XL.txt is text a translation has to cover too.
+                return (relative.StartsWith("GameText", StringComparison.OrdinalIgnoreCase)) || relative.Equals("Hints.txt", StringComparison.OrdinalIgnoreCase)
                     || relative.Equals("SystemNames.txt", StringComparison.OrdinalIgnoreCase);
             return parts[0].Equals("dialog", StringComparison.OrdinalIgnoreCase) || parts[0].Equals("Galactopedia", StringComparison.OrdinalIgnoreCase);
         }

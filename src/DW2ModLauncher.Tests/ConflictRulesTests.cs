@@ -16,6 +16,11 @@ namespace DW2ModLauncher.Tests
         [InlineData("description.txt")]
         [InlineData("other\\track.mp3")]
         [InlineData("music\\track.wav")]
+        // music is merged at runtime, so a music file is never a collision, whatever its format or depth
+        [InlineData("music\\Action\\High\\track.mp3")]
+        [InlineData("Music\\Action\\track.mp3")]
+        [InlineData("music\\track.mp3")]
+        [InlineData("music\\Peaceful\\Low\\track.ogg")]
         [InlineData("XL.bundle")]
         [InlineData("settings.json")]
         [InlineData("Settings.schema.json")]
@@ -46,7 +51,6 @@ namespace DW2ModLauncher.Tests
         [InlineData("SystemNames.txt")]
         [InlineData("Dialog\\human.txt")]
         [InlineData("galactopedia\\sub\\Entry.txt")]
-        [InlineData("music\\Action\\High\\track.mp3")]
         [InlineData("art\\Sprites.atlas")]
         [InlineData("policy\\Policies.xml")]
         public void IsIgnored_ReturnsFalse_ForGameData(string path)

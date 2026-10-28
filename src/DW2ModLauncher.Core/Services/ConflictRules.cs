@@ -6,8 +6,8 @@ namespace DW2ModLauncher.Core.Services
     /// <summary>
     /// Decides which relative file paths inside a Mod folder are excluded from file-conflict detection.
     /// Only files the game actually loads from the data folder can collide (a Mod folder mirrors "data"):
-    /// *.xml, *.atlas and music\*.mp3 anywhere below the root; dialog\*.txt and galactopedia\*.txt;
-    /// and the root-level GameText.txt, Hints.txt and SystemNames.txt. Everything else is ignored.
+    /// *.xml and *.atlas anywhere below the root; dialog\*.txt and galactopedia\*.txt;
+    /// and the root-level GameText.txt, Hints.txt and SystemNames.txt. Everything else is ignored, music included (it is merged, not replaced).
     /// </summary>
     public static class ConflictRules
     {
@@ -31,8 +31,11 @@ namespace DW2ModLauncher.Core.Services
             // point, not a conflict.
             if (rel.StartsWith("patches/")) return true;
 
+            // Music is merged at runtime: the game lists music\<mood>\<intensity> across every enabled mod and plays any of the files, and
+            // same-named files do not replace each other. So two mods shipping the same music path is not a collision (ModMusic.cs describes it).
+            if (rel.StartsWith("music/")) return true;
+
             if (ext == ".xml" || ext == ".atlas") return false;
-            if (ext == ".mp3") return !rel.StartsWith("music/");
             if (ext == ".txt")
             {
                 if (slash < 0) return Array.IndexOf(RootFiles, file) < 0;

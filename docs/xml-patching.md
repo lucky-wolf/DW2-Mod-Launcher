@@ -164,7 +164,7 @@ Translate the text in place and keep every `id="..."` and `index="..."` exactly 
 list item the text belongs to. Delete anything you do not want to translate. Only display text is collected; identifiers
 (a game event's `Name`, which is its key, and fields that refer to other entities by name) are never touched.
 The interface and other plain-text strings live in `.txt` files, which the game replaces as a whole file. The shortcut
-copies them into the mod folder at the same path (`GameText.txt`, `Hints.txt`, `SystemNames.txt`, `dialog/*.txt`,
+copies them into the mod folder at the same path (`GameText.txt` and any `GameText_*.txt` a mod adds, `Hints.txt`, `SystemNames.txt`, `dialog/*.txt`,
 `Galactopedia/**/*.txt`). Each line is `KEY ;text`: translate only the text after the semicolon and leave the key alone.
 Keep the file names: the game finds them by name. `GameText.txt` and `SystemNames.txt` are picked up by the game itself; the game
 reads `Hints.txt`, `dialog/*.txt` and `Galactopedia/**/*.txt` straight from its data folder, so the launcher's loader serves
