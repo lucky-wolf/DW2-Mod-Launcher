@@ -88,6 +88,8 @@ namespace DW2ModLauncher.Core.Models
     {
         public string Channel { get; set; }
         public string Provider { get; set; }
+        /// <summary>The <see cref="ModInfo.Key"/> of the mod the provider's assembly came from (null when unknown, or recorded by an older loader).</summary>
+        public string ProviderKey { get; set; }
         public int Version { get; set; }
         public string DelegateType { get; set; }
     }
@@ -96,6 +98,8 @@ namespace DW2ModLauncher.Core.Models
     {
         public string Channel { get; set; }
         public string Consumer { get; set; }
+        /// <summary>As <see cref="ObservedChannelProvisionInfo.ProviderKey"/>, for the consumer.</summary>
+        public string ConsumerKey { get; set; }
         public int Version { get; set; }
         public string DelegateType { get; set; }
     }

@@ -169,6 +169,40 @@
             </StackPanel>
           </Border>
         </Expander>
+        <!-- The mods this one's author has checked it works with (dw2modlauncher.json "hooksCoordinatedWith"). The + in the header adds one at the version it has now; each row has its own remove button. -->
+        <Expander IsExpanded="{Binding HasCompatible, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0">
+          <Expander.Header>
+            <Grid ColumnDefinitions="*,Auto" ToolTip.Tip="{Binding L[PublishCompatibleWithTooltip]}">
+              <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[PublishCompatibleWith]}" />
+              <Button Grid.Column="1" Command="{Binding AddCompatibleCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishCompatibleAdd]}">
+                <!-- "plus" icon, Material Design Icons, Apache-2.0 -->
+                <PathIcon Width="16" Height="16" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+              </Button>
+            </Grid>
+          </Expander.Header>
+          <Border Background="{StaticResource Dw2Void}" BorderBrush="{StaticResource Dw2Steel}" BorderThickness="1" Padding="10,8">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="muted" IsVisible="{Binding NoCompatible}" Text="{Binding L[PublishCompatibleNone]}" />
+              <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasCompatible}">
+                <ItemsControl ItemsSource="{Binding CompatibleRows}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:CompatibleRow">
+                      <Grid ColumnDefinitions="*,12,110,12,Auto,8,Auto" Margin="0,2">
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Text="{Binding Name}" />
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="{Binding Version}" />
+                        <TextBlock Grid.Column="4" VerticalAlignment="Center" Foreground="Orange" Text="{Binding Note}" IsVisible="{Binding HasNote}" />
+                        <Button Grid.Column="6" Command="{Binding Remove}" Padding="6,4" ToolTip.Tip="{Binding RemoveTooltip}">
+                          <!-- "close" icon, Material Design Icons, Apache-2.0 -->
+                          <PathIcon Width="12" Height="12" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                        </Button>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </StackPanel>
+          </Border>
+        </Expander>
         <!-- What the update will send as its change note: the Unreleased lines of changelog.txt. Folded to "Change notes: N" until opened. -->
         <Expander IsVisible="{Binding ShowChangeNotes}" IsExpanded="{Binding ChangeNotesExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
           <Expander.Header>

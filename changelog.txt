@@ -1,4 +1,9 @@
 ## Unreleased
+
+## 1.0.26 (2026-10-27)
+- Mod details list live channels with who is connected, from the last game session when a mod declares none
+- Edit Properties and Publish can edit a mod's compatible-with list
+- Mod details scroll as a whole, with requirements and connections foldable
 - Publishing bumps the version even for mods without a changelog
 
 ## 1.0.25 (2026-10-26)

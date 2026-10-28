@@ -295,7 +295,7 @@ namespace DW2ModLauncher.Core.Services
         }
 
         // The last session's data speaks for a mod only when that session loaded the same version of it.
-        private static bool Observes(ObservedHooksFile observed, ModInfo mod)
+        public static bool Observes(ObservedHooksFile observed, ModInfo mod)
         {
             return observed?.Mods != null && observed.Mods.Any(m => string.Equals(m.Key, mod.Key, StringComparison.OrdinalIgnoreCase)
                 && (m.Version ?? "") == (mod.Version ?? ""));
@@ -328,11 +328,25 @@ namespace DW2ModLauncher.Core.Services
         public static bool Coordinates(string entry, ModInfo other, IList<ModInfo> enabled)
         {
             if (string.IsNullOrWhiteSpace(entry)) return false;
-            string name = entry.Trim(), pinned = null;
-            int at = name.LastIndexOf('@');
-            if (at > 0) { pinned = name.Substring(at + 1).Trim(); name = name.Substring(0, at).Trim(); }
+            (string name, string pinned) = SplitCoordinationEntry(entry);
             if (ModDependencies.Find(enabled, name) != other) return false;
             return pinned == null || string.Equals(pinned, (other.Version ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>The mod name and the pinned version (null when the entry is unpinned) of a "hooksCoordinatedWith" entry.</summary>
+        public static (string Name, string Pinned) SplitCoordinationEntry(string entry)
+        {
+            string name = (entry ?? "").Trim(), pinned = null;
+            int at = name.LastIndexOf('@');
+            if (at > 0) { pinned = name.Substring(at + 1).Trim(); name = name.Substring(0, at).Trim(); }
+            return (name, pinned);
+        }
+
+        /// <summary>The entry that says a mod is coordinated with <paramref name="other"/> as it is now: its name, pinned to its version when it has one.</summary>
+        public static string CoordinationEntryFor(ModInfo other)
+        {
+            string name = Name(other);
+            return string.IsNullOrWhiteSpace(other.Version) ? name : name + "@" + other.Version.Trim();
         }
 
         /// <summary>Two mods are by one author when they state the same author, or when the Workshop items they are published as were created by the same Steam user.</summary>

@@ -162,19 +162,21 @@
       <Panel>
       <TextBlock IsVisible="{Binding !HasSelection}" Text="{Binding L[SelectModForDetails]}" Foreground="{StaticResource Dw2Gold}"
                  FontSize="18" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" />
-      <Grid IsVisible="{Binding HasSelection}" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*">
-        <Border Name="PreviewBorder" Grid.Row="0" Background="{StaticResource Dw2Void}" Height="240">
+      <!-- The whole pane scrolls, so however much sits above the description it can always be reached. -->
+      <ScrollViewer IsVisible="{Binding HasSelection}" VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="0,0,10,0">
+        <Border Name="PreviewBorder" Background="{StaticResource Dw2Void}" Height="240">
           <Image Source="{Binding Preview}" Stretch="Uniform" Cursor="Hand" />
         </Border>
-        <TextBlock Grid.Row="1" Classes="subheading" Margin="0,14,0,8" TextTrimming="CharacterEllipsis" Text="{Binding DetailTitle}" />
-        <StackPanel Grid.Row="2" Spacing="2" Margin="0,0,0,10">
+        <TextBlock Classes="subheading" Margin="0,14,0,8" TextTrimming="CharacterEllipsis" Text="{Binding DetailTitle}" />
+        <StackPanel Spacing="2" Margin="0,0,0,10">
           <SelectableTextBlock IsVisible="{Binding HasVersion}" Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailVersion}" />
           <SelectableTextBlock Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailWorkshopId}" />
           <SelectableTextBlock Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailSource}" />
           <SelectableTextBlock IsVisible="{Binding HasPublishState}" Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailPublishState}" ToolTip.Tip="{Binding DetailPublishTip}" />
           <SelectableTextBlock IsVisible="{Binding HasVisibility}" Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailVisibility}" />
         </StackPanel>
-        <StackPanel Grid.Row="3">
+        <StackPanel>
           <Border DataContext="{Binding ConflictCallout}" IsVisible="{Binding IsVisible}" Classes="problems" Classes.conflict="{Binding IsConflict}" Padding="10,4" Margin="0,0,0,8">
             <StackPanel>
               <ToggleButton Classes="problemsHeader" IsChecked="{Binding Expanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,4">
@@ -208,21 +210,29 @@
             </StackPanel>
           </Border>
         </StackPanel>
-        <ItemsControl Grid.Row="4" IsVisible="{Binding HasLinks}" ItemsSource="{Binding DetailLinks}" Margin="0,0,0,10">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="svc:DetailLine">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Classes.linkUnmet="{Binding IsUnmet}" />
-                <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding IsMet}" />
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <Border Grid.Row="5" Height="1" Background="{StaticResource Dw2Blue}" Margin="0,0,0,10" />
-        <ScrollViewer Grid.Row="6">
-          <SelectableTextBlock TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Text="{Binding DetailText}" />
-        </ScrollViewer>
-      </Grid>
+        <!-- Requirements, dependencies and who is connected on each channel: folded by default (the choice is remembered). The warning mark shows when something required is missing. -->
+        <Expander IsVisible="{Binding HasLinks}" IsExpanded="{Binding LinksExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,6,0,0" Margin="0,0,0,10">
+          <Expander.Header>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="{Binding L[DetailLinksHeader]}" Foreground="{StaticResource Dw2Muted}" />
+              <TextBlock Text="⚠" FontWeight="Bold" Foreground="IndianRed" IsVisible="{Binding HasUnmetLinks}" />
+            </StackPanel>
+          </Expander.Header>
+          <ItemsControl ItemsSource="{Binding DetailLinks}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="svc:DetailLine">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Classes.linkUnmet="{Binding IsUnmet}" />
+                  <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding IsMet}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Expander>
+        <Border Height="1" Background="{StaticResource Dw2Blue}" Margin="0,0,0,10" />
+        <SelectableTextBlock TextWrapping="Wrap" Foreground="{StaticResource Dw2Muted}" Text="{Binding DetailText}" />
+      </StackPanel>
+      </ScrollViewer>
       </Panel>
     </Border>
     </Grid>

@@ -94,6 +94,60 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void BuildLinks_ListsLiveChannelsLikeFileChannels()
+        {
+            ModInfo xl = new ModInfo { Id = "xl", DisplayName = "XL" };
+            ModInfo cr = new ModInfo { Id = "cr", DisplayName = "CR" };
+            Dictionary<ModInfo, HookManifest> declared = new Dictionary<ModInfo, HookManifest>
+            {
+                [xl] = new HookManifest { Channels = new List<DeclaredChannel> { new DeclaredChannel { Name = "live.profiles", Role = "provides", Version = 1 } } },
+                [cr] = new HookManifest
+                {
+                    Channels = new List<DeclaredChannel>
+                {
+                    new DeclaredChannel { Name = "Live.Profiles", Role = "consumes", Version = 1 },
+                    new DeclaredChannel { Name = "live.lonely", Role = "consumes", Version = 1 } }
+                }
+            };
+            Func<ModInfo, HookManifest> lookup = m => declared.TryGetValue(m, out HookManifest h) ? h : null;
+
+            string receiver = ModDetails.BuildLinks(cr, new[] { xl, cr }, HookOverlapAnalyzerTests.T, lookup);
+            string provider = ModDetails.BuildLinks(xl, new[] { xl, cr }, HookOverlapAnalyzerTests.T, lookup);
+            string providerAlone = ModDetails.BuildLinks(xl, new[] { xl }, HookOverlapAnalyzerTests.T, lookup);
+
+            Assert.Contains("Receives: Live.Profiles\nProviders: XL", receiver);
+            Assert.Contains("Receives: live.lonely\nProviders: none enabled", receiver);
+            Assert.Contains("Provides: live.profiles\nReceivers: CR", provider);
+            Assert.Contains("Receivers: none enabled", providerAlone);
+        }
+
+        [Fact]
+        public void BuildLinks_ShowsLiveChannelsTheLastSessionSawForAModWithNoManifest()
+        {
+            ModInfo icons = new ModInfo { Id = "icons", DisplayName = "Icons", Version = "2.0" };
+            ModInfo troops = new ModInfo { Id = "troops", DisplayName = "Troops", Version = "1.0" };
+            ObservedHooksFile observed = new ObservedHooksFile
+            {
+                Mods = new List<ObservedModInfo> { new ObservedModInfo { Key = icons.Key, Version = "2.0" }, new ObservedModInfo { Key = troops.Key, Version = "1.0" } },
+                Channels = new ObservedChannelsInfo
+                {
+                    Provided = new List<ObservedChannelProvisionInfo> { new ObservedChannelProvisionInfo { Channel = "troops.icons", Provider = "Icons", ProviderKey = icons.Key, Version = 1 } },
+                    Consumed = new List<ObservedChannelUseInfo> { new ObservedChannelUseInfo { Channel = "troops.icons", Consumer = "Troops", ConsumerKey = troops.Key, Version = 1 } }
+                }
+            };
+
+            string provider = ModDetails.BuildLinks(icons, new[] { icons, troops }, HookOverlapAnalyzerTests.T, null, observed);
+            string receiver = ModDetails.BuildLinks(troops, new[] { icons, troops }, HookOverlapAnalyzerTests.T, null, observed);
+
+            Assert.Contains("Provides: troops.icons\nReceivers: Troops", provider);
+            Assert.Contains("Receives: troops.icons\nProviders: Icons", receiver);
+
+            // a session that ran another version of the mod says nothing about the installed one
+            icons.Version = "2.1";
+            Assert.Equal("", ModDetails.BuildLinks(icons, new[] { icons, troops }, HookOverlapAnalyzerTests.T, null, observed));
+        }
+
+        [Fact]
         public void BuildText_ReflectsEnabledState_AndStripsBbCode()
         {
             ModInfo mod = new ModInfo { Description = "Hello [b]bold[/b] world", SourceName = "Src", Folder = "/f", ConflictFiles = new List<string>() };

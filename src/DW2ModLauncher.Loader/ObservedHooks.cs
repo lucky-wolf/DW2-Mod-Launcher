@@ -77,6 +77,7 @@ namespace DW2ModLauncher.Loader
                     .Select(e => new ObservedMod { Key = e.ModKey, Name = e.DisplayName, Version = e.ModVersion }).ToList(),
                 Channels = LiveChannels.Registry.Snapshot()
             };
+            NameChannelOwners(o.Channels, manifest);
             foreach (MethodBase method in HarmonyLib.Harmony.GetAllPatchedMethods().ToList())
             {
                 HarmonyLib.Patches info = HarmonyLib.Harmony.GetPatchInfo(method);
@@ -90,6 +91,21 @@ namespace DW2ModLauncher.Loader
             }
             o.Hooks = o.Hooks.OrderBy(h => h.Target, StringComparer.Ordinal).ToList();
             return o;
+        }
+
+        // A live channel names its provider and consumer by assembly name; the launcher knows mods by key. Each loaded assembly is traced to the mod
+        // it came from the way patches are, so the launcher can show a mod's channels with no manifest of its own. An assembly no mod owns gets no key.
+        static void NameChannelOwners(ObservedChannels channels, LoaderManifest manifest)
+        {
+            Dictionary<string, string> ownerOfAssembly = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                string owner = OwnerOf(assembly, manifest);
+                string name = assembly.GetName().Name;
+                if (owner != Unknown && owner != Launcher && !ownerOfAssembly.ContainsKey(name)) ownerOfAssembly[name] = owner;
+            }
+            foreach (ObservedChannelProvision provision in channels.Provided) provision.ProviderKey = ownerOfAssembly.TryGetValue(provision.Provider ?? "", out string p) ? p : null;
+            foreach (ObservedChannelUse use in channels.Consumed) use.ConsumerKey = ownerOfAssembly.TryGetValue(use.Consumer ?? "", out string c) ? c : null;
         }
 
         static void Add(ObservedHook hook, string kind, IEnumerable<HarmonyLib.Patch> patches, LoaderManifest manifest)

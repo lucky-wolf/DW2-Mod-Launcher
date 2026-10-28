@@ -380,8 +380,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private IReadOnlyList<DetailLine> detailLinks = new List<DetailLine>();
         /// <summary>What the selected mod provides, receives and depends on, with who is on the other end (ModDetails.BuildLinks).</summary>
-        public IReadOnlyList<DetailLine> DetailLinks { get { return detailLinks; } private set { if (Set(ref detailLinks, value)) Raise(nameof(HasLinks)); } }
+        public IReadOnlyList<DetailLine> DetailLinks { get { return detailLinks; } private set { if (Set(ref detailLinks, value)) { Raise(nameof(HasLinks)); Raise(nameof(HasUnmetLinks)); } } }
         public bool HasLinks { get { return detailLinks.Count > 0; } }
+        /// <summary>Something the mod needs is missing (a red line), so the folded links section still says so.</summary>
+        public bool HasUnmetLinks { get { return detailLinks.Any(l => l.IsUnmet); } }
+        /// <summary>Whether the requirements and connections section of the details is open; remembered between runs.</summary>
+        public bool LinksExpanded
+        {
+            get { return settings.LinksExpanded; }
+            set
+            {
+                if (settings.LinksExpanded == value) return;
+                settings.LinksExpanded = value;
+                SaveSettings();
+                Raise(nameof(LinksExpanded));
+            }
+        }
 
         /// <summary>The selected mod's problems, split so a caution is never presented as a conflict.</summary>
         public ProblemsCalloutViewModel ConflictCallout { get; } = new ProblemsCalloutViewModel(true);
@@ -584,11 +598,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>The last code-overlap analysis (docs/plans/hook-manifest.md): who patches the same game code, stale hook data, channel version mismatches.</summary>
         public HookAnalysis HookAnalysis { get; private set; } = new HookAnalysis();
 
+        // what the loader recorded in earlier sessions, as last read by AnalyzeHooks (null: none yet)
+        private ObservedHooksFile observedHooks;
+
         private void AnalyzeHooks()
         {
             // The history keeps what every session saw per mod, so a mod taken out of the launch list still has its record (and can be checked before it is added back).
             (ObservedHooksFile observed, string observedError) = HookFiles.UpdateObservedHistory(HookFiles.ObservedPath(), HookFiles.HistoryPath(), key => T(key));
             if (observedError != null) AddProblem(observedError);
+            observedHooks = observed;
             HookAnalysis = HookOverlapAnalyzer.Analyze(OrderedEnabledMods(), observed, HookFiles.SettingIsOn, new HashSet<string>(settings.AcknowledgedHooks ?? new List<string>()), key => T(key),
                 notEnabled: AllMods.Where(m => !IsSelected(m)));
             HookOverlapAnalyzer.Apply(AllMods, HookAnalysis, key => T(key));
@@ -912,7 +930,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             DetailText = ModDetails.BuildText(mod, selected, key => T(key));
             DetailSource = T("SourceLine", ("Source", ModDetails.SourceText(mod, settings.ManagedModsRoot)));
             DetailWorkshopId = T("WorkshopIdLine", ("Id", ModDetails.WorkshopId(mod) ?? "—"));
-            DetailLinks = ModDetails.BuildLinkLines(mod, OrderedEnabledMods(), key => T(key));
+            DetailLinks = ModDetails.BuildLinkLines(mod, OrderedEnabledMods(), key => T(key), m => HookFiles.ReadManifest(m, key => T(key)).Manifest, observedHooks);
             (List<string> conflicts, List<string> cautions) = ModDetails.BuildProblemGroups(mod, severity, key => T(key));
             ConflictCallout.Show(conflicts.Count == 0 ? "" : ProblemsHeader("HealthConflict", conflicts.Count, mod.HookConflictMods, mod.HookConflictMethods, mod.HookConflictNotes.Count),
                 string.Join("\n", conflicts), mod.HookConflictNotes.Count > 0);
@@ -1558,7 +1576,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1644,7 +1662,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
