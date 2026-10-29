@@ -14,22 +14,33 @@ namespace DW2ModLauncher.Avalonia.Views
             InitializeComponent();
         }
 
-        public ListPickerDialog(string title, string note, IList<string> items, string okText, string cancelText) : this()
+        public ListPickerDialog(string title, string note, IList<string> items, string okText, string cancelText, bool multiple = false) : this()
         {
             Title = title;
             NoteText.Text = note;
             OkButton.Content = okText;
             CancelButton.Content = cancelText;
             Items.ItemsSource = items;
-            Items.SelectionChanged += delegate { OkButton.IsEnabled = Items.SelectedItem is string; };
-            Items.DoubleTapped += delegate { Choose(); };
+            this.multiple = multiple;
+            if (multiple) Items.SelectionMode = SelectionMode.Multiple | SelectionMode.Toggle;
+            Items.SelectionChanged += delegate { OkButton.IsEnabled = Items.SelectedItems != null && Items.SelectedItems.Count > 0; };
+            if (!multiple) Items.DoubleTapped += delegate { Choose(); };
             OkButton.Click += delegate { Choose(); };
             CancelButton.Click += delegate { Close(null); };
         }
 
+        private readonly bool multiple;
+
+        // One item closes with that string; with several allowed it closes with the list of the selected strings.
         private void Choose()
         {
-            if (Items.SelectedItem is string chosen) Close(chosen);
+            if (multiple)
+            {
+                List<string> chosen = new List<string>();
+                foreach (object item in Items.SelectedItems) if (item is string text) chosen.Add(text);
+                if (chosen.Count > 0) Close(chosen);
+            }
+            else if (Items.SelectedItem is string one) Close(one);
         }
     }
 }

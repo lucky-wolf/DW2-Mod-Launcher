@@ -53,6 +53,33 @@ namespace DW2ModLauncher.Core.Services
             Save(path, root);
         }
 
+        /// <summary>
+        /// Adds "workshopId" to the "dependencies" entries named in <paramref name="idsByDependency"/> (index in the array to Workshop id), placed right after
+        /// the entry's "mod". An entry that already has an id is left alone. Throws if the existing file cannot be parsed.
+        /// </summary>
+        public static void AddDependencyWorkshopIds(string modFolder, IDictionary<int, long> idsByDependency)
+        {
+            string path = Path.Combine(modFolder, FileName);
+            JsonObject root = Load(path);
+            string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals("dependencies", StringComparison.OrdinalIgnoreCase));
+            JsonArray array = key == null ? null : root[key] as JsonArray;
+            if (array == null) throw new InvalidDataException(path + " has no \"dependencies\" array.");
+            foreach (KeyValuePair<int, long> pair in idsByDependency)
+            {
+                JsonObject entry = pair.Key >= 0 && pair.Key < array.Count ? array[pair.Key] as JsonObject : null;
+                if (entry == null) throw new InvalidDataException(path + " dependency " + pair.Key + " is not an object.");
+                if (entry.Any(kv => kv.Key.Equals("workshopId", StringComparison.OrdinalIgnoreCase))) continue;
+                List<KeyValuePair<string, JsonNode>> items = entry.Select(kv => new KeyValuePair<string, JsonNode>(kv.Key, kv.Value)).ToList();
+                entry.Clear();
+                foreach (KeyValuePair<string, JsonNode> item in items)
+                {
+                    entry[item.Key] = item.Value;
+                    if (item.Key.Equals("mod", StringComparison.OrdinalIgnoreCase)) entry["workshopId"] = pair.Value;
+                }
+            }
+            Save(path, root);
+        }
+
         private static void Stamp(string modFolder, string field, string value, bool overwrite)
         {
             string name = (value ?? "").Trim();

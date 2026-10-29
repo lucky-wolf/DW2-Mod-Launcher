@@ -96,14 +96,14 @@ namespace DW2ModLauncher.Tests
 
                 List<LocalizationTextFile> files = LocalizationModBuilder.CollectTextFiles(game, new[] { new ModInfo { Id = "m", Folder = mod, ContentRoot = mod } });
 
-                Assert.Equal(new[] { "dialog/zenox.txt", "Galactopedia/GameConcepts/Alliances.txt", "gametext.txt", "GameText_XL.txt", "Hints.txt" }, files.ConvertAll(f => f.Relative));
+                Assert.Equal(new[] { "dialog/zenox.txt", "Galactopedia/GameConcepts/Alliances.txt", "gametext.txt", "GameText_XL.txt" }, files.ConvertAll(f => f.Relative));
                 Assert.Equal(Path.Combine(mod, "gametext.txt"), files.Single(f => f.Relative == "gametext.txt").Source);
             }
             finally { Directory.Delete(root, true); }
         }
 
         [Fact]
-        public void Build_Copies_Text_Files_Into_The_Mod_At_The_Same_Path()
+        public void Build_Suffixes_GameText_With_The_Language_And_Keeps_Dialog_Paths()
         {
             string root = TempDir();
             try
@@ -117,11 +117,34 @@ namespace DW2ModLauncher.Tests
                 {
                     new LocalizationTextFile { Source = Path.Combine(root, "src", "GameText.txt"), Relative = "GameText.txt" },
                     new LocalizationTextFile { Source = Path.Combine(root, "src", "zenox.txt"), Relative = "dialog/zenox.txt" }
-                });
+                }, "ja");
 
                 Assert.Equal(2, result.TextFiles);
-                Assert.Equal("A ;one", File.ReadAllText(Path.Combine(mod, "GameText.txt")));
+                Assert.Equal("A ;one", File.ReadAllText(Path.Combine(mod, "GameText_ja.txt")));
+                Assert.False(File.Exists(Path.Combine(mod, "GameText.txt")));
                 Assert.Equal("B ;two", File.ReadAllText(Path.Combine(mod, "dialog", "zenox.txt")));
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Fact]
+        public void Build_Keeping_Existing_Leaves_Files_The_Mod_Already_Has()
+        {
+            string root = TempDir();
+            try
+            {
+                Write(Path.Combine(root, "src", "GameText.txt"), "A ;new");
+                string mod = Path.Combine(root, "mod");
+                Write(Path.Combine(mod, "GameText_ja.txt"), "A ;translated");
+
+                LocalizationResult result = LocalizationModBuilder.Build(mod, new string[0], new[]
+                {
+                    new LocalizationTextFile { Source = Path.Combine(root, "src", "GameText.txt"), Relative = "GameText.txt" }
+                }, "ja", true);
+
+                Assert.Equal(0, result.TextFiles);
+                Assert.Equal(1, result.Skipped);
+                Assert.Equal("A ;translated", File.ReadAllText(Path.Combine(mod, "GameText_ja.txt")));
             }
             finally { Directory.Delete(root, true); }
         }

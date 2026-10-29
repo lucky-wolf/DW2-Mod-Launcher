@@ -29,8 +29,12 @@ namespace DW2ModLauncher.Avalonia.Services
         Task<int> ChooseAsync(string message, string title, IList<string> buttons, IList<string> tooltips = null);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFromListAsync(string title, string note, IList<string> items);
+        /// <summary>Pick one or more strings from a list (click to toggle); the chosen ones in list order, or null if the user cancelled.</summary>
+        Task<IList<string>> PickManyFromListAsync(string title, string note, IList<string> items);
         /// <summary>The entered text (never blank), or null if the user cancelled. <paramref name="hint"/> turns the text typed so far into a note shown under the box.</summary>
         Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint, IList<string> choices = null, Func<string, bool> isInvalid = null);
+        /// <summary>The rename prompt: a title box and a folder box (the folder follows the title until edited). { title, folder }, or null if the user cancelled.</summary>
+        Task<string[]> PromptRenameAsync(string title, string intro, string titleLabel, string folderLabel, string initialTitle, string initialFolder, Func<string, string> folderFor, Func<string, string> hint, Func<string, bool> folderInvalid);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFolderAsync(string title, string startFolder);
         /// <summary>The user's Downloads folder as the system reports it (a redirected one is followed), or null if the system has none.</summary>

@@ -10,6 +10,8 @@ namespace DW2ModLauncher.Core.Models
         public bool WidgetLanguageFromMods { get; set; } = true;
         /// <summary>Code overlaps the player said are fine (HookOverlapAnalyzer.AcknowledgementKey: target, both mods and their versions).</summary>
         public List<string> AcknowledgedHooks { get; set; } = new List<string>();
+        /// <summary>File collisions the player launched anyway and asked not to be asked about again (ConflictAcknowledgement.Key: file, the mods that ship it and their versions).</summary>
+        public List<string> AcknowledgedFileConflicts { get; set; } = new List<string>();
         /// <summary>Steam user id to handle, for Workshop creators looked up as the author of mods that state none (SteamAuthors).</summary>
         public Dictionary<string, string> SteamNames { get; set; } = new Dictionary<string, string>();
         public string GameRoot { get; set; }

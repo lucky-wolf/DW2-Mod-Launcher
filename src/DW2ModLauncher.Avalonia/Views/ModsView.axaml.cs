@@ -306,12 +306,19 @@ namespace DW2ModLauncher.Avalonia.Views
                 Point top = c.TranslatePoint(new Point(0, 0), ModList) ?? new Point(0, 0);
                 if (now.Y < top.Y + c.Bounds.Height / 2) { insertIndex = i; break; }
             }
-            // A rule (loadAfter / loadBefore) stops the row at the nearest place it may go; every row it cannot pass is tinted from the start of the drag.
+            // A rule (loadAfter / loadBefore) stops the row at the nearest place it may go; the nearest row it cannot pass in each direction is tinted.
             ClampToLimits();
+            // Only the two rows that bracket the allowed range are tinted: the nearest one above that it must follow, the nearest below that it must precede.
+            ModRowViewModel upperLimit = null, lowerLimit = null;
+            if (DataContext is MainViewModel limited)
+            {
+                upperLimit = limitFollow.OrderByDescending(r => limited.Mods.IndexOf(r)).FirstOrDefault();
+                lowerLimit = limitPrecede.OrderBy(r => limited.Mods.IndexOf(r)).FirstOrDefault();
+            }
             for (int i = 0; i < count; i++)
             {
                 if (ModList.ContainerFromIndex(i) is ListBoxItem item)
-                    item.Classes.Set("dragLimit", item.DataContext is ModRowViewModel r && (limitFollow.Contains(r) || limitPrecede.Contains(r)));
+                    item.Classes.Set("dragLimit", item.DataContext is ModRowViewModel r && (r == upperLimit || r == lowerLimit));
             }
             // The line sits above the row now at the insertion point, or under the last row; rows that are not on screen leave it where it was.
             double lineY = 0;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -72,9 +73,20 @@ namespace DW2ModLauncher.Avalonia.Services
             return new ListPickerDialog(title, note, items, OkText, CancelText).ShowDialog<string>(owner());
         }
 
+        public async Task<IList<string>> PickManyFromListAsync(string title, string note, IList<string> items)
+        {
+            List<string> picked = await new ListPickerDialog(title, note, items, OkText, CancelText, true).ShowDialog<List<string>>(owner());
+            return picked == null ? null : items.Where(picked.Contains).ToList();
+        }
+
         public Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint, IList<string> choices = null, Func<string, bool> isInvalid = null)
         {
             return new InputDialog(title, label, initial, okText, cancelText, hint, choices, isInvalid).ShowDialog<string>(owner());
+        }
+
+        public Task<string[]> PromptRenameAsync(string title, string intro, string titleLabel, string folderLabel, string initialTitle, string initialFolder, Func<string, string> folderFor, Func<string, string> hint, Func<string, bool> folderInvalid)
+        {
+            return new RenameDialog(title, intro, titleLabel, folderLabel, initialTitle, initialFolder, OkText, CancelText, folderFor, hint, folderInvalid).ShowDialog<string[]>(owner());
         }
 
         public async Task<string> PickFolderAsync(string title, string startFolder)

@@ -18,7 +18,10 @@ namespace DW2ModLauncher.Tests
         [Theory]
         [InlineData("My Mod", "My Mod")]
         [InlineData("  My   Cool  Mod  ", "My Cool Mod")]
-        [InlineData("Part 2: The Return?", "Part 2 The Return")]
+        [InlineData("Part 2: The Return?", "Part 2 - The Return")]
+        [InlineData("Translation Pack: Japanese", "Translation Pack - Japanese")]
+        [InlineData("A:B", "A - B")]
+        [InlineData("Ends with colon:", "Ends with colon")]
         [InlineData("a/b\\c", "a b c")]
         [InlineData("Ends with dot.", "Ends with dot")]
         [InlineData("GalCivMusic", "GalCivMusic")]
@@ -40,7 +43,7 @@ namespace DW2ModLauncher.Tests
             {
                 string folder = LocalModManager.Create(root, "My Mod: Part 2");
 
-                Assert.Equal(Path.Combine(root, "My Mod Part 2"), folder);
+                Assert.Equal(Path.Combine(root, "My Mod - Part 2"), folder);
                 string text = File.ReadAllText(Path.Combine(folder, "mod.json"));
                 Assert.Contains("\"displayName\": \"My Mod: Part 2\"", text);
                 Assert.Contains("\"version\": \"1.0.0\"", text);

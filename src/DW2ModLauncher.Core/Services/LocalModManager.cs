@@ -22,7 +22,7 @@ namespace DW2ModLauncher.Core.Services
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
         };
 
-        /// <summary>Turns a display name into a folder name that is valid on Windows and Linux: "My Mod: Part 2" becomes "My Mod Part 2". Spaces are kept (runs collapse to one); only characters the file system rejects are dropped.</summary>
+        /// <summary>Turns a display name into a folder name that is valid on Windows and Linux: "My Mod: Part 2" becomes "My Mod - Part 2". Spaces are kept (runs collapse to one); a colon becomes a dash and the other characters the file system rejects are dropped.</summary>
         public static string FolderNameFor(string displayName)
         {
             char[] invalid = Path.GetInvalidFileNameChars();
@@ -30,6 +30,13 @@ namespace DW2ModLauncher.Core.Services
             bool pendingSeparator = false;
             foreach (char c in (displayName ?? "").Trim())
             {
+                if (c == ':' && sb.Length > 0)
+                {
+                    // "Translation Pack: Japanese" is the folder "Translation Pack - Japanese"
+                    if (sb[sb.Length - 1] != '-') { if (sb[sb.Length - 1] != ' ') sb.Append(' '); sb.Append('-'); }
+                    pendingSeparator = true;
+                    continue;
+                }
                 if (char.IsWhiteSpace(c) || Array.IndexOf(invalid, c) >= 0 || "<>:\"/\\|?*".IndexOf(c) >= 0)
                 {
                     pendingSeparator = sb.Length > 0;
@@ -40,7 +47,7 @@ namespace DW2ModLauncher.Core.Services
                 sb.Append(c);
             }
             // Windows silently drops trailing dots and spaces, which makes the folder impossible to address.
-            string name = sb.ToString().TrimEnd('.', ' ');
+            string name = sb.ToString().TrimEnd('.', ' ', '-');
             if (name.Length == 0) return DefaultFolderName;
             string stem = name.Contains('.') ? name.Substring(0, name.IndexOf('.')) : name;
             if (ReservedNames.Contains(stem, StringComparer.OrdinalIgnoreCase)) name = "_" + name;

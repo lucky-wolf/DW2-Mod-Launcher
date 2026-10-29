@@ -7,6 +7,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string text = "";
         private bool expanded;
         private bool hasHooks;
+        private string tip = "";
 
         public ProblemsCalloutViewModel(bool isConflict) { IsConflict = isConflict; }
 
@@ -26,10 +27,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string ReportText { get; set; } = "";
         public RelayCommand ReportCommand { get; set; }
 
-        public void Show(string summary, string text, bool hasHooks)
+        /// <summary>The hover text of the header: the list, then the note (what the list means) when there is one.</summary>
+        public string Tip { get { return tip; } private set { Set(ref tip, value); } }
+
+        public void Show(string summary, string text, bool hasHooks, string note = null)
         {
             Summary = summary;
             Text = text;
+            Tip = string.IsNullOrEmpty(note) ? text : text + "\n\n" + note;
             HasHooks = hasHooks;
         }
 

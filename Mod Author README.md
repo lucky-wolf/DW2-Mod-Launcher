@@ -183,7 +183,7 @@ Say what you need in `dw2modlauncher.json`:
 { "dependencies": [ { "mod": "SomeOtherMod", "required": false, "minVersion": "1.0.0", "loadAfter": true } ] }
 ```
 
-`required` lists a warning before launch when the other mod is missing. `minVersion` is compared with the other mod's `version` in its `mod.json`. `loadAfter` and `loadBefore` are enforced when the player presses Play. There is deliberately no "incompatible" field. Set `"minLauncherVersion"` if your mod needs a recent launcher. Reference: [DLL Injection.md](<docs/DLL Injection.md#dependencies-dependencies-in-dw2modlauncherjson>).
+Name the other mod with `mod` (its name) or `workshopId` (its Workshop id, which survives renames) or both; with both, the id wins and the name is ignored. An entry with neither is an error. `required` lists a warning before launch when the other mod is missing. `minVersion` is compared with the other mod's `version` in its `mod.json`. `loadAfter` and `loadBefore` are enforced when the player presses Play. There is deliberately no "incompatible" field. Set `"minLauncherVersion"` if your mod needs a recent launcher. Reference: [DLL Injection.md](<docs/DLL Injection.md#dependencies-dependencies-in-dw2modlauncherjson>).
 
 ## Code hooks: patching the same game code as another mod
 

@@ -82,6 +82,7 @@
               <MenuItem Header="{Binding L[EditProperties]}" Command="{Binding EditPropertiesCommand}" />
               <MenuItem Header="{Binding L[PublishToWorkshop]}" Command="{Binding PublishCommand}" />
               <MenuItem Header="{Binding L[MarkUpToDate]}" Command="{Binding MarkUpToDateCommand}" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" />
+              <MenuItem Header="{Binding L[AddTranslation]}" Command="{Binding AddTranslationCommand}" />
               <MenuItem Header="{Binding L[RenameMod]}" Command="{Binding RenameModCommand}" />
               <MenuItem Header="{Binding L[DeleteMod]}" Command="{Binding DeleteModCommand}" />
               <Separator IsVisible="{Binding SelectedIsWorkshop}" />
@@ -177,7 +178,7 @@
           <SelectableTextBlock IsVisible="{Binding HasVisibility}" Foreground="{StaticResource Dw2Muted}" TextWrapping="Wrap" Text="{Binding DetailVisibility}" />
         </StackPanel>
         <StackPanel>
-          <Border DataContext="{Binding ConflictCallout}" IsVisible="{Binding IsVisible}" Classes="problems" Classes.conflict="{Binding IsConflict}" Padding="10,4" Margin="0,0,0,8">
+          <Border DataContext="{Binding ConflictCallout}" IsVisible="{Binding IsVisible}" ToolTip.Tip="{Binding Tip}" Classes="problems" Classes.conflict="{Binding IsConflict}" Padding="10,4" Margin="0,0,0,8">
             <StackPanel>
               <ToggleButton Classes="problemsHeader" IsChecked="{Binding Expanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,4">
                 <Grid ColumnDefinitions="*,Auto">
@@ -193,7 +194,7 @@
               </StackPanel>
             </StackPanel>
           </Border>
-          <Border DataContext="{Binding CautionCallout}" IsVisible="{Binding IsVisible}" Classes="problems" Classes.conflict="{Binding IsConflict}" Padding="10,4" Margin="0,0,0,8">
+          <Border DataContext="{Binding CautionCallout}" IsVisible="{Binding IsVisible}" ToolTip.Tip="{Binding Tip}" Classes="problems" Classes.conflict="{Binding IsConflict}" Padding="10,4" Margin="0,0,0,8">
             <StackPanel>
               <ToggleButton Classes="problemsHeader" IsChecked="{Binding Expanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,4">
                 <Grid ColumnDefinitions="*,Auto">

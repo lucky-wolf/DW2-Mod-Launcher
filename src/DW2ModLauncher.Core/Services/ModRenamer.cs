@@ -36,8 +36,9 @@ namespace DW2ModLauncher.Core.Services
     /// </summary>
     public static class ModRenamer
     {
+        /// <param name="folderName">The folder the Mod gets (made valid with <see cref="LocalModManager.FolderNameFor"/>); null: the one the new name gives.</param>
         /// <param name="dllBackupRoot">Where the old-named DLLs are put aside; the launcher's data folder when null.</param>
-        public static ModRenameResult Rename(ModInfo mod, string newName, LauncherSettings settings, ModOrderState order, IEnumerable<ModInfo> allMods, string dllBackupRoot = null)
+        public static ModRenameResult Rename(ModInfo mod, string newName, LauncherSettings settings, ModOrderState order, IEnumerable<ModInfo> allMods, string dllBackupRoot = null, string folderName = null)
         {
             if (!LocalModManager.CanRename(mod, settings.ManagedModsRoot)) throw new InvalidOperationException("Only a local Mod in the game's Mod folder can be renamed.");
             string name = (newName ?? "").Trim();
@@ -45,7 +46,7 @@ namespace DW2ModLauncher.Core.Services
             if (string.IsNullOrWhiteSpace(mod.ModJsonPath) || !File.Exists(mod.ModJsonPath)) throw new FileNotFoundException("The Mod has no mod.json to rename in.", mod.ModJsonPath);
 
             string oldFolderName = Path.GetFileName(mod.Folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            string newFolderName = LocalModManager.FolderNameFor(name);
+            string newFolderName = LocalModManager.FolderNameFor(string.IsNullOrWhiteSpace(folderName) ? name : folderName);
             string newFolder = Path.Combine(settings.ManagedModsRoot, newFolderName);
             bool folderChanges = !string.Equals(oldFolderName, newFolderName, StringComparison.Ordinal);
             bool caseOnly = folderChanges && string.Equals(oldFolderName, newFolderName, StringComparison.OrdinalIgnoreCase) && OperatingSystem.IsWindows();
@@ -146,7 +147,7 @@ namespace DW2ModLauncher.Core.Services
             foreach (ModInfo other in (allMods ?? new List<ModInfo>()).Where(m => m != null && m != mod))
                 foreach (LauncherDependency dep in other.Dependencies ?? new List<LauncherDependency>())
                 {
-                    if (dep == null || string.IsNullOrWhiteSpace(dep.mod)) continue;
+                    if (dep == null || dep.workshopId.HasValue || string.IsNullOrWhiteSpace(dep.mod)) continue;   // a Workshop id survives a rename
                     string wanted = dep.mod.Trim();
                     if (oldNames.Any(n => string.Equals(n, wanted, StringComparison.OrdinalIgnoreCase)) && !newNames.Any(n => string.Equals(n, wanted, StringComparison.OrdinalIgnoreCase)))
                     {

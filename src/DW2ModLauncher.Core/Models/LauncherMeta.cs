@@ -51,8 +51,12 @@ namespace DW2ModLauncher.Core.Models
     /// <summary>One entry of dw2modlauncher.json "dependencies": what a mod needs from one other mod.</summary>
     public class LauncherDependency
     {
-        /// <summary>The other mod, matched against its id, display name, folder name or token, ignoring case.</summary>
+        /// <summary>The other mod by name, matched against its id, display name, folder name or token, ignoring case. Optional when <see cref="workshopId"/> is given; ignored when it is.</summary>
         public string mod { get; set; }
+
+        /// <summary>The other mod by Workshop id (its mod.json "workshopId", or the folder of a subscribed Workshop mod). Optional when <see cref="mod"/> is given; wins over it when both are.</summary>
+        [System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)]
+        public long? workshopId { get; set; }
 
         /// <summary>True: the mod does not work without it (a launch warning when it is missing). False: the entry applies only when the other mod is enabled.</summary>
         public bool required { get; set; }

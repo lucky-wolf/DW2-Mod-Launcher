@@ -97,6 +97,7 @@ namespace DW2ModLauncher.Core.Services
                 mod.ConflictCount = 0;
                 if (mod.ConflictFiles == null) mod.ConflictFiles = new List<string>(); else mod.ConflictFiles.Clear();
                 if (mod.ConflictMods == null) mod.ConflictMods = new List<string>(); else mod.ConflictMods.Clear();
+                mod.ConflictOwners = new Dictionary<string, List<ModInfo>>(StringComparer.OrdinalIgnoreCase);
                 mod.IdenticalFileCount = 0;
                 mod.LowRiskConflictCount = 0;
                 mod.HighRiskConflictCount = 0;
@@ -140,6 +141,7 @@ namespace DW2ModLauncher.Core.Services
                 foreach (ModInfo mod in unique)
                 {
                     mod.ConflictFiles.Add(kv.Key);
+                    mod.ConflictOwners[kv.Key] = unique.Where(o => o.Key != mod.Key).ToList();
                     if (highRisk) mod.HighRiskConflictCount++; else mod.LowRiskConflictCount++;
                     foreach (ModInfo other in unique)
                     {

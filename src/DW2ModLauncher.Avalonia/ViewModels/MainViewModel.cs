@@ -130,6 +130,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             CheckUpdatesCommand = new RelayCommand(() => BeginWorkshopUpdateCheck(true), () => !updateCheckRunning && workshopMods.Count > 0);
             CreateModCommand = new RelayCommand(CreateModAsync);
             DeleteModCommand = new RelayCommand(DeleteModAsync, () => selectedRow != null && LocalModManager.CanDelete(selectedRow.Mod, settings.ManagedModsRoot));
+            AddTranslationCommand = new RelayCommand(AddTranslationAsync, () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !string.IsNullOrWhiteSpace(selectedRow.Mod.ModJsonPath));
             RenameModCommand = new RelayCommand(RenameModAsync, () => selectedRow != null && LocalModManager.CanRename(selectedRow.Mod, settings.ManagedModsRoot));
 
             Mods.CollectionChanged += delegate { if (!populating) SyncVisibleMods(); };
@@ -335,6 +336,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand EditPropertiesCommand { get; }
         public RelayCommand CreateModCommand { get; }
         public RelayCommand DeleteModCommand { get; }
+        public RelayCommand AddTranslationCommand { get; }
         public RelayCommand RenameModCommand { get; }
         public RelayCommand MarkUpToDateCommand { get; }
 
@@ -356,6 +358,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 PublishCommand.RaiseCanExecuteChanged();
                 EditPropertiesCommand.RaiseCanExecuteChanged();
                 DeleteModCommand.RaiseCanExecuteChanged();
+                AddTranslationCommand.RaiseCanExecuteChanged();
                 RenameModCommand.RaiseCanExecuteChanged();
             }
         }
@@ -549,6 +552,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             List<string> identityProblems = LocalModIdentity.Adopt(managedMods, settings, modOrder, ModsJsonPath(), out bool identityChanged);
             foreach (string problem in identityProblems) AddProblem(problem);
             if (identityChanged) SaveSettings();
+            // a local mod's name-only dependencies get the Workshop id of the mod they name as soon as that mod has one (Workshop mods' files are not touched)
+            foreach ((string mod, string problem) in DependencyIds.Resolve(managedMods.Concat(workshopMods).ToList(), managedMods))
+                AddProblem(T("DependencyIdsNotWritten", ("Mod", mod), ("Problem", problem)));
             managedMods = ModLibrary.OrderForDisplay(managedMods, modOrder);
             workshopMods = ModLibrary.OrderForDisplay(workshopMods, modOrder);
 
@@ -689,9 +695,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 bool enabled = IsSelected(row.Mod);
                 row.Enabled = enabled;
+                row.Mod.LoadOrderRank = present.FindIndex(t => string.Equals(t, row.Mod.ActiveToken, StringComparison.OrdinalIgnoreCase));
                 int severity = ModHealth.Severity(row.Mod, enabled);
                 row.HealthSeverity = severity;
-                List<string> problems = severity >= 2 ? ModDetails.BuildProblems(row.Mod, severity, key => T(key)) : new List<string>();
+                List<string> problems = severity >= 2 ? ModDetails.BuildProblems(row.Mod, severity, key => T(key), 6) : new List<string>();
                 row.HealthTip = problems.Count == 0 ? null : (severity == 3 ? T("HealthConflict") : T("HealthCaution")) + "\n" + string.Join("\n", problems);
                 row.LoadOrderIndex = present.FindIndex(t => string.Equals(t, row.Mod.ActiveToken, StringComparison.OrdinalIgnoreCase));
                 row.RefreshFromMod();
@@ -945,17 +952,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             DetailWorkshopId = T("WorkshopIdLine", ("Id", ModDetails.WorkshopId(mod) ?? "—"));
             DetailLinks = ModDetails.BuildLinkLines(mod, OrderedEnabledMods(), key => T(key), m => HookFiles.ReadManifest(m, key => T(key)).Manifest, observedHooks);
             (List<string> conflicts, List<string> cautions) = ModDetails.BuildProblemGroups(mod, severity, key => T(key));
-            ConflictCallout.Show(conflicts.Count == 0 ? "" : ProblemsHeader("HealthConflict", conflicts.Count, mod.HookConflictMods, mod.HookConflictMethods, mod.HookConflictNotes.Count),
-                string.Join("\n", conflicts), mod.HookConflictNotes.Count > 0);
-            CautionCallout.Show(cautions.Count == 0 ? "" : ProblemsHeader("HealthCaution", cautions.Count, mod.HookCautionMods, mod.HookCautionMethods, mod.HookNotes.Count - mod.HookConflictNotes.Count),
-                string.Join("\n", cautions), mod.HookNotes.Count - mod.HookConflictNotes.Count > 0);
+            ConflictCallout.Show(conflicts.Count == 0 ? "" : ProblemsHeader("HealthConflict", conflicts.Count, mod.HookConflictMods, mod.HookConflictMethods, mod.HookConflictNotes.Count, mod.HighRiskConflictCount > 0 ? mod : null),
+                string.Join("\n", conflicts), mod.HookConflictNotes.Count > 0, mod.HighRiskConflictCount > 0 ? T("ConflictWinnerExplain") : null);
+            CautionCallout.Show(cautions.Count == 0 ? "" : ProblemsHeader("HealthCaution", cautions.Count, mod.HookCautionMods, mod.HookCautionMethods, mod.HookNotes.Count - mod.HookConflictNotes.Count, mod.HighRiskConflictCount == 0 && mod.LowRiskConflictCount > 0 ? mod : null),
+                string.Join("\n", cautions), mod.HookNotes.Count - mod.HookConflictNotes.Count > 0, mod.HighRiskConflictCount == 0 && mod.LowRiskConflictCount > 0 ? T("ConflictWinnerExplain") : null);
             Preview = ImageLoader.Load(mod.PreviewImage, 0);
         }
 
         /// <summary>"Conflict: 3 mods, 5 hooks" when everything listed is a code-hook overlap, else "Conflict (N)" with N the lines listed.</summary>
-        private string ProblemsHeader(string headingKey, int listed, int mods, int methods, int hookLines)
+        private string ProblemsHeader(string headingKey, int listed, int mods, int methods, int hookLines, ModInfo fileConflicts = null)
         {
             string heading = T(headingKey);
+            // only file conflicts listed: "Caution: 2 files, 1 mod"
+            if (fileConflicts != null && listed == 1 && hookLines == 0 && fileConflicts.ConflictCount > 0)
+                return T("ConflictFilesSummary", ("Heading", heading),
+                    ("Files", T(fileConflicts.ConflictCount == 1 ? "ConflictCountFilesOne" : "ConflictCountFiles", ("Count", fileConflicts.ConflictCount))),
+                    ("Mods", T(fileConflicts.ConflictMods.Count == 1 ? "HookCountModsOne" : "HookCountMods", ("Count", fileConflicts.ConflictMods.Count))));
             if (mods == 0 || mods != listed) return T("HookProblemsCount", ("Heading", heading), ("Count", listed));
             return T("HookProblemsSummary", ("Heading", heading), ("Mods", T(mods == 1 ? "HookCountModsOne" : "HookCountMods", ("Count", mods))), ("Hooks", T(methods == 1 ? "HookCountHooksOne" : "HookCountHooks", ("Count", methods))));
         }
@@ -1198,6 +1210,151 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             UpdateStatus();
         }
 
+        private static readonly string[] LanguageChoices =
+        {
+            "ja - Japanese", "ru - Russian", "de - German", "fr - French", "es - Spanish", "it - Italian", "pt - Portuguese", "pl - Polish",
+            "zh - Chinese", "ko - Korean", "tr - Turkish", "nl - Dutch", "cs - Czech", "uk - Ukrainian", "sv - Swedish", "hu - Hungarian"
+        };
+
+        /// <summary>"ja - Japanese" or "ja" gives "ja".</summary>
+        private static string LanguageCodeFrom(string text)
+        {
+            string typed = (text ?? "").Trim();
+            int space = typed.IndexOf(' ');
+            return (space < 0 ? typed : typed.Substring(0, space)).ToLowerInvariant();
+        }
+
+        private static bool IsLanguageCode(string code)
+        {
+            return code.Length >= 2 && code.Length <= 3 && code.All(c => c >= 'a' && c <= 'z');
+        }
+
+        /// <summary>What a translation collects text from: the base game (when IncludeBase) and/or Mods.</summary>
+        private sealed class TranslationSource
+        {
+            public bool IncludeBase;
+            public List<ModInfo> Mods = new List<ModInfo>();
+            public string Label;
+        }
+
+        private string ModLabel(ModInfo m)
+        {
+            return m.DisplayName ?? m.Id ?? Path.GetFileName(m.Folder);
+        }
+
+        /// <summary>Mods offered for translating, sorted by name, with the folder name added to labels that would otherwise look alike.</summary>
+        private List<ModInfo> TranslatableMods(out List<string> labels)
+        {
+            List<ModInfo> candidates = Mods.Select(r => r.Mod).Where(m => !string.IsNullOrWhiteSpace(m.ContentRoot ?? m.Folder))
+                .OrderBy(ModLabel, StringComparer.CurrentCultureIgnoreCase).ToList();
+            List<string> names = candidates.Select(ModLabel).ToList();
+            labels = new List<string>(names);
+            for (int i = 0; i < names.Count; i++)
+            {
+                if (names.Count(l => l == names[i]) > 1) labels[i] += " (" + (candidates[i].Id ?? Path.GetFileName(candidates[i].Folder)) + ")";
+            }
+            return candidates;
+        }
+
+        /// <summary>Asks what to translate (base game only, one Mod, base plus chosen Mods, base plus every enabled Mod). Null if cancelled or nothing can be collected.</summary>
+        private async Task<TranslationSource> ChooseTranslationSourceAsync()
+        {
+            int scope = await Dialogs.ChooseAsync(T("LocalizationScopePrompt"), T("CreateModKindLocalization"),
+                new[] { T("LocalizationScopeBaseOnly"), T("LocalizationScopeMod"), T("LocalizationScopeBaseAndChosen"), T("LocalizationScopeBaseGame"), T("Cancel") },
+                new[] { T("LocalizationScopeBaseOnlyTip"), T("LocalizationScopeModTip"), T("LocalizationScopeBaseAndChosenTip"), T("LocalizationScopeBaseGameTip"), null });
+            if (scope < 0 || scope > 3) return null;
+            TranslationSource source = new TranslationSource { IncludeBase = scope != 1 };
+            if (source.IncludeBase && !Directory.Exists(Path.Combine(settings.GameRoot ?? "", "data")))
+            {
+                await Dialogs.ShowMessageAsync(T("LocalizationNoGameData"), "DW2 Mod Launcher");
+                return null;
+            }
+            if (scope == 0) source.Label = T("LocalizationLabelBase");
+            if (scope == 3)
+            {
+                source.Mods = OrderedEnabledMods();
+                source.Label = T("LocalizationLabelBaseAndEnabled");
+            }
+            if (scope == 1 || scope == 2)
+            {
+                List<ModInfo> candidates = TranslatableMods(out List<string> labels);
+                if (labels.Count == 0)
+                {
+                    await Dialogs.ShowMessageAsync(T("LocalizationNoMods"), "DW2 Mod Launcher");
+                    return null;
+                }
+                if (scope == 1)
+                {
+                    string picked = await Dialogs.PickFromListAsync(T("CreateModKindLocalization"), T("LocalizationPickMod"), labels);
+                    int at = picked == null ? -1 : labels.IndexOf(picked);
+                    if (at < 0) return null;
+                    source.Mods.Add(candidates[at]);
+                    source.Label = ModLabel(candidates[at]);
+                }
+                else
+                {
+                    IList<string> picked = await Dialogs.PickManyFromListAsync(T("CreateModKindLocalization"), T("LocalizationPickMods"), labels);
+                    if (picked == null || picked.Count == 0) return null;
+                    // the list is by name, but text is merged in load order (a later Mod's line replaces an earlier one's)
+                    List<ModInfo> chosen = candidates.Where((m, i) => picked.Contains(labels[i])).ToList();
+                    source.Mods = Mods.Select(r => r.Mod).Where(chosen.Contains).ToList();
+                    source.Label = T("LocalizationLabelBaseAndChosen", ("Count", source.Mods.Count));
+                }
+            }
+            return source;
+        }
+
+        /// <summary>The two-letter (or three) code the game's "_ja" text files and the Mod's language setting use. Null if cancelled.</summary>
+        private async Task<string> PromptLanguageCodeAsync(string initial)
+        {
+            string typed = await Dialogs.PromptTextAsync(T("CreateModKindLocalization"), T("LocalizationLanguagePrompt"), initial ?? "", T("OK"), T("Cancel"),
+                text => string.IsNullOrWhiteSpace(text) ? "" : T("LocalizationCodePreview", ("Code", LanguageCodeFrom(text))),
+                LanguageChoices, text => !IsLanguageCode(LanguageCodeFrom(text)));
+            return typed == null ? null : LanguageCodeFrom(typed);
+        }
+
+        private Task<LocalizationResult> BuildTranslationAsync(string folder, TranslationSource source, string languageCode, bool keepExisting)
+        {
+            string gameRoot = settings.GameRoot;
+            return Task.Run(() => !source.IncludeBase && source.Mods.Count == 1
+                ? LocalizationModBuilder.Build(folder, LocalizationModBuilder.CollectModDataFiles(source.Mods[0]), LocalizationModBuilder.CollectModTextFiles(source.Mods[0]), languageCode, keepExisting)
+                : LocalizationModBuilder.Build(folder, LocalizationModBuilder.CollectDataFiles(gameRoot, source.Mods), LocalizationModBuilder.CollectTextFiles(gameRoot, source.Mods), languageCode, keepExisting));
+        }
+
+        /// <summary>Right-click a Mod, Add translation: adds the text of a chosen source to the Mod's patches and text files, leaving what it already has.</summary>
+        private async Task AddTranslationAsync()
+        {
+            if (selectedRow == null) return;
+            ModInfo target = selectedRow.Mod;
+            string targetName = ModLabel(target);
+            string folder = target.Folder;
+            TranslationSource source = await ChooseTranslationSourceAsync();
+            if (source == null) return;
+            string initial = LauncherMetaReader.Read(target)?.language;
+            string languageCode = await PromptLanguageCodeAsync(initial);
+            if (languageCode == null) return;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(initial)) LauncherMetaWriter.StampLanguage(folder, Localization.CodeFor(languageCode), false);
+                IsBusy = true;
+                LocalizationResult built;
+                try { built = await BuildTranslationAsync(folder, source, languageCode, true); }
+                finally { IsBusy = false; }
+                if (built.Files == 0 && built.TextFiles == 0 && built.Skipped == 0)
+                {
+                    await Dialogs.ShowMessageAsync(T("LocalizationNothing", ("Target", source.Label ?? "")), "DW2 Mod Launcher");
+                    return;
+                }
+                await Dialogs.ShowMessageAsync(T("LocalizationAdded", ("Mod", targetName), ("Strings", built.Strings), ("Files", built.Files), ("TextFiles", built.TextFiles), ("Skipped", built.Skipped), ("Unreadable", built.Unreadable.Count)), "DW2 Mod Launcher");
+                Refresh();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Add translation", ex);
+                await Dialogs.ShowMessageAsync(T("CreateModFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
+            }
+        }
+
         private async Task CreateModAsync()
         {
             if (string.IsNullOrWhiteSpace(settings.ManagedModsRoot))
@@ -1210,77 +1367,35 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (kind < 0 || kind > 1) return;
             bool localization = kind == 1;
 
-            // Localization: translate the base game (with the enabled Mods), or just one existing Mod.
-            ModInfo targetMod = null;
+            // Localization: the base game, one Mod, the base with chosen Mods, or the base with every enabled Mod.
+            TranslationSource source = null;
             if (localization)
             {
-                int scope = await Dialogs.ChooseAsync(T("LocalizationScopePrompt"), T("CreateModKindLocalization"),
-                    new[] { T("LocalizationScopeBaseGame"), T("LocalizationScopeMod"), T("Cancel") },
-                    new[] { T("LocalizationScopeBaseGameTip"), T("LocalizationScopeModTip"), null });
-                if (scope < 0 || scope > 1) return;
-                if (scope == 0 && !Directory.Exists(Path.Combine(settings.GameRoot ?? "", "data")))
-                {
-                    await Dialogs.ShowMessageAsync(T("LocalizationNoGameData"), "DW2 Mod Launcher");
-                    return;
-                }
-                if (scope == 1)
-                {
-                    List<ModInfo> candidates = AllMods.Where(m => !string.IsNullOrWhiteSpace(m.ContentRoot ?? m.Folder)).ToList();
-                    List<string> labels = candidates.Select(m => m.DisplayName ?? m.Id ?? Path.GetFileName(m.Folder)).ToList();
-                    for (int i = 0; i < labels.Count; i++)
-                    {
-                        if (labels.Count(l => l == labels[i]) > 1) labels[i] += " (" + (candidates[i].Id ?? Path.GetFileName(candidates[i].Folder)) + ")";
-                    }
-                    if (labels.Count == 0)
-                    {
-                        await Dialogs.ShowMessageAsync(T("LocalizationNoMods"), "DW2 Mod Launcher");
-                        return;
-                    }
-                    string picked = await Dialogs.PickFromListAsync(T("CreateModKindLocalization"), T("LocalizationPickMod"), labels);
-                    if (picked == null) return;
-                    int at = labels.IndexOf(picked);
-                    if (at < 0) return;
-                    targetMod = candidates[at];
-                }
+                source = await ChooseTranslationSourceAsync();
+                if (source == null) return;
             }
-            string targetLabel = targetMod == null ? null : targetMod.DisplayName ?? targetMod.Id ?? Path.GetFileName(targetMod.Folder);
+            string targetLabel = source?.Label;
 
-            string name;
-            string typedLanguage = null;
+            string name = await Dialogs.PromptTextAsync(T("CreateModTitle"), T("CreateModPrompt"), "", T("OK"), T("Cancel"),
+                text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", ("Folder", LocalModManager.FolderNameFor(text))));
+            if (name == null) return;
+            string languageCode = null;
             if (localization)
             {
-                Func<string, string> modName = lang => targetLabel == null ? T("LocalizationModName", ("Language", lang.Trim())) : T("LocalizationModNameFor", ("Language", lang.Trim()), ("Target", targetLabel));
-                string language = await Dialogs.PromptTextAsync(T("CreateModKindLocalization"), T("LocalizationLanguagePrompt"), "", T("OK"), T("Cancel"),
-                    text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", ("Folder", LocalModManager.FolderNameFor(modName(text)))));
-                if (language == null) return;
-                typedLanguage = language;
-                name = modName(language);
-            }
-            else
-            {
-                name = await Dialogs.PromptTextAsync(T("CreateModTitle"), T("CreateModPrompt"), "", T("OK"), T("Cancel"),
-                    text => string.IsNullOrWhiteSpace(text) ? "" : T("CreateModFolderPreview", ("Folder", LocalModManager.FolderNameFor(text))));
-                if (name == null) return;
+                languageCode = await PromptLanguageCodeAsync(null);
+                if (languageCode == null) return;
             }
             try
             {
                 string folder = LocalModManager.Create(settings.ManagedModsRoot, name, localization ? T("LocalizationModDescription") : "");
                 LauncherMetaWriter.StampAuthor(folder, settings.AuthorName, true);
                 // A language the launcher has a pack for is recorded, so the in-game widget speaks it while this mod is enabled.
-                if (localization) LauncherMetaWriter.StampLanguage(folder, Localization.CodeFor(typedLanguage), true);
+                if (localization) LauncherMetaWriter.StampLanguage(folder, Localization.CodeFor(languageCode), true);
                 if (localization)
                 {
                     IsBusy = true;
                     LocalizationResult built;
-                    try
-                    {
-                        string gameRoot = settings.GameRoot;
-                        List<ModInfo> enabled = OrderedEnabledMods();
-                        ModInfo target = targetMod;
-                        built = await Task.Run(() => target != null
-                            ? LocalizationModBuilder.Build(folder, LocalizationModBuilder.CollectModDataFiles(target), LocalizationModBuilder.CollectModTextFiles(target))
-                            : LocalizationModBuilder.Build(folder, LocalizationModBuilder.CollectDataFiles(gameRoot, enabled), LocalizationModBuilder.CollectTextFiles(gameRoot, enabled)));
-                    }
+                    try { built = await BuildTranslationAsync(folder, source, languageCode, false); }
                     finally { IsBusy = false; }
                     if (built.Files == 0 && built.TextFiles == 0)
                     {
@@ -1400,22 +1515,15 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return;
             }
             string currentFolder = Path.GetFileName(mod.Folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            string typed = await Dialogs.PromptTextAsync(T("RenameModTitle"), T("RenameModLabel", ("Mod", oldName)), oldName, T("OK"), T("Cancel"),
-                text =>
-                {
-                    if (string.IsNullOrWhiteSpace(text)) return "";
-                    string folder = LocalModManager.FolderNameFor(text);
-                    bool taken = !string.Equals(folder, currentFolder, StringComparison.OrdinalIgnoreCase) && Directory.Exists(Path.Combine(settings.ManagedModsRoot, folder));
-                    return taken ? T("RenameModFolderTaken", ("Folder", folder)) : T("RenameModFolderPreview", ("Folder", folder));
-                },
-                isInvalid: text =>
-                {
-                    if (string.IsNullOrWhiteSpace(text)) return true;
-                    string folder = LocalModManager.FolderNameFor(text);
-                    return !string.Equals(folder, currentFolder, StringComparison.OrdinalIgnoreCase) && Directory.Exists(Path.Combine(settings.ManagedModsRoot, folder));
-                });
-            if (typed == null || string.Equals(typed.Trim(), oldName, StringComparison.Ordinal)) return;
-            string plannedFolder = LocalModManager.FolderNameFor(typed);
+            Func<string, bool> taken = folder => !string.Equals(folder, currentFolder, StringComparison.OrdinalIgnoreCase) && Directory.Exists(Path.Combine(settings.ManagedModsRoot, folder));
+            string[] picked = await Dialogs.PromptRenameAsync(T("RenameModTitle"), T("RenameModLabel", ("Mod", oldName)), T("RenameModTitleField"), T("RenameModFolderField"), oldName, currentFolder,
+                LocalModManager.FolderNameFor,
+                folder => taken(folder) ? T("RenameModFolderTaken", ("Folder", folder)) : T("RenameModFolderPreview", ("Folder", folder)),
+                taken);
+            if (picked == null) return;
+            string typed = picked[0];
+            string plannedFolder = picked[1];
+            if (string.Equals(typed, oldName, StringComparison.Ordinal) && string.Equals(plannedFolder, currentFolder, StringComparison.Ordinal)) return;
             if (!string.Equals(plannedFolder, currentFolder, StringComparison.Ordinal))
             {
                 List<string> oldDlls = ModRenamer.DllsMovedByRename(mod);
@@ -1426,7 +1534,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             try
             {
-                ModRenameResult result = ModRenamer.Rename(mod, typed, settings, modOrder, AllMods);
+                ModRenameResult result = ModRenamer.Rename(mod, typed, settings, modOrder, AllMods, null, plannedFolder);
                 if (result.SettingsChanged) SaveSettings();
                 Refresh();
                 SelectedRow = Mods.FirstOrDefault(r => string.Equals(r.Mod.ActiveToken, result.NewToken, StringComparison.OrdinalIgnoreCase)) ?? SelectedRow;
@@ -1692,6 +1800,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // Accepting the dialog wrote the (possibly bumped) version to mod.json; any exit below that doesn't publish undoes it.
             string versionBefore = editor.OriginalVersion;
             string versionWritten = metadata.Version;
+
+            // Publishing a version that already went out, without raising it, replaces that version's content for everyone who has it: make sure that is meant.
+            if (isUpdate && VersionAlreadyPublished(mod, metadata.Version))
+            {
+                int overwrite = await Dialogs.ChooseAsync(T("PublishOverwriteWarning", ("Mod", mod.DisplayName ?? mod.Id ?? ""), ("Version", metadata.Version)), T("PublishOverwriteTitle"),
+                    new[] { T("PublishOverwriteYes", ("Version", metadata.Version)), T("Cancel") });
+                if (overwrite != 0)
+                {
+                    RollBackVersion(mod, versionBefore, versionWritten);
+                    return;
+                }
+            }
 
             // Steam can reject a preview image over 1 MiB: offer to fix it with a smaller copy (the original stays, mod.json is pointed at
             // the copy), or let the author try anyway.
@@ -2175,8 +2295,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (diagnostics.Count > 0 && !await Dialogs.ConfirmAsync(
                 T("LaunchDiagnosticsQuestion", ("Issues", string.Join("\n", diagnostics.Take(30)))),
                 T("PreLaunchDiagnostics"), T("Yes"), T("No"))) return;
-            if (collisions.Count > 0 && !await Dialogs.ConfirmAsync(
-                LaunchDiagnostics.BuildConflictWarning(collisions, key => T(key)), T("ModConflictWarning"), T("Yes"), T("No"))) return;
+            Dictionary<string, List<ModInfo>> pendingCollisions = ConflictAcknowledgement.Pending(collisions, settings.AcknowledgedFileConflicts);
+            if (pendingCollisions.Count > 0)
+            {
+                int answer = await Dialogs.ChooseAsync(LaunchDiagnostics.BuildConflictWarning(pendingCollisions, key => T(key)), T("ModConflictWarning"),
+                    new[] { T("Yes"), T("ConflictLaunchRemember"), T("No") });
+                if (answer < 0 || answer > 1) return;
+                if (answer == 1)
+                {
+                    if (settings.AcknowledgedFileConflicts == null) settings.AcknowledgedFileConflicts = new List<string>();
+                    ConflictAcknowledgement.Acknowledge(pendingCollisions, settings.AcknowledgedFileConflicts);
+                    SaveSettings();
+                }
+            }
             if (GameProcess.IsRunning(settings.GameRoot)) { SetGameState(GameState.Running); return; }
             if (!SteamLocator.IsGameRoot(settings.GameRoot))
             {
@@ -2199,6 +2330,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 Logger.LogException("Launch game", ex);
                 await Dialogs.ShowMessageAsync(ex is PathTokenException ? LaunchPathProblemText((PathTokenException)ex) : ex.Message, "DW2 Mod Launcher");
+            }
+        }
+
+        /// <summary>Whether this version of a published mod already went out: its last publish's record holds it, or its changelog section is stamped.</summary>
+        private static bool VersionAlreadyPublished(ModInfo mod, string version)
+        {
+            if (string.IsNullOrWhiteSpace(version)) return false;
+            if (ModChangelog.IsStamped(mod.ContentRoot ?? mod.Folder, version)) return true;
+            try { return PublishedState.VersionWentOut(ModDetails.WorkshopId(mod), version); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Read the recorded version", ex);
+                return false;
             }
         }
 
