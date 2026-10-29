@@ -363,7 +363,7 @@ namespace DW2ModLauncher.Core.Services
                 !string.IsNullOrEmpty(other.HarmonyId) && (p.Before.Contains(other.HarmonyId) || p.After.Contains(other.HarmonyId));
             if (Names(a, b) || Names(b, a)) return true;
             bool Orders(ModInfo mod, ModInfo other) =>
-                (mod.Dependencies ?? new List<LauncherDependency>()).Any(d => d != null && (d.loadAfter || d.loadBefore) && ModDependencies.Find(enabled, d.mod) == other);
+                (mod.Dependencies ?? new List<LauncherDependency>()).Any(d => d != null && (d.loadAfter || d.loadBefore) && ModDependencies.Find(enabled, d) == other);
             return Orders(modA, modB) || Orders(modB, modA);
         }
 

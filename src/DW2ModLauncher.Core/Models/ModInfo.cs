@@ -42,6 +42,10 @@ namespace DW2ModLauncher.Core.Models
         public int ConflictCount { get; set; }
         public List<string> ConflictFiles { get; set; }
         public List<string> ConflictMods { get; set; }
+        /// <summary>For each conflicting file (as in <see cref="ConflictFiles"/>), the other enabled mods that ship a differing copy.</summary>
+        public Dictionary<string, List<ModInfo>> ConflictOwners { get; set; } = new Dictionary<string, List<ModInfo>>();
+        /// <summary>Position in the load order (0 loads first; -1 when not in it), set by the launcher whenever the order is shown. For two mods that ship the same file, the higher one is used.</summary>
+        public int LoadOrderRank { get; set; } = -1;
         public List<string> ConflictPathCache { get; set; }
         /// <summary>Audio files under music\ (set with <see cref="ConflictPathCache"/>), and how many of them are not in a music\&lt;mood&gt;\&lt;intensity&gt; folder.</summary>
         public int MusicFileCount { get; set; }

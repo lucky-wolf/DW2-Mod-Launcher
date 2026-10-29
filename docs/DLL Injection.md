@@ -73,7 +73,7 @@ a mod that depends on it should also say so in its description.
 
 ## Dependencies (`dependencies` in `dw2modlauncher.json`)
 
-A mod says what it needs from other mods in its `dw2modlauncher.json` (never in `mod.json`, which is the game's file). One entry per mod; every field except `mod` is optional (names are matched ignoring case):
+A mod says what it needs from other mods in its `dw2modlauncher.json` (never in `mod.json`, which is the game's file). One entry per mod; name the other mod with `mod`, `workshopId` or both (an entry with neither is an error); the rest is optional (names are matched ignoring case):
 
 ```json
 {
@@ -88,7 +88,8 @@ A mod says what it needs from other mods in its `dw2modlauncher.json` (never in 
 }
 ```
 
-- `mod`: the other mod, matched against its id, display name, folder name or token.
+- `mod`: the other mod, matched against its id, display name, folder name or token. Optional when `workshopId` is given.
+- `workshopId`: the other mod's Workshop id (the `workshopId` in its `mod.json`, or the folder of a subscribed Workshop mod), as a number. Optional when `mod` is given. When both are present the id wins and the name is ignored (it is then only a label for people); an id no installed mod has is a missing mod, never matched by name. The launcher fills it in for you: when it scans a local mod whose entry names a mod that has a Workshop id, it writes `workshopId` into that local mod's `dw2modlauncher.json` beside the name (Workshop mods' files are never edited). The id survives renaming the other mod; use the name alone for a mod that has no Workshop id yet.
 - `required`: true lists a pre-launch warning when the mod is not installed or not enabled. False (default) means the entry applies only when the other mod is enabled.
 - `minVersion`: the oldest version of the other mod that works, compared with the `version` in its `mod.json`. A mod that states no usable version cannot meet it, and that is reported (never guessed). A mod that is too old is warned about.
 - `loadAfter` / `loadBefore`: order against the other mod, applied only when it is enabled. The launcher enforces them when you press Play: the enabled mods are put in an order that meets every rule (disturbing your order as little as it can), `mods.json` is rewritten to match, and the status line says so. Rules that contradict each other are reported and the order is left alone.

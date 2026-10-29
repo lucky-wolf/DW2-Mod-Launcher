@@ -3,7 +3,7 @@
 What the Steam page says about the launcher lives in that mod folder, which the launcher publishes like any other mod:
 
   - mod/description.bbcode  <->  mods/DW2 Mod Launcher/description.bbcode
-    Kept in step the way the DLL mods in DW2-XL do it (scripts/build-dlls.py): a copy missing from either side is copied over;
+    Kept in step the way the DLL mods in DW2-XL do it (scripts/build-mods.py): a copy missing from either side is copied over;
     when both exist and differ, the newer one is offered as the replacement for the older (default yes). The description may use
     {version}, {date} and {changes} (see "Mod Author README.md"); the launcher fills them in when it publishes.
   - changelog.txt  <->  mods/DW2 Mod Launcher/changelog.txt
@@ -116,13 +116,18 @@ def _version_key(heading: str | None) -> tuple[int, ...]:
     return tuple(int(n) for n in m.group(1).split(".")) if m else ()
 
 
-def _lost_lines(label: str, overwritten: list[changelog.Section], winner: list[changelog.Section], where: str, why: str) -> None:
+def _lost_lines(
+    label: str, overwritten: list[changelog.Section], winner: list[changelog.Section], where: str, why: str
+) -> None:
     """Says which '- ' lines of the copy being overwritten the winning copy does not have."""
     kept = {entry for s in winner for entry in s.entries()}
     for section in overwritten:
         lost = [entry for entry in section.entries() if entry not in kept]
         if lost:
-            output.warn(f"{label}: {why}; {where}'s '{section.heading}' lines it lacks:" + "".join(f"\n      - {entry}" for entry in lost))
+            output.warn(
+                f"{label}: {why}; {where}'s '{section.heading}' lines it lacks:"
+                + "".join(f"\n      - {entry}" for entry in lost)
+            )
 
 
 def _repo_heading(heading: str | None, repo: list[changelog.Section]) -> str | None:
@@ -132,7 +137,8 @@ def _repo_heading(heading: str | None, repo: list[changelog.Section]) -> str | N
 
 def sync_changelog(repo_changelog: Path, mod_changelog: Path, dry_run: bool) -> None:
     """Keeps the repo's changelog and the mod folder's in step; the most recently saved copy wins and the other is saved under
-    temp/backups before it is overwritten, every line it loses reported. No line-by-line merge: a line deleted from the winner stays deleted."""
+    temp/backups before it is overwritten, every line it loses reported. No line-by-line merge: a line deleted from the winner stays deleted.
+    """
     label = f"changelog.txt (repo <-> mods/{MOD_FOLDER})"
     if not repo_changelog.is_file():
         output.info(f"{label}: the repo has no changelog.txt")
@@ -171,7 +177,11 @@ def sync_changelog(repo_changelog: Path, mod_changelog: Path, dry_run: bool) -> 
     newest = max((_version_key(s.heading) for s in repo_versions), default=())
     # a publish stamps the lines it sent, so a newer version section with none is not a stamp (the old scripts mirrored an empty
     # "## v1.0.23" into the mod folder); it is not adopted and the repo's copy overwrites it
-    adopted = [s for s in mod if s.heading is not None and not changelog.is_unreleased(s) and _version_key(s.heading) > newest and s.entries()]
+    adopted = [
+        s
+        for s in mod
+        if s.heading is not None and not changelog.is_unreleased(s) and _version_key(s.heading) > newest and s.entries()
+    ]
     shipped = {entry for s in adopted for entry in s.entries()}
     unreleased = [e for s in repo if changelog.is_unreleased(s) for e in s.entries() if e not in shipped]
     versions = sorted(repo_versions + adopted, key=lambda s: _version_key(s.heading), reverse=True)
@@ -194,8 +204,13 @@ def sync_changelog(repo_changelog: Path, mod_changelog: Path, dry_run: bool) -> 
         output.info(f"{label}: in sync")
         return
     adopted_headings = {s.heading for s in adopted}
-    _lost_lines(label, [s for s in mod if s.heading not in adopted_headings], [changelog.Section(_mod_heading(s.heading), s.lines) for s in sections],
-                f"mods/{MOD_FOLDER}", "the repo's changelog is newer and overwrites the mod folder copy")
+    _lost_lines(
+        label,
+        [s for s in mod if s.heading not in adopted_headings],
+        [changelog.Section(_mod_heading(s.heading), s.lines) for s in sections],
+        f"mods/{MOD_FOLDER}",
+        "the repo's changelog is newer and overwrites the mod folder copy",
+    )
     if dry_run:
         print(f"  [dry-run] would update {mod_changelog} from the repo")
         return
@@ -208,7 +223,9 @@ def _mod_dir(game_path: Path | None) -> Path | None:
     """The launcher's local mod folder, or None (after saying why) when there is no game install or no such folder."""
     install = game_path or default_install_path()
     if not install.is_dir():
-        output.notice(f"skipped: no Distant Worlds 2 install at {install} (set DW2_PATH to sync the launcher's Workshop item)")
+        output.notice(
+            f"skipped: no Distant Worlds 2 install at {install} (set DW2_PATH to sync the launcher's Workshop item)"
+        )
         return None
     mod_dir = install / "mods" / MOD_FOLDER
     if not mod_dir.is_dir():

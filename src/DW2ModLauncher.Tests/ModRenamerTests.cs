@@ -40,20 +40,20 @@ namespace DW2ModLauncher.Tests
 
                 ModRenameResult result = ModRenamer.Rename(mod, "New: Name", settings, order, new[] { mod });
 
-                string newFolder = Path.Combine(root, "New Name");
+                string newFolder = Path.Combine(root, "New - Name");
                 Assert.Equal(newFolder, result.NewFolder);
                 Assert.False(Directory.Exists(folder));
-                Assert.True(File.Exists(Path.Combine(newFolder, "New Name.png")));
+                Assert.True(File.Exists(Path.Combine(newFolder, "New - Name.png")));
                 string json = File.ReadAllText(Path.Combine(newFolder, "mod.json"));
                 Assert.Contains("\"displayName\": \"New: Name\"", json);
-                Assert.Contains("\"previewImage\": \"New Name.png\"", json);
-                Assert.Equal(new[] { "steam/1", "mods/New Name", "mods/Other" }, ModOrderStore.Read(Path.Combine(root, "mods.json")).Order);
-                Assert.Equal(new[] { "mods/New Name", "steam/1" }, ModOrderStore.Read(Path.Combine(root, "mods." + GameProfileStore.Escape("Alt") + ".json")).Order);
-                Assert.Equal(new[] { "steam/1", "mods/New Name", "mods/Other" }, order.Order);
-                Assert.True(settings.SelectedMods["managed:New Name"]);
-                Assert.Equal("mods/New Name", settings.LastSelectedMod);
-                Assert.True(settings.CollapsedSettingGroups.ContainsKey("New Name"));
-                Assert.Equal("Target | managed:New Name@1.0.0 | managed:Zed@1", settings.AcknowledgedHooks.Single());
+                Assert.Contains("\"previewImage\": \"New - Name.png\"", json);
+                Assert.Equal(new[] { "steam/1", "mods/New - Name", "mods/Other" }, ModOrderStore.Read(Path.Combine(root, "mods.json")).Order);
+                Assert.Equal(new[] { "mods/New - Name", "steam/1" }, ModOrderStore.Read(Path.Combine(root, "mods." + GameProfileStore.Escape("Alt") + ".json")).Order);
+                Assert.Equal(new[] { "steam/1", "mods/New - Name", "mods/Other" }, order.Order);
+                Assert.True(settings.SelectedMods["managed:New - Name"]);
+                Assert.Equal("mods/New - Name", settings.LastSelectedMod);
+                Assert.True(settings.CollapsedSettingGroups.ContainsKey("New - Name"));
+                Assert.Equal("Target | managed:New - Name@1.0.0 | managed:Zed@1", settings.AcknowledgedHooks.Single());
                 Assert.Empty(result.Problems);
             }
             finally { Directory.Delete(root, true); }

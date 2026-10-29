@@ -55,6 +55,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool HasNote { get { return !string.IsNullOrEmpty(Note); } }
         public RelayCommand Remove { get; set; }
         public string RemoveTooltip { get; set; }
+        /// <summary>The entry is pinned to a version other than the one installed, so it can be re-pinned to the installed one.</summary>
+        public bool CanUpdate { get; set; }
+        public RelayCommand Update { get; set; }
+        public string UpdateTooltip { get; set; }
     }
 
     public class BumpLevelOption
@@ -452,6 +456,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             return rows.OrderBy(r => r.Dll, StringComparer.Ordinal).ToList();
         }
         /// <summary>Whether the mod lists any bundles; the Bundles section starts collapsed when it does not.</summary>
+        public string BundlesHeader { get { return L["PublishInfoBundles"] + ": " + BundleRows.Count; } }
+        public string InjectedDllsHeader { get { return L["PublishInjectedDlls"] + ": " + InjectedDlls.Count; } }
+        public string CompatibleHeader { get { return L["PublishCompatibleWith"] + ": " + compatibleEntries.Count; } }
         public bool HasBundles { get { return BundleRows.Count > 0; } }
         public bool NoBundles { get { return BundleRows.Count == 0; } }
         /// <summary>The bundles found in the mod folder with their total size in MiB (head file plus its hashed part files).</summary>
@@ -504,13 +511,35 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     string note = installed == null ? L["PublishCompatibleNotInstalled"]
                         : pinned != null && !string.Equals(pinned, (installed.Version ?? "").Trim(), StringComparison.OrdinalIgnoreCase)
                             ? L.Format("PublishCompatibleInstalledNow", ("Version", string.IsNullOrWhiteSpace(installed.Version) ? "?" : installed.Version.Trim())) : "";
-                    rows.Add(new CompatibleRow { Entry = entry, Name = name, Version = pinned ?? L["PublishCompatibleAnyVersion"], Note = note, Remove = new RelayCommand(() => RemoveCompatible(entry)), RemoveTooltip = L["PublishCompatibleRemove"] });
+                    bool stale = installed != null && pinned != null && !string.IsNullOrWhiteSpace(installed.Version)
+                        && !string.Equals(pinned, installed.Version.Trim(), StringComparison.OrdinalIgnoreCase);
+                    rows.Add(new CompatibleRow
+                    {
+                        Entry = entry,
+                        Name = name,
+                        Version = pinned ?? L["PublishCompatibleAnyVersion"],
+                        Note = note,
+                        Remove = new RelayCommand(() => RemoveCompatible(entry)),
+                        RemoveTooltip = L["PublishCompatibleRemove"],
+                        CanUpdate = stale,
+                        Update = new RelayCommand(() => UpdateCompatible(entry, installed)),
+                        UpdateTooltip = stale ? L.Format("PublishCompatibleUpdate", ("Version", installed.Version.Trim())) : ""
+                    });
                 }
                 return rows;
             }
         }
 
-        private void RaiseCompatible() { Raise(nameof(CompatibleRows)); Raise(nameof(HasCompatible)); Raise(nameof(NoCompatible)); RaiseModified(); }
+        private void RaiseCompatible() { Raise(nameof(CompatibleRows)); Raise(nameof(CompatibleHeader)); Raise(nameof(HasCompatible)); Raise(nameof(NoCompatible)); RaiseModified(); }
+
+        /// <summary>Re-pins an entry to the version of the mod installed now, keeping its place in the list.</summary>
+        private void UpdateCompatible(string entry, ModInfo installed)
+        {
+            int at = compatibleEntries.IndexOf(entry);
+            if (at < 0) return;
+            compatibleEntries[at] = HookOverlapAnalyzer.CoordinationEntryFor(installed);
+            RaiseCompatible();
+        }
 
         private void RemoveCompatible(string entry)
         {
@@ -518,14 +547,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             RaiseCompatible();
         }
 
-        /// <summary>Asks which of the installed mods to add and records it as its name pinned to the version it has now.</summary>
+        /// <summary>Asks which of the installed mods to add (or bring up to date) and records it as its name pinned to the version it has now.</summary>
         private async Task AddCompatibleAsync()
         {
-            // not this mod, and not one an entry already covers (whatever version it is pinned to)
+            // not this mod, and not one an entry already covers at the version installed now (a stale pin stays listed, so it can be brought up to date)
             Func<ModInfo, string> label = m => (m.DisplayName ?? m.Id) + (string.IsNullOrWhiteSpace(m.Version) ? "" : "  " + m.Version.Trim());
             List<ModInfo> candidates = installedMods
                 .Where(m => !string.Equals(m.Folder, mod.Folder, StringComparison.OrdinalIgnoreCase))
-                .Where(m => !compatibleEntries.Any(e => ModDependencies.Find(new[] { m }, HookOverlapAnalyzer.SplitCoordinationEntry(e).Name) == m))
+                .Where(m => !compatibleEntries.Any(e => HookOverlapAnalyzer.Coordinates(e, m, new[] { m })))
                 .OrderBy(m => m.DisplayName ?? m.Id, StringComparer.OrdinalIgnoreCase).ToList();
             if (candidates.Count == 0)
             {
@@ -542,6 +571,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             string picked = await dialogs.PickFromListAsync(L["PublishCompatiblePickTitle"], L["PublishCompatiblePickNote"], byLabel.Keys.ToList());
             if (picked == null || !byLabel.TryGetValue(picked, out ModInfo chosen)) return;
+            // a stale pin for the same mod is replaced, not kept beside the new one
+            compatibleEntries.RemoveAll(e => ModDependencies.Find(new[] { chosen }, HookOverlapAnalyzer.SplitCoordinationEntry(e).Name) == chosen);
             compatibleEntries.Add(HookOverlapAnalyzer.CoordinationEntryFor(chosen));
             RaiseCompatible();
         }
@@ -750,7 +781,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 Raise(nameof(PublishTooltip));
                 Raise(nameof(ShowDescriptionDiffers));
                 Raise(nameof(DescriptionTooltip));
+                Raise(nameof(DescriptionHeader));
             }
+        }
+        /// <summary>"Description: 1.2 KB", the size of the text as it is saved (UTF-8).</summary>
+        public string DescriptionHeader
+        {
+            get { return L["Description"] + ": " + (System.Text.Encoding.UTF8.GetByteCount(description ?? "") / 1024.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " KB"; }
         }
         public string ShortDescription { get { return shortDescription; } set { if (Set(ref shortDescription, value)) RaiseModified(); } }
         public VisibilityOption Visibility

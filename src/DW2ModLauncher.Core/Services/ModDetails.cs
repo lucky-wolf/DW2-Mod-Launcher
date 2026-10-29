@@ -66,21 +66,21 @@ namespace DW2ModLauncher.Core.Services
             }
             foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
             {
-                if (dep == null || string.IsNullOrWhiteSpace(dep.mod)) continue;
-                if (ModDependencies.Find(orderedEnabled, dep.mod) != null) lines.Add(new DetailLine(NamedText.Fill(t("LinkDependsOn"), ("Mod", dep.mod.Trim())), LineState.Met));
-                else lines.Add(new DetailLine(NamedText.Fill(t("LinkDependsOnNotEnabled"), ("Mod", dep.mod.Trim())), dep.required ? LineState.Unmet : LineState.None));
+                if (!ModDependencies.NamesAMod(dep)) continue;
+                if (ModDependencies.Find(orderedEnabled, dep) != null) lines.Add(new DetailLine(NamedText.Fill(t("LinkDependsOn"), ("Mod", ModDependencies.Label(dep))), LineState.Met));
+                else lines.Add(new DetailLine(NamedText.Fill(t("LinkDependsOnNotEnabled"), ("Mod", ModDependencies.Label(dep))), dep.required ? LineState.Unmet : LineState.None));
             }
             // Load order the mod insists on: met when the other mod is enabled and on the right side, unmet when it is on the wrong side, plain when it is not enabled.
             foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
             {
-                if (dep == null || string.IsNullOrWhiteSpace(dep.mod)) continue;
-                ModInfo other = ModDependencies.Find(orderedEnabled, dep.mod);
+                if (!ModDependencies.NamesAMod(dep)) continue;
+                ModInfo other = ModDependencies.Find(orderedEnabled, dep);
                 int own = orderedEnabled.IndexOf(mod);
                 foreach (bool after in new[] { true, false })
                 {
                     if (after ? !dep.loadAfter : !dep.loadBefore) continue;
                     string key = after ? "LinkLoadsAfter" : "LinkLoadsBefore";
-                    if (other == null || other == mod || own < 0) { lines.Add(new DetailLine(NamedText.Fill(t(key + "NotEnabled"), ("Mod", dep.mod.Trim())), LineState.None)); continue; }
+                    if (other == null || other == mod || own < 0) { lines.Add(new DetailLine(NamedText.Fill(t(key + "NotEnabled"), ("Mod", ModDependencies.Label(dep))), LineState.None)); continue; }
                     bool inOrder = after ? orderedEnabled.IndexOf(other) < own : orderedEnabled.IndexOf(other) > own;
                     lines.Add(new DetailLine(NamedText.Fill(t(inOrder ? key : key + "Wrong"), ("Mod", other.DisplayName ?? other.Id)), inOrder ? LineState.Met : LineState.Unmet));
                 }
@@ -250,16 +250,14 @@ namespace DW2ModLauncher.Core.Services
         /// conflicts are what makes the mod's health a conflict (high-risk file clashes, hook conflicts, enabled twice), the rest are cautions.
         /// Both empty when <paramref name="severity"/> is below caution.
         /// </summary>
-        public static (List<string> Conflicts, List<string> Cautions) BuildProblemGroups(ModInfo mod, int severity, Func<string, string> t)
+        public static (List<string> Conflicts, List<string> Cautions) BuildProblemGroups(ModInfo mod, int severity, Func<string, string> t, int maxFiles = 15)
         {
             List<string> conflicts = new List<string>(), cautions = new List<string>();
             if (severity < 2) return (conflicts, cautions);
             if (mod.HighRiskConflictCount > 0 || mod.LowRiskConflictCount > 0)
             {
                 List<string> files = mod.HighRiskConflictCount > 0 ? conflicts : cautions;
-                files.Add(ConflictsSummary(mod, t));
-                if (mod.ConflictMods != null && mod.ConflictMods.Count > 0)
-                    files.Add(ConflictsWith(mod, t));
+                files.Add(string.Join("\n", ConflictFileLines(mod, t, maxFiles)));
             }
             foreach (string note in mod.HookNotes ?? new List<string>()) (mod.HookConflictNotes != null && mod.HookConflictNotes.Contains(note) ? conflicts : cautions).Add(note);
             if (mod.EnabledCopyCount > 0) conflicts.Add(t("EnabledMoreThanOnce"));
@@ -271,25 +269,51 @@ namespace DW2ModLauncher.Core.Services
             return (conflicts, cautions);
         }
 
-        private static string ConflictsSummary(ModInfo mod, Func<string, string> t)
+        /// <summary>
+        /// The drill-down of the file conflicts: each other mod that ships a differing copy, with how many files, then those files (data files first).
+        /// The count and the mods are in the header, so nothing here repeats them.
+        /// </summary>
+        private static List<string> ConflictFileLines(ModInfo mod, Func<string, string> t, int maxFiles)
         {
-            return NamedText.Fill(t("ConflictsSummary"), ("Count", mod.ConflictCount), ("High", mod.HighRiskConflictCount), ("Low", mod.LowRiskConflictCount));
+            List<string> lines = new List<string>();
+            SortedDictionary<string, List<string>> byMod = new SortedDictionary<string, List<string>>(StringComparer.CurrentCultureIgnoreCase);
+            Dictionary<string, ModInfo> modOf = new Dictionary<string, ModInfo>(StringComparer.CurrentCultureIgnoreCase);
+            foreach (string file in mod.ConflictFiles ?? new List<string>())
+            {
+                List<ModInfo> others;
+                if (mod.ConflictOwners == null || !mod.ConflictOwners.TryGetValue(file, out others) || others.Count == 0) others = new List<ModInfo>();
+                foreach (ModInfo other in others)
+                {
+                    string name = other.DisplayName ?? other.Id ?? "?";
+                    List<string> list;
+                    if (!byMod.TryGetValue(name, out list)) byMod[name] = list = new List<string>();
+                    list.Add(file);
+                    modOf[name] = other;
+                }
+            }
+            foreach (KeyValuePair<string, List<string>> kv in byMod)
+            {
+                List<string> files = kv.Value
+                    .OrderBy(f => Path.GetExtension(f).Equals(".xml", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                    .ThenBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
+                // the one later in the load order is the one the game uses, for every file the two share
+                ModInfo other = modOf.TryGetValue(kv.Key, out ModInfo found) ? found : null;
+                bool weWin = other == null || other.LoadOrderRank <= mod.LoadOrderRank;
+                lines.Add(NamedText.Fill(t("ConflictModWinner"), ("Mod", kv.Key), ("Outcome", t(weWin ? "ConflictWeWin" : "ConflictWeLose"))));
+                lines.AddRange(files.Take(maxFiles).Select(f => "   " + f));
+                if (files.Count > maxFiles) lines.Add("   " + NamedText.Fill(t("ConflictMoreFiles"), ("Count", files.Count - maxFiles)));
+            }
+            return lines;
         }
 
-        private static string ConflictsWith(ModInfo mod, Func<string, string> t)
-        {
-            return NamedText.Fill(t("ConflictsWith"), ("Mods", string.Join(t("ListSeparator"), mod.ConflictMods.Take(8).ToArray())));
-        }
-
-        public static List<string> BuildProblems(ModInfo mod, int severity, Func<string, string> t)
+        public static List<string> BuildProblems(ModInfo mod, int severity, Func<string, string> t, int maxFiles = 15)
         {
             List<string> lines = new List<string>();
             if (severity < 2) return lines;
             if (mod.HighRiskConflictCount > 0 || mod.LowRiskConflictCount > 0)
             {
-                lines.Add(ConflictsSummary(mod, t));
-                if (mod.ConflictMods != null && mod.ConflictMods.Count > 0)
-                    lines.Add(ConflictsWith(mod, t));
+                lines.AddRange(ConflictFileLines(mod, t, maxFiles));
+                lines.Add(t("ConflictWinnerExplain"));
             }
             foreach (string note in mod.HookNotes ?? new List<string>()) lines.Add(note);
             if (mod.EnabledCopyCount > 0) lines.Add(t("EnabledMoreThanOnce"));

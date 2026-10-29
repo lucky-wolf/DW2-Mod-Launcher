@@ -33,6 +33,60 @@ namespace DW2ModLauncher.Tests
             return new LauncherDependency { mod = mod, required = required, minVersion = minVersion, loadAfter = after, loadBefore = before };
         }
 
+        // ---- naming the other mod
+
+        [Fact]
+        public void Find_WorkshopIdWinsOverTheName()
+        {
+            ModInfo xl = MakeMod("XL"); xl.WorkshopId = "111";
+            ModInfo other = MakeMod("Other"); other.WorkshopId = "222";
+            LauncherDependency both = new LauncherDependency { mod = "Other", workshopId = 111 };
+
+            Assert.Same(xl, ModDependencies.Find(new[] { xl, other }, both));
+            Assert.Same(other, ModDependencies.Find(new[] { xl, other }, new LauncherDependency { mod = "Other" }));
+            Assert.Same(other, ModDependencies.Find(new[] { xl, other }, new LauncherDependency { workshopId = 222 }));
+        }
+
+        [Fact]
+        public void Find_AnIdNoModHasIsNotRepairedFromTheName()
+        {
+            ModInfo xl = MakeMod("XL"); xl.WorkshopId = "111";
+            Assert.Null(ModDependencies.Find(new[] { xl }, new LauncherDependency { mod = "XL", workshopId = 999 }));
+        }
+
+        [Fact]
+        public void Problems_AnEntryWithNeitherNameNorIdIsAnError_AndIdAloneIsEnough()
+        {
+            ModInfo a = MakeMod("a"); ModInfo xl = MakeMod("XL"); xl.WorkshopId = "111";
+            a.Dependencies.Add(new LauncherDependency());
+            Assert.Single(ModDependencies.ProblemsOf(a, new[] { a, xl }, new[] { a, xl }, HookOverlapAnalyzerTests.T));
+
+            a.Dependencies.Clear();
+            a.Dependencies.Add(new LauncherDependency { workshopId = 111, required = true });
+            Assert.Empty(ModDependencies.ProblemsOf(a, new[] { a, xl }, new[] { a, xl }, HookOverlapAnalyzerTests.T));
+            Assert.Single(ModDependencies.ProblemsOf(a, new[] { a }, new[] { a, xl }, HookOverlapAnalyzerTests.T));
+        }
+
+        [Fact]
+        public void DependencyIds_AreWrittenBesideTheNameOfALocalMod_NeverIntoAWorkshopMod()
+        {
+            ModInfo xl = MakeMod("XL"); xl.WorkshopId = "111";
+            ModInfo local = MakeMod("local", null, ("dw2modlauncher.json", "{ \"author\": \"me\", \"dependencies\": [ { \"mod\": \"XL\", \"loadAfter\": true }, { \"mod\": \"nobody\" } ] }"));
+            local.Dependencies.Add(Dep("XL", after: true)); local.Dependencies.Add(Dep("nobody"));
+            ModInfo workshop = MakeMod("333", null, ("dw2modlauncher.json", "{ \"dependencies\": [ { \"mod\": \"XL\" } ] }"));
+            workshop.IsWorkshop = true; workshop.Dependencies.Add(Dep("XL"));
+            string workshopBefore = File.ReadAllText(Path.Combine(workshop.Folder, "dw2modlauncher.json"));
+
+            Assert.Empty(DependencyIds.Resolve(new[] { xl, local, workshop }, new[] { local, workshop }));
+
+            string text = File.ReadAllText(Path.Combine(local.Folder, "dw2modlauncher.json"));
+            Assert.Contains("\"workshopId\": 111", text);
+            Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, "workshopId"));
+            Assert.True(text.IndexOf("\"mod\": \"XL\"") < text.IndexOf("workshopId"));
+            Assert.Equal(111, local.Dependencies[0].workshopId);
+            Assert.Equal(workshopBefore, File.ReadAllText(Path.Combine(workshop.Folder, "dw2modlauncher.json")));
+        }
+
         // ---- order
 
         [Fact]

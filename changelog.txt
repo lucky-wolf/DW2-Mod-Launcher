@@ -1,5 +1,16 @@
 ## Unreleased
 
+## 1.0.29 (2026-10-29)
+- Dependencies can name a mod by Workshop id, which wins over its name
+- Local mods' dependencies get the other mod's Workshop id filled in on scan
+- Improved messaging about file conflicts
+- Improved order restriction highlighting
+
+## 1.0.28 (2026-10-29)
+- Publish dialog section headers show their counts and the description's size
+- Publish's Compatible with rows get a check mark to adopt the installed version
+- Publish's Compatible with list offers mods whose pinned version is out of date
+
 ## 1.0.27 (2026-10-28)
 - Localization Mod also collects a mod's extra GameText_*.txt files
 - Localization Mod scope choices are clearer, with tooltips, in a wider dialog

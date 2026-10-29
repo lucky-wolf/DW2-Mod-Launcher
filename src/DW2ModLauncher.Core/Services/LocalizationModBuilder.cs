@@ -16,6 +16,8 @@ namespace DW2ModLauncher.Core.Services
         public int Strings { get; set; }
         /// <summary>Plain-text files (GameText.txt, ...) copied into the Mod.</summary>
         public int TextFiles { get; set; }
+        /// <summary>Files left alone because the Mod already had one at that path (adding a translation to an existing Mod).</summary>
+        public int Skipped { get; set; }
         /// <summary>Data files that could not be read (not well-formed XML); their text is missing.</summary>
         public List<string> Unreadable { get; } = new List<string>();
     }
@@ -71,8 +73,8 @@ namespace DW2ModLauncher.Core.Services
             if (!relative.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) return false;
             if (parts.Length == 1)
                 // The game loads GameText*.txt, so a mod's GameText_XL.txt is text a translation has to cover too.
-                return (relative.StartsWith("GameText", StringComparison.OrdinalIgnoreCase)) || relative.Equals("Hints.txt", StringComparison.OrdinalIgnoreCase)
-                    || relative.Equals("SystemNames.txt", StringComparison.OrdinalIgnoreCase);
+                // Hints.txt is read from the game's own folder and SystemNames*.txt only adds names, so a mod cannot translate either.
+                return relative.StartsWith("GameText", StringComparison.OrdinalIgnoreCase);
             return parts[0].Equals("dialog", StringComparison.OrdinalIgnoreCase) || parts[0].Equals("Galactopedia", StringComparison.OrdinalIgnoreCase);
         }
 
@@ -108,14 +110,18 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>
         /// Writes one patch file per data file that has text into <paramref name="modFolder"/>/patches, named like the data file (Races_Atuuk.xml).
         /// When two folders contribute a file of the same name (a Mod overriding Races.xml) each goes into a subfolder named after its folder.
-        /// The text files are copied into the Mod folder at the same relative path, ready to be translated.
+        /// The text files are copied into the Mod folder ready to be translated. The game reads GameText*.txt by wildcard and merges them, so
+        /// those get the language code as a suffix (GameText.txt becomes GameText_ja.txt); dialog and Galactopedia files are found by exact
+        /// name and replace the game's, so they keep their path. With <paramref name="keepExisting"/> a file the Mod already has is never
+        /// overwritten (it may hold translated text) and is counted in <see cref="LocalizationResult.Skipped"/> instead.
         /// </summary>
-        public static LocalizationResult Build(string modFolder, IEnumerable<string> dataFilesInLoadOrder, IEnumerable<LocalizationTextFile> textFiles = null)
+        public static LocalizationResult Build(string modFolder, IEnumerable<string> dataFilesInLoadOrder, IEnumerable<LocalizationTextFile> textFiles = null, string languageCode = null, bool keepExisting = false)
         {
             LocalizationResult result = new LocalizationResult();
             foreach (LocalizationTextFile text in textFiles ?? Enumerable.Empty<LocalizationTextFile>())
             {
-                string target = Path.Combine(modFolder, text.Relative.Replace('/', Path.DirectorySeparatorChar));
+                string target = Path.Combine(modFolder, TargetRelative(text.Relative, languageCode).Replace('/', Path.DirectorySeparatorChar));
+                if (keepExisting && File.Exists(target)) { result.Skipped++; continue; }
                 Directory.CreateDirectory(Path.GetDirectoryName(target));
                 File.Copy(text.Source, target, true);
                 result.TextFiles++;
@@ -155,6 +161,7 @@ namespace DW2ModLauncher.Core.Services
             foreach (KeyValuePair<string, LocalizationFile> kv in generator.Generate())
             {
                 string target = Path.Combine(patches, kv.Key.Replace('/', Path.DirectorySeparatorChar));
+                if (keepExisting && File.Exists(target)) { result.Skipped++; continue; }
                 Directory.CreateDirectory(Path.GetDirectoryName(target));
                 using (XmlWriter writer = XmlWriter.Create(target, settings))
                     kv.Value.Document.Save(writer);
@@ -163,6 +170,14 @@ namespace DW2ModLauncher.Core.Services
                 result.Strings += kv.Value.Strings;
             }
             return result;
+        }
+
+        /// <summary>Where a text file goes in the translation Mod: GameText*.txt gets "_code" before the extension, the rest keeps its path.</summary>
+        public static string TargetRelative(string relative, string languageCode)
+        {
+            string code = (languageCode ?? "").Trim();
+            if (code.Length == 0 || relative.Contains("/") || !relative.StartsWith("GameText", StringComparison.OrdinalIgnoreCase)) return relative;
+            return Path.GetFileNameWithoutExtension(relative) + "_" + code + Path.GetExtension(relative);
         }
 
         // The folder a data file comes from, as a safe subfolder name ("data" for the game's own data folder).

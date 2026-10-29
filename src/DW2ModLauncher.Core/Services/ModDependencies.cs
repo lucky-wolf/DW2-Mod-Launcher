@@ -12,12 +12,36 @@ namespace DW2ModLauncher.Core.Services
     /// </summary>
     public static class ModDependencies
     {
-        /// <summary>The mod a dependency's "mod" names: matched against id, display name, token or folder name, ignoring case.</summary>
-        public static ModInfo Find(IEnumerable<ModInfo> mods, string identity)
+        /// <summary>Whether a dependency entry names a mod at all: by Workshop id, by name, or both.</summary>
+        public static bool NamesAMod(LauncherDependency dep)
         {
-            if (string.IsNullOrWhiteSpace(identity)) return null;
+            return dep != null && (dep.workshopId.HasValue || !string.IsNullOrWhiteSpace(dep.mod));
+        }
+
+        /// <summary>How a message calls the mod a dependency points at: its name when given, else its Workshop id.</summary>
+        public static string Label(LauncherDependency dep)
+        {
+            return !string.IsNullOrWhiteSpace(dep.mod) ? dep.mod.Trim() : dep.workshopId.ToString();
+        }
+
+        /// <summary>The mod a dependency points at. A Workshop id wins: when the entry has one, the name is not looked at, and no mod with that id means no mod (never a guess from the name). Without an id the name is matched against id, display name, token or folder name, ignoring case.</summary>
+        public static ModInfo Find(IEnumerable<ModInfo> mods, LauncherDependency dep)
+        {
+            if (dep == null) return null;
+            if (dep.workshopId.HasValue)
+            {
+                string wanted = dep.workshopId.Value.ToString();
+                return mods.FirstOrDefault(m => m != null && (string.Equals(m.WorkshopId?.Trim(), wanted, StringComparison.Ordinal) || (m.IsWorkshop && string.Equals(m.Id, wanted, StringComparison.Ordinal))));
+            }
+            if (string.IsNullOrWhiteSpace(dep.mod)) return null;
             return mods.FirstOrDefault(m => m != null && new string[] { m.Id, m.DisplayName, m.ActiveToken, Path.GetFileName(m.Folder ?? "") }
-                .Any(x => string.Equals(x, identity.Trim(), StringComparison.OrdinalIgnoreCase)));
+                .Any(x => string.Equals(x, dep.mod.Trim(), StringComparison.OrdinalIgnoreCase)));
+        }
+
+        /// <summary>The mod a plain name points at (id, display name, token or folder name, ignoring case).</summary>
+        public static ModInfo Find(IEnumerable<ModInfo> mods, string name)
+        {
+            return Find(mods, new LauncherDependency { mod = name });
         }
 
         private static string Name(ModInfo mod) { return mod.DisplayName ?? mod.Id; }
@@ -40,12 +64,12 @@ namespace DW2ModLauncher.Core.Services
             List<string> problems = new List<string>();
             foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
             {
-                if (dep == null || string.IsNullOrWhiteSpace(dep.mod)) { problems.Add(NamedText.Fill(t("DependencyNamesNoMod"), ("Mod", Name(mod)))); continue; }
-                if (dep.loadAfter && dep.loadBefore) problems.Add(NamedText.Fill(t("DependencyBothOrders"), ("Mod", Name(mod)), ("Target", dep.mod)));
-                ModInfo target = Find(enabled, dep.mod);
+                if (!NamesAMod(dep)) { problems.Add(NamedText.Fill(t("DependencyNamesNoMod"), ("Mod", Name(mod)))); continue; }
+                if (dep.loadAfter && dep.loadBefore) problems.Add(NamedText.Fill(t("DependencyBothOrders"), ("Mod", Name(mod)), ("Target", Label(dep))));
+                ModInfo target = Find(enabled, dep);
                 if (target == null || target == mod)
                 {
-                    if (dep.required) problems.Add(NamedText.Fill(t(Find(installed, dep.mod) == null ? "DependencyNotInstalled" : "DependencyNotEnabled"), ("Mod", Name(mod)), ("Target", dep.mod)));
+                    if (dep.required) problems.Add(NamedText.Fill(t(Find(installed, dep) == null ? "DependencyNotInstalled" : "DependencyNotEnabled"), ("Mod", Name(mod)), ("Target", Label(dep))));
                     continue;
                 }
                 VersionProblem(mod, dep, target, problems, t);
@@ -59,19 +83,19 @@ namespace DW2ModLauncher.Core.Services
             if (string.IsNullOrWhiteSpace(dep.minVersion)) return false;
             if (!LauncherRequirement.TryParse(dep.minVersion, out Version needed))
             {
-                problems.Add(NamedText.Fill(t("DependencyMinVersionInvalid"), ("Mod", Name(mod)), ("Version", dep.minVersion), ("Target", dep.mod)));
+                problems.Add(NamedText.Fill(t("DependencyMinVersionInvalid"), ("Mod", Name(mod)), ("Version", dep.minVersion), ("Target", Label(dep))));
                 return true;
             }
             if (!LauncherRequirement.TryParse(target.Version, out Version have))
             {
                 problems.Add(string.IsNullOrWhiteSpace(target.Version)
-                    ? NamedText.Fill(t("DependencyVersionUnusable"), ("Mod", Name(mod)), ("Target", dep.mod), ("Version", dep.minVersion), ("Other", Name(target)))
-                    : NamedText.Fill(t("DependencyVersionUnusableStated"), ("Mod", Name(mod)), ("Target", dep.mod), ("Version", dep.minVersion), ("Other", Name(target)), ("Stated", target.Version)));
+                    ? NamedText.Fill(t("DependencyVersionUnusable"), ("Mod", Name(mod)), ("Target", Label(dep)), ("Version", dep.minVersion), ("Other", Name(target)))
+                    : NamedText.Fill(t("DependencyVersionUnusableStated"), ("Mod", Name(mod)), ("Target", Label(dep)), ("Version", dep.minVersion), ("Other", Name(target)), ("Stated", target.Version)));
                 return true;
             }
             if (have < needed)
             {
-                problems.Add(NamedText.Fill(t("DependencyVersionTooOld"), ("Mod", Name(mod)), ("Target", dep.mod), ("Version", dep.minVersion), ("Other", Name(target)), ("Found", target.Version)));
+                problems.Add(NamedText.Fill(t("DependencyVersionTooOld"), ("Mod", Name(mod)), ("Target", Label(dep)), ("Version", dep.minVersion), ("Other", Name(target)), ("Found", target.Version)));
                 return true;
             }
             return false;
@@ -84,8 +108,8 @@ namespace DW2ModLauncher.Core.Services
             {
                 foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
                 {
-                    if (dep == null || dep.loadAfter == dep.loadBefore) continue;
-                    ModInfo target = Find(enabled, dep.mod);
+                    if (!NamesAMod(dep) || dep.loadAfter == dep.loadBefore) continue;
+                    ModInfo target = Find(enabled, dep);
                     if (target == null || target == mod) continue;
                     ModInfo first = dep.loadAfter ? target : mod;   // the one that must load first
                     ModInfo second = dep.loadAfter ? mod : target;
@@ -161,8 +185,8 @@ namespace DW2ModLauncher.Core.Services
             {
                 foreach (LauncherDependency dep in ordered[i].Dependencies ?? new List<LauncherDependency>())
                 {
-                    if (dep == null) continue;
-                    ModInfo target = Find(ordered, dep.mod);
+                    if (!NamesAMod(dep)) continue;
+                    ModInfo target = Find(ordered, dep);
                     int j = target == null ? -1 : ordered.IndexOf(target);
                     if (j < 0 || j == i) continue;
                     if (dep.loadAfter && !dep.loadBefore)

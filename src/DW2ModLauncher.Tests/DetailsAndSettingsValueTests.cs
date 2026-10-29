@@ -39,12 +39,13 @@ namespace DW2ModLauncher.Tests
         [Fact]
         public void BuildProblems_EmptyForHealthyMods_ListsConflictsAndUpdates()
         {
-            ModInfo mod = new ModInfo { IsWorkshop = true, UpdateState = "update", HighRiskConflictCount = 1, ConflictCount = 1, ConflictMods = new List<string> { "Other" } };
+            ModInfo mod = new ModInfo { IsWorkshop = true, UpdateState = "update", HighRiskConflictCount = 1, ConflictCount = 1, ConflictFiles = new List<string> { "races.xml" }, ConflictOwners = new Dictionary<string, List<ModInfo>> { ["races.xml"] = new List<ModInfo> { new ModInfo { DisplayName = "Other" } } } };
 
             Assert.Empty(ModDetails.BuildProblems(mod, 1, T));
 
             List<string> lines = ModDetails.BuildProblems(mod, 3, T);
-            Assert.Contains(lines, l => l.Contains("<ConflictsWith>Other"));
+            Assert.Contains(lines, l => l.StartsWith("<ConflictModWinner>"));
+            Assert.Contains(lines, l => l == "   races.xml");
             Assert.Contains(lines, l => l == "<SteamWorkshopUpdateAvailable>");
         }
 
