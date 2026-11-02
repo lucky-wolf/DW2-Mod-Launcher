@@ -552,6 +552,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             List<string> identityProblems = LocalModIdentity.Adopt(managedMods, settings, modOrder, ModsJsonPath(), out bool identityChanged);
             foreach (string problem in identityProblems) AddProblem(problem);
             if (identityChanged) SaveSettings();
+            // after the renames above, so a renamed local mod keeps its entry; entries of mods that are not installed go from mods.json and every profile
+            if (ModsJsonPath() != null)
+            {
+                MissingModReferences.Result missingMods = MissingModReferences.Prune(new GameProfileStore(Path.GetDirectoryName(ModsJsonPath())), modOrder, ModsJsonPath(),
+                    settings.ManagedModsRoot, settings.WorkshopRoot, settings.GameRoot);
+                foreach (string problem in missingMods.Problems) AddProblem(problem);
+                if (missingMods.Removed.Count > 0)
+                {
+                    Logger.Log("Missing mods", "Removed from mods.json and the profiles: " + string.Join(", ", missingMods.Removed));
+                    AddProblem(T("MissingModReferencesRemoved", ("Count", missingMods.Removed.Count), ("Mods", string.Join(T("ListSeparator"), missingMods.Removed))));
+                }
+            }
             // a local mod's name-only dependencies get the Workshop id of the mod they name as soon as that mod has one (Workshop mods' files are not touched)
             foreach ((string mod, string problem) in DependencyIds.Resolve(managedMods.Concat(workshopMods).ToList(), managedMods))
                 AddProblem(T("DependencyIdsNotWritten", ("Mod", mod), ("Problem", problem)));
@@ -1813,6 +1825,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
             }
 
+            // A "Compatible with" mark for a version of a mod other than the installed one says nothing about the installed one: ask before sending it out.
+            List<string> staleMarks = editor.StaleCompatible();
+            if (staleMarks.Count > 0)
+            {
+                int carryOn = await Dialogs.ChooseAsync(T("PublishStaleCompatibleWarning", ("Marks", string.Join("\n", staleMarks))), T("PublishStaleCompatibleTitle"),
+                    new[] { T("PublishStaleCompatibleYes"), T("Cancel") });
+                if (carryOn != 0)
+                {
+                    RollBackVersion(mod, versionBefore, versionWritten);
+                    return;
+                }
+            }
+
             // Steam can reject a preview image over 1 MiB: offer to fix it with a smaller copy (the original stays, mod.json is pointed at
             // the copy), or let the author try anyway.
             if (!string.IsNullOrWhiteSpace(metadata.PreviewImage))
@@ -1925,6 +1950,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             };
             CancellationTokenSource cancel = new CancellationTokenSource();
             request.Cancel = cancel.Token;
+            // The new version inherits what was already reviewed for the old one (acknowledged overlaps, "Compatible with" pins), before anything goes out.
+            ReviewCarryOver carryOver = ReviewCarryOver.Apply(settings, mod, AllMods.ToList(), versionBefore, metadata.Version);
+            if (carryOver.SettingsChanged) SaveSettings();
             try
             {
                 IModPublisher publisher = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
@@ -1949,6 +1977,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     return;
                 }
                 ModJsonWorkshopIdWriter.Write(mod.ModJsonPath, result.WorkshopId.Value);
+                carryOver.PruneOld();
                 // The published notes are now history: the Unreleased heading takes this version (changelog.txt).
                 string stampProblem = null;
                 try { ModChangelog.Stamp(contentFolder, metadata.Version, DateTime.Now); }
@@ -1970,6 +1999,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (result.NeedsWorkshopAgreement) message += "\n\n" + T("PublishNeedsWorkshopAgreement");
                 if (stampProblem != null) message += "\n\n" + stampProblem;
                 if (recordProblem != null) message += "\n\n" + recordProblem;
+                if (carryOver.Problems.Count > 0) message += "\n\n" + T("PublishCarryOverFailed", ("Problem", string.Join("\n", carryOver.Problems)));
                 // Steam can quietly hold an item private (e.g. until the Workshop agreement is accepted), so check it took the setting.
                 ModVisibility? requested = editor.SelectedVisibility;
                 ModVisibility? actual = requested.HasValue ? await ReadVisibilityAsync(result.WorkshopId.Value) : null;
@@ -1977,7 +2007,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     message += "\n\n" + T("PublishVisibilityDiffers", ("Requested", T(PublishDialogViewModel.LabelKey(requested.Value))), ("Actual", T(PublishDialogViewModel.LabelKey(actual.Value))));
                 SetStatus(T("WorkshopIdSaved"));
                 string workshopId = result.WorkshopId.Value.ToString();
-                bool hasWarnings = result.NeedsWorkshopAgreement || stampProblem != null || recordProblem != null
+                bool hasWarnings = result.NeedsWorkshopAgreement || stampProblem != null || recordProblem != null || carryOver.Problems.Count > 0
                     || (requested.HasValue && actual.HasValue && actual != requested);
                 switch (LauncherSettings.OpenSteamPageAfterPublish)
                 {

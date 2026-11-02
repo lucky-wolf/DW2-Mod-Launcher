@@ -1,5 +1,11 @@
 ## Unreleased
 
+## 1.0.30 (2026-11-02)
+- Publishing a new version keeps its reviewed overlaps and compatibility
+- Publishing asks first when a compatibility mark is out of date
+- Load order drops entries of mods that are not installed
+- Helper mode prepares a game launch without a window
+
 ## 1.0.29 (2026-10-29)
 - Dependencies can name a mod by Workshop id, which wins over its name
 - Local mods' dependencies get the other mod's Workshop id filled in on scan

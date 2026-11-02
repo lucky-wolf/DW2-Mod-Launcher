@@ -350,6 +350,11 @@
   "PublishStateUnpublishedDetail": "Ещё не опубликован в Мастерской Steam.",
   "PublishStateBadgeTip": "Изменено с последней публикации",
   "PublishChangelogStampFailed": "Обновление опубликовано, но changelog.txt обновить не удалось, поэтому заметки из раздела Unreleased будут отправлены снова при следующей публикации: {Problem}",
+  "PublishStaleCompatibleTitle": "Устаревшая отметка совместимости",
+  "PublishStaleCompatibleWarning": "В списке «Совместим с» отмечена совместимость со старой версией этих модов, а не с установленной:\n\n{Marks}\n\nПересечение с ними для установленной версии не проверялось. Всё равно опубликовать?",
+  "PublishStaleCompatibleYes": "Всё равно опубликовать",
+  "PublishStaleCompatibleLine": "{Mod}: отмечена {Pinned}, установлена {Installed}",
+  "PublishCarryOverFailed": "Не удалось перенести записи «Совместим с» других модов на новую версию, поэтому они могут снова показываться как изменённые: {Problem}",
   "PublishStateRecordFailed": "Не удалось сохранить состояние публикации, поэтому изменения после неё показываться не будут: {Problem}",
   "CreateMod": "Создать...",
   "CreateModTooltip": "Создать новый мод локально",
@@ -615,5 +620,6 @@
   "ModSettingsNotPrepared": "{Mod}: не удалось подготовить его настройки.\n{Problem}",
   "WidgetGameStateNotTracked": "начало игры не отслеживается: {Problem}; моды, ожидающие настоящую игру, не будут выдавать предупреждения",
   "WidgetListSeparator": ", ",
-  "InstalledLanguagePackNotValid": "Языковой файл установленного мода не используется: {File}\n{Problem}"
+  "InstalledLanguagePackNotValid": "Языковой файл установленного мода не используется: {File}\n{Problem}",
+  "MissingModReferencesRemoved": "Записи порядка загрузки для неустановленных модов (всего {Count}) удалены из mods.json игры и профилей модов: {Mods}"
 }

@@ -22,6 +22,12 @@ namespace DW2ModLauncher.Avalonia
                 Environment.Exit(DW2ModLauncher.Core.Services.Updates.UpdateApplier.Run(args));
                 return;
             }
+            // Helper mode for tools that start the game themselves: prepare the loader manifest and command line, write them to a file, never show a window.
+            if (args.Length > 0 && args[0] == DW2ModLauncher.Core.Services.LaunchPreparation.Flag)
+            {
+                Environment.Exit(DW2ModLauncher.Core.Services.LaunchPreparation.Run(args));
+                return;
+            }
             AppDomain.CurrentDomain.UnhandledException += delegate (object sender, UnhandledExceptionEventArgs e)
             {
                 Logger.LogException("Unhandled domain exception", e.ExceptionObject as Exception);

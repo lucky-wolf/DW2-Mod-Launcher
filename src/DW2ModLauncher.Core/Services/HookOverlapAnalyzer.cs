@@ -80,8 +80,7 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>Every target any enabled mod patches (not only the shared ones), with each mod's patches on it.</summary>
         public Dictionary<string, List<HookParticipant>> ByTarget { get; set; } = new Dictionary<string, List<HookParticipant>>(StringComparer.Ordinal);
         /// <summary>Where a mod's declared manifest and the last session disagree: declared but not seen, seen but not declared.</summary>
-        public List<HookNote> Drift { get; set; } = new List<HookNote>();
-        /// <summary>How many shared-target pairs are hidden because the player acknowledged them.</summary>
+        public List<HookNote> Drift { get; set; } = new List<HookNote>();        /// <summary>How many shared-target pairs are hidden because the player acknowledged them.</summary>
         public int AcknowledgedCount { get; set; }
         /// <summary>Declared or observed data that no longer matches the installed mod or game, and hooks files that could not be read.</summary>
         public List<HookNote> Notes { get; set; } = new List<HookNote>();
@@ -187,8 +186,7 @@ namespace DW2ModLauncher.Core.Services
             foreach (string target in byTarget.Where(x => !x.Value.Any(p => p.Enabled)).Select(x => x.Key).ToList()) byTarget.Remove(target);
             result.ByTarget = byTarget;
             // declared coordination and load order are looked up among every mod that takes part, enabled or not
-            List<ModInfo> everyone = orderedEnabled.Concat(notEnabledMods).ToList();
-            foreach (KeyValuePair<string, List<HookParticipant>> target in byTarget)
+            List<ModInfo> everyone = orderedEnabled.Concat(notEnabledMods).ToList(); foreach (KeyValuePair<string, List<HookParticipant>> target in byTarget)
             {
                 List<ModInfo> mods = target.Value.Select(p => p.Mod).Distinct().ToList();
                 if (mods.Count < 2) continue;

@@ -47,23 +47,29 @@ namespace DW2ModLauncher.Core.Services
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Loader", "DW2ModLauncher.Loader.dll");
         }
 
-        /// <summary>Writes manifest.json beside the loader DLL; the loader reads it at --low-level-inject time.</summary>
-        public static LoaderManifest WriteLoaderManifest(IEnumerable<ModInfo> orderedEnabledMods, string logDirectory = "", Dictionary<string, string> strings = null, string language = null, string gameRoot = null)
+        /// <summary>
+        /// Writes manifest.json beside the loader DLL; the loader reads it at --low-level-inject time. <paramref name="loaderDirectory"/> (default: the
+        /// launcher's own Loader folder) is where the manifest goes and must hold the loader DLL the game is started with, which is how
+        /// <see cref="LaunchPreparation"/> keeps a test launch from touching the launcher's. <paramref name="observedHooksPath"/> (default: the
+        /// launcher's hooks-observed.json) is where that session's patched game code is recorded.
+        /// </summary>
+        public static LoaderManifest WriteLoaderManifest(IEnumerable<ModInfo> orderedEnabledMods, string logDirectory = "", Dictionary<string, string> strings = null, string language = null, string gameRoot = null,
+            string loaderDirectory = null, string observedHooksPath = null)
         {
             LoaderManifest manifest = LoaderManifestBuilder.Build(orderedEnabledMods.ToList(), language, gameRoot);
             manifest.LogDirectory = string.IsNullOrWhiteSpace(logDirectory) ? "" : GamePaths.ToGameVisiblePath(logDirectory.Trim());
-            manifest.ObservedHooksPath = GamePaths.ToGameVisiblePath(HookFiles.ObservedPath());
+            manifest.ObservedHooksPath = GamePaths.ToGameVisiblePath(string.IsNullOrWhiteSpace(observedHooksPath) ? HookFiles.ObservedPath() : observedHooksPath);
             if (strings != null) manifest.Strings = strings;
-            string loaderDir = Path.GetDirectoryName(LoaderDllPath());
+            string loaderDir = string.IsNullOrWhiteSpace(loaderDirectory) ? Path.GetDirectoryName(LoaderDllPath()) : loaderDirectory;
             Directory.CreateDirectory(loaderDir);
             File.WriteAllText(Path.Combine(loaderDir, "manifest.json"), JsonSerializer.Serialize(manifest), new UTF8Encoding(false));
             return manifest;
         }
 
         /// <summary>The game command line: the loader injection flag, then the startup mode flag if any.</summary>
-        public static string BuildArguments(LaunchMode mode = LaunchMode.Run, string fontBundle = null)
+        public static string BuildArguments(LaunchMode mode = LaunchMode.Run, string fontBundle = null, string loaderDirectory = null)
         {
-            string loaderDll = GamePaths.ToGameVisiblePath(LoaderDllPath());
+            string loaderDll = GamePaths.ToGameVisiblePath(string.IsNullOrWhiteSpace(loaderDirectory) ? LoaderDllPath() : Path.Combine(loaderDirectory, Path.GetFileName(LoaderDllPath())));
             string token = (loaderDll.IndexOf(' ') >= 0 ? "\"" + loaderDll + "\"" : loaderDll) + "!DW2ModLauncher.Loader.Entry.Init";
             string args = "--low-level-inject " + token;
             if (mode == LaunchMode.Continue) args += " --continue";
