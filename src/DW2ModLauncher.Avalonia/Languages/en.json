@@ -350,6 +350,11 @@
   "PublishStateUnpublishedDetail": "Not published to the Steam Workshop yet.",
   "PublishStateBadgeTip": "Changed since last publish",
   "PublishChangelogStampFailed": "The update was published, but changelog.txt could not be updated, so its Unreleased notes will be sent again next time: {Problem}",
+  "PublishStaleCompatibleTitle": "Out-of-date compatibility mark",
+  "PublishStaleCompatibleWarning": "Your \"Compatible with\" list marks an older version of these mods as compatible, not the version installed now:\n\n{Marks}\n\nThe overlap with them was not reviewed for the installed version. Publish anyway?",
+  "PublishStaleCompatibleYes": "Publish anyway",
+  "PublishStaleCompatibleLine": "{Mod}: marked {Pinned}, installed {Installed}",
+  "PublishCarryOverFailed": "The \"Compatible with\" entries of other mods could not be moved to the new version, so they may show as changed again: {Problem}",
   "PublishStateRecordFailed": "The published state could not be saved, so changes since this publish will not be shown: {Problem}",
   "CreateMod": "Create...",
   "CreateModTooltip": "Create a new mod locally",
@@ -615,5 +620,6 @@
   "ModSettingsNotPrepared": "{Mod}: its settings could not be prepared.\n{Problem}",
   "WidgetGameStateNotTracked": "the start of a game is not tracked: {Problem}; mods that wait for a real game will not warn",
   "WidgetListSeparator": ", ",
-  "InstalledLanguagePackNotValid": "A language file from an installed mod is not used: {File}\n{Problem}"
+  "InstalledLanguagePackNotValid": "A language file from an installed mod is not used: {File}\n{Problem}",
+  "MissingModReferencesRemoved": "{Count} load-order entries of mods that are not installed were removed from DW2's mods.json and the mod profiles: {Mods}"
 }

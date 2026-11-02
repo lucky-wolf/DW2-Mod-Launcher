@@ -530,6 +530,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
 
+        /// <summary>The "Compatible with" entries pinned to a version other than the one installed now, as "Name (marked 1.0.4, installed 1.0.6)" lines.</summary>
+        public List<string> StaleCompatible()
+        {
+            List<string> stale = new List<string>();
+            foreach (string entry in compatibleEntries)
+            {
+                (string name, string pinned) = HookOverlapAnalyzer.SplitCoordinationEntry(entry);
+                ModInfo installed = ModDependencies.Find(installedMods, name);
+                if (installed == null || pinned == null || string.IsNullOrWhiteSpace(installed.Version)) continue;
+                if (!string.Equals(pinned, installed.Version.Trim(), StringComparison.OrdinalIgnoreCase))
+                    stale.Add(L.Format("PublishStaleCompatibleLine", ("Mod", name), ("Pinned", pinned), ("Installed", installed.Version.Trim())));
+            }
+            return stale;
+        }
+
         private void RaiseCompatible() { Raise(nameof(CompatibleRows)); Raise(nameof(CompatibleHeader)); Raise(nameof(HasCompatible)); Raise(nameof(NoCompatible)); RaiseModified(); }
 
         /// <summary>Re-pins an entry to the version of the mod installed now, keeping its place in the list.</summary>

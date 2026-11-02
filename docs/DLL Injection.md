@@ -147,6 +147,16 @@ The game loads its data and builds galaxies for more than the game itself: the m
 invokes. `LoaderManifestBuilder.Build` gathers every enabled mod's targets, in load order,
 de-duplicated by `dll!entryPoint`, into a `DW2ModLauncher.Core.Models.LoaderManifest`.
 
+## Preparing a launch without a window (`--prepare-launch`)
+
+A tool that starts the game itself (the dev-only test MCP server's `game_launch`) must still get the launcher's loading: the game takes one `--low-level-inject`, and a second imitation of the loader would miss the file channels, settings, translations and patches. So the launcher exe has a helper mode that does the pre-launch work and starts nothing:
+
+```
+DW2ModLauncher.exe --prepare-launch --game-root <game folder> --out <empty folder> [--extra-mod <mod folder>]...
+```
+
+It reads the launcher's settings (Workshop folder, language, per-mod settings) and that game folder's `mods.json`, applies the dependency order to this launch only (`mods.json` is never written), builds the manifest the way Play does, and writes `launch.json` into `--out`: the game's `Arguments`, the `Mods` in load order, the merged `Channels`, `Problems` (what Play would ask about) and an `Error` when nothing could be prepared (exit code 1). The Loader DLL is copied into `--out\Loader` beside `manifest.json`, so the launcher's own Loader folder and `hooks-observed.json` are untouched and a game started from the copy never locks the launcher's build. Each `--extra-mod` folder (it needs a `mod.json`) loads first whether or not `mods.json` lists it, for a dev-only mod that must never be enabled for play. Code: `LaunchPreparation`.
+
 ## `InitWithOptions(string)` / `Init()` convention
 
 For each manifest entry, in order, `DW2ModLauncher.Loader.Entry` resolves the declared type and:
