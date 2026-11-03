@@ -1,5 +1,9 @@
 ## Unreleased
 
+## 1.0.31 (2026-11-03)
+- Going forward, any heading in a changelog.txt that has a version, means it was published under that version (anything new must be placed under the Unreleased heading)
+- Which version action to take at publish is now stored in the mod's dw2modlauncher.json, so it stays with the mod
+
 ## 1.0.30 (2026-11-02)
 - Publishing a new version keeps its reviewed overlaps and compatibility
 - Publishing asks first when a compatibility mark is out of date

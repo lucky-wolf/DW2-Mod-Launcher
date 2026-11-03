@@ -175,10 +175,10 @@ namespace DW2ModLauncher.Core.Services.Publishing
         /// <summary>A heading with a date ("1.0.12 (2026-10-22)") is what a publish stamps: that version went out.</summary>
         private static bool IsStampedFor(Section s, string version)
         {
-            return HeadingVersion(s) == version.Trim() && s.Heading.Contains("(");
+            return HeadingVersion(s) == version.Trim();
         }
 
-        /// <summary>Whether a publish already stamped a section for <paramref name="version"/>, meaning that version is out and the next change is a new one.</summary>
+        /// <summary>Whether the changelog has a section named for <paramref name="version"/> (a publish stamps one with a date, but an author may write the heading without it), meaning that version is out and the next change is a new one.</summary>
         public static bool IsStamped(string contentRoot, string version)
         {
             return !string.IsNullOrWhiteSpace(version) && Parse(ReadFile(contentRoot)).Any(s => IsStampedFor(s, version));

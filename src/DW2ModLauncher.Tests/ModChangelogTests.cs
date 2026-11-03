@@ -158,6 +158,18 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void IsStamped_ADatelessVersionHeadingCountsAsPublished()
+        {
+            string dir = MakeFolder("## Unreleased\n- next\n\n## 0.4.0\n- shipped\n");
+            try
+            {
+                Assert.True(ModChangelog.IsStamped(dir, "0.4.0"));
+                Assert.False(ModChangelog.IsStamped(dir, "0.5.0"));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
         public void Notes_NextVersionShowsUnreleasedAndAPublishedVersionShowsItsOwnNotes()
         {
             string dir = MakeFolder("## Unreleased\n- next\n\n## 1.0.12 (2026-10-22)\n- shipped\n");
@@ -177,8 +189,10 @@ namespace DW2ModLauncher.Tests
             string dir = MakeFolder("## Unreleased\n- new\n\n## 1.0.17\n- shipped\n");
             try
             {
-                Assert.Equal("- new", ModChangelog.NotesText(dir, "1.0.17"));
-                ModChangelog.SetNotes(dir, "1.0.17", "- newer");
+                // a version heading means that version went out, dated or not: the next version takes the Unreleased lines
+                Assert.Equal("- shipped", ModChangelog.NotesText(dir, "1.0.17"));
+                Assert.Equal("- new", ModChangelog.NotesText(dir, "1.0.18"));
+                ModChangelog.SetNotes(dir, "1.0.18", "- newer");
                 Assert.Equal("- newer", ModChangelog.UnreleasedText(dir));
             }
             finally { Directory.Delete(dir, true); }
