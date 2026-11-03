@@ -36,6 +36,9 @@ namespace DW2ModLauncher.Core.Models
 
         /// <summary>The channels this mod's DLL receives data on, in the second argument of InitWithOptions(string, IReadOnlyDictionary).</summary>
         public List<string> receives { get; set; }
+
+        /// <summary>How far the publish dialog raises the version of an update: "none", "minor" or "major". Absent means patch. Stays with the mod, so the choice is the same on every machine that publishes it.</summary>
+        public string versionBump { get; set; }
     }
 
     /// <summary>One entry of dw2modlauncher.json "provides": the files this mod fills a channel's slots with.</summary>

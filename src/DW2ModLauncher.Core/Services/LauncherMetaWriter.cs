@@ -25,6 +25,23 @@ namespace DW2ModLauncher.Core.Services
             Stamp(modFolder, "author", author, overwrite);
         }
 
+        /// <summary>
+        /// Sets "versionBump" (see LauncherMeta) to <paramref name="level"/>; "patch", the default, removes the key and writes nothing when there is no file.
+        /// Throws if the existing file cannot be parsed, so a file with other content in it is never replaced.
+        /// </summary>
+        public static void SetVersionBump(string modFolder, string level)
+        {
+            const string field = "versionBump";
+            string path = Path.Combine(modFolder, FileName);
+            bool isDefault = string.Equals((level ?? "").Trim(), "patch", StringComparison.OrdinalIgnoreCase);
+            if (isDefault && !File.Exists(path)) return;
+            JsonObject root = Load(path);
+            string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(field, StringComparison.OrdinalIgnoreCase));
+            if (key != null) root.Remove(key);
+            if (!isDefault) root[field] = level.Trim().ToLowerInvariant();
+            Save(path, root);
+        }
+
         /// <summary>Records the language code of a translation mod (see LauncherMeta.language); the same rules as <see cref="StampAuthor"/>.</summary>
         public static void StampLanguage(string modFolder, string languageCode, bool overwrite)
         {

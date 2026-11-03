@@ -18,6 +18,24 @@ namespace DW2ModLauncher.Tests
         private string FilePath { get { return Path.Combine(folder, LauncherMetaWriter.FileName); } }
 
         [Fact]
+        public void SetVersionBump_WritesTheLevel_AndPatchRemovesIt()
+        {
+            LauncherMetaWriter.SetVersionBump(folder, "patch");
+            Assert.False(File.Exists(FilePath));
+
+            File.WriteAllText(FilePath, "{ \"author\": \"Me\" }");
+            LauncherMetaWriter.SetVersionBump(folder, "Minor");
+            JsonObject root = JsonNode.Parse(File.ReadAllText(FilePath)).AsObject();
+            Assert.Equal("Me", (string)root["author"]);
+            Assert.Equal("minor", (string)root["versionBump"]);
+
+            LauncherMetaWriter.SetVersionBump(folder, "patch");
+            root = JsonNode.Parse(File.ReadAllText(FilePath)).AsObject();
+            Assert.Equal("Me", (string)root["author"]);
+            Assert.False(root.ContainsKey("versionBump"));
+        }
+
+        [Fact]
         public void SetCoordinatedWith_WritesTheListAndKeepsTheRestOfTheFile()
         {
             File.WriteAllText(FilePath, "{ \"author\": \"Me\", \"dependencies\": [ { \"mod\": \"XL\" } ] }");

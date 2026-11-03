@@ -65,7 +65,7 @@ Manual override (rare): a `dw2modlauncher.json` next to the mod's `mod.json` rep
 }
 ```
 
-`dw2modlauncher.json` also takes `"hooksCoordinatedWith": ["Other Mod"]` (mods whose patches of the same game code this one's author has already coordinated with; see [Code Hooks.md](<Code Hooks.md>)) and `"minLauncherVersion": "1.0.6"`: the oldest launcher the mod works with. A
+`dw2modlauncher.json` also takes `"versionBump": "none" | "minor" | "major"`: how far the publish dialog raises the version of an update (absent means patch; the dialog writes it, so the choice travels with the mod), and `"hooksCoordinatedWith": ["Other Mod"]` (mods whose patches of the same game code this one's author has already coordinated with; see [Code Hooks.md](<Code Hooks.md>)) and `"minLauncherVersion": "1.0.6"`: the oldest launcher the mod works with. A
 launcher that is older marks the mod Caution in the list and details pane and lists it in the pre-launch
 diagnostics (launching anyway is allowed). Only the numeric `major.minor.patch` is compared, so a `-dev` build counts
 as its base version, and an unreadable value is ignored. Launchers from before this key existed ignore it silently, so

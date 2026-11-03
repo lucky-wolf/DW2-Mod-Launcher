@@ -1687,6 +1687,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             return await Task.Run(() => reader.GetVisibility(publishedId));
         }
 
+        /// <summary>The mod's version policy: its dw2modlauncher.json "versionBump", else the entry an older launcher kept in launcher_settings.json (moved into the file when the dialog is accepted), else patch.</summary>
+        private VersionBumpPolicy BumpPolicyFor(ModInfo mod, string bumpKey)
+        {
+            LauncherMeta meta = LauncherMetaReader.Read(mod);
+            return string.IsNullOrWhiteSpace(meta?.versionBump) ? settings.VersionBumpFor(bumpKey) : new VersionBumpPolicy { Level = meta.versionBump };
+        }
+
+        private void RememberBumpPolicy(ModInfo mod, string bumpKey, VersionBumpPolicy policy)
+        {
+            LauncherMetaWriter.SetVersionBump(mod.Folder, policy.Level);
+            if (settings.VersionBump != null && settings.VersionBump.Remove(bumpKey)) SaveSettings();
+        }
+
         /// <summary>The publish dialog without the publishing: edits the Mod's mod.json fields and saves them. Choosing a different visibility there applies it to Steam at once.</summary>
         private async Task EditPropertiesAsync(ModInfo mod)
         {
@@ -1710,7 +1723,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1720,9 +1733,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool accepted = await Dialogs.EditPublishAsync(editor);
             ForgetVisibility(mod);
             if (!accepted) { UpdateStatus(); return; }
-            // The version policy is launcher-side (launcher_settings.json); it only takes effect at the next publish.
-            settings.SetVersionBump(bumpKey, editor.BumpPolicy);
-            SaveSettings();
+            // The version policy is kept in the mod's dw2modlauncher.json; it only takes effect at the next publish.
+            RememberBumpPolicy(mod, bumpKey, editor.BumpPolicy);
 
             string folder = mod.Folder;
             Refresh();
@@ -1796,7 +1808,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: settings.VersionBumpFor(bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1806,9 +1818,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool accepted = await Dialogs.EditPublishAsync(editor);
             ForgetVisibility(mod);
             if (!accepted) return;
-            // The version policy is remembered per mod in launcher_settings.json (never in the mod itself).
-            settings.SetVersionBump(bumpKey, editor.BumpPolicy);
-            SaveSettings();
+            // The version policy is remembered in the mod's dw2modlauncher.json.
+            RememberBumpPolicy(mod, bumpKey, editor.BumpPolicy);
             // Accepting the dialog wrote the (possibly bumped) version to mod.json; any exit below that doesn't publish undoes it.
             string versionBefore = editor.OriginalVersion;
             string versionWritten = metadata.Version;
