@@ -14,8 +14,37 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>Why moving the old settings out of the install folder failed, or null.</summary>
         public static string MigrationError { get; private set; }
 
+        /// <summary>The command-line switch that moves the whole data root: <c>--data-root &lt;folder&gt;</c>. For tools and testers, not players.</summary>
+        public const string Flag = "--data-root";
+
+        /// <summary>The folder given with <see cref="Flag"/>, or null for the normal per-user folder.</summary>
+        public static string Override { get; private set; }
+
+        /// <summary>
+        /// Takes <see cref="Flag"/> and its folder out of the command line and returns the remaining arguments. With the switch, settings, profiles,
+        /// per-mod settings, the log and the single-instance lock all live in that folder, completely apart from the normal user's, so a second
+        /// launcher (or a helper such as --prepare-launch) never reads or overwrites the owner's settings.
+        /// </summary>
+        public static string[] ApplyCommandLine(string[] args)
+        {
+            System.Collections.Generic.List<string> rest = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] != Flag) { rest.Add(args[i]); continue; }
+                if (i + 1 >= args.Length || string.IsNullOrWhiteSpace(args[i + 1]))
+                    throw new ArgumentException(Flag + " needs a folder.");
+                Override = Path.GetFullPath(args[++i]);
+            }
+            return rest.ToArray();
+        }
+
         public static string Get()
         {
+            if (Override != null)
+            {
+                Directory.CreateDirectory(Override);
+                return Override;
+            }
             // SpecialFolderOption.Create: on Unix the default returns "" when ~/.config (or $XDG_CONFIG_HOME) doesn't
             // exist yet, which would turn this into a relative path in the working directory.
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.Create);

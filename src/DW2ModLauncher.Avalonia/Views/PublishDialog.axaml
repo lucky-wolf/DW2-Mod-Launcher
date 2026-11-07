@@ -91,7 +91,7 @@
         <!-- Folded by default: the arrow edits the description here, the pencil in your own editor. The buttons sit in the header and do not toggle it. -->
         <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
           <Expander.Header>
-            <Grid ColumnDefinitions="Auto,*,Auto,6,Auto,6,Auto,6,Auto" ToolTip.Tip="{Binding DescriptionTooltip}">
+            <Grid ColumnDefinitions="Auto,*,Auto,6,Auto,6,Auto,6,Auto,6,Auto" ToolTip.Tip="{Binding DescriptionTooltip}">
               <!-- The gold dot is the same "modified" mark as the mod list's; here it means the text differs from the Steam page. -->
               <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <TextBlock VerticalAlignment="Center" Text="{Binding DescriptionHeader}" />
@@ -99,19 +99,20 @@
                 <!-- Red: the text on Steam is no longer what the launcher last sent, so it was edited on the Steam page. -->
                 <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Red}" IsVisible="{Binding ShowDescriptionEditedOnSteam}" />
               </StackPanel>
-            <Button Grid.Column="4" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
+            <Button Grid.Column="2" Command="{Binding EditDescriptionFileCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishEditDescriptionFileTooltip]}">
               <!-- "pencil" icon, Material Design Icons, Apache-2.0 -->
               <PathIcon Width="16" Height="16" Data="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83zM3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
             </Button>
+            <Rectangle Grid.Column="6" Width="1" Margin="4,2" Fill="{StaticResource Dw2Steel}" IsVisible="{Binding HasWorkshopId}" />
             <Button Grid.Column="8" IsVisible="{Binding HasWorkshopId}" Command="{Binding OpenSteamPageCommand}" Padding="10,6" ToolTip.Tip="{Binding L[SteamPage]}">
               <!-- "open in new" icon, Material Design Icons, Apache-2.0 (not an eye: eyes mean visibility in the mod list) -->
               <PathIcon Width="16" Height="16" Data="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
             </Button>
-            <Button Grid.Column="2" IsVisible="{Binding HasWorkshopId}" Command="{Binding PullSteamDescriptionCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishPullSteamDescriptionTooltip]}">
+            <Button Grid.Column="10" IsVisible="{Binding HasWorkshopId}" Command="{Binding PullSteamDescriptionCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishPullSteamDescriptionTooltip]}">
               <!-- "cloud download" icon, Material Design Icons, Apache-2.0 -->
               <PathIcon Width="16" Height="16" Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z" />
             </Button>
-            <Button Grid.Column="6" IsVisible="{Binding HasWorkshopId}" Command="{Binding PushSteamDescriptionCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishPushSteamDescriptionTooltip]}">
+            <Button Grid.Column="4" IsVisible="{Binding HasWorkshopId}" Command="{Binding PushSteamDescriptionCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishPushSteamDescriptionTooltip]}">
               <!-- "cloud upload" icon, Material Design Icons, Apache-2.0 -->
               <PathIcon Width="16" Height="16" Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
             </Button>

@@ -10,6 +10,16 @@ namespace DW2ModLauncher.Avalonia
         [STAThread]
         public static void Main(string[] args)
         {
+            try
+            {
+                args = DW2ModLauncher.Core.Services.UserDataRoot.ApplyCommandLine(args);
+            }
+            catch (ArgumentException ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                Environment.Exit(1);
+                return;
+            }
             // Helper mode: do the Steam call and exit, never showing a window.
             if (args.Length > 0 && args[0] == DW2ModLauncher.Core.Services.Publishing.SteamWorker.Flag)
             {
