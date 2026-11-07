@@ -36,7 +36,8 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>The guard for the real launcher: one per OS user, lock file in the launcher's data folder.</summary>
         public static SingleInstanceGuard ForCurrentUser()
         {
-            return new SingleInstanceGuard(Path.Combine(UserDataRoot.Get(), "launcher.lock"), "DW2ModLauncher-" + Environment.UserName);
+            return new SingleInstanceGuard(Path.Combine(UserDataRoot.Get(), "launcher.lock"), "DW2ModLauncher-" + Environment.UserName
+                + (UserDataRoot.Override == null ? "" : "-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(UserDataRoot.Override.ToLowerInvariant()))).Substring(0, 12)));
         }
 
         /// <summary>True if this process is now the only launcher; false if another one holds the lock. Other failures (permissions, ...) throw.</summary>

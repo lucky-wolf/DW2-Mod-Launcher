@@ -29,6 +29,12 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void DataRootSwitchWithoutAFolderIsRefused()
+        {
+            Assert.Throws<ArgumentException>(() => UserDataRoot.ApplyCommandLine(new[] { "--prepare-launch", UserDataRoot.Flag }));
+        }
+
+        [Fact]
         public void MissingArgumentsAreRefusedBeforeAnythingIsWritten()
         {
             Assert.Equal(1, LaunchPreparation.Run(new[] { LaunchPreparation.Flag, "--game-root", dir }));

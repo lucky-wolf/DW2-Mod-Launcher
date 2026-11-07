@@ -1,4 +1,5 @@
 ## Unreleased
+- Publish dialog: Steam description download button moved to the far right
 
 ## 1.0.31 (2026-11-03)
 - Going forward, any heading in a changelog.txt that has a version, means it was published under that version (anything new must be placed under the Unreleased heading)
