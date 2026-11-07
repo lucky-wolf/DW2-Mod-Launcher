@@ -469,6 +469,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 typed =>
                 {
                     typed = (typed ?? "").Trim();
+                    if (typed.Length == 0) return "";
                     if (IsDefaultProfileLabel(typed)) return unnamedHintKey == null ? "" : main.T(unnamedHintKey);
                     return store.Exists(typed) && !string.Equals(typed, own, StringComparison.OrdinalIgnoreCase)
                         ? main.T(allowOverwrite ? "ProfileWillOverwrite" : "ProfileNameExists") : "";

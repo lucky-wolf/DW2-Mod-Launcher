@@ -1303,11 +1303,28 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             UpdateStatus();
         }
 
-        private static readonly string[] LanguageChoices =
+        // Labels are translated when the selected launcher pack provides a name; other packs keep the existing English labels.
+        // The code stays at the start so LanguageCodeFrom can extract it regardless of the display language.
+        private static readonly (string Code, string English, string NameKey)[] LanguageChoices =
         {
-            "ja - Japanese", "ru - Russian", "de - German", "fr - French", "es - Spanish", "it - Italian", "pt - Portuguese", "pl - Polish",
-            "zh - Chinese", "ko - Korean", "tr - Turkish", "nl - Dutch", "cs - Czech", "uk - Ukrainian", "sv - Swedish", "hu - Hungarian"
+            ("ja", "Japanese", "LocalizationLanguageNameJa"), ("ru", "Russian", "LocalizationLanguageNameRu"),
+            ("de", "German", "LocalizationLanguageNameDe"), ("fr", "French", "LocalizationLanguageNameFr"),
+            ("es", "Spanish", "LocalizationLanguageNameEs"), ("it", "Italian", "LocalizationLanguageNameIt"),
+            ("pt", "Portuguese", "LocalizationLanguageNamePt"), ("pl", "Polish", "LocalizationLanguageNamePl"),
+            ("zh", "Chinese", "LocalizationLanguageNameZh"), ("ko", "Korean", "LocalizationLanguageNameKo"),
+            ("tr", "Turkish", "LocalizationLanguageNameTr"), ("nl", "Dutch", "LocalizationLanguageNameNl"),
+            ("cs", "Czech", "LocalizationLanguageNameCs"), ("uk", "Ukrainian", "LocalizationLanguageNameUk"),
+            ("sv", "Swedish", "LocalizationLanguageNameSv"), ("hu", "Hungarian", "LocalizationLanguageNameHu")
         };
+
+        private IList<string> LocalizedLanguageChoices()
+        {
+            return LanguageChoices.Select(choice =>
+            {
+                string name = T(choice.NameKey);
+                return choice.Code + " - " + (name == choice.NameKey ? choice.English : name);
+            }).ToList();
+        }
 
         /// <summary>"ja - Japanese" or "ja" gives "ja".</summary>
         private static string LanguageCodeFrom(string text)
@@ -1402,7 +1419,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             string typed = await Dialogs.PromptTextAsync(T("CreateModKindLocalization"), T("LocalizationLanguagePrompt"), initial ?? "", T("OK"), T("Cancel"),
                 text => string.IsNullOrWhiteSpace(text) ? "" : T("LocalizationCodePreview", ("Code", LanguageCodeFrom(text))),
-                LanguageChoices, text => !IsLanguageCode(LanguageCodeFrom(text)));
+                LocalizedLanguageChoices(), text => !IsLanguageCode(LanguageCodeFrom(text)));
             return typed == null ? null : LanguageCodeFrom(typed);
         }
 
