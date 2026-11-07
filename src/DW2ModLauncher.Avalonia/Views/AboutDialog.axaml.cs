@@ -15,6 +15,8 @@ namespace DW2ModLauncher.Avalonia.Views
             InitializeComponent();
             CloseButton.Click += delegate { Close(); };
             ReleasesButton.Click += delegate { OpenReleases(); };
+            DiscordLink.Text = BugReport.DiscordInvite;
+            DiscordButton.Click += delegate { OpenDiscord(); };
         }
 
         public AboutDialog(MainViewModel main) : this()
@@ -28,6 +30,12 @@ namespace DW2ModLauncher.Avalonia.Views
             };
             VersionText.Text = main.T("AboutVersion", ("Version", AppVersion.Display));
             ReleasesLink.Text = AppVersion.ReleasesUrl;
+        }
+
+        private static void OpenDiscord()
+        {
+            try { PlatformShell.Create().OpenUrl(BugReport.DiscordInvite); }
+            catch (Exception ex) { Logger.LogException("Open Discord invite", ex); }
         }
 
         private static void OpenReleases()

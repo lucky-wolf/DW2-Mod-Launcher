@@ -24,6 +24,8 @@ namespace DW2ModLauncher.Avalonia.Services
         string CopyText { get; set; }
         string OpenLogText { get; set; }
         Task ShowMessageAsync(string message, string title);
+        /// <summary>A message box with clickable links under the text, one line each.</summary>
+        Task ShowLinkMessageAsync(string message, string title, IList<DialogLink> links);
         Task<bool> ConfirmAsync(string message, string title, string yesText, string noText);
         /// <summary>Shows one button per entry (<paramref name="tooltips"/>, when given, has one tooltip per button); returns the clicked index, or -1 if dismissed. The last button is the cancel button (Esc).</summary>
         Task<int> ChooseAsync(string message, string title, IList<string> buttons, IList<string> tooltips = null);
@@ -39,6 +41,8 @@ namespace DW2ModLauncher.Avalonia.Services
         Task<string> PickFolderAsync(string title, string startFolder);
         /// <summary>The user's Downloads folder as the system reports it (a redirected one is followed), or null if the system has none.</summary>
         Task<string> DownloadsFolderAsync();
+        /// <summary>Puts the text on the clipboard; throws when the system has no clipboard to give.</summary>
+        Task CopyTextAsync(string text);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFileAsync(string title, string startFolder, string filterName, params string[] patterns);
         /// <summary>Shows the launcher settings in a modal window; completes when it is closed. Pickers and messages opened from it sit on top of it.</summary>
