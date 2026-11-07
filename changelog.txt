@@ -1,5 +1,7 @@
 ## Unreleased
 - Add a complete Simplified Chinese launcher language pack
+- Localize translation language choices and clarify Simplified Chinese profile prompts
+- Suppress duplicate-profile warnings for blank names
 
 ## 1.0.33 (2026-11-06)
 - Publish dialog: Out-of-date compatible warning now appears over the dialog
