@@ -74,9 +74,9 @@ namespace DW2ModLauncher.Avalonia.Services
             return choice ?? -1;
         }
 
-        public Task<string> PickFromListAsync(string title, string note, IList<string> items)
+        public Task<string> PickFromListAsync(string title, string note, IList<string> items, ISet<string> cautionItems = null, string cautionTooltip = null)
         {
-            return new ListPickerDialog(title, note, items, OkText, CancelText).ShowDialog<string>(owner());
+            return new ListPickerDialog(title, note, items, OkText, CancelText, false, cautionItems, cautionTooltip).ShowDialog<string>(owner());
         }
 
         public async Task<IList<string>> PickManyFromListAsync(string title, string note, IList<string> items)

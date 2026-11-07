@@ -90,6 +90,8 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>The same for cautions (overlaps that are not conflicts).</summary>
         public int HookCautionMods { get; set; }
         public int HookCautionMethods { get; set; }
+        /// <summary>The other mods this one has an unresolved caution or conflict with (HookOverlapAnalyzer.Apply), enabled or not; the publish dialog flags them.</summary>
+        public List<ModInfo> HookProblemPartners { get; set; } = new List<ModInfo>();
         /// <summary>One line per caution or conflict above, for the health tooltip and details.</summary>
         public List<string> HookNotes { get; set; } = new List<string>();
         /// <summary>The lines of HookNotes that are conflicts (the rest are cautions).</summary>

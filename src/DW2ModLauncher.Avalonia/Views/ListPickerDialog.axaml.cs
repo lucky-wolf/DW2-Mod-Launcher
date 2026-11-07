@@ -1,5 +1,8 @@
 using System.Collections.Generic;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.Layout;
+using Avalonia.Media;
 
 namespace DW2ModLauncher.Avalonia.Views
 {
@@ -14,8 +17,27 @@ namespace DW2ModLauncher.Avalonia.Views
             InitializeComponent();
         }
 
-        public ListPickerDialog(string title, string note, IList<string> items, string okText, string cancelText, bool multiple = false) : this()
+        public ListPickerDialog(string title, string note, IList<string> items, string okText, string cancelText, bool multiple = false, ISet<string> cautionItems = null, string cautionTooltip = null) : this()
         {
+            // items in cautionItems carry a caution flag before the text
+            if (cautionItems != null && cautionItems.Count > 0)
+                Items.ItemTemplate = new FuncDataTemplate<string>((text, _) =>
+                {
+                    StackPanel row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                    bool flagged = text != null && cautionItems.Contains(text);
+                    row.Children.Add(new PathIcon
+                    {
+                        Width = 14,
+                        Height = 14,
+                        Opacity = flagged ? 1 : 0,
+                        Foreground = Brushes.Orange,
+                        // "alert" icon, Material Design Icons, Apache-2.0
+                        Data = Geometry.Parse("M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z")
+                    });
+                    row.Children.Add(new TextBlock { Text = text });
+                    if (flagged && !string.IsNullOrEmpty(cautionTooltip)) ToolTip.SetTip(row, cautionTooltip);
+                    return row;
+                }, true);
             Title = title;
             NoteText.Text = note;
             OkButton.Content = okText;

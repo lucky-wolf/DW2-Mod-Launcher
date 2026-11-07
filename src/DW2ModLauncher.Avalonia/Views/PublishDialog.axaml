@@ -173,9 +173,15 @@
         <!-- The mods this one's author has checked it works with (dw2modlauncher.json "hooksCoordinatedWith"). The + in the header adds one at the version it has now; each row has its own remove button. -->
         <Expander IsExpanded="{Binding HasCompatible, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0">
           <Expander.Header>
-            <Grid ColumnDefinitions="*,Auto" ToolTip.Tip="{Binding L[PublishCompatibleWithTooltip]}">
+            <Grid ColumnDefinitions="*,Auto,*,Auto" ToolTip.Tip="{Binding L[PublishCompatibleWithTooltip]}">
               <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding CompatibleHeader}" />
-              <Button Grid.Column="1" Command="{Binding AddCompatibleCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishCompatibleAdd]}">
+              <!-- caution flag and how many overlapping mods are not marked compatible yet; mid-bar, away from the count and the plus -->
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding HasCompatibleCaution}" ToolTip.Tip="{Binding CompatibleCautionTooltip}">
+                <!-- "alert" icon, Material Design Icons, Apache-2.0 -->
+                <PathIcon Width="14" Height="14" Foreground="Orange" Data="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z" />
+                <TextBlock Foreground="Orange" Text="{Binding CompatibleCautionCount}" />
+              </StackPanel>
+              <Button Grid.Column="3" Command="{Binding AddCompatibleCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishCompatibleAdd]}">
                 <!-- "plus" icon, Material Design Icons, Apache-2.0 -->
                 <PathIcon Width="16" Height="16" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
               </Button>

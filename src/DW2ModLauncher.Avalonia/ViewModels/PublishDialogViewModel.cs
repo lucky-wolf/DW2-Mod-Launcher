@@ -495,6 +495,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private List<string> savedCompatible;
 
         public RelayCommand AddCompatibleCommand { get; }
+
+        /// <summary>The mods the launcher found overlapping with this one that no "Compatible with" entry covers (as the list stands in the dialog), by name.</summary>
+        private List<ModInfo> CautionMods()
+        {
+            return (mod.HookProblemPartners ?? new List<ModInfo>())
+                .Where(m => !string.Equals(m.Folder, mod.Folder, StringComparison.OrdinalIgnoreCase))
+                // An unpublished local mod (a tool of the author's, say) will never be on a player's machine, so there is nothing to mark compatible.
+                .Where(m => ModDetails.WorkshopId(m) != null)
+                .Where(m => !compatibleEntries.Any(e => HookOverlapAnalyzer.Coordinates(e, m, new[] { m })))
+                .OrderBy(m => m.DisplayName ?? m.Id, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        /// <summary>The number shown in the middle of the "Compatible with" bar.</summary>
+        public string CompatibleCautionCount { get { return CautionMods().Count.ToString(); } }
+        public bool HasCompatibleCaution { get { return CautionMods().Count > 0; } }
+        public string CompatibleCautionTooltip { get { return L.Format("PublishCompatibleCautionHeader", ("Mods", string.Join("\n", CautionMods().Select(m => m.DisplayName ?? m.Id)))); } }
         public bool HasCompatible { get { return compatibleEntries.Count > 0; } }
         public bool NoCompatible { get { return compatibleEntries.Count == 0; } }
 
@@ -530,9 +545,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
 
+        /// <summary>
+        /// The names of overlapping installed mods that the list does not mention at all (what the count on the "Compatible with" bar shows, minus the
+        /// stale pins <see cref="StaleCompatible"/> reports). Empty when only editing properties.
+        /// </summary>
+        public List<string> UnmarkedOverlaps()
+        {
+            if (propertiesOnly) return new List<string>();
+            return CautionMods()
+                .Where(m => !compatibleEntries.Any(e => ModDependencies.Find(new[] { m }, HookOverlapAnalyzer.SplitCoordinationEntry(e).Name) == m))
+                .Select(m => m.DisplayName ?? m.Id).ToList();
+        }
+
         /// <summary>The "Compatible with" entries pinned to a version other than the one installed now, as "Name (marked 1.0.4, installed 1.0.6)" lines.</summary>
         public List<string> StaleCompatible()
         {
+            if (propertiesOnly) return new List<string>();
             List<string> stale = new List<string>();
             foreach (string entry in compatibleEntries)
             {
@@ -545,7 +573,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             return stale;
         }
 
-        private void RaiseCompatible() { Raise(nameof(CompatibleRows)); Raise(nameof(CompatibleHeader)); Raise(nameof(HasCompatible)); Raise(nameof(NoCompatible)); RaiseModified(); }
+        private void RaiseCompatible() { Raise(nameof(CompatibleRows)); Raise(nameof(CompatibleHeader)); Raise(nameof(CompatibleCautionCount)); Raise(nameof(HasCompatibleCaution)); Raise(nameof(CompatibleCautionTooltip)); Raise(nameof(HasCompatible)); Raise(nameof(NoCompatible)); RaiseModified(); }
 
         /// <summary>Re-pins an entry to the version of the mod installed now, keeping its place in the list.</summary>
         private void UpdateCompatible(string entry, ModInfo installed)
@@ -570,7 +598,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             List<ModInfo> candidates = installedMods
                 .Where(m => !string.Equals(m.Folder, mod.Folder, StringComparison.OrdinalIgnoreCase))
                 .Where(m => !compatibleEntries.Any(e => HookOverlapAnalyzer.Coordinates(e, m, new[] { m })))
-                .OrderBy(m => m.DisplayName ?? m.Id, StringComparer.OrdinalIgnoreCase).ToList();
+                .OrderByDescending(m => mod.HookProblemPartners != null && mod.HookProblemPartners.Contains(m))
+                .ThenBy(m => m.DisplayName ?? m.Id, StringComparer.OrdinalIgnoreCase).ToList();
             if (candidates.Count == 0)
             {
                 await dialogs.ShowMessageAsync(L["PublishCompatibleNothingToAdd"], "DW2 Mod Launcher");
@@ -584,7 +613,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (byLabel.ContainsKey(text)) text += "  (" + System.IO.Path.GetFileName((candidate.Folder ?? "").TrimEnd('/', '\\')) + ")";
                 byLabel[text] = candidate;
             }
-            string picked = await dialogs.PickFromListAsync(L["PublishCompatiblePickTitle"], L["PublishCompatiblePickNote"], byLabel.Keys.ToList());
+            HashSet<string> flagged = new HashSet<string>(byLabel.Where(x => mod.HookProblemPartners != null && mod.HookProblemPartners.Contains(x.Value)).Select(x => x.Key), StringComparer.Ordinal);
+            string picked = await dialogs.PickFromListAsync(L["PublishCompatiblePickTitle"], L["PublishCompatiblePickNote"], byLabel.Keys.ToList(), flagged, L["PublishCompatibleCautionRow"]);
             if (picked == null || !byLabel.TryGetValue(picked, out ModInfo chosen)) return;
             // a stale pin for the same mod is replaced, not kept beside the new one
             compatibleEntries.RemoveAll(e => ModDependencies.Find(new[] { chosen }, HookOverlapAnalyzer.SplitCoordinationEntry(e).Name) == chosen);
