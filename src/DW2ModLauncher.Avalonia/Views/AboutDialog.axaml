@@ -19,8 +19,23 @@
         <Button Name="CheckUpdateButton" Content="{Binding L[AboutCheckForUpdates]}" MinWidth="170" />
         <CheckBox IsChecked="{Binding CheckForLauncherUpdates}" Content="{Binding L[AboutAutoCheckUpdates]}" VerticalAlignment="Center" />
       </StackPanel>
-      <Button Content="{Binding L[OpenGameFolder]}" Command="{Binding OpenGameFolderCommand}" MinWidth="170" HorizontalAlignment="Left"
-              ToolTip.Tip="{Binding L[OpenGameFolderTooltip]}" />
+      <TextBlock Classes="subheading" Margin="0,6,0,-6" Text="{Binding L[AboutDiscord]}" />
+      <TextBlock TextWrapping="Wrap" Text="{Binding L[AboutDiscordText]}" />
+      <Button Name="DiscordButton" Classes="link" HorizontalAlignment="Left" Padding="0" Background="Transparent" BorderThickness="0"
+              ToolTip.Tip="{Binding L[DiscordLinkTooltip]}">
+        <TextBlock Name="DiscordLink" TextDecorations="Underline" Foreground="{StaticResource Dw2BlueGlow}" />
+      </Button>
+      <TextBlock Classes="subheading" Margin="0,6,0,-6" Text="{Binding L[AboutProblemReports]}" />
+      <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
+        <Button Grid.Row="0" Grid.Column="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="{Binding L[OpenGameFolder]}"
+                Command="{Binding OpenGameFolderCommand}" ToolTip.Tip="{Binding L[OpenGameFolderTooltip]}" />
+        <Button Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="{Binding L[OpenLogFolder]}"
+                Command="{Binding OpenLogFolderCommand}" ToolTip.Tip="{Binding L[OpenLogFolderTooltip]}" />
+        <Button Grid.Row="1" Grid.Column="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="{Binding L[CopyBugSummary]}"
+                Command="{Binding CopyBugSummaryCommand}" ToolTip.Tip="{Binding L[CopyBugSummaryTooltip]}" />
+        <Button Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="{Binding L[CreateBugReport]}"
+                Command="{Binding CreateBugReportCommand}" ToolTip.Tip="{Binding L[CreateBugReportTooltip]}" />
+      </Grid>
       <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding L[AboutDisclaimer]}" />
     </StackPanel>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">

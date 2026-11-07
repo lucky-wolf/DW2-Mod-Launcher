@@ -120,6 +120,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             var first = WatchGameAsync();
             OpenSelectedFolderCommand = new RelayCommand(OpenModFolder, () => selectedRow != null);
             OpenGameFolderCommand = new RelayCommand(OpenGameFolder);
+            OpenLogFolderCommand = new RelayCommand(OpenLogFolder);
+            CopyBugSummaryCommand = new RelayCommand(CopyBugSummaryAsync);
+            CreateBugReportCommand = new RelayCommand(CreateBugReportAsync);
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage, () => SteamPageId(selectedRow) != null);
             OpenDocsCommand = new RelayCommand(OpenDocsAsync, () => selectedRow != null && selectedRow.Mod.IncludedDocuments != null && selectedRow.Mod.IncludedDocuments.Count > 0);
             ModSettingsCommand = new RelayCommand(OpenModSettingsAsync, () => HasModSettings(selectedRow));
@@ -156,6 +159,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand OpenAboutCommand { get; }
         /// <summary>Opens the game's install folder (data/Logs, data/SavedGames and mods are under it) for players who are asked to send a log or a save.</summary>
         public RelayCommand OpenGameFolderCommand { get; }
+        /// <summary>Opens the folder the game and code mods write their logs to.</summary>
+        public RelayCommand OpenLogFolderCommand { get; }
+        /// <summary>Puts a short bug-report summary (versions, mods, the telling log lines) on the clipboard.</summary>
+        public RelayCommand CopyBugSummaryCommand { get; }
+        /// <summary>Zips the recent logs with the summary into the Downloads folder and opens it, for posting in the Discord mods channel.</summary>
+        public RelayCommand CreateBugReportCommand { get; }
         public RelayCommand HookReportCommand { get; }
         /// <summary>The hooks report for the selected mod alone, at one level: only its conflicts or only its cautions, and acknowledging covers only those.</summary>
         public RelayCommand SelectedConflictReportCommand { get; }
@@ -1130,6 +1139,78 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 Logger.LogException("Open game folder", ex);
                 var _ = Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+            }
+        }
+
+        private void OpenLogFolder()
+        {
+            string path = BugReport.LogFolder(settings.LogDirectory, settings.GameRoot);
+            try
+            {
+                if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) { var _ = Dialogs.ShowMessageAsync(T("FolderNotFound"), "DW2 Mod Launcher"); return; }
+                PlatformShell.Create().OpenFolder(path);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Open log folder", ex);
+                var _ = Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+            }
+        }
+
+        /// <summary>The recent log files, and the summary text built from them.</summary>
+        private (List<BugReport.Source> Logs, string Summary) BuildBugSummary()
+        {
+            string logFolder = BugReport.LogFolder(settings.LogDirectory, settings.GameRoot);
+            List<BugReport.Source> logs = BugReport.LogSources(logFolder, Logger.CrashLogPath, DateTime.Now);
+            List<ModInfo> enabled = OrderedEnabledMods();
+            List<string> header = new List<string>
+            {
+                "DW2 Mod Launcher " + AppVersion.Display,
+                System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                "Game folder: " + settings.GameRoot,
+                "Enabled mods (" + enabled.Count + "): " + string.Join(", ", enabled.Select(m => (m.DisplayName ?? m.Id) + (string.IsNullOrEmpty(m.Version) ? "" : " " + m.Version))),
+            };
+            return (logs, BugReport.Summary(header, logs, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
+        }
+
+        private async Task CopyBugSummaryAsync()
+        {
+            try
+            {
+                await Dialogs.CopyTextAsync(BuildBugSummary().Summary);
+                await Dialogs.ShowMessageAsync(T("BugSummaryCopied"), "DW2 Mod Launcher");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Copy bug report summary", ex);
+                await Dialogs.ShowMessageAsync(T("BugReportFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
+            }
+        }
+
+        private async Task CreateBugReportAsync()
+        {
+            try
+            {
+                string downloads = await Dialogs.DownloadsFolderAsync();
+                if (string.IsNullOrEmpty(downloads) || !Directory.Exists(downloads)) { await Dialogs.ShowMessageAsync(T("BugReportNoDownloads"), "DW2 Mod Launcher"); return; }
+                var (logs, summary) = BuildBugSummary();
+                List<BugReport.Source> files = new List<BugReport.Source>(logs);
+                string modsJson = ModsJsonPath();
+                if (File.Exists(modsJson)) files.Add(new BugReport.Source { Path = modsJson, EntryName = "Mods/" + Path.GetFileName(modsJson) });
+                string zipPath = Path.Combine(downloads, BugReport.ZipName(DateTime.Now));
+                long size = BugReport.WriteZip(zipPath, summary, files);
+                string message = T("BugReportCreated", ("Size", ByteSize.Format(size)));
+                if (size > BugReport.DiscordLimitBytes) message += "\n\n" + T("BugReportTooLarge", ("Limit", ByteSize.Format(BugReport.DiscordLimitBytes)));
+                await Dialogs.ShowLinkMessageAsync(message, "DW2 Mod Launcher", new List<DialogLink>
+                {
+                    new DialogLink { Text = zipPath, Tooltip = T("BugReportShowFileTooltip"), Open = () => PlatformShell.Create().RevealFile(zipPath) },
+                    new DialogLink { Text = BugReport.DiscordInvite, Tooltip = T("DiscordLinkTooltip"), Open = () => PlatformShell.Create().OpenUrl(BugReport.DiscordInvite) },
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Create bug report", ex);
+                await Dialogs.ShowMessageAsync(T("BugReportFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
             }
         }
 

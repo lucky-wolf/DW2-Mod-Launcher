@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using DW2ModLauncher.Avalonia.ViewModels;
 using DW2ModLauncher.Avalonia.Views;
@@ -57,6 +58,11 @@ namespace DW2ModLauncher.Avalonia.Services
             return new MessageDialog(message, title, OkText, null, CopyText, OpenLogText).ShowDialog<bool>(owner());
         }
 
+        public Task ShowLinkMessageAsync(string message, string title, IList<DialogLink> links)
+        {
+            return new LinkMessageDialog(message, title, links, OkText).ShowDialog(owner());
+        }
+
         public Task<bool> ConfirmAsync(string message, string title, string yesText, string noText)
         {
             return new MessageDialog(message, title, yesText, noText, CopyText, OpenLogText).ShowDialog<bool>(owner());
@@ -102,6 +108,12 @@ namespace DW2ModLauncher.Avalonia.Services
         {
             IStorageFolder folder = await owner().StorageProvider.TryGetWellKnownFolderAsync(WellKnownFolder.Downloads);
             return folder?.TryGetLocalPath();
+        }
+
+        public async Task CopyTextAsync(string text)
+        {
+            var clipboard = owner().Clipboard ?? throw new InvalidOperationException("The system gave the launcher no clipboard.");
+            await clipboard.SetTextAsync(text);
         }
 
         public async Task<string> PickFileAsync(string title, string startFolder, string filterName, params string[] patterns)

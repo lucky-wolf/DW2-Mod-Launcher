@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DW2ModLauncher.Avalonia.Views.LinkMessageDialog"
+        SizeToContent="Height" Width="644" MaxHeight="640"
+        WindowStartupLocation="CenterOwner" CanResize="False" ShowInTaskbar="False">
+  <Grid RowDefinitions="*,Auto" Margin="20">
+    <StackPanel Grid.Row="0" Spacing="12">
+      <SelectableTextBlock Name="MessageText" TextWrapping="Wrap" />
+      <StackPanel Name="LinksPanel" Spacing="8" />
+    </StackPanel>
+    <Button Grid.Row="1" Name="CloseButton" IsCancel="True" IsDefault="True" MinWidth="90" HorizontalAlignment="Right" Margin="0,18,0,0" />
+  </Grid>
+</Window>

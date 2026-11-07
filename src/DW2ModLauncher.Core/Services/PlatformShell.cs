@@ -10,6 +10,8 @@ namespace DW2ModLauncher.Core.Services
         void OpenFolder(string path);
         void OpenFile(string path);
         void OpenUrl(string url);
+        /// <summary>Opens the file's folder with the file selected (Windows); systems that cannot select a file open the folder.</summary>
+        void RevealFile(string path);
     }
 
     public static class PlatformShell
@@ -47,6 +49,11 @@ namespace DW2ModLauncher.Core.Services
         {
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
+
+        public void RevealFile(string path)
+        {
+            Process.Start("explorer.exe", "/select,\"" + Path.GetFullPath(path) + "\"");
+        }
     }
 
     /// <summary>Linux (and other freedesktop-style systems): everything goes through xdg-open.</summary>
@@ -55,6 +62,7 @@ namespace DW2ModLauncher.Core.Services
         public void OpenFolder(string path) { XdgOpen(Path.GetFullPath(path)); }
         public void OpenFile(string path) { XdgOpen(path); }
         public void OpenUrl(string url) { XdgOpen(url); }
+        public void RevealFile(string path) { XdgOpen(Path.GetDirectoryName(Path.GetFullPath(path))); }
 
         private static void XdgOpen(string target)
         {
