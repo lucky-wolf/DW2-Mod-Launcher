@@ -129,15 +129,23 @@ namespace DW2ModLauncher.Tests
         [Fact]
         public void LatestChanges_PrefersUnreleasedThenTheVersionThenTheNewestRelease()
         {
-            string dir = MakeFolder("## Unreleased\n- new\n\n## 1.1.0 (2026-02-01)\n- shipped\n\n## 1.0.0 (2026-01-01)\n- old\n");
-            try { Assert.Equal(new[] { "new" }, ModChangelog.LatestChanges(dir, "1.1.0")); }
+            string dir = MakeFolder("## Unreleased\n- a\n- b\n- c\n- d\n- e\n\n## 1.1.0 (2026-02-01)\n- shipped\n\n## 1.0.0 (2026-01-01)\n- old\n");
+            try { Assert.Equal(new[] { "a", "b", "c", "d", "e" }, ModChangelog.LatestChanges(dir, "1.1.0")); }
             finally { Directory.Delete(dir, true); }
             dir = MakeFolder("## Unreleased\n\n## 1.1.0 (2026-02-01)\n- shipped\n\n## 1.0.0 (2026-01-01)\n- old\n");
             try
             {
                 Assert.Equal(new[] { "old" }, ModChangelog.LatestChanges(dir, "1.0.0"));
-                Assert.Equal(new[] { "shipped" }, ModChangelog.LatestChanges(dir, "9.9.9"));
+                Assert.Equal(new[] { "shipped", "old" }, ModChangelog.LatestChanges(dir, "9.9.9"));
             }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void LatestChanges_AddsOlderReleasesWholeUntilFiveEntries()
+        {
+            string dir = MakeFolder("## Unreleased\n- n1\n- n2\n\n## 1.2.0 (2026-03-01)\n- a\n- b\n\n## 1.1.0 (2026-02-01)\n- c\n- d\n\n## 1.0.0 (2026-01-01)\n- e\n");
+            try { Assert.Equal(new[] { "n1", "n2", "a", "b", "c", "d" }, ModChangelog.LatestChanges(dir, "1.2.0")); }
             finally { Directory.Delete(dir, true); }
         }
 

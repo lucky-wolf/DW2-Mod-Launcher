@@ -42,16 +42,28 @@ namespace DW2ModLauncher.Core.Services.Publishing
         /// <summary>
         /// The entries (the "- " lines, without the dash) that the {changes} placeholder lists: the Unreleased ones, which are what a publish
         /// is about to send as the change note; with none, the section of <paramref name="version"/>; with none, the newest released section.
+        /// If that holds fewer than <see cref="MinLatestChanges"/> entries, the next older sections are added whole until it has that many (or the file runs out).
         /// Empty when the changelog holds no entries at all.
         /// </summary>
         public static List<string> LatestChanges(string contentRoot, string version)
         {
             List<Section> sections = Parse(ReadFile(contentRoot));
-            List<string> entries = sections.Where(IsUnreleased).Select(s => Entries(Body(s))).FirstOrDefault(e => e.Count > 0);
-            if (entries == null) entries = sections.Where(s => HeadingVersion(s) == version).Select(s => Entries(Body(s))).FirstOrDefault(e => e.Count > 0);
-            if (entries == null) entries = sections.Where(s => s.Heading != null && !IsUnreleased(s)).Select(s => Entries(Body(s))).FirstOrDefault(e => e.Count > 0);
-            return entries ?? new List<string>();
+            Section start = sections.Where(IsUnreleased).FirstOrDefault(s => Entries(Body(s)).Count > 0)
+                ?? sections.Where(s => HeadingVersion(s) == version).FirstOrDefault(s => Entries(Body(s)).Count > 0)
+                ?? sections.Where(s => s.Heading != null && !IsUnreleased(s)).FirstOrDefault(s => Entries(Body(s)).Count > 0);
+            List<string> result = new List<string>();
+            if (start == null) return result;
+            // Whole sections, never part of one: keep adding the next older release until the list reaches the minimum.
+            for (int i = sections.IndexOf(start); i < sections.Count && result.Count < MinLatestChanges; i++)
+            {
+                if (sections[i].Heading == null || IsUnreleased(sections[i]) && sections[i] != start) continue;
+                result.AddRange(Entries(Body(sections[i])));
+            }
+            return result;
         }
+
+        /// <summary>The fewest entries {changes} lists when the changelog has that many: older releases are added whole until reached.</summary>
+        public const int MinLatestChanges = 5;
 
         /// <summary>The "- " lines of some changelog text, each without its dash and trimmed; other lines are ignored.</summary>
         public static List<string> Entries(string body)

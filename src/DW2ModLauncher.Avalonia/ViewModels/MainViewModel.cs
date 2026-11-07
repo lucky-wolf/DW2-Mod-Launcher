@@ -1917,19 +1917,6 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
             }
 
-            // A "Compatible with" mark for a version of a mod other than the installed one says nothing about the installed one: ask before sending it out.
-            List<string> staleMarks = editor.StaleCompatible();
-            if (staleMarks.Count > 0)
-            {
-                int carryOn = await Dialogs.ChooseAsync(T("PublishStaleCompatibleWarning", ("Marks", string.Join("\n", staleMarks))), T("PublishStaleCompatibleTitle"),
-                    new[] { T("PublishStaleCompatibleYes"), T("Cancel") });
-                if (carryOn != 0)
-                {
-                    RollBackVersion(mod, versionBefore, versionWritten);
-                    return;
-                }
-            }
-
             // Steam can reject a preview image over 1 MiB: offer to fix it with a smaller copy (the original stays, mod.json is pointed at
             // the copy), or let the author try anyway.
             if (!string.IsNullOrWhiteSpace(metadata.PreviewImage))

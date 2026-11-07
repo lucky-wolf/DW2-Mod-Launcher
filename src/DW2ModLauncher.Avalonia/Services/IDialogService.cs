@@ -30,7 +30,7 @@ namespace DW2ModLauncher.Avalonia.Services
         /// <summary>Shows one button per entry (<paramref name="tooltips"/>, when given, has one tooltip per button); returns the clicked index, or -1 if dismissed. The last button is the cancel button (Esc).</summary>
         Task<int> ChooseAsync(string message, string title, IList<string> buttons, IList<string> tooltips = null);
         /// <summary>Null if the user cancelled.</summary>
-        Task<string> PickFromListAsync(string title, string note, IList<string> items);
+        Task<string> PickFromListAsync(string title, string note, IList<string> items, ISet<string> cautionItems = null, string cautionTooltip = null);
         /// <summary>Pick one or more strings from a list (click to toggle); the chosen ones in list order, or null if the user cancelled.</summary>
         Task<IList<string>> PickManyFromListAsync(string title, string note, IList<string> items);
         /// <summary>The entered text (never blank), or null if the user cancelled. <paramref name="hint"/> turns the text typed so far into a note shown under the box.</summary>

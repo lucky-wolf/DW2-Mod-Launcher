@@ -226,6 +226,7 @@ namespace DW2ModLauncher.Core.Services
                 mod.HookCautionCount = 0;
                 mod.HookConflictCount = 0;
                 mod.HookConflictMods = mod.HookConflictMethods = mod.HookCautionMods = mod.HookCautionMethods = 0;
+                if (mod.HookProblemPartners == null) mod.HookProblemPartners = new List<ModInfo>(); else mod.HookProblemPartners.Clear();
                 if (mod.HookNotes == null) mod.HookNotes = new List<string>(); else mod.HookNotes.Clear();
                 if (mod.HookConflictNotes == null) mod.HookConflictNotes = new List<string>(); else mod.HookConflictNotes.Clear();
             }
@@ -236,6 +237,7 @@ namespace DW2ModLauncher.Core.Services
                 foreach (HookPair pair in overlap.Pairs.Where(p => p.Severity > HookSeverity.Info))
                     foreach ((ModInfo mod, ModInfo other) in new[] { (pair.A, pair.B), (pair.B, pair.A) })
                     {
+                        if (!mod.HookProblemPartners.Contains(other)) mod.HookProblemPartners.Add(other);
                         // an enabled mod's health is not marked down by a mod that is not enabled; the not-enabled one shows what enabling it would bring
                         if (analysis.Enabled.Contains(mod) && !analysis.Enabled.Contains(other)) continue;
                         if (pair.Severity == HookSeverity.Conflict) mod.HookConflictCount++; else mod.HookCautionCount++;

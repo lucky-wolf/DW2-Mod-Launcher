@@ -1,5 +1,13 @@
 ## Unreleased
 
+## 1.0.33 (2026-11-06)
+- Publish dialog: Out-of-date compatible warning now appears over the dialog
+- Publish dialog: Also warns about overlapping mods missing from the list
+- Publish dialog: Unpublished local mods no longer count as overlaps
+- Description {changes} lists at least 5 entries, adding older releases
+- Publish dialog: Now shows an indicator for how many other mods we're conflict with
+- Publish dialog: Also shows those at the top of the list for marking compatibility
+
 ## 1.0.32 (2026-11-06)
 - About box: Open Log Folder, Copy Problem Summary and Create Bug Report buttons
 - Publish dialog: Steam description download button moved to the far right
