@@ -1,4 +1,5 @@
 ## Unreleased
+- Add a complete Simplified Chinese launcher language pack
 
 ## 1.0.33 (2026-11-06)
 - Publish dialog: Out-of-date compatible warning now appears over the dialog

@@ -33,7 +33,7 @@ This is a hobby project. Community contributions, improvements, bug fixes, forks
 
 ## Main Features
 
-- Japanese, English & Russian
+- Japanese, English, Russian & Simplified Chinese
   - Translations for more languages are welcome!
 - Windows & Linux native support
 - Drag & drop your active mods
@@ -149,7 +149,7 @@ dotnet run --project src/DW2ModLauncher.Avalonia
 
 ## Localization
 
-The launcher comes in English, Japanese and Russian. On first run it speaks your system's language if a language pack exists for it; you can change it any time in the main window.
+The launcher comes in English, Japanese, Russian and Simplified Chinese. On first run it speaks your system's language if a language pack exists for it; you can change it any time in the main window.
 A language pack is a single JSON file, so adding a language needs no code. The mod status line and Mods menu shown inside the game follow your translation mod, or the launcher's language if you choose that in Settings.
 See [Localization](docs/Localization.md) for how it all works and how to add a language.
 
