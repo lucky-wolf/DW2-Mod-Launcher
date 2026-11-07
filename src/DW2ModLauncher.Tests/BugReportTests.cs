@@ -17,7 +17,7 @@ namespace DW2ModLauncher.Tests
 
         private string Write(string name, params string[] lines)
         {
-            string path = Path.Combine(root, name);
+            string path = Path.GetFullPath(Path.Combine(root, name));
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllLines(path, lines);
             return path;
@@ -66,10 +66,10 @@ namespace DW2ModLauncher.Tests
         public void OldLogsAreLeftOutAndTheNewestSessionFolderIsIn()
         {
             string logs = Path.Combine(root, "Logs");
-            string fresh = Write(@"Logs\fresh.log", "x");
+            string fresh = Write("Logs/fresh.log", "x");
             string old = Write("Logs/old.log", "x");
             File.SetLastWriteTime(old, DateTime.Now.AddDays(-30));
-            Write(@"Logs\2026-11-01_10-00-00\mod.log", "x");
+            Write("Logs/2026-11-01_10-00-00/mod.log", "x");
             var sources = BugReport.LogSources(logs, null, DateTime.Now);
             Assert.Contains(sources, s => s.Path == fresh);
             Assert.DoesNotContain(sources, s => s.Path == old);
