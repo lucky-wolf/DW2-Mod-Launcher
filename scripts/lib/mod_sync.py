@@ -2,7 +2,8 @@
 
 What the Steam page says about the launcher lives in that mod folder, which the launcher publishes like any other mod:
 
-  - mod/description.bbcode  <->  mods/DW2 Mod Launcher/description.bbcode
+  - mod/{description.bbcode, mod.json, dw2modlauncher.json, icon.png}  <->  the same files in mods/DW2 Mod Launcher
+    (mod.json holds the Workshop id and the version the launcher stamps on publish; icon.png is compared byte for byte).
     Kept in step the way the DLL mods in DW2-XL do it (scripts/build-mods.py): a copy missing from either side is copied over;
     when both exist and differ, the newer one is offered as the replacement for the older (default yes). The description may use
     {version}, {date} and {changes} (see "Mod Author README.md"); the launcher fills them in when it publishes.
@@ -29,6 +30,10 @@ from . import backups, changelog, output
 MOD_FOLDER = "DW2 Mod Launcher"
 REPO_DIR = "mod"
 DESCRIPTION = "description.bbcode"
+# every file of the mod folder except changelog.txt (which has its own sync below); mod.json is the game's file and carries the
+# version the launcher stamps when it publishes
+TEXT_FILES = (DESCRIPTION, "mod.json", "dw2modlauncher.json")
+BINARY_FILES = ("icon.png",)
 
 
 def default_install_path() -> Path:
@@ -60,9 +65,22 @@ def _copy_into_repo(src: Path, dst: Path) -> None:
     shutil.copystat(src, dst)
 
 
-def _sync_file(repo_file: Path, mod_file: Path, dry_run: bool, assume_yes: bool) -> None:
-    """One file kept in step between the repo and the mod folder; the newer copy replaces the older one (asked first when both exist)."""
+def _sync_file(repo_file: Path, mod_file: Path, dry_run: bool, assume_yes: bool, binary: bool = False) -> None:
+    """One file kept in step between the repo and the mod folder; the newer copy replaces the older one (asked first when both exist).
+    A binary file (the icon) is compared and copied byte for byte; a text file ignores BOM and CRLF differences and lands in the repo as LF.
+    """
     label = f"{repo_file.name} (repo <-> mods/{MOD_FOLDER})"
+
+    def to_repo(src: Path, dst: Path) -> None:
+        if binary:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+        else:
+            _copy_into_repo(src, dst)
+
+    def content(path: Path) -> bytes:
+        return path.read_bytes() if binary else _normalized(path)
+
     if not repo_file.is_file() and not mod_file.is_file():
         return
     if not mod_file.is_file():
@@ -73,10 +91,10 @@ def _sync_file(repo_file: Path, mod_file: Path, dry_run: bool, assume_yes: bool)
     if not repo_file.is_file():
         output.replace(f"{label}: copied into the repo, which had none")
         if not dry_run:
-            _copy_into_repo(mod_file, repo_file)
+            to_repo(mod_file, repo_file)
         return
     # the launcher's editor may save CRLF or a BOM, which is not a real difference
-    if _normalized(repo_file) == _normalized(mod_file):
+    if content(repo_file) == content(mod_file):
         output.info(f"{label}: in sync")
         return
     repo_newer = repo_file.stat().st_mtime >= mod_file.stat().st_mtime
@@ -99,7 +117,7 @@ def _sync_file(repo_file: Path, mod_file: Path, dry_run: bool, assume_yes: bool)
     backup = backups.save(dst, "repo" if dst == repo_file else "mod")
     output.replace(f"{label}: copied from {where_src} to {where_dst} (previous copy: {backup})")
     if dst == repo_file:
-        _copy_into_repo(src, dst)
+        to_repo(src, dst)
     else:
         shutil.copy2(src, dst)
 
@@ -240,6 +258,9 @@ def sync(repo_root: Path, game_path: Path | None = None, dry_run: bool = False, 
     mod_dir = _mod_dir(game_path)
     if mod_dir is None:
         return
-    _sync_file(repo_root / REPO_DIR / DESCRIPTION, mod_dir / DESCRIPTION, dry_run, assume_yes)
+    for name in TEXT_FILES:
+        _sync_file(repo_root / REPO_DIR / name, mod_dir / name, dry_run, assume_yes)
+    for name in BINARY_FILES:
+        _sync_file(repo_root / REPO_DIR / name, mod_dir / name, dry_run, assume_yes, binary=True)
     sync_changelog(repo_root / changelog.CHANGELOG_PATH, mod_dir / "changelog.txt", dry_run)
     output.ok("launcher mod folder in step")
