@@ -27,8 +27,8 @@
       </Button>
       <TextBlock Classes="subheading" Margin="0,6,0,-6" Text="{Binding L[AboutProblemReports]}" />
       <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
-        <Button Grid.Row="0" Grid.Column="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="{Binding L[OpenGameFolder]}"
-                Command="{Binding OpenGameFolderCommand}" ToolTip.Tip="{Binding L[OpenGameFolderTooltip]}" />
+        <Button Grid.Row="0" Grid.Column="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="{Binding L[OpenSaveGameFolder]}"
+                Command="{Binding OpenSaveGameFolderCommand}" ToolTip.Tip="{Binding L[OpenSaveGameFolderTooltip]}" />
         <Button Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="{Binding L[OpenLogFolder]}"
                 Command="{Binding OpenLogFolderCommand}" ToolTip.Tip="{Binding L[OpenLogFolderTooltip]}" />
         <Button Grid.Row="1" Grid.Column="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="{Binding L[CopyBugSummary]}"

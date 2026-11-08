@@ -47,7 +47,7 @@
           <Button Command="{Binding OpenAboutCommand}" Width="46" Height="46" Margin="0,-4,0,0" ToolTip.Tip="{Binding L[AboutTooltip]}">
             <Button.ContextMenu>
               <ContextMenu>
-                <MenuItem Header="{Binding L[OpenGameFolder]}" Command="{Binding OpenGameFolderCommand}" ToolTip.Tip="{Binding L[OpenGameFolderTooltip]}" />
+                <MenuItem Header="{Binding L[OpenSaveGameFolder]}" Command="{Binding OpenSaveGameFolderCommand}" ToolTip.Tip="{Binding L[OpenSaveGameFolderTooltip]}" />
               </ContextMenu>
             </Button.ContextMenu>
             <!-- "information-outline" icon, Material Design Icons, Apache-2.0 -->

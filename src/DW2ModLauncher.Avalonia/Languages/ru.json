@@ -102,8 +102,6 @@
   "InvalidXML": "Некорректный XML: {File} ({Problem})",
   "PreUpdateBackup": "Копия перед обновлением",
   "SelectedModFolder": "Открыть папку мода",
-  "OpenGameFolder": "Открыть папку игры",
-  "OpenGameFolderTooltip": "Открывает папку Distant Worlds 2 в проводнике; удобно, когда просят прислать лог или сохранение",
   "OpenLogFolder": "Открыть папку логов",
   "OpenLogFolderTooltip": "Открывает папку, в которую игра и её код-моды пишут логи",
   "CopyBugSummary": "Скопировать сводку проблемы",

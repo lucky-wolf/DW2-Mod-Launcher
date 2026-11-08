@@ -91,7 +91,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 if (HashFile(info.FullName) != recorded.Hash && ChangelogHash(info.FullName) != recorded.Hash) changes.Modified.Add(file);
             }
             foreach (string file in manifest.Files.Keys)
-                if (!seen.Contains(file)) changes.Removed.Add(file);
+                if (!seen.Contains(file) && !IsMetadata(file)) changes.Removed.Add(file);
             changes.Added.Sort(StringComparer.OrdinalIgnoreCase);
             changes.Removed.Sort(StringComparer.OrdinalIgnoreCase);
             changes.Modified.Sort(StringComparer.OrdinalIgnoreCase);
@@ -200,8 +200,17 @@ namespace DW2ModLauncher.Core.Services.Publishing
         {
             string root = Path.GetFullPath(contentFolder);
             return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
-                .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'));
+                .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'))
+                .Where(f => !IsMetadata(f));
         }
+
+        /// <summary>
+        /// The hook manifest (docs/Code Hooks.md) is written by the mod's build tooling from what a game session observed, and carries the
+        /// mod version it was observed at, so it changes after every publish without the mod changing. It is metadata, not content: it never
+        /// counts as added, modified or removed, even where an older record lists it.
+        /// </summary>
+        private static bool IsMetadata(string relativePath) =>
+            string.Equals(relativePath, HookFiles.ManifestFileName, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// For changelog.txt only (null for any other file): the hash with an empty "## Unreleased" heading left out. A publish leaves that
