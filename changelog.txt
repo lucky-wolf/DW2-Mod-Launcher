@@ -1,4 +1,5 @@
 ## Unreleased
+- A changed hook manifest no longer marks a mod as modified
 - Add a complete Simplified Chinese launcher language pack
 - Localize translation language choices and clarify Simplified Chinese profile prompts
 - Suppress duplicate-profile warnings for blank names

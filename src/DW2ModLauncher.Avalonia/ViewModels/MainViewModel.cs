@@ -119,7 +119,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             gameWatchTimer.Start();
             var first = WatchGameAsync();
             OpenSelectedFolderCommand = new RelayCommand(OpenModFolder, () => selectedRow != null);
-            OpenGameFolderCommand = new RelayCommand(OpenGameFolder);
+            OpenSaveGameFolderCommand = new RelayCommand(OpenSaveGameFolder);
             OpenLogFolderCommand = new RelayCommand(OpenLogFolder);
             CopyBugSummaryCommand = new RelayCommand(CopyBugSummaryAsync);
             CreateBugReportCommand = new RelayCommand(CreateBugReportAsync);
@@ -158,7 +158,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand OpenSettingsCommand { get; }
         public RelayCommand OpenAboutCommand { get; }
         /// <summary>Opens the game's install folder (data/Logs, data/SavedGames and mods are under it) for players who are asked to send a log or a save.</summary>
-        public RelayCommand OpenGameFolderCommand { get; }
+        public RelayCommand OpenSaveGameFolderCommand { get; }
         /// <summary>Opens the folder the game and code mods write their logs to.</summary>
         public RelayCommand OpenLogFolderCommand { get; }
         /// <summary>Puts a short bug-report summary (versions, mods, the telling log lines) on the clipboard.</summary>
@@ -1127,9 +1127,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex) { var _ = Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher"); }
         }
 
-        private void OpenGameFolder()
+        private void OpenSaveGameFolder()
         {
-            string path = settings.GameRoot;
+            string path = Path.Combine(settings.GameRoot, "data/SavedGames");
             try
             {
                 if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) { var _ = Dialogs.ShowMessageAsync(T("FolderNotFound"), "DW2 Mod Launcher"); return; }
@@ -1137,7 +1137,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             catch (Exception ex)
             {
-                Logger.LogException("Open game folder", ex);
+                Logger.LogException("Open save game folder", ex);
                 var _ = Dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
             }
         }

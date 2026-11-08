@@ -30,6 +30,22 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Compare_IgnoresTheHookManifest()
+        {
+            string hooks = Path.Combine(Content, "dw2modlauncher.hooks.json");
+            File.WriteAllText(hooks, "{\"modVersion\":\"1.0.0\"}");
+            PublishedManifest manifest = PublishedState.Capture(Content);
+            Assert.DoesNotContain("dw2modlauncher.hooks.json", manifest.Files.Keys);
+
+            // a record made before the file was ignored still lists it
+            manifest.Files["dw2modlauncher.hooks.json"] = new PublishedFile { Size = 1, ModifiedUtcTicks = 1, Hash = "old" };
+            File.WriteAllText(hooks, "{\"modVersion\":\"1.0.1\"}");
+            Assert.True(PublishedState.Compare(Content, manifest).IsClean);
+            File.Delete(hooks);
+            Assert.True(PublishedState.Compare(Content, manifest).IsClean);
+        }
+
+        [Fact]
         public void Compare_ReportsAddedRemovedAndModified()
         {
             PublishedManifest manifest = PublishedState.Capture(Content);

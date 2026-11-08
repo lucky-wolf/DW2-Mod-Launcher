@@ -102,8 +102,6 @@
   "InvalidXML": "XML破損: {File}（{Problem}）",
   "PreUpdateBackup": "更新前バックアップ",
   "SelectedModFolder": "Modフォルダーを開く",
-  "OpenGameFolder": "ゲームフォルダーを開く",
-  "OpenGameFolderTooltip": "Distant Worlds 2のフォルダーをエクスプローラーで開きます。ログやセーブを求められたときに便利です",
   "OpenLogFolder": "ログフォルダーを開く",
   "OpenLogFolderTooltip": "ゲームとコードModがログを書き込むフォルダーを開きます",
   "CopyBugSummary": "問題の概要をコピー",
