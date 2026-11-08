@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Syncs the launcher's own Workshop item (the local mod folder DW2 Mod Launcher in the game's mods folder) with the repo:
-mod/description.bbcode both ways, and changelog.txt with the launcher's publish stamp adopted (see lib/mod_sync.py).
+mod/ (description.bbcode, mod.json, dw2modlauncher.json, icon.png) both ways, and changelog.txt with the launcher's publish stamp adopted (see lib/mod_sync.py).
 No build, and neither the launcher nor the game needs to be closed. build.py, open-pr.py and new-branch.py run the same sync.
 
 Usage:
