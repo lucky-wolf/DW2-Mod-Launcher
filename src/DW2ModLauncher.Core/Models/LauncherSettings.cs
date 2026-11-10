@@ -69,6 +69,8 @@ namespace DW2ModLauncher.Core.Models
         public bool PublishStatusExpanded { get; set; }
         /// <summary>The publish dialog's change-notes section is unfolded (folded by default; remembered).</summary>
         public bool PublishChangeNotesExpanded { get; set; }
+        /// <summary>False (default): the launcher holds one Steam connection as DW2 for as long as it runs. True: every Steam call runs in a short-lived helper process, so Steam only sees DW2 running during the call.</summary>
+        public bool SteamHelperProcess { get; set; }
         /// <summary>The folder the last preview image was picked from (outside any mod), offered when the next pick starts from a blank image field.</summary>
         public string LastArtFolder { get; set; }
         /// <summary>Per mod (id, else folder name): headings of the settings editor groups the user collapsed.</summary>

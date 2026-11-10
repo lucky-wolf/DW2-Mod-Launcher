@@ -65,6 +65,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             settingsStore = new LauncherSettingsStore(Path.Combine(appRoot, "launcher_settings.json"));
             settings = settingsStore.Load();
             LauncherSettingsStore.Normalize(settings);
+            ModPublisherFactory.UseHelperProcess = settings.SteamHelperProcess;
             // before the language is checked: a saved language may be one that only an installed mod supplies
             var installedPackProblems = Localization.UseInstalledPacks(
                 string.IsNullOrWhiteSpace(settings.ManagedModsRoot) && !string.IsNullOrWhiteSpace(settings.GameRoot) ? Path.Combine(settings.GameRoot, "mods") : settings.ManagedModsRoot,

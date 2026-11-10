@@ -67,6 +67,14 @@
         </Grid>
       </StackPanel>
 
+      <!-- Steam connection -->
+      <StackPanel Spacing="10">
+        <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
+          <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionSteam]}" />
+        </Border>
+        <CheckBox IsChecked="{Binding SteamHelperProcess}" Content="{Binding L[SettingsSteamHelperProcess]}" ToolTip.Tip="{Binding L[SettingsSteamHelperProcessTooltip]}" />
+      </StackPanel>
+
     </StackPanel>
   </ScrollViewer>
 </UserControl>
