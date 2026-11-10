@@ -21,14 +21,42 @@ namespace DW2ModLauncher.Core.Services.Publishing
         private static readonly TimeSpan CallTimeout = TimeSpan.FromMinutes(30);
         private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(10);
 
-        private readonly uint appId;
+        // One Steam connection per process, and its callbacks are pumped by whichever call is running, so calls take turns.
+        private static readonly object Gate = new object();
+        private static bool connected;
 
-        public SteamworksNetModPublisher(uint appId)
+        private readonly uint appId;
+        private readonly bool keepConnected;
+
+        /// <param name="keepConnected">True: connect on the first call and stay connected until the launcher exits, so Steam sees DW2 running
+        /// for as long as the launcher does. False: connect and shut down around every call (used by the short-lived <see cref="SteamWorker"/>).</param>
+        public SteamworksNetModPublisher(uint appId, bool keepConnected = false)
         {
             this.appId = appId;
+            this.keepConnected = keepConnected;
+        }
+
+        private bool Connect()
+        {
+            if (keepConnected && connected) return true;
+            if (!SteamAPI.Init()) return false;
+            connected = true;
+            return true;
+        }
+
+        private void Disconnect()
+        {
+            if (keepConnected) return;
+            connected = false;
+            try { SteamAPI.Shutdown(); } catch (Exception ex) { Logger.LogException("Steam shutdown", ex); }
         }
 
         public ModPublishResult Publish(ModPublishRequest request)
+        {
+            lock (Gate) return PublishLocked(request);
+        }
+
+        private ModPublishResult PublishLocked(ModPublishRequest request)
         {
             ModPublishResult result = new ModPublishResult();
             bool initialized = false;
@@ -55,7 +83,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 }
 
                 stage = "connecting to Steam";
-                if (!SteamAPI.Init())
+                if (!Connect())
                 {
                     result.ErrorMessage = "Could not reach the Steam client. Make sure Steam is running and you're logged in.";
                     return result;
@@ -127,17 +155,22 @@ namespace DW2ModLauncher.Core.Services.Publishing
             }
             finally
             {
-                if (initialized) { try { SteamAPI.Shutdown(); } catch { } }
+                if (initialized) Disconnect();
             }
             return result;
         }
 
         public ModVisibility? GetVisibility(long workshopId)
         {
+            lock (Gate) return GetVisibilityLocked(workshopId);
+        }
+
+        private ModVisibility? GetVisibilityLocked(long workshopId)
+        {
             bool initialized = false;
             try
             {
-                if (!SteamAPI.Init()) return null;
+                if (!Connect()) return null;
                 initialized = true;
                 if (!SteamUser.BLoggedOn()) return null;
 
@@ -161,18 +194,23 @@ namespace DW2ModLauncher.Core.Services.Publishing
             }
             finally
             {
-                if (initialized) { try { SteamAPI.Shutdown(); } catch { } }
+                if (initialized) Disconnect();
             }
         }
 
         public List<SteamItemStatus> QueryItems(IReadOnlyList<long> workshopIds)
+        {
+            lock (Gate) return QueryItemsLocked(workshopIds);
+        }
+
+        private List<SteamItemStatus> QueryItemsLocked(IReadOnlyList<long> workshopIds)
         {
             List<SteamItemStatus> items = new List<SteamItemStatus>();
             if (workshopIds == null || workshopIds.Count == 0) return items;
             bool initialized = false;
             try
             {
-                if (!SteamAPI.Init()) return items;
+                if (!Connect()) return items;
                 initialized = true;
                 if (!SteamUser.BLoggedOn()) return items;
 
@@ -223,7 +261,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
             }
             finally
             {
-                if (initialized) { try { SteamAPI.Shutdown(); } catch { } }
+                if (initialized) Disconnect();
             }
             return items;
         }

@@ -1,5 +1,8 @@
 ## Unreleased
 
+## 1.0.36 (2026-11-09)
+- Stay connected to Steam as DW2 while running (helper-process setting)
+
 ## 1.0.35 (2026-11-08)
 - A changed hook manifest no longer marks a mod as modified
 

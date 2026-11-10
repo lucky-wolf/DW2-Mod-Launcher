@@ -77,6 +77,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private bool autoUpdateDescription = true;
         /// <summary>Publishing an update also sends the description when it differs from the Steam page.</summary>
         public bool AutoUpdateDescription { get { return autoUpdateDescription; } set { Set(ref autoUpdateDescription, value); } }
+        private bool steamHelperProcess;
+        /// <summary>Steam calls run in a short-lived helper process instead of one connection held while the launcher runs.</summary>
+        public bool SteamHelperProcess { get { return steamHelperProcess; } set { Set(ref steamHelperProcess, value); } }
         private bool autoSaveProfileOnLaunch = true;
         /// <summary>Launching the game with unsaved profile edits saves them instead of asking.</summary>
         public bool AutoSaveProfileOnLaunch { get { return autoSaveProfileOnLaunch; } set { Set(ref autoSaveProfileOnLaunch, value); } }
@@ -165,6 +168,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             OpenSteamPageIndex = (int)s.OpenSteamPageAfterPublish;
             AutoSaveProfileOnExit = s.AutoSaveProfileOnExit;
             AutoSaveProfileOnLaunch = s.AutoSaveProfileOnLaunch;
+            SteamHelperProcess = s.SteamHelperProcess;
         }
 
         /// <summary>Writes the editable fields into the settings object without validating (used right before launch).</summary>
@@ -201,8 +205,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool pathsSame = game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory;
             string author = (authorName ?? "").Trim();
             AuthorName = author;
-            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription && openSteamPage == s.OpenSteamPageAfterPublish && autoSaveProfileOnExit == s.AutoSaveProfileOnExit && autoSaveProfileOnLaunch == s.AutoSaveProfileOnLaunch) return true;
+            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription && openSteamPage == s.OpenSteamPageAfterPublish && autoSaveProfileOnExit == s.AutoSaveProfileOnExit && autoSaveProfileOnLaunch == s.AutoSaveProfileOnLaunch && steamHelperProcess == s.SteamHelperProcess) return true;
             s.AutoSaveProfileOnLaunch = autoSaveProfileOnLaunch;
+            s.SteamHelperProcess = steamHelperProcess;
+            ModPublisherFactory.UseHelperProcess = steamHelperProcess;
             s.OpenSteamPageAfterPublish = openSteamPage;
             s.AutoSaveProfileOnExit = autoSaveProfileOnExit;
             s.DescriptionExtension = extension;
