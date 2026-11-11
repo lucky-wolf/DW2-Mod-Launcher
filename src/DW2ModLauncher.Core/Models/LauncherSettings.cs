@@ -63,14 +63,16 @@ namespace DW2ModLauncher.Core.Models
         public bool AutoSaveProfileOnLaunch { get; set; } = true;
         /// <summary>On exit with unsaved mod profile edits: save them without asking (true), or ask (default).</summary>
         public bool AutoSaveProfileOnExit { get; set; }
+        /// <summary>Before launching, delete the game's SessionActive marker so it does not ask about a crashed last session (CrashMarker). Off by default.</summary>
+        public bool ClearCrashIndication { get; set; }
         /// <summary>After a successful publish: ask whether to open the item's Steam page (default), always open it, or never.</summary>
         public OpenSteamPageAfterPublish OpenSteamPageAfterPublish { get; set; } = OpenSteamPageAfterPublish.Prompt;
         /// <summary>The publish dialog's modified-files section is unfolded (folded by default; remembered).</summary>
         public bool PublishStatusExpanded { get; set; }
         /// <summary>The publish dialog's change-notes section is unfolded (folded by default; remembered).</summary>
         public bool PublishChangeNotesExpanded { get; set; }
-        /// <summary>False (default): the launcher holds one Steam connection as DW2 for as long as it runs. True: every Steam call runs in a short-lived helper process, so Steam only sees DW2 running during the call.</summary>
-        public bool SteamHelperProcess { get; set; }
+        /// <summary>True (default): every Steam call runs in a short-lived helper process, so Steam only sees DW2 running during the call. False: the launcher holds one Steam connection as DW2 for as long as it runs. (Stored under a new key; 1.0.36 saved the old inverted default as SteamHelperProcess, which is ignored.)</summary>
+        public bool SteamHelperProcessEnabled { get; set; } = true;
         /// <summary>The folder the last preview image was picked from (outside any mod), offered when the next pick starts from a blank image field.</summary>
         public string LastArtFolder { get; set; }
         /// <summary>Per mod (id, else folder name): headings of the settings editor groups the user collapsed.</summary>

@@ -17,7 +17,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
         /// sees DW2 running as long as the launcher is open. True: every call runs in a short-lived helper process, so DW2 only
         /// looks running to Steam during the call. Set from the launcher settings at startup and when they are saved.
         /// </summary>
-        public static bool UseHelperProcess { get; set; }
+        public static bool UseHelperProcess { get; set; } = true;
 
         public static IModPublisher Create(uint appId)
         {

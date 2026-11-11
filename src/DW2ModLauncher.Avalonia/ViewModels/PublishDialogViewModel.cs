@@ -302,8 +302,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return;
             }
             RefreshStatus();
+            CloseRequested?.Invoke();
         }
         public RelayCommand MarkUpToDateCommand { get; private set; }
+
+        /// <summary>Raised when the dialog has done its job and should close (the record was written by Mark Up to Date).</summary>
+        public event Action CloseRequested;
 
         /// <summary>Compares the folder with its record again, for after something changed what counts as published (the description pushed on its own).</summary>
         private void RefreshStatus()
@@ -344,13 +348,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (changeNotes != null && ChangeNotesEdited) return;
             notesVersion = (forVersion ?? "").Trim();
             savedChangeNotes = ModChangelog.NotesText(contentFolder, notesVersion);
-            if (Set(ref changeNotes, savedChangeNotes)) { Raise(nameof(ChangeNotes)); Raise(nameof(ChangeNotesHeader)); }
+            if (Set(ref changeNotes, savedChangeNotes)) { Raise(nameof(ChangeNotes)); Raise(nameof(ChangeNotesHeader)); Raise(nameof(ChangeNotesLines)); }
         }
         /// <summary>The Unreleased lines of changelog.txt: what the update will send as its change note. Written back by <see cref="Commit"/>.</summary>
         public string ChangeNotes
         {
             get { return changeNotes; }
-            set { if (Set(ref changeNotes, value)) { Raise(nameof(ChangeNotesHeader)); RaiseModified(); } }
+            set { if (Set(ref changeNotes, value)) { Raise(nameof(ChangeNotesHeader)); Raise(nameof(ChangeNotesLines)); RaiseModified(); } }
+        }
+        /// <summary>How many lines the notes box shows when unfolded: every line of the notes (at least 2), so it never needs its own scroll bar.</summary>
+        public int ChangeNotesLines
+        {
+            get { return Math.Max(2, (changeNotes ?? "").TrimEnd('\r', '\n').Split('\n').Length); }
         }
         public string ChangeNotesHeader
         {
