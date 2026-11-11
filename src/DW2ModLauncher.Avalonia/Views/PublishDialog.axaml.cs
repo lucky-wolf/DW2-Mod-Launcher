@@ -18,6 +18,7 @@ namespace DW2ModLauncher.Avalonia.Views
             DataContext = editor;
             Closed += delegate { editor.Dispose(); };
             CancelButton.Click += delegate { Close(false); };
+            editor.CloseRequested += delegate { Close(false); };
             KeyDown += (sender, e) =>
             {
                 if (e.Key == Key.Escape) { Close(false); e.Handled = true; }

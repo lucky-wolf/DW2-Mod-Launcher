@@ -65,7 +65,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             settingsStore = new LauncherSettingsStore(Path.Combine(appRoot, "launcher_settings.json"));
             settings = settingsStore.Load();
             LauncherSettingsStore.Normalize(settings);
-            ModPublisherFactory.UseHelperProcess = settings.SteamHelperProcess;
+            ModPublisherFactory.UseHelperProcess = settings.SteamHelperProcessEnabled;
             // before the language is checked: a saved language may be one that only an installed mod supplies
             var installedPackProblems = Localization.UseInstalledPacks(
                 string.IsNullOrWhiteSpace(settings.ManagedModsRoot) && !string.IsNullOrWhiteSpace(settings.GameRoot) ? Path.Combine(settings.GameRoot, "mods") : settings.ManagedModsRoot,
@@ -2442,6 +2442,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return;
             }
             if (!await Settings.ConfirmSaveForLaunchAsync()) return;
+            if (settings.ClearCrashIndication)
+            {
+                try
+                {
+                    if (CrashMarker.Clear(settings.GameRoot)) Logger.Log("Launch game", "Cleared the crash marker " + CrashMarker.PathFor(settings.GameRoot));
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Clear crash marker", ex);
+                    await Dialogs.ShowMessageAsync(T("ClearCrashIndicationFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
+                }
+            }
             try
             {
                 foreach (string line in ModChannels.Describe(OrderedEnabledMods())) Logger.Log("Channel data", line);

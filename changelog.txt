@@ -1,5 +1,11 @@
 ## Unreleased
 
+## 1.0.37 (2026-11-10)
+- Steam calls run in a helper process by default again
+- Optional setting clears the game's crash prompt on launch
+- Mark Up to Date closes the publish dialog
+- Publish dialog change notes show every line, no scroll bar
+
 ## 1.0.36 (2026-11-09)
 - Stay connected to Steam as DW2 while running (helper-process setting)
 

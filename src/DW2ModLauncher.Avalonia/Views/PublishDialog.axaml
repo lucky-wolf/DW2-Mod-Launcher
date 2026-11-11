@@ -219,7 +219,7 @@
           <Expander.Header>
             <TextBlock Text="{Binding ChangeNotesHeader}" ToolTip.Tip="{Binding L[PublishChangeNotesHint]}" />
           </Expander.Header>
-          <TextBox Text="{Binding ChangeNotes}" AcceptsReturn="True" TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.AllowAutoHide="False" MinLines="5" MaxLines="5" />
+          <TextBox Text="{Binding ChangeNotes}" AcceptsReturn="True" TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" MinLines="{Binding ChangeNotesLines}" MaxLines="{Binding ChangeNotesLines}" />
         </Expander>
         <!-- Folded to the one status line by default; the choice is remembered. Unfolded it lists every changed file. -->
         <Expander IsVisible="{Binding HasPublishStatus}" IsExpanded="{Binding StatusExpanded}" Header="{Binding PublishStatusLine}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="16,4,0,0">

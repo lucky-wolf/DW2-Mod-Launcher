@@ -44,6 +44,8 @@
         </Grid>
         <CheckBox IsChecked="{Binding AutoSaveProfileOnLaunch}" Content="{Binding L[SettingsAutoSaveProfileOnLaunch]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnLaunchTooltip]}" />
         <CheckBox IsChecked="{Binding AutoSaveProfileOnExit}" Content="{Binding L[SettingsAutoSaveProfileOnExit]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnExitTooltip]}" />
+        <CheckBox IsChecked="{Binding ClearCrashIndication}" Content="{Binding L[SettingsClearCrashIndication]}" ToolTip.Tip="{Binding L[SettingsClearCrashIndicationTooltip]}" />
+        <CheckBox IsChecked="{Binding SteamHelperProcess}" Content="{Binding L[SettingsSteamHelperProcess]}" ToolTip.Tip="{Binding L[SettingsSteamHelperProcessTooltip]}" />
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[EffectiveLaunchCommand]}" />
           <TextBox Text="{Binding CommandPreview, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
@@ -65,14 +67,6 @@
           <ComboBox Grid.Row="1" Grid.Column="1" IsEditable="True" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
           <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding AutoUpdateDescription}" Content="{Binding L[SettingsAutoUpdateDescription]}" ToolTip.Tip="{Binding L[SettingsAutoUpdateDescriptionTooltip]}" />
         </Grid>
-      </StackPanel>
-
-      <!-- Steam connection -->
-      <StackPanel Spacing="10">
-        <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
-          <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionSteam]}" />
-        </Border>
-        <CheckBox IsChecked="{Binding SteamHelperProcess}" Content="{Binding L[SettingsSteamHelperProcess]}" ToolTip.Tip="{Binding L[SettingsSteamHelperProcessTooltip]}" />
       </StackPanel>
 
     </StackPanel>
