@@ -141,14 +141,14 @@ namespace DW2ModLauncher.Core.Services
             string language = WidgetLanguage.Choose(loadOrder, settings, out string unknownLanguage);
             if (unknownLanguage != null) result.Problems.Add("⚠ " + NamedText.Fill(t("LaunchWidgetLanguageUnknown"), ("Language", unknownLanguage)));
             LoaderManifest manifest = GameLauncher.WriteLoaderManifest(loadOrder, "", WidgetLanguage.Strings(language), language, settings.GameRoot,
-                loaderDirectory, Path.Combine(Path.GetFullPath(outDir), "hooks-observed.json"));
+                loaderDirectory, Path.Combine(Path.GetFullPath(outDir), "hooks-observed.json"), settings.GameMonitor);
             result.Problems.AddRange(LaunchDiagnostics.Build(enabled, installed, modOrder, loaderDll, manifest.Entries, t));
             result.Problems.AddRange(manifest.ChannelProblems);
 
             result.Channels.AddRange(ModChannels.Describe(loadOrder));
             result.Mods.AddRange(manifest.Entries.Select(e => e.DisplayName + " (" + Path.GetFileName(e.DllPath) + ")"));
             result.LoaderDirectory = loaderDirectory;
-            result.Arguments = GameLauncher.BuildArguments(LaunchMode.Run, manifest.Fonts.LastOrDefault()?.Name, loaderDirectory);
+            result.Arguments = GameLauncher.BuildArguments(LaunchMode.Run, manifest.Fonts.LastOrDefault()?.Name, loaderDirectory, settings.SkipSplash);
             return result;
         }
     }

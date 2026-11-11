@@ -35,17 +35,25 @@
         <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
           <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionLaunch]}" />
         </Border>
-        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto" ColumnSpacing="10">
-          <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsWidgetLanguage]}" ToolTip.Tip="{Binding L[SettingsWidgetLanguageTooltip]}" />
-          <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+        <Grid ColumnDefinitions="170,*" ColumnSpacing="10">
+          <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsWidgetLanguage]}" ToolTip.Tip="{Binding L[SettingsWidgetLanguageTooltip]}" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="24">
             <RadioButton GroupName="WidgetLanguage" IsChecked="{Binding WidgetLanguageFromMods}" Content="{Binding L[SettingsWidgetLanguageFromMods]}" ToolTip.Tip="{Binding L[SettingsWidgetLanguageTooltip]}" />
             <RadioButton GroupName="WidgetLanguage" IsChecked="{Binding WidgetLanguageFromLauncher}" Content="{Binding L[SettingsWidgetLanguageFromLauncher]}" ToolTip.Tip="{Binding L[SettingsWidgetLanguageTooltip]}" />
           </StackPanel>
         </Grid>
-        <CheckBox IsChecked="{Binding AutoSaveProfileOnLaunch}" Content="{Binding L[SettingsAutoSaveProfileOnLaunch]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnLaunchTooltip]}" />
-        <CheckBox IsChecked="{Binding AutoSaveProfileOnExit}" Content="{Binding L[SettingsAutoSaveProfileOnExit]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnExitTooltip]}" />
-        <CheckBox IsChecked="{Binding ClearCrashIndication}" Content="{Binding L[SettingsClearCrashIndication]}" ToolTip.Tip="{Binding L[SettingsClearCrashIndicationTooltip]}" />
-        <CheckBox IsChecked="{Binding SteamHelperProcess}" Content="{Binding L[SettingsSteamHelperProcess]}" ToolTip.Tip="{Binding L[SettingsSteamHelperProcessTooltip]}" />
+        <Grid ColumnDefinitions="170,*" IsVisible="{Binding ShowGameMonitor}" ColumnSpacing="10">
+          <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsGameMonitor]}" ToolTip.Tip="{Binding L[SettingsGameMonitorTooltip]}" />
+          <!-- As wide as the path boxes above: the right margin is the width of their browse button plus the gap -->
+          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,0,60,0" ItemsSource="{Binding GameMonitorChoices}" SelectedIndex="{Binding GameMonitorIndex}" ToolTip.Tip="{Binding L[SettingsGameMonitorTooltip]}" />
+        </Grid>
+        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="10">
+          <CheckBox Grid.Row="0" Grid.Column="0" IsChecked="{Binding AutoSaveProfileOnLaunch}" Content="{Binding L[SettingsAutoSaveProfileOnLaunch]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnLaunchTooltip]}" />
+          <CheckBox Grid.Row="0" Grid.Column="1" IsChecked="{Binding AutoSaveProfileOnExit}" Content="{Binding L[SettingsAutoSaveProfileOnExit]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnExitTooltip]}" />
+          <CheckBox Grid.Row="1" Grid.Column="0" IsChecked="{Binding ClearCrashIndication}" Content="{Binding L[SettingsClearCrashIndication]}" ToolTip.Tip="{Binding L[SettingsClearCrashIndicationTooltip]}" />
+          <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding SteamHelperProcess}" Content="{Binding L[SettingsSteamHelperProcess]}" ToolTip.Tip="{Binding L[SettingsSteamHelperProcessTooltip]}" />
+          <CheckBox Grid.Row="2" Grid.Column="0" IsChecked="{Binding SkipSplash}" Content="{Binding L[SettingsSkipSplash]}" ToolTip.Tip="{Binding L[SettingsSkipSplashTooltip]}" />
+        </Grid>
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[EffectiveLaunchCommand]}" />
           <TextBox Text="{Binding CommandPreview, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
@@ -58,14 +66,16 @@
         <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
           <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionAuthoring]}" />
         </Border>
-        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
-          <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsOpenSteamPage]}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
-          <ComboBox Grid.Row="3" Grid.Column="1" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding OpenSteamPageChoices}" SelectedIndex="{Binding OpenSteamPageIndex}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
+        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
           <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsAuthorName]}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
           <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" Width="300" Text="{Binding AuthorName}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
           <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsDescriptionExtension]}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
-          <ComboBox Grid.Row="1" Grid.Column="1" IsEditable="True" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
-          <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding AutoUpdateDescription}" Content="{Binding L[SettingsAutoUpdateDescription]}" ToolTip.Tip="{Binding L[SettingsAutoUpdateDescriptionTooltip]}" />
+          <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="Auto,*">
+            <ComboBox Grid.Column="0" IsEditable="True" Width="200" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
+            <CheckBox Grid.Column="1" HorizontalAlignment="Right" IsChecked="{Binding AutoUpdateDescription}" Content="{Binding L[SettingsAutoUpdateDescription]}" ToolTip.Tip="{Binding L[SettingsAutoUpdateDescriptionTooltip]}" />
+          </Grid>
+          <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsOpenSteamPage]}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
+          <ComboBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding OpenSteamPageChoices}" SelectedIndex="{Binding OpenSteamPageIndex}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
         </Grid>
       </StackPanel>
 

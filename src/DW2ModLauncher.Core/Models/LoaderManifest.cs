@@ -32,6 +32,15 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Where the loader writes its logs (as the game process sees the path); blank = the game's data/Logs folder.</summary>
         public string LogDirectory { get; set; } = "";
 
+        /// <summary>"x,y,width,height" of the monitor the game should open on, in true pixels; blank = leave the game where it puts itself.</summary>
+        public string DisplayRect { get; set; } = "";
+
+        /// <summary>That monitor's own refresh rate in hertz; 0 = unknown, the game keeps its own answer.</summary>
+        public int DisplayRefresh { get; set; }
+
+        /// <summary>The video card behind that monitor, as Windows names it (the game's adapter name); blank = the game's own choice.</summary>
+        public string DisplayAdapter { get; set; } = "";
+
         /// <summary>Where the loader writes hooks-observed.json (as the game process sees the path): what the mods actually patched, for the launcher's code-overlap check. Blank = not written.</summary>
         public string ObservedHooksPath { get; set; } = "";
 

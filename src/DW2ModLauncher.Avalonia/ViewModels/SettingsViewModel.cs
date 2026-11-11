@@ -83,6 +83,41 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private bool clearCrashIndication;
         /// <summary>Launching the game first deletes its crashed-last-session marker so it does not ask.</summary>
         public bool ClearCrashIndication { get { return clearCrashIndication; } set { Set(ref clearCrashIndication, value); } }
+        private bool skipSplash;
+        /// <summary>The game starts with its --skip-splash switch, so the splash screen is not shown.</summary>
+        public bool SkipSplash { get { return skipSplash; } set { if (Set(ref skipSplash, value)) Raise(nameof(CommandPreview)); } }
+        private string gameMonitor = "";
+        private List<string> monitorLabels = new List<string>();
+        /// <summary>The Game monitor row is shown on Windows only; under Proton the game's window is not ours to place.</summary>
+        public bool ShowGameMonitor { get { return OperatingSystem.IsWindows(); } }
+        /// <summary>"Automatic", then the monitors of this machine; a saved choice that is no longer connected is listed last, marked, never swapped for another monitor.</summary>
+        public List<string> GameMonitorChoices
+        {
+            get
+            {
+                List<string> choices = new List<string> { main.T("SettingsGameMonitorAutomatic") };
+                choices.AddRange(monitorLabels);
+                if (gameMonitor.Length > 0 && !monitorLabels.Exists(l => string.Equals(l, gameMonitor, StringComparison.OrdinalIgnoreCase)))
+                    choices.Add(main.T("SettingsGameMonitorMissing", ("Monitor", gameMonitor)));
+                return choices;
+            }
+        }
+        public int GameMonitorIndex
+        {
+            get
+            {
+                if (gameMonitor.Length == 0) return 0;
+                int at = monitorLabels.FindIndex(l => string.Equals(l, gameMonitor, StringComparison.OrdinalIgnoreCase));
+                return at >= 0 ? at + 1 : monitorLabels.Count + 1;
+            }
+            set
+            {
+                if (value < 0) return;
+                if (value == 0) gameMonitor = "";
+                else if (value <= monitorLabels.Count) gameMonitor = monitorLabels[value - 1];
+                Raise();
+            }
+        }
         private bool autoSaveProfileOnLaunch = true;
         /// <summary>Launching the game with unsaved profile edits saves them instead of asking.</summary>
         public bool AutoSaveProfileOnLaunch { get { return autoSaveProfileOnLaunch; } set { Set(ref autoSaveProfileOnLaunch, value); } }
@@ -138,7 +173,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             get
             {
-                ProcessStartInfo psi = GameLauncher.BuildStartInfo(gameRoot, GameLauncher.BuildArguments(main.LaunchMode, LoaderManifestBuilder.ActiveFont(main.OrderedEnabledMods())));
+                ProcessStartInfo psi = GameLauncher.BuildStartInfo(gameRoot, GameLauncher.BuildArguments(main.LaunchMode, LoaderManifestBuilder.ActiveFont(main.OrderedEnabledMods()), skipSplash: skipSplash));
                 return "\"" + psi.FileName + "\"" + (string.IsNullOrWhiteSpace(psi.Arguments) ? "" : " " + psi.Arguments);
             }
         }
@@ -173,6 +208,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             AutoSaveProfileOnLaunch = s.AutoSaveProfileOnLaunch;
             SteamHelperProcess = s.SteamHelperProcessEnabled;
             ClearCrashIndication = s.ClearCrashIndication;
+            SkipSplash = s.SkipSplash;
+            gameMonitor = (s.GameMonitor ?? "").Trim();
+            monitorLabels = DisplayChoices.Labels(DisplayEnumerator.List());
+            Raise(nameof(GameMonitorChoices));
+            Raise(nameof(GameMonitorIndex));
         }
 
         /// <summary>Writes the editable fields into the settings object without validating (used right before launch).</summary>
@@ -209,8 +249,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bool pathsSame = game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory;
             string author = (authorName ?? "").Trim();
             AuthorName = author;
-            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription && openSteamPage == s.OpenSteamPageAfterPublish && autoSaveProfileOnExit == s.AutoSaveProfileOnExit && autoSaveProfileOnLaunch == s.AutoSaveProfileOnLaunch && steamHelperProcess == s.SteamHelperProcessEnabled && clearCrashIndication == s.ClearCrashIndication) return true;
+            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription && openSteamPage == s.OpenSteamPageAfterPublish && autoSaveProfileOnExit == s.AutoSaveProfileOnExit && autoSaveProfileOnLaunch == s.AutoSaveProfileOnLaunch && steamHelperProcess == s.SteamHelperProcessEnabled && clearCrashIndication == s.ClearCrashIndication && gameMonitor == (s.GameMonitor ?? "")) return true;
             s.ClearCrashIndication = clearCrashIndication;
+            s.SkipSplash = skipSplash;
+            s.GameMonitor = gameMonitor;
             s.AutoSaveProfileOnLaunch = autoSaveProfileOnLaunch;
             s.SteamHelperProcessEnabled = steamHelperProcess;
             ModPublisherFactory.UseHelperProcess = steamHelperProcess;

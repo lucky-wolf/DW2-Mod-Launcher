@@ -162,6 +162,15 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void BuildArguments_AddsTheGamesSkipSplashSwitch_OnlyWhenAsked()
+        {
+            Assert.DoesNotContain("--skip-splash", GameLauncher.BuildArguments());
+            Assert.EndsWith(" --skip-splash", GameLauncher.BuildArguments(skipSplash: true));
+            Assert.EndsWith(" --font RussianFont --skip-splash", GameLauncher.BuildArguments(LaunchMode.Run, "RussianFont", skipSplash: true));
+            Assert.False(new LauncherSettings().SkipSplash);
+        }
+
+        [Fact]
         public void BuildArguments_AddsTheFontSwitch_Last()
         {
             Assert.EndsWith(" --font RussianFont", GameLauncher.BuildArguments(LaunchMode.Run, "RussianFont"));
