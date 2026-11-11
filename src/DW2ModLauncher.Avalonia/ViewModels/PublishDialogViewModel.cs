@@ -356,10 +356,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get { return changeNotes; }
             set { if (Set(ref changeNotes, value)) { Raise(nameof(ChangeNotesHeader)); Raise(nameof(ChangeNotesLines)); RaiseModified(); } }
         }
-        /// <summary>How many lines the notes box shows when unfolded: every line of the notes (at least 2), so it never needs its own scroll bar.</summary>
+        /// <summary>How many lines the notes box shows when unfolded: every line of the notes (at least 2) plus one spare line, so neither the vertical nor the horizontal scroll bar covers text.</summary>
         public int ChangeNotesLines
         {
-            get { return Math.Max(2, (changeNotes ?? "").TrimEnd('\r', '\n').Split('\n').Length); }
+            get { return Math.Max(2, (changeNotes ?? "").TrimEnd('\r', '\n').Split('\n').Length) + 1; }
         }
         public string ChangeNotesHeader
         {

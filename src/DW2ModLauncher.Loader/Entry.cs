@@ -61,6 +61,9 @@ namespace DW2ModLauncher.Loader
                 return;
             }
 
+            // First of all: the game creates its window about a hundred milliseconds after starting this method.
+            InstallDisplay(manifest);
+
             // The data hooks do not depend on the code mods, so they go first: the game does not wait for this method and reads
             // its XML data about a second after it starts, and a mod entry point that takes a few seconds (loading its own
             // Harmony patches, say) must not make that data bypass the XML patches.
@@ -158,6 +161,21 @@ namespace DW2ModLauncher.Loader
             {
                 Log("ERROR: game state could not be tracked (mods that wait for a real game will not warn): " + ex);
                 HookStatus.Warn("gamestate", StatusStrings.Get("WidgetGameStateNotTracked", ("Problem", ex.Message)), _logPath);
+            }
+        }
+
+        // Own method for the same reason as InstallXmlPatching: a missing 0Harmony.dll fails here, not in Init.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InstallDisplay(LoaderManifest manifest)
+        {
+            try
+            {
+                DisplayHooks.Install(manifest, Log, _logPath);
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR: the chosen monitor and video card could not be applied (the game places itself as usual): " + ex);
+                HookStatus.Failed("display", StatusStrings.Get("WidgetChannelProblem", ("Problem", "Display: " + ex.Message)), _logPath);
             }
         }
 

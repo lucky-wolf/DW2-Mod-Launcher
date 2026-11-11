@@ -51,12 +51,20 @@ namespace DW2ModLauncher.Core.Services
         /// Writes manifest.json beside the loader DLL; the loader reads it at --low-level-inject time. <paramref name="loaderDirectory"/> (default: the
         /// launcher's own Loader folder) is where the manifest goes and must hold the loader DLL the game is started with, which is how
         /// <see cref="LaunchPreparation"/> keeps a test launch from touching the launcher's. <paramref name="observedHooksPath"/> (default: the
-        /// launcher's hooks-observed.json) is where that session's patched game code is recorded.
+        /// launcher's hooks-observed.json) is where that session's patched game code is recorded. <paramref name="gameMonitor"/> is the launcher's Game monitor choice (blank = Automatic).
         /// </summary>
         public static LoaderManifest WriteLoaderManifest(IEnumerable<ModInfo> orderedEnabledMods, string logDirectory = "", Dictionary<string, string> strings = null, string language = null, string gameRoot = null,
-            string loaderDirectory = null, string observedHooksPath = null)
+            string loaderDirectory = null, string observedHooksPath = null, string gameMonitor = null)
         {
             LoaderManifest manifest = LoaderManifestBuilder.Build(orderedEnabledMods.ToList(), language, gameRoot);
+            if (OperatingSystem.IsWindows() && !string.IsNullOrWhiteSpace(gameMonitor))
+            {
+                string problem = DisplayChoices.Resolve(gameMonitor, DisplayEnumerator.List(), out string rect, out string adapter, out int refreshRate);
+                manifest.DisplayRect = rect;
+                manifest.DisplayAdapter = adapter;
+                manifest.DisplayRefresh = refreshRate;
+                if (problem != null) manifest.ChannelProblems.Add("⚠ " + problem);
+            }
             manifest.LogDirectory = string.IsNullOrWhiteSpace(logDirectory) ? "" : GamePaths.ToGameVisiblePath(logDirectory.Trim());
             manifest.ObservedHooksPath = GamePaths.ToGameVisiblePath(string.IsNullOrWhiteSpace(observedHooksPath) ? HookFiles.ObservedPath() : observedHooksPath);
             if (strings != null) manifest.Strings = strings;
@@ -66,8 +74,8 @@ namespace DW2ModLauncher.Core.Services
             return manifest;
         }
 
-        /// <summary>The game command line: the loader injection flag, then the startup mode flag if any.</summary>
-        public static string BuildArguments(LaunchMode mode = LaunchMode.Run, string fontBundle = null, string loaderDirectory = null)
+        /// <summary>The game command line: the loader injection flag, then the startup mode flag if any, the font, and the game's own --skip-splash when asked.</summary>
+        public static string BuildArguments(LaunchMode mode = LaunchMode.Run, string fontBundle = null, string loaderDirectory = null, bool skipSplash = false)
         {
             string loaderDll = GamePaths.ToGameVisiblePath(string.IsNullOrWhiteSpace(loaderDirectory) ? LoaderDllPath() : Path.Combine(loaderDirectory, Path.GetFileName(LoaderDllPath())));
             string token = (loaderDll.IndexOf(' ') >= 0 ? "\"" + loaderDll + "\"" : loaderDll) + "!DW2ModLauncher.Loader.Entry.Init";
@@ -76,6 +84,7 @@ namespace DW2ModLauncher.Core.Services
             else if (mode == LaunchMode.NewGame) args += " --new-game";
             // A localization mod's font bundle (the Loader makes the game find it in the mod folder). The name is checked by the manifest builder.
             if (!string.IsNullOrWhiteSpace(fontBundle)) args += " --font " + fontBundle.Trim();
+            if (skipSplash) args += " --skip-splash";
             return args;
         }
 

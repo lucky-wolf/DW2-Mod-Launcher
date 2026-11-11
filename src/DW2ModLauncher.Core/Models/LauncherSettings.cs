@@ -19,6 +19,8 @@ namespace DW2ModLauncher.Core.Models
         public string ManagedModsRoot { get; set; }
         /// <summary>Folder the in-game loader writes its logs to; blank = the game's data/Logs folder.</summary>
         public string LogDirectory { get; set; } = "";
+        /// <summary>The monitor the game opens on, as DisplayChoices names it ("monitor on video card"); blank = Automatic, the game places itself as it always did. Windows only.</summary>
+        public string GameMonitor { get; set; } = "";
         /// <summary>The Play button's remembered mode (run / continue / new game).</summary>
         public LaunchMode LaunchMode { get; set; }
         public string LastWorkshopUpdateCheckUtc { get; set; }
@@ -65,6 +67,9 @@ namespace DW2ModLauncher.Core.Models
         public bool AutoSaveProfileOnExit { get; set; }
         /// <summary>Before launching, delete the game's SessionActive marker so it does not ask about a crashed last session (CrashMarker). Off by default.</summary>
         public bool ClearCrashIndication { get; set; }
+
+        /// <summary>Start the game with its own --skip-splash switch, so the splash screen is not shown. Off by default.</summary>
+        public bool SkipSplash { get; set; }
         /// <summary>After a successful publish: ask whether to open the item's Steam page (default), always open it, or never.</summary>
         public OpenSteamPageAfterPublish OpenSteamPageAfterPublish { get; set; } = OpenSteamPageAfterPublish.Prompt;
         /// <summary>The publish dialog's modified-files section is unfolded (folded by default; remembered).</summary>
