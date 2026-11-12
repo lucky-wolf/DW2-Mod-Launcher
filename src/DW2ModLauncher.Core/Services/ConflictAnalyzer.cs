@@ -71,21 +71,25 @@ namespace DW2ModLauncher.Core.Services
         /// the enabled mods that ship a differing copy). Byte-identical copies are counted but not reported.
         /// </summary>
         /// <summary>
-        /// Flags enabled mods that are the same Workshop item (a published local mod and its subscribed copy, say).
-        /// Identity is the Workshop item id only - never the name - so an unpublished local mod is never flagged.
+        /// Flags enabled mods that are the same mod (a published local mod and its subscribed copy, a copied folder, say).
+        /// Identity is the mod's uid, or the Workshop item id for a mod that has none - never the name - so an unpublished local mod is never flagged.
         /// </summary>
         public static void AnalyzeEnabledCopies(IEnumerable<ModInfo> mods, Func<ModInfo, bool> isEnabled)
         {
             List<ModInfo> all = mods.Where(m => m != null).ToList();
             foreach (ModInfo mod in all) mod.EnabledCopyCount = 0;
-            foreach (IGrouping<string, ModInfo> group in all.Where(isEnabled)
-                         .Where(m => ModDetails.WorkshopId(m) != null)
-                         .GroupBy(m => ModDetails.WorkshopId(m), StringComparer.OrdinalIgnoreCase))
-            {
-                List<ModInfo> copies = group.GroupBy(m => m.Key, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
-                if (copies.Count < 2) continue;
-                foreach (ModInfo mod in copies) mod.EnabledCopyCount = copies.Count - 1;
-            }
+            List<ModInfo> enabled = all.Where(isEnabled).ToList();
+            foreach (IGrouping<string, ModInfo> group in enabled.Where(m => m.Uid != null).GroupBy(m => m.Uid, StringComparer.Ordinal))
+                MarkCopies(group);
+            foreach (IGrouping<string, ModInfo> group in enabled.Where(m => ModDetails.WorkshopId(m) != null).GroupBy(m => ModDetails.WorkshopId(m), StringComparer.OrdinalIgnoreCase))
+                MarkCopies(group);
+        }
+
+        private static void MarkCopies(IEnumerable<ModInfo> group)
+        {
+            List<ModInfo> copies = group.GroupBy(m => m.Key, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
+            if (copies.Count < 2) return;
+            foreach (ModInfo mod in copies) mod.EnabledCopyCount = Math.Max(mod.EnabledCopyCount, copies.Count - 1);
         }
 
         public static Dictionary<string, List<ModInfo>> Analyze(IEnumerable<ModInfo> mods, Func<ModInfo, bool> isEnabled)

@@ -20,7 +20,7 @@
         <RowDefinition Height="*" />
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
-      <Grid Name="ToolbarGrid" Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
+      <Grid Name="ToolbarGrid" Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
         <Button Grid.Column="0" Command="{Binding RefreshCommand}" Margin="0,0,10,0" ToolTip.Tip="{Binding L[RefreshModsTooltip]}">
           <!-- "sync" icon (two circular arrows), Material Design Icons, Apache-2.0 -->
           <PathIcon Width="16" Height="16" Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
@@ -56,6 +56,11 @@
           <!-- "trash" icon, Material Design Icons, Apache-2.0 -->
           <PathIcon Width="16" Height="16" Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
         </Button>
+        <Border Grid.Column="11" Width="1" Margin="10,2,0,2" Background="{StaticResource Dw2Muted}" />
+        <Button Grid.Column="12" Command="{Binding BrowseCatalogCommand}" Margin="10,0,0,0" Padding="10,6" ToolTip.Tip="{Binding L[CatalogBrowseTooltip]}">
+          <!-- "cloud download" icon, Material Design Icons, Apache-2.0 -->
+          <PathIcon Width="16" Height="16" Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z" />
+        </Button>
       </Grid>
 
       <!-- The headers can be dragged into any order (ModsView.axaml.cs); the rows below use the same order. They do not sort: the list is always load order, then name. -->
@@ -74,19 +79,32 @@
                  Background="{StaticResource Dw2Deep}">
           <ListBox.ContextMenu>
             <ContextMenu>
-              <MenuItem Header="{Binding L[SteamPage]}" Command="{Binding OpenSteamPageCommand}" IsVisible="{Binding SelectedHasSteamPage}" />
+              <!-- Use it -->
               <MenuItem Header="{Binding L[ModSettings]}" Command="{Binding ModSettingsCommand}" />
-              <MenuItem Header="{Binding L[SelectedModFolder]}" Command="{Binding OpenSelectedFolderCommand}" />
               <MenuItem Header="{Binding L[OpenDocs]}" Command="{Binding OpenDocsCommand}" />
+              <MenuItem Header="{Binding L[SteamPage]}" Command="{Binding OpenSteamPageCommand}" IsVisible="{Binding SelectedHasSteamPage}" />
+              <Separator />
+              <!-- Inspect -->
+              <MenuItem Header="{Binding L[SelectedModFolder]}" Command="{Binding OpenSelectedFolderCommand}" />
               <MenuItem Header="{Binding L[HookReport]}" Command="{Binding HookReportCommand}" />
-              <MenuItem Header="{Binding L[EditProperties]}" Command="{Binding EditPropertiesCommand}" />
-              <MenuItem Header="{Binding L[PublishToWorkshop]}" Command="{Binding PublishCommand}" />
-              <MenuItem Header="{Binding L[MarkUpToDate]}" Command="{Binding MarkUpToDateCommand}" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" />
-              <MenuItem Header="{Binding L[AddTranslation]}" Command="{Binding AddTranslationCommand}" />
-              <MenuItem Header="{Binding L[RenameMod]}" Command="{Binding RenameModCommand}" />
-              <MenuItem Header="{Binding L[DeleteMod]}" Command="{Binding DeleteModCommand}" />
+              <!-- Steam subscription (Workshop downloads only) -->
               <Separator IsVisible="{Binding SelectedIsWorkshop}" />
               <MenuItem Header="{Binding L[CheckUpdates]}" Command="{Binding CheckUpdatesCommand}" IsVisible="{Binding SelectedIsWorkshop}" />
+              <MenuItem Header="{Binding L[Unsubscribe]}" Command="{Binding UnsubscribeCommand}" IsVisible="{Binding SelectedIsWorkshop}" ToolTip.Tip="{Binding L[UnsubscribeTooltip]}" />
+              <!-- Removing a local mod (a catalog download or your own), the counterpart of Unsubscribe -->
+              <Separator IsVisible="{Binding SelectedIsLocal}" />
+              <MenuItem Header="{Binding L[DeleteMod]}" Command="{Binding DeleteModCommand}" IsVisible="{Binding SelectedIsLocal}" />
+              <!-- Mod author (your own local mods only) -->
+              <Separator IsVisible="{Binding SelectedIsOwn}" />
+              <MenuItem Header="{Binding L[AuthorMenu]}" IsVisible="{Binding SelectedIsOwn}">
+                <MenuItem Header="{Binding L[EditProperties]}" Command="{Binding EditPropertiesCommand}" />
+                <MenuItem Header="{Binding L[AddTranslation]}" Command="{Binding AddTranslationCommand}" />
+                <MenuItem Header="{Binding L[RenameMod]}" Command="{Binding RenameModCommand}" />
+                <MenuItem Header="{Binding L[NewIdentity]}" Command="{Binding NewIdentityCommand}" ToolTip.Tip="{Binding L[NewIdentityTooltip]}" />
+                <Separator />
+                <MenuItem Header="{Binding L[PublishToWorkshop]}" Command="{Binding PublishCommand}" />
+                <MenuItem Header="{Binding L[MarkUpToDate]}" Command="{Binding MarkUpToDateCommand}" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" />
+              </MenuItem>
             </ContextMenu>
           </ListBox.ContextMenu>
           <ListBox.ItemTemplate>

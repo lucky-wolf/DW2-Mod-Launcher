@@ -24,6 +24,8 @@ namespace DW2ModLauncher.Core.Services
 
             foreach (string dir in dirs)
             {
+                // A mod being installed from the catalog sits in a work folder until it is complete; it is not a mod yet.
+                if (Path.GetFileName(dir).StartsWith(Catalog.CatalogInstaller.WorkPrefix, StringComparison.Ordinal)) continue;
                 try
                 {
                     string modJson = FindModJson(dir, workshop);
@@ -161,10 +163,12 @@ namespace DW2ModLauncher.Core.Services
             LauncherMeta launcherMeta = LauncherMetaReader.Read(m);
             m.MinLauncherVersion = launcherMeta?.minLauncherVersion?.Trim();
             m.Author = launcherMeta?.author?.Trim();
+            m.Uid = ModUid.Normalize(launcherMeta?.uid);
             m.Dependencies = launcherMeta?.dependencies ?? new List<LauncherDependency>();
             m.Provides = launcherMeta?.provides ?? new List<LauncherProvision>();
             m.Receives = launcherMeta?.receives ?? new List<string>();
             m.HooksCoordinatedWith = launcherMeta?.hooksCoordinatedWith ?? new List<string>();
+            m.Tags = Catalog.CatalogTags.Normalize(launcherMeta?.tags);
             return m;
         }
 

@@ -1,0 +1,73 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
+        x:Class="DW2ModLauncher.Avalonia.Views.CatalogDialog"
+        x:DataType="vm:CatalogViewModel"
+        Title="{Binding L[CatalogTitle]}" Width="1060" Height="680" MinWidth="700" MinHeight="400"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <Grid RowDefinitions="*,Auto">
+    <!-- The list takes the whole width of the window. -->
+    <Grid Grid.Row="0" Margin="14" RowDefinitions="Auto,*,Auto" RowSpacing="10">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+        <TextBox Grid.Column="0" Text="{Binding FilterText}" PlaceholderText="{Binding L[CatalogSearchWatermark]}" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding KindChoices}" SelectedItem="{Binding Kind}" MinWidth="150" ToolTip.Tip="{Binding L[CatalogKindTooltip]}" />
+        <ComboBox Grid.Column="2" ItemsSource="{Binding TagChoices}" SelectedItem="{Binding Tag}" MinWidth="150" ToolTip.Tip="{Binding L[CatalogTagTooltip]}" />
+        <ComboBox Grid.Column="3" ItemsSource="{Binding SortChoices}" SelectedItem="{Binding Sort}" MinWidth="170" ToolTip.Tip="{Binding L[CatalogSortTooltip]}" />
+        <Button Grid.Column="4" Command="{Binding ReloadCommand}" ToolTip.Tip="{Binding L[CatalogReloadTooltip]}">
+          <!-- "sync" icon (two circular arrows), Material Design Icons, Apache-2.0 -->
+          <PathIcon Width="16" Height="16" Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+        </Button>
+      </Grid>
+      <Panel Grid.Row="1">
+        <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}" Background="{StaticResource Dw2Deep}">
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem">
+              <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            </Style>
+          </ListBox.Styles>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:CatalogRowViewModel">
+              <!-- The right margin keeps the last column clear of the scroll bar. -->
+              <Grid ColumnDefinitions="Auto,*,Auto" Margin="2,4,18,4">
+                <Border Grid.Column="0" Width="120" Height="80" Background="{StaticResource Dw2Void}">
+                  <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="3" Margin="14,0" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="16" />
+                    <TextBlock Classes="muted" Text="{Binding Version}" VerticalAlignment="Center" />
+                    <TextBlock Classes="muted" Text="{Binding KindText}" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <TextBlock Classes="muted" Text="{Binding AuthorText}" IsVisible="{Binding HasAuthor}" />
+                  <TextBlock Classes="muted" Text="{Binding TagsText}" IsVisible="{Binding HasTags}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Description}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                  <TextBlock Text="{Binding StateText}" IsVisible="{Binding HasState}" HorizontalAlignment="Right" Foreground="{StaticResource Dw2Gold}" />
+                  <TextBlock Classes="muted" Text="{Binding SizeText}" HorizontalAlignment="Right" />
+                  <TextBlock Classes="muted" Text="{Binding PopularityText}" IsVisible="{Binding HasPopularity}" HorizontalAlignment="Right" />
+                  <TextBlock Classes="muted" Text="{Binding PublishedText}" HorizontalAlignment="Right" />
+                  <Button Content="{Binding ActionText}" Command="{Binding InstallCommand}" IsVisible="{Binding HasAction}" ToolTip.Tip="{Binding ActionTooltip}" HorizontalAlignment="Right" Margin="0,6,0,0" MinWidth="130" />
+                  <TextBlock Text="{Binding ProgressText}" IsVisible="{Binding HasProgress}" HorizontalAlignment="Right" Foreground="{StaticResource Dw2Gold}" />
+                </StackPanel>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel IsVisible="{Binding IsLoading}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+          <Arc Classes="spinner" Width="40" Height="40" StartAngle="0" SweepAngle="270" Stroke="{StaticResource Dw2Gold}" StrokeThickness="5" HorizontalAlignment="Center" />
+          <TextBlock Text="{Binding L[CatalogLoading]}" HorizontalAlignment="Center" />
+        </StackPanel>
+        <TextBlock IsVisible="{Binding HasError}" Text="{Binding Error}" TextWrapping="Wrap" Margin="20" VerticalAlignment="Center" Foreground="Orange" />
+      </Panel>
+      <TextBlock Grid.Row="2" Classes="muted" Text="{Binding Summary}" />
+    </Grid>
+
+    <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <Button Grid.Column="0" Command="{Binding OpenReleaseCommand}" Content="{Binding L[CatalogOpenRelease]}" ToolTip.Tip="{Binding L[CatalogOpenReleaseTooltip]}" />
+        <Button Grid.Column="2" Name="CloseButton" IsCancel="True" IsDefault="True" Content="{Binding L[Close]}" MinWidth="125" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

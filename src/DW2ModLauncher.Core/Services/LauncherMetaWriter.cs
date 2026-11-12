@@ -26,6 +26,30 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>
+        /// Gives the mod its identity ("uid", see <see cref="ModUid"/>) if it has none, and returns the identity it has. An identity already there is kept; one that
+        /// is not a UUID throws (the author wrote it, so it is not replaced). With <paramref name="replace"/> a new identity is written over any existing one
+        /// (a deliberate fork). Throws if the existing file cannot be parsed, so a file with other content in it is never replaced.
+        /// </summary>
+        public static string StampUid(string modFolder, bool replace = false)
+        {
+            const string field = "uid";
+            string path = Path.Combine(modFolder, FileName);
+            JsonObject root = Load(path);
+            string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(field, StringComparison.OrdinalIgnoreCase));
+            if (key != null)
+            {
+                string existing = root[key]?.ToString();
+                if (!replace && !string.IsNullOrWhiteSpace(existing))
+                    return ModUid.Normalize(existing) ?? throw new InvalidDataException(path + " has a \"uid\" (" + existing + ") that is not a UUID.");
+                root.Remove(key);
+            }
+            string uid = ModUid.New();
+            root[field] = uid;
+            Save(path, root);
+            return uid;
+        }
+
+        /// <summary>
         /// Sets "versionBump" (see LauncherMeta) to <paramref name="level"/>; "patch", the default, removes the key and writes nothing when there is no file.
         /// Throws if the existing file cannot be parsed, so a file with other content in it is never replaced.
         /// </summary>
@@ -39,6 +63,28 @@ namespace DW2ModLauncher.Core.Services
             string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(field, StringComparison.OrdinalIgnoreCase));
             if (key != null) root.Remove(key);
             if (!isDefault) root[field] = level.Trim().ToLowerInvariant();
+            Save(path, root);
+        }
+
+        /// <summary>
+        /// Sets "tags" (see LauncherMeta) to <paramref name="tags"/> written the way <see cref="Catalog.CatalogTags"/> says. No tags removes the key, and
+        /// writes nothing when there is no file. Throws if the existing file cannot be parsed, so a file with other content in it is never replaced.
+        /// </summary>
+        public static void SetTags(string modFolder, IEnumerable<string> tags)
+        {
+            const string field = "tags";
+            List<string> names = Catalog.CatalogTags.Normalize(tags);
+            string path = Path.Combine(modFolder, FileName);
+            if (names.Count == 0 && !File.Exists(path)) return;
+            JsonObject root = Load(path);
+            string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(field, StringComparison.OrdinalIgnoreCase));
+            if (key != null) root.Remove(key);
+            if (names.Count > 0)
+            {
+                JsonArray array = new JsonArray();
+                foreach (string name in names) array.Add(name);
+                root[field] = array;
+            }
             Save(path, root);
         }
 

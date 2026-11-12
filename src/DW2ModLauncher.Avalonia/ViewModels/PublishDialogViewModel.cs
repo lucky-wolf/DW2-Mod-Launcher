@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using DW2ModLauncher.Avalonia.Services;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
+using DW2ModLauncher.Core.Services.Catalog;
 using DW2ModLauncher.Core.Services.Publishing;
 
 namespace DW2ModLauncher.Avalonia.ViewModels
@@ -40,6 +41,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool IsMissing { get; set; }
         public bool IsPresent { get { return !IsMissing; } }
         public string Tooltip { get; set; }
+    }
+
+    /// <summary>One tag shown as a chip in the dialog, with the button that removes it.</summary>
+    public class TagChip
+    {
+        public string Text { get; set; }
+        public string RemoveTooltip { get; set; }
+        public RelayCommand Remove { get; set; }
     }
 
     /// <summary>One line of the editable "Compatible with" list: a dw2modlauncher.json "hooksCoordinatedWith" entry and what it means for the mods installed now.</summary>
@@ -111,13 +120,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null, IEnumerable<string> knownCatalogTags = null)
         {
             this.dialogs = dialogs;
             // every installed mod (this one too): what a "Compatible with" entry can name, and what the entries are checked against
             installedMods = (otherMods ?? new List<ModInfo>()).Where(m => m != null).ToList();
             compatibleEntries = new List<string>((mod.HooksCoordinatedWith ?? new List<string>()).Where(e => !string.IsNullOrWhiteSpace(e)).Select(e => e.Trim()));
             savedCompatible = new List<string>(compatibleEntries);
+            savedTags = new List<string>(mod.Tags ?? new List<string>());
+            tagNames = new List<string>(savedTags);
+            // what the tag picker offers: the suggested words, the tags of the mods installed, and the catalog's (once Browse has loaded it)
+            knownTags = CatalogTags.Normalize(CatalogTags.Suggested.Concat(installedMods.SelectMany(m => m.Tags ?? new List<string>())).Concat(knownCatalogTags ?? Enumerable.Empty<string>()));
+            knownTags.Sort(StringComparer.Ordinal);
+            AddTagCommand = new RelayCommand(AddTagAsync);
             AddCompatibleCommand = new RelayCommand(AddCompatibleAsync);
             this.lastArtFolder = lastArtFolder;
             this.rememberArtFolder = rememberArtFolder;
@@ -495,13 +510,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private string FieldsSnapshot()
         {
-            return string.Join("", new[] { title, version, previewImage, shortDescription, bumpLevel.Value }.Select(x => (x ?? "").Trim())) + "\n" + string.Join("\n", compatibleEntries);
+            return string.Join("", new[] { title, version, previewImage, shortDescription, bumpLevel.Value }.Select(x => (x ?? "").Trim())) + "\n" + string.Join("\n", compatibleEntries) + "\n" + string.Join("\n", tagNames);
         }
 
         // The "Compatible with" list: dw2modlauncher.json "hooksCoordinatedWith" as it stands in the dialog, and as it was last read or saved.
         private readonly List<ModInfo> installedMods;
         private readonly List<string> compatibleEntries;
         private List<string> savedCompatible;
+        // The catalog tags (dw2modlauncher.json "tags"): as typed in the dialog (comma separated), and as last read or saved.
+        private readonly List<string> tagNames;
+        private readonly List<string> knownTags;
+        private List<string> savedTags;
 
         public RelayCommand AddCompatibleCommand { get; }
 
@@ -842,6 +861,29 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string DescriptionHeader
         {
             get { return L["Description"] + ": " + (System.Text.Encoding.UTF8.GetByteCount(description ?? "") / 1024.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " KB"; }
+        }
+        /// <summary>The tags as chips, each with its own remove button.</summary>
+        public IEnumerable<TagChip> TagChips { get { return tagNames.Select(t => new TagChip { Text = t, RemoveTooltip = L["PublishTagRemove"], Remove = new RelayCommand(() => RemoveTag(t)) }).ToList(); } }
+        public RelayCommand AddTagCommand { get; }
+
+        private void RemoveTag(string tag)
+        {
+            if (!tagNames.Remove(tag)) return;
+            Raise(nameof(TagChips));
+            RaiseModified();
+        }
+
+        /// <summary>Asks which tag to add: one already in use, or a new one, which the author must confirm since every author is then offered it.</summary>
+        private async Task AddTagAsync()
+        {
+            List<string> offered = knownTags.Where(t => !tagNames.Contains(t)).ToList();
+            Views.TagPick pick = await dialogs.PickTagAsync(L["PickTagTitle"], L["PickTagNote"], L["PickTagPlaceholder"], offered, typed => L.Format("PickTagNew", ("Tag", typed)));
+            if (pick == null || tagNames.Contains(pick.Tag)) return;
+            if (pick.IsNew && !await dialogs.ConfirmAsync(L.Format("PublishTagNewConfirm", ("Tag", pick.Tag)), L["PublishTagNewTitle"], L["PublishTagNewYes"], L["Cancel"])) return;
+            tagNames.Add(pick.Tag);
+            if (!knownTags.Contains(pick.Tag)) knownTags.Add(pick.Tag);
+            Raise(nameof(TagChips));
+            RaiseModified();
         }
         public string ShortDescription { get { return shortDescription; } set { if (Set(ref shortDescription, value)) RaiseModified(); } }
         public VisibilityOption Visibility
@@ -1199,7 +1241,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
             }
             metadata.Bundles = detectedBundles;
-            // dw2modlauncher.json is only touched when the list was edited here
+            // dw2modlauncher.json is only touched when the tags or the list were edited here
+            List<string> typedTags = CatalogTags.Normalize(tagNames);
+            if (!typedTags.SequenceEqual(savedTags))
+            {
+                try { LauncherMetaWriter.SetTags(mod.Folder, typedTags); savedTags = typedTags; }
+                catch (Exception ex)
+                {
+                    DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write dw2modlauncher.json tags", ex);
+                    return ex.Message;
+                }
+            }
             if (!compatibleEntries.SequenceEqual(savedCompatible))
             {
                 try { LauncherMetaWriter.SetCoordinatedWith(mod.Folder, compatibleEntries); savedCompatible = new List<string>(compatibleEntries); }

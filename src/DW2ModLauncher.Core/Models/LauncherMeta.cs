@@ -19,6 +19,12 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Who made the mod, as a name shown in the launcher's Author column. The launcher stamps it from the user's Author setting when they create or publish a mod.</summary>
         public string author { get; set; }
 
+        /// <summary>The mod's identity: a random UUID the launcher writes once, where the mod is made or first published, and never changes (the name may). The mod catalog, duplicate detection and dependencies recognize the mod by it, whatever it is called or hosted.</summary>
+        public string uid { get; set; }
+
+        /// <summary>Topics the author gives the mod for the mod catalog's search and filter (music, art, icons ...). Free-form; the launcher writes them lower case with single spaces (CatalogTags).</summary>
+        public List<string> tags { get; set; }
+
         /// <summary>"replace": this mod's Galactopedia articles replace those of the game and of the mods before it (instead of being added to them). For translations.</summary>
         public string galactopedia { get; set; }
 

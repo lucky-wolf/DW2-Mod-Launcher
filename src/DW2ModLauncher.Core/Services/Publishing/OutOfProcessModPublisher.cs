@@ -43,6 +43,13 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return Call(new SteamWorkerCall { Op = "items", AppId = appId, Ids = new List<long>(workshopIds) }, CancellationToken.None, out _)?.Items ?? new List<SteamItemStatus>();
         }
 
+        public string Unsubscribe(long workshopId)
+        {
+            SteamWorkerReply reply = Call(new SteamWorkerCall { Op = "unsubscribe", AppId = appId, WorkshopId = workshopId }, CancellationToken.None, out string error);
+            if (reply == null) return error ?? "The Steam helper returned no result.";
+            return reply.UnsubscribeError;
+        }
+
         private static SteamWorkerReply Call(SteamWorkerCall call, CancellationToken cancel, out string error)
         {
             error = null;

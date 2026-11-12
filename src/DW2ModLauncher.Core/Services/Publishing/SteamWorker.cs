@@ -24,6 +24,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public ModPublishResult Publish { get; set; }
         public ModVisibility? Visibility { get; set; }
         public List<SteamItemStatus> Items { get; set; }
+        /// <summary>For "unsubscribe": null when Steam accepted it, otherwise why not.</summary>
+        public string UnsubscribeError { get; set; }
     }
 
     /// <summary>
@@ -68,6 +70,9 @@ namespace DW2ModLauncher.Core.Services.Publishing
                     case "items":
                         reply.Items = publisher.QueryItems(call.Ids ?? new List<long>());
                         break;
+                    case "unsubscribe":
+                        reply.UnsubscribeError = publisher.Unsubscribe(call.WorkshopId);
+                        break;
                     default:
                         throw new InvalidOperationException("Unknown Steam worker operation: " + call.Op);
                 }
@@ -76,6 +81,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
             {
                 Logger.LogException("Steam worker", ex);
                 reply.Publish = new ModPublishResult { ErrorMessage = ex.Message };
+                reply.UnsubscribeError = ex.Message;
                 reply.Items = new List<SteamItemStatus>();
             }
             output.WriteLine(ResultPrefix + JsonSerializer.Serialize(reply));
