@@ -38,6 +38,8 @@ Not planned: merging Mods into a combined output folder, automatic conflict reso
 
 **Agents: build it yourself.** After finishing a feature or fix, run `python scripts/build.py` (not `build.cmd`, which pauses on errors) instead of leaving it to the owner. Report a failure prominently: the owner reads a failure as "I must build it" and success, or no mention, as "already built", so a success needs only a short line. If the running launcher stops the build overwriting files, say so plainly and don't retry in a loop. Never launch the launcher yourself.
 
+**Agents: sync after translation or text edits.** Translations are the owner's last step before pressing publish, so after any change to the Languages `*.json`, `mod/description.bbcode` or other publish text, run `python scripts/sync-mod.py` (or `build.py`, which runs it) in the same task, so the launcher's Workshop item already holds it. Never leave the sync for the owner, and confirm it reports "in step".
+
 ## CI & Releases
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) gates every pull request (forks included; `windows-latest` and `ubuntu-latest`; not pushes to `main`, since merges are rebases of validated branches) by running `scripts/validate.py`: `dotnet format --verify-no-changes`, `dotnet build -c Release`, `dotnet test` (fix formatting with `dotnet format DW2ModLauncher.sln`). [.github/workflows/release.yml](.github/workflows/release.yml) tags and publishes a release on every merge to `main` touching `src/`. Versions come from MinVer + [.version](.version); never hand-set a version in a `.csproj`. Details: [docs/CI Releases.md](docs/CI%20Releases.md).

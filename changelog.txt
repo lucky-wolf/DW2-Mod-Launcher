@@ -1,5 +1,8 @@
 ## Unreleased
 
+## 1.0.39 (2026-11-12)
+- Linux launcher update no longer fails with a missing Updates/new folder
+
 ## 1.0.38 (2026-11-11)
 - Change notes leave room for the horizontal scroll bar
 - Settings can choose the monitor and video card for the game
