@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DW2ModLauncher.Avalonia.Views.TagPickerDialog"
+        Width="460" Height="440" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <Grid Margin="16" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10">
+    <TextBlock Name="NoteText" Classes="muted" TextWrapping="Wrap" />
+    <TextBox Name="SearchBox" Grid.Row="1" />
+    <ListBox Name="Matches" Grid.Row="2" Background="{StaticResource Dw2Deep}" />
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+      <Button Name="OkButton" MinWidth="100" IsDefault="True" IsEnabled="False" />
+      <Button Name="CancelButton" MinWidth="100" IsCancel="True" />
+    </StackPanel>
+  </Grid>
+</Window>

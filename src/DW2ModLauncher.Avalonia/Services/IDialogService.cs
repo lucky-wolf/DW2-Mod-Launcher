@@ -37,6 +37,8 @@ namespace DW2ModLauncher.Avalonia.Services
         Task<string> PromptTextAsync(string title, string label, string initial, string okText, string cancelText, Func<string, string> hint, IList<string> choices = null, Func<string, bool> isInvalid = null);
         /// <summary>The rename prompt: a title box and a folder box (the folder follows the title until edited). { title, folder }, or null if the user cancelled.</summary>
         Task<string[]> PromptRenameAsync(string title, string intro, string titleLabel, string folderLabel, string initialTitle, string initialFolder, Func<string, string> folderFor, Func<string, string> hint, Func<string, bool> folderInvalid);
+        /// <summary>Picks a topic tag from <paramref name="known"/> or a new one typed in (see TagPickerDialog); null if the user cancelled.</summary>
+        Task<Views.TagPick> PickTagAsync(string title, string note, string placeholder, IList<string> known, Func<string, string> newText);
         /// <summary>Null if the user cancelled.</summary>
         Task<string> PickFolderAsync(string title, string startFolder);
         /// <summary>The user's Downloads folder as the system reports it (a redirected one is followed), or null if the system has none.</summary>
@@ -47,6 +49,8 @@ namespace DW2ModLauncher.Avalonia.Services
         Task<string> PickFileAsync(string title, string startFolder, string filterName, params string[] patterns);
         /// <summary>Shows the launcher settings in a modal window; completes when it is closed. Pickers and messages opened from it sit on top of it.</summary>
         Task ShowSettingsAsync(SettingsViewModel settings);
+        /// <summary>Shows the mod catalog's Browse window; completes when it is closed.</summary>
+        Task ShowCatalogAsync(CatalogViewModel catalog);
         /// <summary>Shows the About box (version and a link to the releases page); completes when it is closed.</summary>
         Task ShowAboutAsync(MainViewModel main);
         /// <summary>True if the user saved.</summary>

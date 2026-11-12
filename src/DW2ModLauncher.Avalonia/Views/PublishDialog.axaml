@@ -88,6 +88,33 @@
           <TextBlock Text="{Binding L[PublishShortDescription]}" ToolTip.Tip="{Binding L[PublishShortDescriptionHint]}" />
           <TextBox Text="{Binding ShortDescription}" ToolTip.Tip="{Binding L[PublishShortDescriptionHint]}" />
         </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding L[PublishTags]}" ToolTip.Tip="{Binding L[PublishTagsHint]}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ItemsControl ItemsSource="{Binding TagChips}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TagChip">
+                  <Border Background="{StaticResource Dw2Steel}" CornerRadius="12" Padding="10,2,4,2" Margin="0,0,8,4">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <TextBlock Text="{Binding Text}" VerticalAlignment="Center" />
+                      <Button Command="{Binding Remove}" Padding="4" Background="Transparent" BorderThickness="0" ToolTip.Tip="{Binding RemoveTooltip}">
+                        <!-- "close" x, Material Design Icons, Apache-2.0 -->
+                        <PathIcon Width="10" Height="10" Data="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Command="{Binding AddTagCommand}" Padding="8,4" VerticalAlignment="Top" ToolTip.Tip="{Binding L[PublishTagAdd]}">
+              <!-- "plus" icon, Material Design Icons, Apache-2.0 -->
+              <PathIcon Width="12" Height="12" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+            </Button>
+          </StackPanel>
+        </StackPanel>
         <!-- Folded by default: the arrow edits the description here, the pencil in your own editor. The buttons sit in the header and do not toggle it. -->
         <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
           <Expander.Header>

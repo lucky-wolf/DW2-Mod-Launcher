@@ -1,4 +1,12 @@
 ## Unreleased
+- A Browse button lists mods from the public mod catalog
+- Catalog mods can be downloaded and updated in place from Browse
+- Mod authors can tag their mods in Edit Properties for catalog search
+- Right-click a Workshop mod to unsubscribe from it on Steam
+- Mod right-click menu grouped, with authoring actions in a submenu
+- Browse Mod Catalog sorts by total downloads, or subscribers when Steam answers
+- Every mod gets a permanent identity; the catalog and duplicate check use it
+- Right-click Make This a New Mod gives a copy its own identity
 
 ## 1.0.39 (2026-11-12)
 - Linux launcher update no longer fails with a missing Updates/new folder

@@ -21,5 +21,11 @@ namespace DW2ModLauncher.Core.Services.Publishing
         /// empty when Steam can't be asked, so a failure never looks like a deletion.
         /// </summary>
         System.Collections.Generic.List<SteamItemStatus> QueryItems(System.Collections.Generic.IReadOnlyList<long> workshopIds);
+
+        /// <summary>
+        /// Unsubscribes the logged-in Steam account from a Workshop item. Steam then removes the files itself, possibly some time later.
+        /// Returns null when Steam accepted the request, otherwise the reason it did not (Steam not running, not logged in, timed out, refused).
+        /// </summary>
+        string Unsubscribe(long workshopId);
     }
 }

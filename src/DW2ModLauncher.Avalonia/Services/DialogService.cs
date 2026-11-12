@@ -40,6 +40,11 @@ namespace DW2ModLauncher.Avalonia.Services
             finally { settingsDialog = null; }
         }
 
+        public Task ShowCatalogAsync(CatalogViewModel catalog)
+        {
+            return new CatalogDialog(catalog).ShowDialog(owner());
+        }
+
         public Task ShowAboutAsync(MainViewModel main)
         {
             return new AboutDialog(main).ShowDialog(owner());
@@ -93,6 +98,11 @@ namespace DW2ModLauncher.Avalonia.Services
         public Task<string[]> PromptRenameAsync(string title, string intro, string titleLabel, string folderLabel, string initialTitle, string initialFolder, Func<string, string> folderFor, Func<string, string> hint, Func<string, bool> folderInvalid)
         {
             return new RenameDialog(title, intro, titleLabel, folderLabel, initialTitle, initialFolder, OkText, CancelText, folderFor, hint, folderInvalid).ShowDialog<string[]>(owner());
+        }
+
+        public Task<TagPick> PickTagAsync(string title, string note, string placeholder, IList<string> known, Func<string, string> newText)
+        {
+            return new TagPickerDialog(title, note, placeholder, known, newText, OkText, CancelText).ShowDialog<TagPick>(owner());
         }
 
         public async Task<string> PickFolderAsync(string title, string startFolder)

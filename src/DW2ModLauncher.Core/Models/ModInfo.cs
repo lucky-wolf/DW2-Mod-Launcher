@@ -72,6 +72,8 @@ namespace DW2ModLauncher.Core.Models
         public string MinLauncherVersion { get; set; }
         /// <summary>dw2modlauncher.json "author", or null/empty when the mod names none.</summary>
         public string Author { get; set; }
+        /// <summary>dw2modlauncher.json "uid" in canonical form (lower case, hyphenated), or null when the mod has none or it is not a UUID.</summary>
+        public string Uid { get; set; }
         /// <summary>True when <see cref="Author"/> is not the mod's own statement but the handle of its Workshop creator (SteamAuthors).</summary>
         public bool AuthorFromSteam { get; set; }
         /// <summary>dw2modlauncher.json "dependencies" (empty when the mod names none).</summary>
@@ -100,6 +102,8 @@ namespace DW2ModLauncher.Core.Models
         public List<string> DependencyProblems { get; set; } = new List<string>();
         /// <summary>dw2modlauncher.json "hooksCoordinatedWith" (empty when the mod names none).</summary>
         public List<string> HooksCoordinatedWith { get; set; } = new List<string>();
+        /// <summary>dw2modlauncher.json "tags", normalized (empty when the mod has none).</summary>
+        public List<string> Tags { get; set; } = new List<string>();
         public int IdenticalFileCount { get; set; }
         public int LowRiskConflictCount { get; set; }
         public int HighRiskConflictCount { get; set; }

@@ -99,6 +99,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             CautionCallout.ReportCommand = SelectedCautionReportCommand;
             ConflictCallout.ReportText = CautionCallout.ReportText = T("HookFullReportButton");
             OpenAboutCommand = new RelayCommand(() => Dialogs.ShowAboutAsync(this));
+            BrowseCatalogCommand = new RelayCommand(() => Dialogs.ShowCatalogAsync(new CatalogViewModel(this)));
             RefreshCommand = new RelayCommand(() => { Refresh(); var _ = RefreshSteamStatusAsync(); });
             ClearCommand = new RelayCommand(ClearAsync);
             EnableAllCommand = new RelayCommand(EnableAllAsync);
@@ -134,8 +135,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             CheckUpdatesCommand = new RelayCommand(() => BeginWorkshopUpdateCheck(true), () => !updateCheckRunning && workshopMods.Count > 0);
             CreateModCommand = new RelayCommand(CreateModAsync);
             DeleteModCommand = new RelayCommand(DeleteModAsync, () => selectedRow != null && LocalModManager.CanDelete(selectedRow.Mod, settings.ManagedModsRoot));
+            UnsubscribeCommand = new RelayCommand(UnsubscribeAsync, () => selectedRow != null && selectedRow.Mod.IsWorkshop && SteamPageId(selectedRow) != null && !IsGameRunning && !unsubscribeRunning);
             AddTranslationCommand = new RelayCommand(AddTranslationAsync, () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !string.IsNullOrWhiteSpace(selectedRow.Mod.ModJsonPath));
             RenameModCommand = new RelayCommand(RenameModAsync, () => selectedRow != null && LocalModManager.CanRename(selectedRow.Mod, settings.ManagedModsRoot));
+            NewIdentityCommand = new RelayCommand(NewIdentityAsync, () => selectedRow != null && LocalModManager.CanRename(selectedRow.Mod, settings.ManagedModsRoot));
 
             Mods.CollectionChanged += delegate { if (!populating) SyncVisibleMods(); };
             PathDetector.Detect(settings, false);
@@ -158,6 +161,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public RelayCommand OpenSettingsCommand { get; }
         public RelayCommand OpenAboutCommand { get; }
+        /// <summary>The tags the mod catalog has, once Browse has loaded it this session; the tag picker offers them beside the suggested words. Empty until then.</summary>
+        public List<string> KnownCatalogTags { get; set; } = new List<string>();
+        /// <summary>Opens the Browse window over the mod catalog.</summary>
+        public RelayCommand BrowseCatalogCommand { get; }
         /// <summary>Opens the game's install folder (data/Logs, data/SavedGames and mods are under it) for players who are asked to send a log or a save.</summary>
         public RelayCommand OpenSaveGameFolderCommand { get; }
         /// <summary>Opens the folder the game and code mods write their logs to.</summary>
@@ -265,6 +272,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Raise(nameof(PlayLabel));
             Raise(nameof(PlayTooltip));
             PlayCommand.RaiseCanExecuteChanged();
+            UnsubscribeCommand.RaiseCanExecuteChanged();
         }
 
         /// <summary>Polls for the game process (off the UI thread) and moves the Play button between its states.</summary>
@@ -346,8 +354,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand EditPropertiesCommand { get; }
         public RelayCommand CreateModCommand { get; }
         public RelayCommand DeleteModCommand { get; }
+        public RelayCommand UnsubscribeCommand { get; }
+        private bool unsubscribeRunning;
         public RelayCommand AddTranslationCommand { get; }
         public RelayCommand RenameModCommand { get; }
+        public RelayCommand NewIdentityCommand { get; }
         public RelayCommand MarkUpToDateCommand { get; }
 
         public ModRowViewModel SelectedRow
@@ -359,6 +370,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 // A null selection is usually the list being rebuilt, not the user deselecting, so only a real pick is remembered.
                 if (value != null && !string.IsNullOrEmpty(value.Mod.ActiveToken)) settings.LastSelectedMod = value.Mod.ActiveToken;
                 Raise(nameof(SelectedIsWorkshop));
+                Raise(nameof(SelectedIsLocal));
+                Raise(nameof(SelectedIsOwn));
                 Raise(nameof(SelectedHasSteamPage));
                 ShowDetails();
                 OpenSelectedFolderCommand.RaiseCanExecuteChanged();
@@ -368,9 +381,28 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 PublishCommand.RaiseCanExecuteChanged();
                 EditPropertiesCommand.RaiseCanExecuteChanged();
                 DeleteModCommand.RaiseCanExecuteChanged();
+                UnsubscribeCommand.RaiseCanExecuteChanged();
                 AddTranslationCommand.RaiseCanExecuteChanged();
                 RenameModCommand.RaiseCanExecuteChanged();
+                NewIdentityCommand.RaiseCanExecuteChanged();
             }
+        }
+
+        /// <summary>Make this a new mod: a copy that is going its own way (a fork) gets a fresh identity, so the catalog and duplicate detection stop taking it for the original.</summary>
+        private async Task NewIdentityAsync()
+        {
+            if (selectedRow == null) return;
+            ModInfo mod = selectedRow.Mod;
+            if (!LocalModManager.CanRename(mod, settings.ManagedModsRoot)) return;
+            if (!await Dialogs.ConfirmAsync(T("NewIdentityConfirm", ("Mod", ModLabel(mod))), "DW2 Mod Launcher", T("Yes"), T("No"))) return;
+            try { LauncherMetaWriter.StampUid(mod.Folder, true); }
+            catch (Exception ex)
+            {
+                Logger.LogException("New identity for " + mod.Folder, ex);
+                await Dialogs.ShowMessageAsync(T("NewIdentityFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
+                return;
+            }
+            Refresh();
         }
 
         public string DetailTitle { get { return detailTitle; } private set { Set(ref detailTitle, value); } }
@@ -419,6 +451,18 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Update checks only apply to Steam Workshop items, so the context menu offers them for those alone.</summary>
         public bool SelectedHasSteamPage { get { return SteamPageId(selectedRow) != null; } }
         public bool SelectedIsWorkshop { get { return selectedRow != null && selectedRow.Mod.IsWorkshop; } }
+        /// <summary>The authoring actions (properties, publish, translate, rename, delete) only apply to mods that are not Workshop downloads.</summary>
+        public bool SelectedIsLocal { get { return selectedRow != null && !selectedRow.Mod.IsWorkshop; } }
+        /// <summary>A local mod that is the player's own: it names no author yet, or names the player's Author setting. A local mod by someone else (a catalog download) can only be removed.</summary>
+        public bool SelectedIsOwn
+        {
+            get
+            {
+                if (!SelectedIsLocal) return false;
+                string author = (selectedRow.Mod.Author ?? "").Trim();
+                return author.Length == 0 || string.Equals(author, (settings.AuthorName ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+            }
+        }
 
         public LauncherSettings LauncherSettings { get { return settings; } }
         public LauncherSettingsStore SettingsStore { get { return settingsStore; } }
@@ -1500,6 +1544,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 string folder = LocalModManager.Create(settings.ManagedModsRoot, name, localization ? T("LocalizationModDescription") : "");
                 LauncherMetaWriter.StampAuthor(folder, settings.AuthorName, true);
+                LauncherMetaWriter.StampUid(folder); // the mod's identity from its first moment, so it never slips
                 // A language the launcher has a pack for is recorded, so the in-game widget speaks it while this mod is enabled.
                 if (localization) LauncherMetaWriter.StampLanguage(folder, Localization.CodeFor(languageCode), true);
                 if (localization)
@@ -1611,6 +1656,49 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 Logger.LogException("Delete local Mod", ex);
                 await Dialogs.ShowMessageAsync(T("DeleteModFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 Refresh();
+            }
+        }
+
+        /// <summary>Unsubscribes the account from the selected Steam Workshop mod; Steam then removes the files on its own schedule.</summary>
+        private async Task UnsubscribeAsync()
+        {
+            if (selectedRow == null || !selectedRow.Mod.IsWorkshop) return;
+            string id = SteamPageId(selectedRow);
+            if (id == null) return;
+            ModInfo mod = selectedRow.Mod;
+            string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
+            if (GameProcess.IsRunning(settings.GameRoot))
+            {
+                await Dialogs.ShowMessageAsync(T("GameRunningWarning"), "DW2 Mod Launcher");
+                return;
+            }
+            if (!await Dialogs.ConfirmAsync(T("ConfirmUnsubscribe", ("Mod", name), ("Item", id)), T("UnsubscribeTitle"), T("UnsubscribeTitle"), T("Cancel"))) return;
+            unsubscribeRunning = true;
+            UnsubscribeCommand.RaiseCanExecuteChanged();
+            SetStatus(T("UnsubscribeRunning", ("Mod", name)));
+            try
+            {
+                IModPublisher publisher = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
+                string problem = await Task.Run(() => publisher.Unsubscribe(long.Parse(id)));
+                if (problem != null)
+                {
+                    await Dialogs.ShowMessageAsync(T("UnsubscribeFailed", ("Mod", name), ("Problem", problem)), "DW2 Mod Launcher");
+                    SetStatus(T("UnsubscribeFailedStatus", ("Mod", name)));
+                    return;
+                }
+                SetStatus(T("UnsubscribedStatus", ("Mod", name)));
+                await Dialogs.ShowMessageAsync(T("UnsubscribedNotice", ("Mod", name)), "DW2 Mod Launcher");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Unsubscribe from Workshop item", ex);
+                await Dialogs.ShowMessageAsync(T("UnsubscribeFailed", ("Mod", name), ("Problem", ex.Message)), "DW2 Mod Launcher");
+                SetStatus(T("UnsubscribeFailedStatus", ("Mod", name)));
+            }
+            finally
+            {
+                unsubscribeRunning = false;
+                UnsubscribeCommand.RaiseCanExecuteChanged();
             }
         }
 
@@ -1822,7 +1910,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1881,6 +1969,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 await Dialogs.ShowMessageAsync(T("PublishNotLocalMod"), "DW2 Mod Launcher");
                 return;
             }
+            if (string.IsNullOrWhiteSpace(settings.AuthorName))
+            {
+                await Dialogs.ShowMessageAsync(T("PublishNeedsAuthor"), "DW2 Mod Launcher");
+                return;
+            }
             ModPublishMetadata metadata;
             try
             {
@@ -1907,7 +2000,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1991,10 +2084,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
             }
 
-            try { LauncherMetaWriter.StampAuthor(mod.Folder, settings.AuthorName, true); }
+            try
+            {
+                LauncherMetaWriter.StampAuthor(mod.Folder, settings.AuthorName, true);
+                LauncherMetaWriter.StampUid(mod.Folder); // a mod made before identities existed gets its one here, at the origin
+            }
             catch (Exception ex)
             {
-                Logger.LogException("Stamp author in " + mod.Folder, ex);
+                Logger.LogException("Stamp author and uid in " + mod.Folder, ex);
                 RollBackVersion(mod, versionBefore, versionWritten);
                 await Dialogs.ShowMessageAsync(T("AuthorStampFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
                 return;

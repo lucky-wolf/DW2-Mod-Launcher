@@ -240,7 +240,11 @@ namespace DW2ModLauncher.Core.Services.Publishing
                                 missing++;
                             }
                             else if (details.m_eResult == EResult.k_EResultOK)
-                                pageItems.Add(new SteamItemStatus { Id = id, Visibility = FromSteam(details.m_eVisibility) });
+                            {
+                                ulong subscribers;
+                                bool counted = SteamUGC.GetQueryUGCStatistic(query, i, EItemStatistic.k_EItemStatistic_NumUniqueSubscriptions, out subscribers);
+                                pageItems.Add(new SteamItemStatus { Id = id, Visibility = FromSteam(details.m_eVisibility), Subscribers = counted ? (long?)subscribers : null });
+                            }
                         }
                         // Every item "missing" at once looks like Steam being unwell rather than a mass deletion
                         // (a single item can't tell, so that one is trusted).
@@ -264,6 +268,43 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 if (initialized) Disconnect();
             }
             return items;
+        }
+
+        public string Unsubscribe(long workshopId)
+        {
+            lock (Gate) return UnsubscribeLocked(workshopId);
+        }
+
+        private string UnsubscribeLocked(long workshopId)
+        {
+            bool initialized = false;
+            try
+            {
+                if (!Connect()) return "Could not reach the Steam client. Make sure Steam is running and you're logged in.";
+                initialized = true;
+                if (!SteamUser.BLoggedOn()) return "Could not reach the Steam client. Make sure Steam is running and you're logged in.";
+
+                ModPublishResult wait = new ModPublishResult();
+                RemoteStorageUnsubscribePublishedFileResult_t answer;
+                if (!Await(SteamUGC.UnsubscribeItem(new PublishedFileId_t((ulong)workshopId)), out answer, wait, CancellationToken.None, QueryTimeout))
+                    return wait.ErrorMessage;
+                if (answer.m_eResult != EResult.k_EResultOK)
+                {
+                    string problem = "Steam refused to unsubscribe from item " + workshopId + ": " + answer.m_eResult + " (" + (int)answer.m_eResult + ").";
+                    Logger.Log("Workshop unsubscribe failed", problem);
+                    return problem;
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Workshop unsubscribe", ex);
+                return "Failed while unsubscribing from item " + workshopId + ": " + ex.GetType().Name + ": " + ex.Message;
+            }
+            finally
+            {
+                if (initialized) Disconnect();
+            }
         }
 
         private static ModVisibility FromSteam(ERemoteStoragePublishedFileVisibility visibility)

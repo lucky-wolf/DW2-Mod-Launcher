@@ -178,6 +178,21 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void AnalyzeEnabledCopies_FlagsSameUidEnabledTwice_WhateverTheyAreCalled()
+        {
+            const string uid = "6f1c2a3e-8b4d-4e5f-9a60-7b1d2c3e4f50";
+            ModInfo a = MakeMod("Original"); a.Uid = uid;
+            ModInfo b = MakeMod("Copy of Original"); b.Uid = uid;
+            ModInfo other = MakeMod("Other"); other.Uid = "11111111-2222-4333-8444-555555555555";
+
+            ConflictAnalyzer.AnalyzeEnabledCopies(new[] { a, b, other }, m => true);
+
+            Assert.Equal(1, a.EnabledCopyCount);
+            Assert.Equal(1, b.EnabledCopyCount);
+            Assert.Equal(0, other.EnabledCopyCount);
+        }
+
+        [Fact]
         public void Severity_RanksDisabledOkCautionConflict()
         {
             ModInfo m = new ModInfo();

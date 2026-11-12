@@ -12,5 +12,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public bool Deleted { get; set; }
         /// <summary>The item's visibility; null when it is deleted or Steam did not say.</summary>
         public ModVisibility? Visibility { get; set; }
+        /// <summary>How many different Steam accounts subscribe to the item; null when Steam did not say. The mod catalog's popularity figure.</summary>
+        public long? Subscribers { get; set; }
     }
 }

@@ -20,6 +20,24 @@ namespace DW2ModLauncher.Core.Services
                 Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(full, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs, Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
                 return;
             }
+            TrashWithGio(full);
+        }
+
+        /// <summary>Like <see cref="Send"/>, for a folder and everything in it. Throws <see cref="IOException"/> when that is not possible; never deletes permanently.</summary>
+        public static void SendFolder(string folder)
+        {
+            string full = Path.GetFullPath(folder);
+            if (!Directory.Exists(full)) return;
+            if (OperatingSystem.IsWindows())
+            {
+                Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(full, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs, Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+                return;
+            }
+            TrashWithGio(full);
+        }
+
+        private static void TrashWithGio(string full)
+        {
             ProcessStartInfo start = new ProcessStartInfo("gio");
             start.ArgumentList.Add("trash");
             start.ArgumentList.Add(full);
