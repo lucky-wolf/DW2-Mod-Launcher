@@ -132,6 +132,8 @@ namespace DW2ModLauncher.Core.Services.Updates
                 ZipFile.ExtractToDirectory(archive, destination);
                 return;
             }
+            // Unlike ZipFile, TarFile.ExtractToDirectory does not create the destination and throws DirectoryNotFoundException.
+            Directory.CreateDirectory(destination);
             using (FileStream file = File.OpenRead(archive))
             using (GZipStream gzip = new GZipStream(file, CompressionMode.Decompress))
                 TarFile.ExtractToDirectory(gzip, destination, true);
