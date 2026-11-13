@@ -76,6 +76,9 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>True: the mod does not work without it (a launch warning when it is missing). False: the entry applies only when the other mod is enabled.</summary>
         public bool required { get; set; }
 
+        /// <summary>Whether publishing links the other mod on this mod's Steam page as a Workshop dependency. True: always. False: never, even when required. Absent: a required mod is linked, an optional one as the launcher's "Link optional mods on Steam" setting says.</summary>
+        public bool? steamLink { get; set; }
+
         /// <summary>The oldest version of the other mod that works (compared with the version in its mod.json).</summary>
         public string minVersion { get; set; }
 

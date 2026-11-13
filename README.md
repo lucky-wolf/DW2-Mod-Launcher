@@ -155,6 +155,7 @@ dotnet run --project src/DW2ModLauncher.Avalonia
 
 The launcher comes in English, Japanese, Russian and Simplified Chinese. On first run it speaks your system's language if a language pack exists for it; you can change it any time in the main window.
 A language pack is a single JSON file, so adding a language needs no code. The mod status line and Mods menu shown inside the game follow your translation mod, or the launcher's language if you choose that in Settings.
+To translate the game itself, **Create Mod... > Localization Mod** generates a translation mod for the base game and any mods you choose, holding only their translatable text. It is applied key by key in load order, so it keeps working as the game and the mods change.
 See [Localization](docs/Localization.md) for how it all works and how to add a language.
 
 ## Contributing

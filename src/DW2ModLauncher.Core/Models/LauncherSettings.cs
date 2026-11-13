@@ -61,6 +61,10 @@ namespace DW2ModLauncher.Core.Models
         public string DescriptionExtension { get; set; } = ".bbcode";
         /// <summary>Publishing an update sends the description to Steam whenever it differs from the Steam page. Off: the author pushes it by hand (the cloud-upload button).</summary>
         public bool AutoUpdateDescription { get; set; } = true;
+        /// <summary>Publishing links the mods a mod lists as optional dependencies on its Steam page too (a dependency's "steamLink" overrides this). Required ones are always linked. On by default.</summary>
+        public bool LinkOptionalModsOnSteam { get; set; } = true;
+        /// <summary>Publishing also removes the Steam page's dependency links to mods the mod no longer lists. Off by default, so links added by hand on Steam stay.</summary>
+        public bool TrimSteamLinks { get; set; }
         /// <summary>On launching the game with unsaved mod profile edits: save them without asking (true, default), or ask.</summary>
         public bool AutoSaveProfileOnLaunch { get; set; } = true;
         /// <summary>On exit with unsaved mod profile edits: save them without asking (true), or ask (default).</summary>

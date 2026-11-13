@@ -70,6 +70,90 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string UpdateTooltip { get; set; }
     }
 
+    /// <summary>One line of the editable "Dependencies" list: a dw2modlauncher.json "dependencies" entry being edited. Nothing is written until the dialog is saved.</summary>
+    public class DependencyRow : ViewModelBase
+    {
+        private readonly Func<bool> linkOptional;
+        private readonly Action changed;
+
+        public DependencyRow(LauncherDependency dep, string name, string note, bool steamEnabled, Func<bool> linkOptional, Action changed)
+        {
+            Dep = dep;
+            Name = name;
+            Note = note;
+            SteamEnabled = steamEnabled;
+            this.linkOptional = linkOptional;
+            this.changed = changed;
+        }
+
+        /// <summary>The entry as edited here (a copy of the one in the file).</summary>
+        public LauncherDependency Dep { get; }
+        public string Name { get; }
+        /// <summary>Why the entry cannot work as written (names no mod, mod not installed), or empty.</summary>
+        public string Note { get; }
+        public bool HasNote { get { return !string.IsNullOrEmpty(Note); } }
+        /// <summary>Steam is switched on; off greys the Steam link box out, whatever its state.</summary>
+        public bool SteamEnabled { get; }
+        public RelayCommand Remove { get; set; }
+        public string RemoveTooltip { get; set; }
+        public System.Collections.Generic.IList<string> OrderChoices { get; set; }
+        public LocalizedStrings L { get; set; }
+
+        public bool Required
+        {
+            get { return Dep.required; }
+            set
+            {
+                if (Dep.required == value) return;
+                Dep.required = value;
+                Raise(); Raise(nameof(LinkOnSteam));
+                changed();
+            }
+        }
+
+        /// <summary>0 = no order, 1 = this mod loads after the other, 2 = before it.</summary>
+        public int OrderIndex
+        {
+            get { return Dep.loadAfter ? 1 : Dep.loadBefore ? 2 : 0; }
+            set
+            {
+                if (OrderIndex == value) return;
+                Dep.loadAfter = value == 1;
+                Dep.loadBefore = value == 2;
+                Raise();
+                changed();
+            }
+        }
+
+        public string MinVersion
+        {
+            get { return Dep.minVersion ?? ""; }
+            set
+            {
+                string text = (value ?? "").Trim();
+                if ((Dep.minVersion ?? "") == text) return;
+                Dep.minVersion = text.Length == 0 ? null : text;
+                Raise();
+                changed();
+            }
+        }
+
+        /// <summary>Whether publishing links this mod on the Steam page. Shows what the entry gets today (its own "steamLink", else required / the launcher setting); ticking it against that default stores an override, and ticking it back drops the override.</summary>
+        public bool LinkOnSteam
+        {
+            get { return SteamLinks.IsLinked(Dep, linkOptional()); }
+            set
+            {
+                bool followed = Dep.required || linkOptional();
+                bool? wanted = value == followed ? (bool?)null : value;
+                if (Dep.steamLink == wanted) return;
+                Dep.steamLink = wanted;
+                Raise();
+                changed();
+            }
+        }
+    }
+
     public class BumpLevelOption
     {
         public string Value { get; set; }
@@ -120,8 +204,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null, IEnumerable<string> knownCatalogTags = null, bool publishToSteam = true, bool publishToGitHub = false, bool githubEnabled = true, bool steamEnabled = true)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null, IEnumerable<string> knownCatalogTags = null, bool publishToSteam = true, bool publishToGitHub = false, bool githubEnabled = true, bool steamEnabled = true, bool linkOptionalOnSteam = true)
         {
+            this.linkOptionalOnSteam = linkOptionalOnSteam;
             this.dialogs = dialogs;
             this.githubEnabled = githubEnabled;
             this.steamEnabled = steamEnabled;
@@ -131,6 +216,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             installedMods = (otherMods ?? new List<ModInfo>()).Where(m => m != null).ToList();
             compatibleEntries = new List<string>((mod.HooksCoordinatedWith ?? new List<string>()).Where(e => !string.IsNullOrWhiteSpace(e)).Select(e => e.Trim()));
             savedCompatible = new List<string>(compatibleEntries);
+            dependencies = new List<LauncherDependency>((mod.Dependencies ?? new List<LauncherDependency>()).Where(d => d != null).Select(SteamLinks.Clone));
+            savedDependenciesKey = DependenciesKey();
             savedReleaseRepo = mod.ReleaseRepo ?? "";
             releaseRepo = savedReleaseRepo;
             savedTags = new List<string>(mod.Tags ?? new List<string>());
@@ -140,6 +227,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             knownTags.Sort(StringComparer.Ordinal);
             AddTagCommand = new RelayCommand(AddTagAsync);
             AddCompatibleCommand = new RelayCommand(AddCompatibleAsync);
+            AddDependencyCommand = new RelayCommand(AddDependencyAsync);
             this.lastArtFolder = lastArtFolder;
             this.rememberArtFolder = rememberArtFolder;
             this.metadata = metadata;
@@ -294,15 +382,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Raise(nameof(PrimaryButtonText));
         }
 
-        /// <summary>Whether the folder differs from the last publish, so "Mark Up to Date" has something to accept.</summary>
-        public bool CanMarkUpToDate { get { return (mod.PublishStatus == PublishStatus.Changed || HasUnsavedEdits) && ModDetails.WorkshopId(mod) != null; } }
+        /// <summary>The targets "Mark Up to Date" acts on: the ones checked here (Steam, GitHub) that have something to accept.</summary>
+        private PublishChannels MarkChannels { get { return MarkUpToDate.Eligible(mod, toSteam, toGitHub, HasUnsavedEdits); } }
 
-        /// <summary>The owner's override: the folder as it is now counts as what Steam has. Local records only; nothing is sent to Steam.</summary>
+        /// <summary>Whether the folder differs from the last publish to a checked target, so "Mark Up to Date" has something to accept.</summary>
+        public bool CanMarkUpToDate { get { return MarkChannels != PublishChannels.None; } }
+
+        /// <summary>The owner's override, as Publish: the folder as it is now counts as what each checked target (Steam, GitHub) has. Local records only; nothing is sent anywhere.</summary>
         private async Task MarkUpToDateAsync()
         {
             if (!CanMarkUpToDate) return;
+            PublishChannels channels = MarkChannels;
             string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
-            if (!await dialogs.ConfirmAsync(L.Format("ConfirmMarkUpToDate", ("Mod", name), ("Count", mod.UnpublishedChanges.Count)), L["MarkUpToDate"], L["MarkUpToDate"], L["Cancel"])) return;
+            int count = MarkUpToDate.ChangedFileCount(mod, channels);
+            if (!await dialogs.ConfirmAsync(L.Format(count > 0 ? "ConfirmMarkUpToDateCount" : "ConfirmMarkUpToDate", ("Mod", name), ("Targets", MarkUpToDateText.Targets(channels, key => L[key])), ("Count", count)), L["MarkUpToDate"], L["MarkUpToDate"], L["Cancel"])) return;
             // What is typed in this dialog (change notes included) is written first, so the record covers the files as they now are.
             if (HasUnsavedEdits)
             {
@@ -316,14 +409,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 savedDescription = description;
                 RaiseModified();
             }
-            try { PublishedState.MarkCurrent(ModDetails.WorkshopId(mod), contentFolder); }
-            catch (Exception ex)
+            List<(PublishChannels Channel, Exception Error)> failures = MarkUpToDate.Apply(mod, channels, contentFolder);
+            foreach ((PublishChannels channel, Exception error) in failures) DW2ModLauncher.Core.Diagnostics.Logger.LogException("Mark " + name + " up to date (" + channel + ")", error);
+            RefreshStatus();
+            if (failures.Count > 0)
             {
-                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Mark " + name + " up to date", ex);
-                await dialogs.ShowMessageAsync(L.Format("MarkUpToDateFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
+                await dialogs.ShowMessageAsync(L.Format("MarkUpToDateFailed", ("Problem", string.Join("\n", failures.Select(f => f.Error.Message)))), "DW2 Mod Launcher");
                 return;
             }
-            RefreshStatus();
             CloseRequested?.Invoke();
         }
         public RelayCommand MarkUpToDateCommand { get; private set; }
@@ -336,6 +429,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             try { PublishedState.Evaluate(mod); }
             catch (Exception ex) { DW2ModLauncher.Core.Diagnostics.Logger.LogException("Compare with the last publish", ex); return; }
+            try { PublishedState.EvaluateGitHub(mod); }
+            catch (Exception ex) { DW2ModLauncher.Core.Diagnostics.Logger.LogException("Compare with the last GitHub release", ex); }
             ComputeStatus();
         }
         /// <summary>The sentence under the folded status line, then every changed file.</summary>
@@ -532,7 +627,88 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private string FieldsSnapshot()
         {
-            return string.Join("", new[] { title, version, previewImage, shortDescription, bumpLevel.Value }.Select(x => (x ?? "").Trim())) + "\n" + string.Join("\n", compatibleEntries) + "\n" + string.Join("\n", tagNames);
+            return string.Join("", new[] { title, version, previewImage, shortDescription, bumpLevel.Value }.Select(x => (x ?? "").Trim())) + "\n" + string.Join("\n", compatibleEntries) + "\n" + string.Join("\n", tagNames) + "\n" + DependenciesKey();
+        }
+
+        // The "Dependencies" list: dw2modlauncher.json "dependencies" as it stands in the dialog (copies), and its key as last read or saved.
+        private readonly bool linkOptionalOnSteam;
+        private readonly List<LauncherDependency> dependencies;
+        private string savedDependenciesKey;
+        private List<DependencyRow> dependencyRows;
+        public RelayCommand AddDependencyCommand { get; }
+        private string DependenciesKey() { return string.Join("\n", dependencies.Select(SteamLinks.Key)); }
+        public string DependenciesHeader { get { return L["PublishDependencies"] + ": " + dependencies.Count; } }
+        public bool HasDependencies { get { return dependencies.Count > 0; } }
+        public bool NoDependencies { get { return dependencies.Count == 0; } }
+
+        /// <summary>The rows are built once per change of the list (not per edit of a row), so a box keeps its focus while it is typed in.</summary>
+        public List<DependencyRow> DependencyRows
+        {
+            get
+            {
+                if (dependencyRows != null) return dependencyRows;
+                string[] orderChoices = { L["PublishDependencyOrderNone"], L["PublishDependencyOrderAfter"], L["PublishDependencyOrderBefore"] };
+                dependencyRows = new List<DependencyRow>();
+                foreach (LauncherDependency dep in dependencies)
+                {
+                    bool names = ModDependencies.NamesAMod(dep);
+                    ModInfo installed = names ? ModDependencies.Find(installedMods.Where(m => !string.Equals(m.Folder, mod.Folder, StringComparison.OrdinalIgnoreCase)), dep) : null;
+                    string note = !names ? L["PublishDependencyNamesNoMod"] : installed == null ? L["PublishDependencyNotInstalled"] : "";
+                    LauncherDependency captured = dep;
+                    dependencyRows.Add(new DependencyRow(dep, names ? ModDependencies.Label(dep) : "?", note, steamEnabled, () => linkOptionalOnSteam, RaiseModified)
+                    {
+                        OrderChoices = orderChoices,
+                        L = L,
+                        Remove = new RelayCommand(() => RemoveDependency(captured)),
+                        RemoveTooltip = L["PublishDependencyRemove"]
+                    });
+                }
+                return dependencyRows;
+            }
+        }
+
+        private void RaiseDependencies()
+        {
+            dependencyRows = null;
+            Raise(nameof(DependencyRows)); Raise(nameof(DependenciesHeader)); Raise(nameof(HasDependencies)); Raise(nameof(NoDependencies));
+            RaiseModified();
+        }
+
+        private void RemoveDependency(LauncherDependency dep)
+        {
+            if (!dependencies.Remove(dep)) return;
+            RaiseDependencies();
+        }
+
+        /// <summary>Asks which installed mod to depend on and adds it as an optional entry (name, identity and Workshop id as far as it has them), left for the author to set up in the row.</summary>
+        private async Task AddDependencyAsync()
+        {
+            List<ModInfo> candidates = installedMods
+                .Where(m => !string.Equals(m.Folder, mod.Folder, StringComparison.OrdinalIgnoreCase))
+                .Where(m => !dependencies.Any(d => ModDependencies.NamesAMod(d) && ModDependencies.Find(new[] { m }, d) == m))
+                .OrderBy(m => m.DisplayName ?? m.Id, StringComparer.OrdinalIgnoreCase).ToList();
+            if (candidates.Count == 0)
+            {
+                await dialogs.ShowMessageAsync(L["PublishDependencyNothingToAdd"], "DW2 Mod Launcher");
+                return;
+            }
+            Dictionary<string, ModInfo> byLabel = new Dictionary<string, ModInfo>(StringComparer.Ordinal);
+            foreach (ModInfo candidate in candidates)
+            {
+                string text = (candidate.DisplayName ?? candidate.Id) + (string.IsNullOrWhiteSpace(candidate.Version) ? "" : "  " + candidate.Version.Trim());
+                if (byLabel.ContainsKey(text)) text += "  (" + System.IO.Path.GetFileName((candidate.Folder ?? "").TrimEnd('/', '\\')) + ")";
+                byLabel[text] = candidate;
+            }
+            string picked = await dialogs.PickFromListAsync(L["PublishDependencyPickTitle"], L["PublishDependencyPickNote"], byLabel.Keys.ToList());
+            if (picked == null || !byLabel.TryGetValue(picked, out ModInfo chosen)) return;
+            string idText = (chosen.IsWorkshop ? chosen.Id : chosen.WorkshopId)?.Trim();
+            dependencies.Add(new LauncherDependency
+            {
+                mod = chosen.DisplayName ?? chosen.Id,
+                uid = string.IsNullOrWhiteSpace(chosen.Uid) ? null : chosen.Uid.Trim(),
+                workshopId = long.TryParse(idText, out long id) && id > 0 ? id : (long?)null
+            });
+            RaiseDependencies();
         }
 
         // The "Compatible with" list: dw2modlauncher.json "hooksCoordinatedWith" as it stands in the dialog, and as it was last read or saved.
@@ -948,7 +1124,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             Raise(nameof(ToSteam)); Raise(nameof(ToGitHub)); Raise(nameof(ShowSteamFields)); Raise(nameof(ShowReleaseRepo)); Raise(nameof(ShowPublishStrip));
             Raise(nameof(PublishBlockedReason)); Raise(nameof(HasBlockedReason)); Raise(nameof(CanPrimary)); Raise(nameof(NothingToPublish));
-            Raise(nameof(PrimaryButtonText)); Raise(nameof(PublishTooltip));
+            Raise(nameof(PrimaryButtonText)); Raise(nameof(PublishTooltip)); Raise(nameof(CanMarkUpToDate));
         }
         public string ShortDescription { get { return shortDescription; } set { if (Set(ref shortDescription, value)) RaiseModified(); } }
         public VisibilityOption Visibility
@@ -1324,6 +1500,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 catch (Exception ex)
                 {
                     DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write dw2modlauncher.json release repository", ex);
+                    return ex.Message;
+                }
+            }
+            if (DependenciesKey() != savedDependenciesKey)
+            {
+                try
+                {
+                    LauncherMetaWriter.SetDependencies(mod.Folder, dependencies);
+                    savedDependenciesKey = DependenciesKey();
+                    // the mod in the list reads the same file on the next scan; until then it carries what was just written
+                    mod.Dependencies = dependencies.Select(SteamLinks.Clone).ToList();
+                }
+                catch (Exception ex)
+                {
+                    DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write dw2modlauncher.json dependencies", ex);
                     return ex.Message;
                 }
             }

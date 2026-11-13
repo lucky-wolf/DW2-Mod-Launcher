@@ -1,4 +1,13 @@
 ## Unreleased
+
+## 1.0.40 (2026-11-13)
+- Code mods get a GameReady event with the galaxy of each real game
+- The in-game Mods menu's launcher entry lists loaded mods in order
+- Your own mods get a uid when first seen; dependencies gain uids
+- Two status dots beside each mod: Steam first, GitHub second
+- Mark Up to Date now covers every publishing target you use
+- Publishing links a mod's dependencies on its Steam page
+- Edit Properties lists dependencies: add, remove, required, order, Steam link
 - Works without Steam: Use Steam setting; GOG and direct-purchase games are found
 - No game found: a notice asks you to choose the game folder
 - Publish dialog shows the unique ID; publish targets sit above the buttons

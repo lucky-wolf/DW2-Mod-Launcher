@@ -87,6 +87,65 @@ namespace DW2ModLauncher.Tests
             Assert.Equal(workshopBefore, File.ReadAllText(Path.Combine(workshop.Folder, "dw2modlauncher.json")));
         }
 
+        [Fact]
+        public void DependencyIds_AddTheUidBesideTheWorkshopId_NeverRemovingEither()
+        {
+            const string uid = "11111111-2222-3333-4444-555555555555";
+            ModInfo b = MakeMod("b"); b.WorkshopId = "222"; b.Uid = uid;
+            ModInfo a = MakeMod("a", null, ("dw2modlauncher.json", "{ \"dependencies\": [ { \"mod\": \"b\", \"workshopId\": 222, \"required\": false }, { \"workshopId\": 222 } ] }"));
+            a.Dependencies.Add(new LauncherDependency { mod = "b", workshopId = 222 });
+            a.Dependencies.Add(new LauncherDependency { workshopId = 222 });
+
+            Assert.Empty(DependencyIds.Resolve(new[] { a, b }, new[] { a }));
+
+            System.Text.Json.Nodes.JsonArray deps = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(a.Folder, "dw2modlauncher.json")))["dependencies"].AsArray();
+            Assert.Equal(new[] { "mod", "uid", "workshopId", "required" }, deps[0].AsObject().Select(kv => kv.Key).ToArray());
+            Assert.Equal(uid, (string)deps[0]["uid"]);
+            Assert.Equal(222, (long)deps[0]["workshopId"]);
+            Assert.Equal(new[] { "uid", "workshopId" }, deps[1].AsObject().Select(kv => kv.Key).ToArray());
+            Assert.Equal(uid, a.Dependencies[0].uid);
+
+            // a second pass finds nothing to add
+            string after = File.ReadAllText(Path.Combine(a.Folder, "dw2modlauncher.json"));
+            Assert.Empty(DependencyIds.Resolve(new[] { a, b }, new[] { a }));
+            Assert.Equal(after, File.ReadAllText(Path.Combine(a.Folder, "dw2modlauncher.json")));
+        }
+
+        [Fact]
+        public void OwnModUids_StampsOnlyTheLocalModsOfThePlayersAuthorName_AndThenTheDependentGetsItUid()
+        {
+            ModInfo mine = MakeMod("mine", null, ("dw2modlauncher.json", "{ \"author\": \"Me\" }")); mine.Author = "Me"; mine.WorkshopId = "333";
+            ModInfo noAuthor = MakeMod("noAuthor", null, ("dw2modlauncher.json", "{ }"));
+            ModInfo theirs = MakeMod("theirs", null, ("dw2modlauncher.json", "{ \"author\": \"Them\" }")); theirs.Author = "Them";
+            ModInfo workshop = MakeMod("444", null, ("dw2modlauncher.json", "{ \"author\": \"Me\" }")); workshop.Author = "me"; workshop.IsWorkshop = true;
+            ModInfo broken = MakeMod("broken", null, ("dw2modlauncher.json", "{ \"author\": \"Me\" ")); broken.Author = "Me"; broken.LauncherJsonError = "bad json";
+            ModInfo user = MakeMod("user", null, ("dw2modlauncher.json", "{ \"author\": \"Me\", \"dependencies\": [ { \"mod\": \"mine\", \"workshopId\": 333 } ] }"));
+            user.Author = "Me"; user.Dependencies.Add(new LauncherDependency { mod = "mine", workshopId = 333 });
+            string untouched = File.ReadAllText(Path.Combine(theirs.Folder, "dw2modlauncher.json"));
+
+            ModInfo[] all = { mine, noAuthor, theirs, workshop, broken, user };
+            Assert.Empty(OwnModUids.Stamp(all, "me"));
+
+            Assert.NotNull(mine.Uid);
+            Assert.NotNull(user.Uid);
+            Assert.Null(noAuthor.Uid);
+            Assert.Null(theirs.Uid);
+            Assert.Null(workshop.Uid);
+            Assert.Null(broken.Uid);
+            Assert.Equal(untouched, File.ReadAllText(Path.Combine(theirs.Folder, "dw2modlauncher.json")));
+            Assert.Contains(mine.Uid, File.ReadAllText(Path.Combine(mine.Folder, "dw2modlauncher.json")));
+
+            // the same scan then completes the dependency with the fresh uid
+            Assert.Empty(DependencyIds.Resolve(all, new[] { user }));
+            Assert.Equal(mine.Uid, user.Dependencies[0].uid);
+            Assert.Equal(333, user.Dependencies[0].workshopId);
+
+            // with no Author setting nothing is anyone's own
+            ModInfo other = MakeMod("other", null, ("dw2modlauncher.json", "{ \"author\": \"Me\" }")); other.Author = "Me";
+            Assert.Empty(OwnModUids.Stamp(new[] { other }, null));
+            Assert.Null(other.Uid);
+        }
+
         // ---- order
 
         [Fact]

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using HarmonyLib;
@@ -28,8 +29,95 @@ namespace DW2ModLauncher.Loader
         /// <summary>True once a real game has started: the data the mods can see is the game's own.</summary>
         public static bool Ready => _generation > 0;
 
-        public static int Install(string baseDir)
+        /// <summary>
+        /// Raised once per real game, when its galaxy is complete: a new game after generation, a saved game after the save is read and its
+        /// post-load fixes have run (both end in <c>DWGame.StartGameExisting</c>, which nothing else calls, so the menu's and the wizard's
+        /// galaxies never raise it). The argument is the game's <c>Galaxy</c> (typed <c>object</c>: the loader has no reference to the game).
+        /// <see cref="Generation"/> is already the new game's when this is raised. Handlers run on the thread that started the game,
+        /// inside the game's own start-up, so they should be short. Each handler is called on its own: one that throws is reported on the
+        /// status line and in the log, and the others still run. Subscribe at load time; a handler added after a game started is not told
+        /// about that game.
+        /// </summary>
+        public static event Action<object> GameReady;
+
+        /// <summary>
+        /// The code mods this session loaded, in load order, one line each: <c>n|id|version|built|ok</c> (the last field is <c>failed</c> when the
+        /// loader could not run the mod). The first line is the loader itself: <c>loader|version</c>; after the code mods come the <see cref="InstalledManifest"/> lines, one per enabled mod. Meant for stamping into a saved game
+        /// (see <see cref="GameReady"/>) so a bug report's save says which mods, in which versions and order, were running. Plain text, no
+        /// newline at the end; <c>|</c> never appears in an id or a version.
+        /// </summary>
+        public static string ModManifest
         {
+            get
+            {
+                var text = new System.Text.StringBuilder();
+                text.Append("loader|").Append(typeof(GameState).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                    ?? typeof(GameState).Assembly.GetName().Version?.ToString() ?? "unknown");
+                int n = 0;
+                foreach (ModStatusSnapshot mod in ModStatus.Registry.Snapshot())
+                {
+                    n++;
+                    text.Append('\n').Append(n).Append('|').Append(mod.Id).Append('|').Append(mod.Version ?? "unknown").Append('|').Append(mod.Built ?? "unknown")
+                        .Append('|').Append(mod.LoadError == null ? "ok" : "failed");
+                }
+                string installed = InstalledManifest;
+                if (installed.Length > 0) text.Append('\n').Append(installed);
+                return text.ToString();
+            }
+        }
+
+        private static List<LoaderManifestInstalledMod> _installed = new List<LoaderManifestInstalledMod>();
+        private static bool _startedNew;
+
+        /// <summary>True when the real game now running was created from scratch (its XML was read, and its data built, in this session); false for a saved game, whose data was baked in by whichever session created it. Meaningful from <see cref="GameReady"/> on.</summary>
+        public static bool StartedNew => _startedNew;
+
+        /// <summary>
+        /// Every enabled mod, code or not, in load order, one line each: <c>installed|folder|name|version|code</c> or <c>installed|folder|name|version|data</c>
+        /// (version is <c>unknown</c> when the mod declares none). A new game's XML, XML patches and text are baked into it when it is created,
+        /// so a mod author or bug reader needs the versions of these mods at that moment, not at the latest save. A <c>|</c> or line break in a
+        /// name or version is replaced by a space (it would break the line format); nothing else is altered. No newline at the end.
+        /// </summary>
+        public static string InstalledManifest
+        {
+            get
+            {
+                var text = new System.Text.StringBuilder();
+                foreach (LoaderManifestInstalledMod mod in _installed)
+                {
+                    if (text.Length > 0) text.Append('\n');
+                    text.Append("installed|").Append(Field(mod.Folder)).Append('|').Append(Field(mod.Name)).Append('|')
+                        .Append(string.IsNullOrWhiteSpace(mod.Version) ? "unknown" : Field(mod.Version)).Append('|').Append(mod.HasCode ? "code" : "data");
+                }
+                return text.ToString();
+            }
+        }
+
+        private static object _galaxy;
+
+        /// <summary>
+        /// The "created with" list Positronic Matrix stored in the running game's galaxy (<c>GlobalVariables["mod.positronic-matrix.created-with"]</c>),
+        /// the <c>installed|...</c> lines of the mods that built the game's data. Null when no real game is ready or the game has no such value
+        /// (created before the list existed, or Positronic Matrix absent). Read for the in-game Mods menu's Game data dialog; the key is
+        /// Positronic Matrix's store convention (<c>mod.&lt;owner&gt;.&lt;key&gt;</c>), so a rename there needs one here.
+        /// </summary>
+        public static string CreatedWith(out bool gameReady)
+        {
+            object galaxy = _galaxy;
+            gameReady = galaxy != null;
+            if (galaxy == null) return null;
+            FieldInfo field = galaxy.GetType().GetField("GlobalVariables", BindingFlags.Public | BindingFlags.Instance)
+                ?? throw new MissingFieldException("Galaxy.GlobalVariables");
+            return field.GetValue(galaxy) is IDictionary<string, object> variables && variables.TryGetValue("mod.positronic-matrix.created-with", out object value)
+                ? value as string
+                : null;
+        }
+
+        private static string Field(string value) => (value ?? "").Replace('|', ' ').Replace('\r', ' ').Replace('\n', ' ');
+
+        public static int Install(string baseDir, List<LoaderManifestInstalledMod> installed = null)
+        {
+            _installed = installed ?? new List<LoaderManifestInstalledMod>();
             _logPath = Path.Combine(baseDir, "dw2modlauncher.log");
             Type game = FindGameType();
             if (game == null)
@@ -38,10 +126,10 @@ namespace DW2ModLauncher.Loader
                 return 0;
             }
             Harmony harmony = new Harmony("dw2modlauncher.loader.gamestate");
-            HarmonyMethod start = new HarmonyMethod(typeof(GameState).GetMethod(nameof(GameStarting), BindingFlags.Static | BindingFlags.NonPublic));
             int hooked = 0;
             foreach (string name in new[] { "StartGameNewGenerate", "LoadGame" })
             {
+                HarmonyMethod start = new HarmonyMethod(typeof(GameState).GetMethod(name == "LoadGame" ? nameof(LoadStarting) : nameof(NewStarting), BindingFlags.Static | BindingFlags.NonPublic));
                 MethodInfo method = game.GetMethod(name, BindingFlags.Public | BindingFlags.Instance);
                 if (method == null)
                 {
@@ -49,6 +137,16 @@ namespace DW2ModLauncher.Loader
                     continue;
                 }
                 harmony.Patch(method, prefix: start);
+                hooked++;
+            }
+            MethodInfo existing = game.GetMethod("StartGameExisting", BindingFlags.Public | BindingFlags.Instance);
+            if (existing == null)
+            {
+                Report("DWGame.StartGameExisting");
+            }
+            else
+            {
+                harmony.Patch(existing, postfix: new HarmonyMethod(typeof(GameState).GetMethod(nameof(GameReadyPostfix), BindingFlags.Static | BindingFlags.NonPublic)));
                 hooked++;
             }
             return hooked;
@@ -66,10 +164,45 @@ namespace DW2ModLauncher.Loader
         }
 
         // Harmony binds nothing here: a prefix with no parameters runs for either method and lets the original go on.
+        private static void NewStarting()
+        {
+            _startedNew = true;
+            GameStarting();
+        }
+
+        private static void LoadStarting()
+        {
+            _startedNew = false;
+            GameStarting();
+        }
+
         private static void GameStarting()
         {
             int generation = System.Threading.Interlocked.Increment(ref _generation);
             Log("A real game is starting (generation " + generation + ").");
+        }
+
+        // __0 is StartGameExisting's first argument, the galaxy. The postfix runs only when the method returned, so a load that failed earlier
+        // (LoadGame never reaches StartGameExisting then) raises nothing.
+        private static void GameReadyPostfix(object __0)
+        {
+            _galaxy = __0;
+            Action<object> handlers = GameReady;
+            if (handlers == null) return;
+            Log("A real game is ready (generation " + _generation + "); telling " + handlers.GetInvocationList().Length + " subscriber(s).");
+            foreach (Delegate handler in handlers.GetInvocationList())
+            {
+                string who = handler.Method.DeclaringType?.Assembly.GetName().Name ?? handler.Method.Name;
+                try
+                {
+                    ((Action<object>)handler)(__0);
+                }
+                catch (Exception ex)
+                {
+                    Log("ERROR: " + who + " failed while handling GameReady: " + ex);
+                    HookStatus.Failed("gamestate-ready-" + who, StatusStrings.Get("WidgetGameReadyFailed", ("Mod", who), ("Problem", ex.Message)), _logPath);
+                }
+            }
         }
 
         private static void Report(string what)

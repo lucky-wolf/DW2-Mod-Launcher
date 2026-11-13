@@ -38,6 +38,14 @@ namespace DW2ModLauncher.Core.Services
                 foreach (InjectionTarget target in InjectionScanner.TargetsFor(mod))
                     AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint, orderedEnabledMods, language, gameRoot);
                 AddPatches(manifest, mod, modRoot, manifest.ModFolders.Count - 1);
+                manifest.InstalledMods.Add(new LoaderManifestInstalledMod
+                {
+                    Folder = LeafName(mod.Folder ?? modRoot),
+                    Name = mod.DisplayName ?? mod.Id ?? LeafName(mod.Folder ?? modRoot),
+                    Version = mod.Version ?? "",
+                    WorkshopId = mod.WorkshopId ?? "",
+                    HasCode = InjectionScanner.TargetsFor(mod).Any()
+                });
             }
             manifest.Fonts.AddRange(FontsOf(orderedEnabledMods));
             manifest.TextFiles.AddRange(TextFilesOf(orderedEnabledMods));

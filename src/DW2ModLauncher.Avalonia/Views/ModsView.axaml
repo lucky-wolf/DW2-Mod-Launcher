@@ -121,10 +121,15 @@
                   <PathIcon IsVisible="{Binding IsCaution}" Width="18" Height="18" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" ToolTip.Tip="{Binding HealthTip}" Data="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
                   <PathIcon IsVisible="{Binding IsConflict}" Width="18" Height="18" VerticalAlignment="Center" Foreground="{StaticResource Dw2Red}" ToolTip.Tip="{Binding HealthTip}" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
                   <TextBlock Classes="health" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" IsVisible="{Binding HasUnpublishedChanges}" ToolTip.Tip="{Binding UnpublishedTip}" />
-                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding IsUpToDate}" ToolTip.Tip="{Binding UpToDateTip}" />
+                  <!-- The first dot is the Steam Workshop state, the second the GitHub state; each shows only when its channel is on in Settings. -->
+                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" IsVisible="{Binding SteamDotChanged}" ToolTip.Tip="{Binding SteamDotTip}" />
+                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding SteamDotCurrent}" ToolTip.Tip="{Binding SteamDotTip}" />
                   <!-- Never published: a mid gray dot (gold is for changes since a publish). -->
-                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="#8A8A8A" IsVisible="{Binding IsNotPublished}" ToolTip.Tip="{Binding VisibilityTip}" />
+                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="#8A8A8A" IsVisible="{Binding SteamDotNever}" ToolTip.Tip="{Binding SteamDotTip}" />
+                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" IsVisible="{Binding GitHubDotChanged}" ToolTip.Tip="{Binding GitHubDotTip}" />
+                  <TextBlock Text="●" VerticalAlignment="Center" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding GitHubDotCurrent}" ToolTip.Tip="{Binding GitHubDotTip}" />
+                  <!-- A release repository is named but no release was recorded here: a gray ring, so it is not read as "never released". -->
+                  <TextBlock Text="○" VerticalAlignment="Center" Foreground="#8A8A8A" IsVisible="{Binding GitHubDotUnknown}" ToolTip.Tip="{Binding GitHubDotTip}" />
                 </StackPanel>
                 <StackPanel views:ColumnRowPanel.ColumnId="source" Classes="dim" Margin="6,0" VerticalAlignment="Center">
                   <StackPanel Orientation="Horizontal" Spacing="6">

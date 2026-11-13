@@ -13,5 +13,11 @@ namespace DW2ModLauncher.Core.Services.Publishing
         public long? WorkshopId { get; set; }
         public string ErrorMessage { get; set; }
         public bool NeedsWorkshopAgreement { get; set; }
+        /// <summary>Workshop ids newly linked as dependencies on the Steam page by this publish.</summary>
+        public System.Collections.Generic.List<long> LinkedIds { get; set; } = new System.Collections.Generic.List<long>();
+        /// <summary>Workshop ids whose dependency link this publish removed (trimming).</summary>
+        public System.Collections.Generic.List<long> UnlinkedIds { get; set; } = new System.Collections.Generic.List<long>();
+        /// <summary>Whole sentences for each dependency link Steam would not add or remove, or could not be asked about. The publish itself still succeeded.</summary>
+        public System.Collections.Generic.List<string> LinkProblems { get; set; } = new System.Collections.Generic.List<string>();
     }
 }

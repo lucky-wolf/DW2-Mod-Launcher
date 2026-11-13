@@ -12,7 +12,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import dotnet_checks, mod_sync, output, proc
+from . import dotnet_checks, freshness, mod_sync, output, proc
 
 TEST_PROJECT = dotnet_checks.TEST_PROJECT
 
@@ -138,9 +138,10 @@ def executable_path(repo_root: Path, ui: Ui, config: str) -> Path:
 
 
 def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = False, sync_mod: bool = True,
-          game_path: Path | None = None) -> Path:
+          game_path: Path | None = None, force: bool = False) -> Path:
     """Restore, (unless validate is False) apply `dotnet format` and run the tests, build the launcher, and
-    return the path of its executable. Then (unless sync_mod is False) brings the launcher's own Workshop item, the local mod folder
+    return the path of its executable. Each step is skipped when nothing it reads is newer than its output (see freshness)
+    unless force is set. Then (unless sync_mod is False) brings the launcher's own Workshop item, the local mod folder
     under the game's mods folder, in step with the repo (see mod_sync). dry_run prints the steps and builds nothing."""
     plan = ["dotnet restore"]
     if validate:
@@ -152,35 +153,54 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
         output.notice(f"dry run - would build the {ui.name} launcher: " + " -> ".join(plan))
         return repo_root / Path(ui.project).parent / "bin" / config
 
-    require_launcher_closed()
     # A game that has the Loader DLL (the copy in the launcher's output folder) loaded locks it. That is the only thing that needs the
     # game closed (the tests look at no game), so with such a game open the Loader update is skipped and everything else is built and deployed.
     game_open = game_holds_loader(repo_root)
     if game_open:
         output.notice("A running Distant Worlds 2 has this repo's Loader DLL loaded: the Loader DLL update is skipped; everything else is built")
 
-    output.step("restore")
-    dotnet_checks.run_dotnet_restore(repo_root)
+    inputs = freshness.build_inputs(repo_root)
+    stamp = repo_root / "temp" / f"validated-{config}.stamp"
+    exe = executable_path(repo_root, ui, config)
+    # What a build produces: the exe and the Loader DLL copied beside it (not updated while the game holds it, so not an output then).
+    outputs = [exe] if game_open else [exe, exe.parent / "Loader" / "DW2ModLauncher.Loader.dll"]
 
-    if validate:
+    # Format and tests only matter when a source changed since they last passed (the stamp is written when both succeeded).
+    validate_reason = freshness.stale_reason([stamp], inputs) if validate else None
+    run_validate = validate and (force or validate_reason is not None)
+    if validate and not run_validate:
+        output.info("format and tests are up to date (nothing is newer than the last passing run); skipping them")
+
+    if run_validate:
+        output.step("restore")
+        dotnet_checks.run_dotnet_restore(repo_root)
         output.step("format")
         dotnet_checks.apply_dotnet_format(repo_root)
         output.ok("dotnet format")
+        inputs = freshness.build_inputs(repo_root)  # format may have rewritten sources
 
-    output.step(f"build ({ui.name}, {config})")
-    build_args = ["dotnet", "build", ui.project, "-c", config, "--no-restore"]
-    if game_open:
-        build_args.append("-p:SkipLoaderCopy=true")
-    proc.run(repo_root, f"dotnet build {ui.project}", build_args)
-    output.ok("dotnet build")
+    build_reason = freshness.stale_reason(outputs, inputs)
+    if force or build_reason is not None:
+        require_launcher_closed()  # only a build overwrites the launcher's exe, so a run with nothing to build does not need it closed
+        if not run_validate:
+            output.step("restore")
+            dotnet_checks.run_dotnet_restore(repo_root)
+        output.step(f"build ({ui.name}, {config})" + (f" ({build_reason})" if build_reason else " (forced)"))
+        build_args = ["dotnet", "build", ui.project, "-c", config, "--no-restore"]
+        if game_open:
+            build_args.append("-p:SkipLoaderCopy=true")
+        proc.run(repo_root, f"dotnet build {ui.project}", build_args)
+        output.ok("dotnet build")
+    else:
+        output.info(f"{exe.name} is up to date (nothing is newer than the build output); not building")
 
-    if validate:
+    if run_validate:
         output.step("test")
         # builds the tests too (the launcher project doesn't reference them), unlike validate.py's --no-build
         proc.run(repo_root, f"dotnet test {TEST_PROJECT}", ["dotnet", "test", TEST_PROJECT, "-c", config, "--no-restore"])
         output.ok("dotnet test")
+        freshness.touch(stamp)
 
-    exe = executable_path(repo_root, ui, config)
     if not exe.exists():
         output.fail(f"build succeeded but the executable is missing: {exe}")
     if game_open:
@@ -227,6 +247,11 @@ def add_arguments(parser) -> None:
         type=Path,
         default=None,
         help="the Distant Worlds 2 install the mod folder sync uses. Default: DW2_PATH, then the usual Steam location.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="build, format and test even when nothing is newer than their output.",
     )
     parser.add_argument("--dry-run", action="store_true", help="print what would happen; build and run nothing.")
     output.add_color_argument(parser)

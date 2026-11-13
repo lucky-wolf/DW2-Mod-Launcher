@@ -120,7 +120,11 @@ namespace DW2ModLauncher.Core.Services.Publishing
         /// <summary>The record for a Workshop item, or null when none was ever taken (a mod published before this existed).</summary>
         public static PublishedManifest Load(string workshopId, string dataRoot = null)
         {
-            string path = GetRecordPath(workshopId, dataRoot);
+            return LoadAt(GetRecordPath(workshopId, dataRoot));
+        }
+
+        private static PublishedManifest LoadAt(string path)
+        {
             if (!File.Exists(path)) return null;
             PublishedManifest manifest;
             try { manifest = JsonSerializer.Deserialize<PublishedManifest>(File.ReadAllText(path, Encoding.UTF8)); }
@@ -132,9 +136,68 @@ namespace DW2ModLauncher.Core.Services.Publishing
 
         public static void Save(string workshopId, PublishedManifest manifest, string dataRoot = null)
         {
-            string path = GetRecordPath(workshopId, dataRoot);
+            SaveAt(GetRecordPath(workshopId, dataRoot), manifest);
+        }
+
+        private static void SaveAt(string path, PublishedManifest manifest)
+        {
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllText(path, JsonSerializer.Serialize(manifest, Options), new UTF8Encoding(false));
+        }
+
+        /// <summary>Where the record of a mod's GitHub release lives: UserDataRoot()\PublishedState\GitHub\&lt;uid&gt;.json, beside (not among) the Steam records, which are named by Workshop id.</summary>
+        public static string GetGitHubRecordPath(string uid, string dataRoot = null)
+        {
+            string token = ModUid.Normalize(uid) ?? throw new ArgumentException("A GitHub release record is kept by the mod's uid, and \"" + uid + "\" is not one.", nameof(uid));
+            return Path.Combine(dataRoot ?? UserDataRoot.Get(), "PublishedState", "GitHub", token + ".json");
+        }
+
+        /// <summary>The record of the mod's last GitHub release from this launcher, or null when none was taken (released before this was kept, or never).</summary>
+        public static PublishedManifest LoadGitHub(string uid, string dataRoot = null)
+        {
+            return LoadAt(GetGitHubRecordPath(uid, dataRoot));
+        }
+
+        /// <summary>Captures the folder as it is now and stores it as what GitHub has, after a release (or after finding the release already holds exactly these files).</summary>
+        public static void RecordGitHub(string uid, string contentFolder, string version = null, string dataRoot = null)
+        {
+            PublishedManifest manifest = Capture(contentFolder);
+            manifest.Version = version;
+            SaveAt(GetGitHubRecordPath(uid, dataRoot), manifest);
+        }
+
+        /// <summary>
+        /// The owner's say-so that the folder as it is now counts as what GitHub has. Unlike the Steam record this works with no record at all (a release made before records were
+        /// kept, or by another tool): one is created, stamped with now. With a record, its release time and version are kept.
+        /// </summary>
+        public static void MarkCurrentGitHub(string uid, string contentFolder, string dataRoot = null)
+        {
+            PublishedManifest existing = LoadGitHub(uid, dataRoot);
+            PublishedManifest manifest = Capture(contentFolder);
+            if (existing != null)
+            {
+                manifest.PublishedUtc = existing.PublishedUtc;
+                manifest.Version = existing.Version;
+            }
+            SaveAt(GetGitHubRecordPath(uid, dataRoot), manifest);
+        }
+
+        /// <summary>
+        /// Sets <see cref="ModInfo.GitHubStatus"/>, <see cref="ModInfo.GitHubChanges"/> and <see cref="ModInfo.GitHubPublishedUtc"/> the way <see cref="Evaluate"/> does for Steam.
+        /// A mod that names no release repository, or has no uid to key the record by, or is a Workshop copy, is NotApplicable; one that names a repository but has no record
+        /// is Unknown (it may have been released before records were kept). Throws if the record or the folder cannot be read.
+        /// </summary>
+        public static PublishStatus EvaluateGitHub(ModInfo mod, string dataRoot = null)
+        {
+            mod.GitHubChanges = new List<string>();
+            mod.GitHubPublishedUtc = null;
+            if (mod.IsWorkshop || string.IsNullOrWhiteSpace(mod.ReleaseRepo) || string.IsNullOrWhiteSpace(mod.Uid)) return mod.GitHubStatus = PublishStatus.NotApplicable;
+            PublishedManifest manifest = LoadGitHub(mod.Uid, dataRoot);
+            if (manifest == null) return mod.GitHubStatus = PublishStatus.Unknown;
+            mod.GitHubPublishedUtc = manifest.PublishedUtc;
+            PublishedChanges changes = Compare(mod.ContentRoot ?? mod.Folder, manifest);
+            mod.GitHubChanges = changes.Describe().ToList();
+            return mod.GitHubStatus = changes.IsClean ? PublishStatus.Current : PublishStatus.Changed;
         }
 
         /// <summary>Captures the folder as it is now and stores it as the item's published state.</summary>

@@ -163,6 +163,14 @@ into a subfolder named after its folder (`patches/data/Races.xml`, `patches/Some
 Translate the text in place and keep every `id="..."` and `index="..."` exactly as it is: they say which entity or
 list item the text belongs to. Delete anything you do not want to translate. Only display text is collected; identifiers
 (a game event's `Name`, which is its key, and fields that refer to other entities by name) are never touched.
+
+**Why a translation made this way keeps working.** The shortcut works for the base game and for any one mod or several
+mods at once, and the result is an ordinary patch mod (see above), so it holds only the translatable strings, each addressed
+by its key. At load time the patches are applied in load order to the XML as it is read, and each one overwrites only the
+field it names. Everything else in the game's or the mods' files is left as it is. So when the game or a mod later changes,
+adds or removes other data, or changes the English text of a line you did not translate, the translation neither breaks nor
+needs regenerating; only a line whose entity was removed (logged as a skipped patch, see above) or whose English text you
+want to follow needs a look. To pick up newly added text, run the shortcut again and keep only the new entries.
 The interface and other plain-text strings live in `.txt` files, which the game replaces as a whole file. The shortcut
 copies them into the mod folder at the same path (`GameText.txt` and any `GameText_*.txt` a mod adds, `Hints.txt`, `SystemNames.txt`, `dialog/*.txt`,
 `Galactopedia/**/*.txt`). Each line is `KEY ;text`: translate only the text after the semicolon and leave the key alone.

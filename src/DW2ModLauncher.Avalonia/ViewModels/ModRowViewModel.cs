@@ -54,12 +54,41 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string Source { get { return Mod.SourceName ?? ""; } }
         public string Author { get { return Mod.Author ?? ""; } }
 
-        /// <summary>Whether a published local mod's folder differs from its last publish: the dot beside its name.</summary>
-        public bool HasUnpublishedChanges { get { return Mod.PublishStatus == PublishStatus.Changed; } }
-        public string UnpublishedTip { get { return HasUnpublishedChanges && Strings != null ? Strings("PublishStateBadgeTip") : null; } }
-        /// <summary>A published local mod whose folder matches its last publish: the green dot beside its name.</summary>
-        public bool IsUpToDate { get { return Mod.PublishStatus == PublishStatus.Current; } }
-        public string UpToDateTip { get { return IsUpToDate && Strings != null ? Strings("PublishStateUpToDateBare") : null; } }
+        /// <summary>Whether the Steam Workshop is a publishing channel the player uses (the Use Steam setting); the Steam dot shows only then. Read live, so a settings change needs only RefreshPublishState.</summary>
+        public System.Func<bool> SteamOn { get; set; }
+        /// <summary>Whether GitHub is a publishing channel the player uses (the Publish to GitHub setting); the GitHub dot shows only then, and only for a mod that names a release repository.</summary>
+        public System.Func<bool> GitHubOn { get; set; }
+        private bool UseSteam { get { return SteamOn != null && SteamOn(); } }
+        private bool UseGitHub { get { return GitHubOn != null && GitHubOn() && Mod.GitHubStatus != PublishStatus.NotApplicable; } }
+
+        // The first dot beside a mod's name is its Steam Workshop state, the second its GitHub state. Gold: the folder differs from the last publish to that channel.
+        // Green: it matches. Gray: Steam, never published; GitHub, a release repository is named but no release was recorded here (tracked from the next one).
+        public bool SteamDotChanged { get { return UseSteam && Mod.PublishStatus == PublishStatus.Changed; } }
+        public bool SteamDotCurrent { get { return UseSteam && Mod.PublishStatus == PublishStatus.Current; } }
+        public bool SteamDotNever { get { return UseSteam && Mod.PublishStatus == PublishStatus.Unpublished; } }
+        public string SteamDotTip
+        {
+            get
+            {
+                if (Strings == null) return null;
+                if (SteamDotChanged) return Strings("PublishDotSteamChanged");
+                if (SteamDotCurrent) return Strings("PublishDotSteamCurrent");
+                return SteamDotNever ? Strings("PublishStateUnpublishedDetail") : null;
+            }
+        }
+        public bool GitHubDotChanged { get { return UseGitHub && Mod.GitHubStatus == PublishStatus.Changed; } }
+        public bool GitHubDotCurrent { get { return UseGitHub && Mod.GitHubStatus == PublishStatus.Current; } }
+        public bool GitHubDotUnknown { get { return UseGitHub && Mod.GitHubStatus == PublishStatus.Unknown; } }
+        public string GitHubDotTip
+        {
+            get
+            {
+                if (Strings == null) return null;
+                if (GitHubDotChanged) return Strings("PublishDotGitHubChanged");
+                if (GitHubDotCurrent) return Strings("PublishDotGitHubCurrent");
+                return GitHubDotUnknown ? Strings("PublishDotGitHubUnknown") : null;
+            }
+        }
         public System.Func<string, string> Strings { get; set; }
 
         /// <summary>The visibility icon beside the source, once looked up (see MainViewModel.StartVisibilityLookup).</summary>
@@ -89,10 +118,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Raise(nameof(IsNotPublished));
             Raise(nameof(HasVisibility));
             Raise(nameof(VisibilityTip));
-            Raise(nameof(HasUnpublishedChanges));
-            Raise(nameof(UnpublishedTip));
-            Raise(nameof(IsUpToDate));
-            Raise(nameof(UpToDateTip));
+            Raise(nameof(SteamDotChanged));
+            Raise(nameof(SteamDotCurrent));
+            Raise(nameof(SteamDotNever));
+            Raise(nameof(SteamDotTip));
+            Raise(nameof(GitHubDotChanged));
+            Raise(nameof(GitHubDotCurrent));
+            Raise(nameof(GitHubDotUnknown));
+            Raise(nameof(GitHubDotTip));
         }
 
         /// <summary>Re-reads fields the Workshop check or a language change can alter on the underlying mod.</summary>
