@@ -109,6 +109,7 @@ namespace DW2ModLauncher.Core.Services.Catalog
                     entry.Dependencies.Add(new CatalogDependency
                     {
                         Mod = RequiredString(dep, "mod", where + " dependency"),
+                        Uid = OptionalUid(dep, where + " dependency"),
                         WorkshopId = OptionalId(dep, "workshopId", where + " dependency"),
                         Required = dep.TryGetProperty("required", out JsonElement required) && required.ValueKind == JsonValueKind.True
                     });
@@ -123,6 +124,14 @@ namespace DW2ModLauncher.Core.Services.Catalog
         private static string RequiredUid(JsonElement item, string where)
         {
             string text = RequiredString(item, "uid", where);
+            return ModUid.Normalize(text) ?? throw new FormatException(Capital(where) + " has a \"uid\" (" + text + ") that is not a UUID.");
+        }
+
+        /// <summary>A "uid" the element may leave out (null or absent gives null); one that is present must be a UUID.</summary>
+        private static string OptionalUid(JsonElement element, string where)
+        {
+            string text = OptionalString(element, "uid", where);
+            if (text == null) return null;
             return ModUid.Normalize(text) ?? throw new FormatException(Capital(where) + " has a \"uid\" (" + text + ") that is not a UUID.");
         }
 

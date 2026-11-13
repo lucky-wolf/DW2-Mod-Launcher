@@ -79,9 +79,16 @@
     </Border>
 
     <!-- Pages -->
-    <Panel Grid.Row="1" Background="{StaticResource Dw2Panel}">
-      <views:ModsView />
-    </Panel>
+    <Grid Grid.Row="1" RowDefinitions="Auto,*" Background="{StaticResource Dw2Panel}">
+      <!-- No game folder yet (not found, or the saved one is gone): say so plainly and offer the way out. -->
+      <Border Grid.Row="0" IsVisible="{Binding NoGameFolder}" Background="{StaticResource Dw2Deep}" BorderBrush="{StaticResource Dw2Gold}" BorderThickness="0,0,0,2" Padding="16,10">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+          <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding L[NoGameFolderNotice]}" />
+          <Button Grid.Column="1" Padding="14,6" Content="{Binding L[ChooseGameFolder]}" Command="{Binding ChooseGameFolderCommand}" />
+        </Grid>
+      </Border>
+      <views:ModsView Grid.Row="1" />
+    </Grid>
 
     <!-- Status bar -->
     <Border Grid.Row="2" Background="{StaticResource Dw2Void}" Padding="10,6">

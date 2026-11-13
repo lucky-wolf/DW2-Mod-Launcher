@@ -105,10 +105,11 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>Blank folders are allowed (unset); non-blank ones must exist / look right.</summary>
-        public static SettingsProblem Validate(string gameRoot, string workshopRoot, string managedModsRoot, string logFolder = "")
+        public static SettingsProblem Validate(string gameRoot, string workshopRoot, string managedModsRoot, string logFolder = "", bool steamEnabled = true)
         {
-            if (!string.IsNullOrWhiteSpace(gameRoot) && !SteamLocator.IsGameRoot(gameRoot)) return SettingsProblem.GameFolderInvalid;
-            if (!string.IsNullOrWhiteSpace(workshopRoot) && !Directory.Exists(workshopRoot)) return SettingsProblem.WorkshopFolderMissing;
+            if (!string.IsNullOrWhiteSpace(gameRoot) && !GameFolder.IsGameRoot(gameRoot)) return SettingsProblem.GameFolderInvalid;
+            // With Steam off the Workshop folder is not used at all, so it is not checked.
+            if (steamEnabled && !string.IsNullOrWhiteSpace(workshopRoot) && !Directory.Exists(workshopRoot)) return SettingsProblem.WorkshopFolderMissing;
             if (!string.IsNullOrWhiteSpace(managedModsRoot) && !Directory.Exists(managedModsRoot)) return SettingsProblem.ManagedFolderMissing;
             if (!string.IsNullOrWhiteSpace(logFolder) && !Directory.Exists(logFolder)) return SettingsProblem.LogFolderMissing;
             return SettingsProblem.None;

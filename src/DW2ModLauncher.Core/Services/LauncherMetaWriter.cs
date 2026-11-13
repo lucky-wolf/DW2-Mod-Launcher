@@ -88,6 +88,24 @@ namespace DW2ModLauncher.Core.Services
             Save(path, root);
         }
 
+        /// <summary>
+        /// Sets "releaseRepo" (see LauncherMeta) to <paramref name="repo"/> (OWNER/NAME); blank removes the key, and writes nothing when there is no file. A value
+        /// that is not OWNER/NAME throws. Throws if the existing file cannot be parsed, so a file with other content in it is never replaced.
+        /// </summary>
+        public static void SetReleaseRepo(string modFolder, string repo)
+        {
+            const string field = "releaseRepo";
+            string value = (repo ?? "").Trim();
+            if (value.Length > 0 && !Publishing.GitHubReleaseHost.IsRepo(value)) throw new FormatException("The release repository \"" + value + "\" is not written OWNER/NAME.");
+            string path = Path.Combine(modFolder, FileName);
+            if (value.Length == 0 && !File.Exists(path)) return;
+            JsonObject root = Load(path);
+            string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(field, StringComparison.OrdinalIgnoreCase));
+            if (key != null) root.Remove(key);
+            if (value.Length > 0) root[field] = value;
+            Save(path, root);
+        }
+
         /// <summary>Records the language code of a translation mod (see LauncherMeta.language); the same rules as <see cref="StampAuthor"/>.</summary>
         public static void StampLanguage(string modFolder, string languageCode, bool overwrite)
         {

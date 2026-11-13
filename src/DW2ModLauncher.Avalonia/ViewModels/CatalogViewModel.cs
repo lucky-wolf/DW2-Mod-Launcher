@@ -145,6 +145,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private bool loading;
         private string summary = "";
         private string error = "";
+        private string notice = "";
         // Steam subscriber counts by Workshop id, filled when Steam answers; empty when it can't be asked.
         private Dictionary<long, long> subscribers = new Dictionary<long, long>();
 
@@ -172,7 +173,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         public LocalizedStrings L { get { return main.L; } }
-        public string Url { get; set; } = CatalogClient.DefaultUrl;
+        public string Url { get { return CatalogClient.ResolveUrl(main.LauncherSettings.CatalogUrl); } }
+        /// <summary>Set when the list shows the last saved copy because the catalog could not be reached; says when it was saved and why.</summary>
+        public string Notice { get { return notice; } private set { if (Set(ref notice, value)) Raise(nameof(HasNotice)); } }
+        public bool HasNotice { get { return notice.Length > 0; } }
         public List<CatalogChoice> KindChoices { get; }
         public List<CatalogChoice> SortChoices { get { return sortChoices; } private set { Set(ref sortChoices, value); } }
         /// <summary>"All tags" and then every tag some mod in the loaded catalog has.</summary>
@@ -217,9 +221,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             IsLoading = true;
             Error = "";
+            Notice = "";
             try
             {
-                index = await CatalogClient.FetchAsync(Url, CancellationToken.None);
+                CatalogLoad load = await CatalogClient.LoadAsync(Url, System.IO.Path.Combine(UserDataRoot.GetCache(), "Catalog"), CancellationToken.None);
+                index = load.Index;
+                if (load.FromSavedCopy)
+                    Notice = main.T("CatalogSavedCopy", ("Url", Url), ("Date", load.SavedUtc.Value.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)), ("Problem", load.Problem));
             }
             catch (Exception ex)
             {
@@ -231,7 +239,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             finally { IsLoading = false; }
             OfferTags();
             Rebuild();
-            if (index != null) { var _ = LoadSubscribersAsync(index); }
+            if (index != null && main.SteamEnabled) { var _ = LoadSubscribersAsync(index); }
         }
 
         /// <summary>
@@ -299,7 +307,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return;
             }
             List<ModInfo> installed = main.AllMods.ToList();
-            string previewFolder = System.IO.Path.Combine(UserDataRoot.Get(), "Catalog", "Previews");
+            string previewFolder = System.IO.Path.Combine(UserDataRoot.GetCache(), "Catalog", "Previews");
             foreach (CatalogEntry entry in CatalogBrowse.Apply(index.Entries, filterText, (string)kind.Value, (CatalogSort)sort.Value, SubscribersOf, (string)tag.Value))
                 Rows.Add(new CatalogRowViewModel(entry, CatalogStatusFinder.Find(entry, installed), (key, args) => main.T(key, args), previewFolder, SubscribersOf(entry), InstallAsync));
             Summary = main.T("CatalogSummary", ("Shown", Rows.Count), ("Total", index.Entries.Count));
@@ -330,10 +338,59 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 ? main.T("CatalogConfirmUpdate", ("Mod", entry.Name), ("Installed", row.Status.Installed.Version), ("Version", entry.Version), ("Size", size), ("Source", entry.DownloadUrl))
                 : main.T("CatalogConfirmDownload", ("Mod", entry.Name), ("Version", entry.Version), ("Size", size), ("Source", entry.DownloadUrl));
             if (row.AuthorText.Length > 0) message += "\n\n" + row.AuthorText;
-            if (entry.Kinds.Contains("code")) message += "\n\n" + main.T("CatalogCodeWarning");
-            if (!await main.Dialogs.ConfirmAsync(message, main.T(update ? "CatalogConfirmUpdateTitle" : "CatalogConfirmTitle"), main.T(update ? "CatalogUpdate" : "CatalogDownload", ("Version", entry.Version)), main.T("Cancel"))) return;
 
-            string work = System.IO.Path.Combine(UserDataRoot.Get(), "Catalog", "Downloads");
+            // Dependencies the player lacks. Required ones the catalog lists are offered (the player decides whether they come along); the rest are only named.
+            List<MissingDependency> missing = CatalogDependencies.Missing(entry, index.Entries, main.AllMods.ToList());
+            List<CatalogEntry> offered = missing.Where(m => m.Required && m.Entry != null).Select(m => m.Entry).ToList();
+            if (offered.Count > 0)
+                message += "\n\n" + main.T("CatalogDepsOffered", ("Mods", string.Join("\n", offered.Select(c => "• " + c.Name + " " + c.Version + " (" + CatalogRowViewModel.FormatSize(c.Size) + ")"))));
+            List<string> elsewhere = missing.Where(m => m.Required && m.Entry == null).Select(m => ModDependencies.Label(AsLauncherDependency(m.Dependency))).ToList();
+            if (elsewhere.Count > 0)
+                message += "\n\n" + main.T("CatalogDepsElsewhere", ("Mods", string.Join("\n", elsewhere.Select(n => "• " + n))));
+            List<string> optional = missing.Where(m => !m.Required).Select(m => m.Entry?.Name ?? ModDependencies.Label(AsLauncherDependency(m.Dependency))).ToList();
+            if (optional.Count > 0)
+                message += "\n\n" + main.T("CatalogDepsOptional", ("Mods", string.Join("\n", optional.Select(n => "• " + n))));
+            if (entry.Kinds.Contains("code") || offered.Any(e => e.Kinds.Contains("code"))) message += "\n\n" + main.T("CatalogCodeWarning");
+
+            string title = main.T(update ? "CatalogConfirmUpdateTitle" : "CatalogConfirmTitle");
+            List<CatalogEntry> companions;
+            if (offered.Count > 0)
+            {
+                // Never forced: download with them, only this mod, or nothing.
+                int choice = await main.Dialogs.ChooseAsync(message, title,
+                    new[] { main.T(update ? "CatalogUpdateWithRequired" : "CatalogDownloadWithRequired"), main.T(update ? "CatalogUpdateOnly" : "CatalogDownloadOnly"), main.T("Cancel") });
+                if (choice != 0 && choice != 1) return;
+                companions = choice == 0 ? offered : new List<CatalogEntry>();
+            }
+            else
+            {
+                if (!await main.Dialogs.ConfirmAsync(message, title, main.T(update ? "CatalogUpdate" : "CatalogDownload", ("Version", entry.Version)), main.T("Cancel"))) return;
+                companions = new List<CatalogEntry>();
+            }
+
+            string work = System.IO.Path.Combine(UserDataRoot.GetCache(), "Catalog", "Downloads");
+            try
+            {
+                // Dependencies first, so the mod never lands in the mods folder ahead of what it needs; the first failure stops the rest.
+                foreach (CatalogEntry companion in companions)
+                    if (!await InstallOneAsync(companion, modsRoot, null, work, row)) return;
+                await InstallOneAsync(entry, modsRoot, existing, work, row);
+            }
+            finally
+            {
+                row.ProgressText = "";
+                Rebuild();
+            }
+        }
+
+        private static LauncherDependency AsLauncherDependency(CatalogDependency dep)
+        {
+            return new LauncherDependency { mod = dep.Mod, uid = dep.Uid };
+        }
+
+        /// <summary>Downloads, verifies and installs one entry (replacing <paramref name="existing"/> when updating). Failure is shown to the player and logged; returns whether it worked.</summary>
+        private async Task<bool> InstallOneAsync(CatalogEntry entry, string modsRoot, string existing, string work, CatalogRowViewModel row)
+        {
             string zip = null;
             try
             {
@@ -347,19 +404,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 // A downloaded mod must say whose it is (that is how the launcher tells it from the player's own), so a mod that names no author gets the catalog's.
                 LauncherMetaWriter.StampAuthor(installed, entry.Author, false);
                 main.Refresh();
-                main.SetStatus(main.T(update ? "CatalogUpdatedStatus" : "CatalogInstalledStatus", ("Mod", entry.Name), ("Version", entry.Version)));
+                main.SetStatus(main.T(existing != null ? "CatalogUpdatedStatus" : "CatalogInstalledStatus", ("Mod", entry.Name), ("Version", entry.Version)));
+                return true;
             }
             catch (Exception ex)
             {
                 Logger.LogException("Install catalog mod " + entry.Id, ex);
                 await main.Dialogs.ShowMessageAsync(main.T("CatalogInstallFailed", ("Mod", entry.Name), ("Problem", ex.Message)), "DW2 Mod Launcher");
+                return false;
             }
             finally
             {
-                row.ProgressText = "";
                 if (zip != null && System.IO.File.Exists(zip)) System.IO.File.Delete(zip);
             }
-            Rebuild();
         }
 
         private void OpenRelease()

@@ -68,6 +68,21 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Before launching, delete the game's SessionActive marker so it does not ask about a crashed last session (CrashMarker). Off by default.</summary>
         public bool ClearCrashIndication { get; set; }
 
+        /// <summary>
+        /// The master Steam switch. Off: the launcher never talks to Steam and Workshop mods do not exist for it (no scan, no folder check, no
+        /// Steam menu items, no Steam publishing). Null = never decided; <see cref="Services.SteamSwitch.Resolve"/> sets it from whether Steam is installed.
+        /// </summary>
+        public bool? SteamEnabled { get; set; }
+        /// <summary>The Workshop folder to scan and watch: the saved one while Steam is on, otherwise none (blank).</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string EffectiveWorkshopRoot { get { return SteamEnabled == true ? WorkshopRoot : ""; } }
+        /// <summary>GitHub publishing is on: the Publish dialog offers GitHub releases and the mod's releases repository. A mod publishes there only when it names a repository (dw2modlauncher.json "releaseRepo"). Off by default.</summary>
+        public bool PublishToGitHub { get; set; }
+        /// <summary>Show the Browse Mod Catalog button in the Mods list. On by default.</summary>
+        public bool CatalogEnabled { get; set; } = true;
+        /// <summary>The address of the catalog's index.json (a fork or a test catalog). Null or empty: the built-in <see cref="Services.Catalog.CatalogClient.DefaultUrl"/>.</summary>
+        public string CatalogUrl { get; set; }
+
         /// <summary>Start the game with its own --skip-splash switch, so the splash screen is not shown. Off by default.</summary>
         public bool SkipSplash { get; set; }
         /// <summary>After a successful publish: ask whether to open the item's Steam page (default), always open it, or never.</summary>

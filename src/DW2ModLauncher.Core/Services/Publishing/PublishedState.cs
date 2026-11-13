@@ -196,6 +196,9 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return new PublishedFile { Size = info.Length, ModifiedUtcTicks = info.LastWriteTimeUtc.Ticks, Hash = ChangelogHash(info.FullName) ?? HashFile(info.FullName) };
         }
 
+        /// <summary>The files a publish sends, as paths relative to the content folder with '/' separators (the hook manifest, being metadata, is not among them). A GitHub release holds exactly these.</summary>
+        public static IEnumerable<string> ContentFiles(string contentFolder) => EnumerateFiles(contentFolder);
+
         private static IEnumerable<string> EnumerateFiles(string contentFolder)
         {
             string root = Path.GetFullPath(contentFolder);

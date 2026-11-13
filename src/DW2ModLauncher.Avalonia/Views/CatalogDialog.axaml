@@ -60,7 +60,10 @@
         </StackPanel>
         <TextBlock IsVisible="{Binding HasError}" Text="{Binding Error}" TextWrapping="Wrap" Margin="20" VerticalAlignment="Center" Foreground="Orange" />
       </Panel>
-      <TextBlock Grid.Row="2" Classes="muted" Text="{Binding Summary}" />
+      <StackPanel Grid.Row="2" Spacing="4">
+        <TextBlock IsVisible="{Binding HasNotice}" Text="{Binding Notice}" TextWrapping="Wrap" Foreground="Orange" />
+        <TextBlock Classes="muted" Text="{Binding Summary}" />
+      </StackPanel>
     </Grid>
 
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">

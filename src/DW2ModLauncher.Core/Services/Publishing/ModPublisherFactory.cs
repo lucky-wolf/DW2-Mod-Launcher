@@ -19,8 +19,15 @@ namespace DW2ModLauncher.Core.Services.Publishing
         /// </summary>
         public static bool UseHelperProcess { get; set; } = true;
 
+        /// <summary>
+        /// The master Steam switch (from the launcher settings). False: <see cref="Create"/> refuses. Every caller checks the switch first, so a throw
+        /// here means a code path forgot to, and it is reported rather than letting the launcher reach for Steam.
+        /// </summary>
+        public static bool Enabled { get; set; } = true;
+
         public static IModPublisher Create(uint appId)
         {
+            if (!Enabled) throw new InvalidOperationException("Steam is turned off in the launcher settings, so nothing may ask Steam.");
             if (UseHelperProcess) return new OutOfProcessModPublisher(appId);
             return new SteamworksNetModPublisher(appId, true);
         }

@@ -53,6 +53,10 @@ namespace DW2ModLauncher.Core.Models
         public string ModJsonPath { get; set; }
         /// <summary>Why mod.json could not be parsed (its display name and description were then recovered loosely), or null when it parsed.</summary>
         public string ModJsonError { get; set; }
+        /// <summary>The GitHub repository (OWNER/NAME) the mod's releases go to (dw2modlauncher.json "releaseRepo"), or null.</summary>
+        public string ReleaseRepo { get; set; }
+        /// <summary>Why dw2modlauncher.json exists but could not be read (so the mod's dependencies, tags, uid and author are unknown), or null.</summary>
+        public string LauncherJsonError { get; set; }
         /// <summary>Why the mod's files could not be scanned for conflicts (so none are reported for it), or null.</summary>
         public string ScanError { get; set; }
         // The "workshopId" field from mod.json, if the Mod author has published it before (see

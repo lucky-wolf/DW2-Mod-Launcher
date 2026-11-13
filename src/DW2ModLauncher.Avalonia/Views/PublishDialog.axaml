@@ -6,37 +6,44 @@
         x:DataType="vm:PublishDialogViewModel"
         Title="{Binding WindowTitle}" Width="830" Height="900" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-  <Grid RowDefinitions="*,Auto">
+  <Grid RowDefinitions="*,Auto,Auto">
     <ScrollViewer Grid.Row="0">
       <StackPanel Margin="24" Spacing="14">
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[PublishInfoTitle]}" />
           <TextBox Text="{Binding Title}" />
         </StackPanel>
-        <Grid ColumnDefinitions="1*,16,1*,16,2*">
-          <StackPanel Grid.Column="0" Spacing="6">
-            <TextBlock Text="{Binding L[PublishWorkshopId]}" />
-            <TextBox Text="{Binding WorkshopIdText, Mode=OneWay}" IsReadOnly="True" />
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding L[PublishShortDescription]}" ToolTip.Tip="{Binding L[PublishShortDescriptionHint]}" />
+          <TextBox Text="{Binding ShortDescription}" ToolTip.Tip="{Binding L[PublishShortDescriptionHint]}" />
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding L[PublishTags]}" ToolTip.Tip="{Binding L[PublishTagsHint]}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ItemsControl ItemsSource="{Binding TagChips}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TagChip">
+                  <Border Background="{StaticResource Dw2Steel}" CornerRadius="12" Padding="10,2,4,2" Margin="0,0,8,4">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <TextBlock Text="{Binding Text}" VerticalAlignment="Center" />
+                      <Button Command="{Binding Remove}" Padding="4" Background="Transparent" BorderThickness="0" ToolTip.Tip="{Binding RemoveTooltip}">
+                        <!-- "close" x, Material Design Icons, Apache-2.0 -->
+                        <PathIcon Width="10" Height="10" Data="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Command="{Binding AddTagCommand}" Padding="8,4" VerticalAlignment="Top" ToolTip.Tip="{Binding L[PublishTagAdd]}">
+              <!-- "plus" icon, Material Design Icons, Apache-2.0 -->
+              <PathIcon Width="12" Height="12" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+            </Button>
           </StackPanel>
-          <StackPanel Grid.Column="2" Spacing="6">
-            <TextBlock Text="{Binding L[PublishVisibility]}" />
-            <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" IsEnabled="{Binding VisibilityEnabled}" HorizontalAlignment="Stretch" />
-          </StackPanel>
-          <StackPanel Grid.Column="4" Spacing="6">
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" Text="{Binding L[PublishInfoPreviewImage]}" />
-              <TextBlock Grid.Column="1" Classes="muted" HorizontalAlignment="Right" Text="{Binding PreviewImageSize}" />
-            </Grid>
-            <!-- The name is read-only (it can still be selected and copied); the folder button opens the file picker. -->
-            <Grid ColumnDefinitions="*,6,Auto">
-              <TextBox Grid.Column="0" Text="{Binding PreviewImage}" IsReadOnly="True" />
-              <Button Grid.Column="2" Command="{Binding BrowsePreviewCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishInfoPreviewImage]}">
-                <!-- "folder open" icon, Material Design Icons, Apache-2.0 -->
-                <PathIcon Width="16" Height="16" Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
-              </Button>
-            </Grid>
-          </StackPanel>
-        </Grid>
+        </StackPanel>
         <Grid ColumnDefinitions="Auto,24,*,24,*">
           <StackPanel Grid.Column="0" Spacing="6">
             <TextBlock Text="{Binding L[Version]}" />
@@ -84,37 +91,44 @@
             <TextBox Text="{Binding LastPublished, Mode=OneWay}" IsReadOnly="True" />
           </StackPanel>
         </Grid>
-        <StackPanel Spacing="6">
-          <TextBlock Text="{Binding L[PublishShortDescription]}" ToolTip.Tip="{Binding L[PublishShortDescriptionHint]}" />
-          <TextBox Text="{Binding ShortDescription}" ToolTip.Tip="{Binding L[PublishShortDescriptionHint]}" />
-        </StackPanel>
-        <StackPanel Spacing="6">
-          <TextBlock Text="{Binding L[PublishTags]}" ToolTip.Tip="{Binding L[PublishTagsHint]}" />
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <ItemsControl ItemsSource="{Binding TagChips}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:TagChip">
-                  <Border Background="{StaticResource Dw2Steel}" CornerRadius="12" Padding="10,2,4,2" Margin="0,0,8,4">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                      <TextBlock Text="{Binding Text}" VerticalAlignment="Center" />
-                      <Button Command="{Binding Remove}" Padding="4" Background="Transparent" BorderThickness="0" ToolTip.Tip="{Binding RemoveTooltip}">
-                        <!-- "close" x, Material Design Icons, Apache-2.0 -->
-                        <PathIcon Width="10" Height="10" Data="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                      </Button>
-                    </StackPanel>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <Button Command="{Binding AddTagCommand}" Padding="8,4" VerticalAlignment="Top" ToolTip.Tip="{Binding L[PublishTagAdd]}">
-              <!-- "plus" icon, Material Design Icons, Apache-2.0 -->
-              <PathIcon Width="12" Height="12" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-            </Button>
+        <!-- Identity and picture. The unique ID is the mod's permanent identity: read-only, copyable, assigned by the first publish if it has none. -->
+        <Grid ColumnDefinitions="1*,16,1*">
+          <StackPanel Grid.Column="0" Spacing="6">
+            <TextBlock Text="{Binding L[PublishUniqueId]}" />
+            <Grid ColumnDefinitions="*,6,Auto">
+              <TextBox Grid.Column="0" Text="{Binding UidText, Mode=OneWay}" IsReadOnly="True" />
+              <Button Grid.Column="2" Command="{Binding CopyUidCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishCopyUniqueId]}">
+                <!-- "content copy" icon, Material Design Icons, Apache-2.0 -->
+                <PathIcon Width="16" Height="16" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+              </Button>
+            </Grid>
           </StackPanel>
-        </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="{Binding L[PublishInfoPreviewImage]}" />
+              <TextBlock Grid.Column="1" Classes="muted" HorizontalAlignment="Right" Text="{Binding PreviewImageSize}" />
+            </Grid>
+            <!-- The name is read-only (it can still be selected and copied); the folder button opens the file picker. -->
+            <Grid ColumnDefinitions="*,6,Auto">
+              <TextBox Grid.Column="0" Text="{Binding PreviewImage}" IsReadOnly="True" />
+              <Button Grid.Column="2" Command="{Binding BrowsePreviewCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishInfoPreviewImage]}">
+                <!-- "folder open" icon, Material Design Icons, Apache-2.0 -->
+                <PathIcon Width="16" Height="16" Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
+              </Button>
+            </Grid>
+          </StackPanel>
+        </Grid>
+        <!-- Steam only: shown when Steam is enabled and ticked for this publish (always in Edit Properties). -->
+        <Grid ColumnDefinitions="1*,16,1*" IsVisible="{Binding ShowSteamFields}">
+          <StackPanel Grid.Column="0" Spacing="6">
+            <TextBlock Text="{Binding L[PublishWorkshopId]}" />
+            <TextBox Text="{Binding WorkshopIdText, Mode=OneWay}" IsReadOnly="True" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="6">
+            <TextBlock Text="{Binding L[PublishVisibility]}" />
+            <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" IsEnabled="{Binding VisibilityEnabled}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+        </Grid>
         <!-- Folded by default: the arrow edits the description here, the pencil in your own editor. The buttons sit in the header and do not toggle it. -->
         <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
           <Expander.Header>
@@ -254,9 +268,28 @@
         </Expander>
       </StackPanel>
     </ScrollViewer>
+    <!-- Where this publish goes, fixed above the buttons so the choice and the Publish button stay together. In Edit Properties (no targets) only the repository box shows. -->
+    <Border Grid.Row="1" Background="{StaticResource Dw2Panel}" BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,1,0,0" Padding="24,10" IsVisible="{Binding ShowPublishStrip}">
+      <StackPanel Spacing="6">
+        <!-- The repository box takes all the width left of the checkboxes; the border's 24 px padding keeps the margins equal on both sides. -->
+        <Grid ColumnDefinitions="Auto,Auto,*">
+          <TextBlock Grid.Column="0" Margin="0,0,24,0" IsVisible="{Binding ShowTargets}" VerticalAlignment="Center" Text="{Binding L[PublishTo]}" />
+          <CheckBox Grid.Column="1" Margin="0,0,24,0" IsVisible="{Binding ShowSteamTarget}" IsChecked="{Binding ToSteam}" Content="{Binding L[SettingsPublishToSteam]}" ToolTip.Tip="{Binding L[PublishToSteamHint]}" />
+          <!-- The colon makes the box double as the repository's label: tick it, then fill in the repository after it. -->
+          <Grid Grid.Column="2" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+            <CheckBox Grid.Column="0" IsVisible="{Binding ShowGitHubTarget}" IsChecked="{Binding ToGitHub}" Content="{Binding L[SettingsPublishToGitHub], StringFormat='{}{0}:'}" ToolTip.Tip="{Binding L[PublishToGitHubHint]}" />
+            <!-- Edit Properties has no box to double as the label, so the repository is named there. -->
+            <TextBlock Grid.Column="1" IsVisible="{Binding !ShowTargets}" VerticalAlignment="Center" Text="{Binding L[PublishReleaseRepo]}" ToolTip.Tip="{Binding L[PublishReleaseRepoHint]}" />
+            <TextBox Grid.Column="2" IsVisible="{Binding ShowReleaseRepo}" Text="{Binding ReleaseRepo}" PlaceholderText="owner/name" ToolTip.Tip="{Binding L[PublishReleaseRepoHint]}" />
+          </Grid>
+        </Grid>
+        <TextBlock IsVisible="{Binding ReleaseRepoInvalid}" Text="{Binding L[PublishReleaseRepoInvalid]}" Foreground="Orange" TextWrapping="Wrap" />
+        <TextBlock IsVisible="{Binding HasBlockedReason}" Text="{Binding PublishBlockedReason}" Foreground="Orange" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
     <!-- The footer is at the window's bottom edge: a tooltip below its buttons has no room and ends up over the pointer, taking the click.
          These two open above the button instead. ToolTip.VerticalOffset defaults to +20 and applies to every placement (it pushed a Top tooltip down over its own button), hence the explicit offset. -->
-    <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
+    <Border Grid.Row="2" Background="{StaticResource Dw2Void}" Padding="16,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
         <Button IsVisible="{Binding CanMarkUpToDate}" Command="{Binding MarkUpToDateCommand}" Content="{Binding L[MarkUpToDate]}" MinWidth="125" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0" />
         <Button IsVisible="{Binding ShowSave}" IsEnabled="{Binding CanSave}" Command="{Binding SaveCommand}" Content="{Binding L[Save]}" MinWidth="125" />

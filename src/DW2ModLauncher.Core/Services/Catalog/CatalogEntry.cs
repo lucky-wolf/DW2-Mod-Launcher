@@ -7,6 +7,8 @@ namespace DW2ModLauncher.Core.Services.Catalog
     public class CatalogDependency
     {
         public string Mod { get; set; }
+        /// <summary>The other mod's identity in canonical form, or null when the author gave none (then the Workshop id or name is all there is).</summary>
+        public string Uid { get; set; }
         /// <summary>Null when the dependency names no Workshop item.</summary>
         public string WorkshopId { get; set; }
         public bool Required { get; set; }

@@ -14,13 +14,14 @@
             <Button Grid.Column="1" Content="{Binding L[AutoDetect]}" Command="{Binding AutoDetectCommand}" ToolTip.Tip="{Binding L[AutoDetectTooltip]}" MinWidth="125" />
           </Grid>
         </Border>
+        <CheckBox IsChecked="{Binding SteamEnabled}" Content="{Binding L[SettingsUseSteam]}" ToolTip.Tip="{Binding L[SettingsUseSteamTooltip]}" />
         <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
           <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsGameRoot]}" />
           <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GameRoot}" />
           <Button Grid.Row="0" Grid.Column="2" Content="…" Command="{Binding BrowseGameCommand}" MinWidth="50" />
-          <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsWorkshopRoot]}" />
-          <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WorkshopRoot}" />
-          <Button Grid.Row="1" Grid.Column="2" Content="…" Command="{Binding BrowseWorkshopCommand}" MinWidth="50" />
+          <TextBlock IsVisible="{Binding SteamEnabled}" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsWorkshopRoot]}" />
+          <TextBox IsVisible="{Binding SteamEnabled}" Grid.Row="1" Grid.Column="1" Text="{Binding WorkshopRoot}" />
+          <Button IsVisible="{Binding SteamEnabled}" Grid.Row="1" Grid.Column="2" Content="…" Command="{Binding BrowseWorkshopCommand}" MinWidth="50" />
           <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsModRoot]}" />
           <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ManagedRoot}" />
           <Button Grid.Row="2" Grid.Column="2" Content="…" Command="{Binding BrowseManagedCommand}" MinWidth="50" />
@@ -51,7 +52,7 @@
           <CheckBox Grid.Row="0" Grid.Column="0" IsChecked="{Binding AutoSaveProfileOnLaunch}" Content="{Binding L[SettingsAutoSaveProfileOnLaunch]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnLaunchTooltip]}" />
           <CheckBox Grid.Row="0" Grid.Column="1" IsChecked="{Binding AutoSaveProfileOnExit}" Content="{Binding L[SettingsAutoSaveProfileOnExit]}" ToolTip.Tip="{Binding L[SettingsAutoSaveProfileOnExitTooltip]}" />
           <CheckBox Grid.Row="1" Grid.Column="0" IsChecked="{Binding ClearCrashIndication}" Content="{Binding L[SettingsClearCrashIndication]}" ToolTip.Tip="{Binding L[SettingsClearCrashIndicationTooltip]}" />
-          <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding SteamHelperProcess}" Content="{Binding L[SettingsSteamHelperProcess]}" ToolTip.Tip="{Binding L[SettingsSteamHelperProcessTooltip]}" />
+          <CheckBox IsVisible="{Binding SteamEnabled}" Grid.Row="1" Grid.Column="1" IsChecked="{Binding SteamHelperProcess}" Content="{Binding L[SettingsSteamHelperProcess]}" ToolTip.Tip="{Binding L[SettingsSteamHelperProcessTooltip]}" />
           <CheckBox Grid.Row="2" Grid.Column="0" IsChecked="{Binding SkipSplash}" Content="{Binding L[SettingsSkipSplash]}" ToolTip.Tip="{Binding L[SettingsSkipSplashTooltip]}" />
         </Grid>
         <StackPanel Spacing="6">
@@ -61,12 +62,28 @@
         </StackPanel>
       </StackPanel>
 
+      <!-- The mod catalog -->
+      <StackPanel Spacing="10">
+        <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
+          <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionCatalog]}" />
+        </Border>
+        <CheckBox IsChecked="{Binding CatalogEnabled}" Content="{Binding L[SettingsCatalogEnabled]}" ToolTip.Tip="{Binding L[SettingsCatalogEnabledTooltip]}" />
+        <Grid ColumnDefinitions="170,*" ColumnSpacing="10">
+          <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsCatalogUrl]}" ToolTip.Tip="{Binding L[SettingsCatalogUrlTooltip]}" />
+          <TextBox Grid.Column="1" Text="{Binding CatalogUrl}" PlaceholderText="{Binding CatalogDefaultUrl}" ToolTip.Tip="{Binding L[SettingsCatalogUrlTooltip]}" />
+        </Grid>
+      </StackPanel>
+
       <!-- For people who make mods -->
       <StackPanel Spacing="10">
         <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
           <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionAuthoring]}" />
         </Border>
-        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+          <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsPublishTo]}" ToolTip.Tip="{Binding L[SettingsPublishToTooltip]}" />
+          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="24">
+            <CheckBox IsChecked="{Binding PublishToGitHub}" Content="{Binding L[SettingsPublishToGitHub]}" ToolTip.Tip="{Binding L[SettingsPublishToTooltip]}" />
+          </StackPanel>
           <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsAuthorName]}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
           <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" Width="300" Text="{Binding AuthorName}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
           <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsDescriptionExtension]}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
@@ -74,8 +91,8 @@
             <ComboBox Grid.Column="0" IsEditable="True" Width="200" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
             <CheckBox Grid.Column="1" HorizontalAlignment="Right" IsChecked="{Binding AutoUpdateDescription}" Content="{Binding L[SettingsAutoUpdateDescription]}" ToolTip.Tip="{Binding L[SettingsAutoUpdateDescriptionTooltip]}" />
           </Grid>
-          <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsOpenSteamPage]}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
-          <ComboBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding OpenSteamPageChoices}" SelectedIndex="{Binding OpenSteamPageIndex}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
+          <TextBlock IsVisible="{Binding SteamEnabled}" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsOpenSteamPage]}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
+          <ComboBox IsVisible="{Binding SteamEnabled}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding OpenSteamPageChoices}" SelectedIndex="{Binding OpenSteamPageIndex}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
         </Grid>
       </StackPanel>
 

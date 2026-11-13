@@ -15,20 +15,14 @@ namespace DW2ModLauncher.Core.Services
     {
         public const string AppId = "1531540";
 
-        public static bool IsGameRoot(string p)
-        {
-            try { return !string.IsNullOrEmpty(p) && File.Exists(Path.Combine(p, "DistantWorlds2.exe")); }
-            catch { return false; }
-        }
-
         public static string FindGameRoot(string currentGameRoot)
         {
-            if (IsGameRoot(currentGameRoot)) return currentGameRoot;
+            if (GameFolder.IsGameRoot(currentGameRoot)) return currentGameRoot;
 
             foreach (string lib in GetSteamLibraries())
             {
                 string p = Path.Combine(lib, "steamapps", "common", "Distant Worlds 2");
-                if (IsGameRoot(p)) return p;
+                if (GameFolder.IsGameRoot(p)) return p;
             }
 
             if (OperatingSystem.IsWindows())
@@ -39,7 +33,7 @@ namespace DW2ModLauncher.Core.Services
                     foreach (string b in bases)
                     {
                         string p = Path.Combine(b, "steamapps", "common", "Distant Worlds 2");
-                        if (IsGameRoot(p)) return p;
+                        if (GameFolder.IsGameRoot(p)) return p;
                     }
                 }
             }
@@ -50,7 +44,7 @@ namespace DW2ModLauncher.Core.Services
         {
             if (Directory.Exists(currentWorkshopRoot)) return currentWorkshopRoot;
 
-            if (IsGameRoot(gameRoot))
+            if (GameFolder.IsGameRoot(gameRoot))
             {
                 try
                 {
