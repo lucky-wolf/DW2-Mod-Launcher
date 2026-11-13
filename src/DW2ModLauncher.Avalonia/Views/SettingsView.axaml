@@ -79,7 +79,7 @@
         <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
           <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionAuthoring]}" />
         </Border>
-        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
           <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsPublishTo]}" ToolTip.Tip="{Binding L[SettingsPublishToTooltip]}" />
           <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="24">
             <CheckBox IsChecked="{Binding PublishToGitHub}" Content="{Binding L[SettingsPublishToGitHub]}" ToolTip.Tip="{Binding L[SettingsPublishToTooltip]}" />
@@ -93,6 +93,11 @@
           </Grid>
           <TextBlock IsVisible="{Binding SteamEnabled}" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsOpenSteamPage]}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
           <ComboBox IsVisible="{Binding SteamEnabled}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding OpenSteamPageChoices}" SelectedIndex="{Binding OpenSteamPageIndex}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
+          <TextBlock IsVisible="{Binding SteamEnabled}" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsSteamLinks]}" ToolTip.Tip="{Binding L[SettingsSteamLinksTooltip]}" />
+          <StackPanel IsVisible="{Binding SteamEnabled}" Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="24">
+            <CheckBox IsChecked="{Binding LinkOptionalMods}" Content="{Binding L[SettingsLinkOptionalMods]}" ToolTip.Tip="{Binding L[SettingsLinkOptionalModsTooltip]}" />
+            <CheckBox IsChecked="{Binding TrimSteamLinks}" Content="{Binding L[SettingsTrimSteamLinks]}" ToolTip.Tip="{Binding L[SettingsTrimSteamLinksTooltip]}" />
+          </StackPanel>
         </Grid>
       </StackPanel>
 

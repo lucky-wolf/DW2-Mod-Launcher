@@ -78,6 +78,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private bool autoUpdateDescription = true;
         /// <summary>Publishing an update also sends the description when it differs from the Steam page.</summary>
         public bool AutoUpdateDescription { get { return autoUpdateDescription; } set { Set(ref autoUpdateDescription, value); } }
+        private bool linkOptionalMods = true;
+        /// <summary>Publishing also links a mod's optional dependencies on its Steam page.</summary>
+        public bool LinkOptionalMods { get { return linkOptionalMods; } set { Set(ref linkOptionalMods, value); } }
+        private bool trimSteamLinks;
+        /// <summary>Publishing removes Steam dependency links the mod no longer lists.</summary>
+        public bool TrimSteamLinks { get { return trimSteamLinks; } set { Set(ref trimSteamLinks, value); } }
         private bool steamHelperProcess;
         /// <summary>Steam calls run in a short-lived helper process instead of one connection held while the launcher runs.</summary>
         public bool SteamHelperProcess { get { return steamHelperProcess; } set { Set(ref steamHelperProcess, value); } }
@@ -214,6 +220,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             DescriptionExtension = ModDescriptionFile.NormalizeExtension(s.DescriptionExtension);
             AuthorName = s.AuthorName ?? "";
             AutoUpdateDescription = s.AutoUpdateDescription;
+            LinkOptionalMods = s.LinkOptionalModsOnSteam;
+            TrimSteamLinks = s.TrimSteamLinks;
             OpenSteamPageIndex = (int)s.OpenSteamPageAfterPublish;
             AutoSaveProfileOnExit = s.AutoSaveProfileOnExit;
             AutoSaveProfileOnLaunch = s.AutoSaveProfileOnLaunch;
@@ -289,6 +297,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             s.DescriptionExtension = extension;
             s.AuthorName = author;
             s.AutoUpdateDescription = autoUpdateDescription;
+            s.LinkOptionalModsOnSteam = linkOptionalMods;
+            s.TrimSteamLinks = trimSteamLinks;
             if (pathsSame)
             {
                 main.SaveSettings();

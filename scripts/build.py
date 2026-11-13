@@ -11,6 +11,10 @@ Usage:
   scripts/build.py
   scripts/build.py --no-validate      # fast edit/build loop
   scripts/build.py --dry-run          # print the steps, build nothing
+  scripts/build.py --force            # format, build and test even when nothing is newer than the last run
+
+Restore, format, build and tests each run only when a file under src/, third_party/ or the repo-root build files is newer than what
+that step last produced (lib/freshness.py); the format-and-test pass is recorded in temp/validated-<config>.stamp.
   scripts/build.py --no-mod-sync      # do not touch mods/DW2 Mod Launcher
 """
 
@@ -31,7 +35,7 @@ def main() -> int:
 
     launcher_build.build(
         REPO_ROOT, launcher_build.resolve_ui(args.ui), args.config, validate=not args.no_validate, dry_run=args.dry_run,
-        sync_mod=not args.no_mod_sync, game_path=args.game_path,
+        sync_mod=not args.no_mod_sync, game_path=args.game_path, force=args.force,
     )
     return 0
 

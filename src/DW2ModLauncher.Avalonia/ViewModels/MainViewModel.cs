@@ -133,7 +133,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ModSettingsCommand = new RelayCommand(OpenModSettingsAsync, () => HasModSettings(selectedRow));
             PublishCommand = new RelayCommand(PublishAsync, () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !publishRunning);
             EditPropertiesCommand = new RelayCommand(() => EditPropertiesAsync(selectedRow.Mod), () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !string.IsNullOrWhiteSpace(selectedRow.Mod.ModJsonPath));
-            MarkUpToDateCommand = new RelayCommand(MarkUpToDateAsync, () => selectedRow != null && selectedRow.Mod.PublishStatus == PublishStatus.Changed);
+            MarkUpToDateCommand = new RelayCommand(MarkUpToDateAsync, () => selectedRow != null && MarkChannels(selectedRow.Mod) != PublishChannels.None);
             CheckLauncherUpdateCommand = new RelayCommand(() => CheckForLauncherUpdateAsync(true));
             CheckUpdatesCommand = new RelayCommand(() => BeginWorkshopUpdateCheck(true), () => !updateCheckRunning && workshopMods.Count > 0);
             CreateModCommand = new RelayCommand(CreateModAsync);
@@ -557,6 +557,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             try { settingsStore.Save(settings); }
             catch (Exception ex) { SetStatus(T("SettingsSaveError", ("Problem", ex.Message))); }
+            // a changed publishing channel setting shows or hides the dots beside the mod names, and changes what Mark Up to Date acts on
+            foreach (ModRowViewModel row in Mods) row.RefreshPublishState();
+            MarkUpToDateCommand?.RaiseCanExecuteChanged();
         }
 
         /// <summary>Stored the moment a preview image is picked, so the folder is remembered even if the publish dialog is then cancelled.</summary>
@@ -648,7 +651,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     AddProblem(T("MissingModReferencesRemoved", ("Count", missingMods.Removed.Count), ("Mods", string.Join(T("ListSeparator"), missingMods.Removed))));
                 }
             }
-            // a local mod's name-only dependencies get the Workshop id of the mod they name as soon as that mod has one (Workshop mods' files are not touched)
+            // the player's own mods get their identity on sight (not at their first publish), before dependencies are completed, so a mod that depends on another of them can name it by uid at once
+            foreach ((string mod, string problem) in OwnModUids.Stamp(managedMods, settings.AuthorName))
+                AddProblem(T("OwnUidNotStamped", ("Mod", mod), ("Problem", problem)));
+            // a local mod's dependencies get the uid and the Workshop id of the mod they name as soon as that mod has them (Workshop mods' files are not touched)
             foreach ((string mod, string problem) in DependencyIds.Resolve(managedMods.Concat(workshopMods).ToList(), managedMods))
                 AddProblem(T("DependencyIdsNotWritten", ("Mod", mod), ("Problem", problem)));
             managedMods = ModLibrary.OrderForDisplay(managedMods, modOrder);
@@ -752,7 +758,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach (ModInfo mod in scanned)
             {
                 if (reused.Any(r => r.Mod == mod)) continue;
-                Mods.Add(new ModRowViewModel(mod, RelayCommand.WithParameter(row => { var _ = ToggleAsync((ModRowViewModel)row); }), settings.ManagedModsRoot) { Strings = key => T(key) });
+                Mods.Add(new ModRowViewModel(mod, RelayCommand.WithParameter(row => { var _ = ToggleAsync((ModRowViewModel)row); }), settings.ManagedModsRoot) { Strings = key => T(key), SteamOn = () => SteamEnabled, GitHubOn = () => settings.PublishToGitHub });
             }
             populating = false;
             RefreshRowStates();
@@ -1135,6 +1141,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 Logger.LogException("Compare " + (mod.DisplayName ?? mod.Id) + " with its last publish", ex);
                 mod.PublishStatus = PublishStatus.Unknown;
                 mod.UnpublishedChanges = new List<string>();
+            }
+            try { PublishedState.EvaluateGitHub(mod); }
+            catch (Exception ex)
+            {
+                Logger.LogException("Compare " + (mod.DisplayName ?? mod.Id) + " with its last GitHub release", ex);
+                mod.GitHubStatus = PublishStatus.Unknown;
+                mod.GitHubChanges = new List<string>();
             }
         }
 
@@ -1606,41 +1619,44 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
 
-        /// <summary>The owner's override: the mod's folder as it is now counts as what Steam has, so only later edits show as modified.</summary>
+        /// <summary>The publishing targets Mark Up to Date acts on from the mod list: every channel the player publishes to (Steam when it is on, GitHub when it is on and the mod names a repository) that has something to mark.</summary>
+        private PublishChannels MarkChannels(ModInfo mod)
+        {
+            return MarkUpToDate.Eligible(mod, SteamEnabled, settings.PublishToGitHub);
+        }
+
+        /// <summary>The owner's override: the mod's folder as it is now counts as what each target it publishes to has (Steam, GitHub), so only later edits show as modified.</summary>
         private async Task MarkUpToDateAsync()
         {
             if (selectedRow == null) return;
             ModInfo mod = selectedRow.Mod;
-            string id = ModDetails.WorkshopId(mod);
             string name = mod.DisplayName ?? mod.Id ?? Path.GetFileName(mod.Folder);
-            if (mod.IsWorkshop || id == null)
+            PublishChannels channels = MarkChannels(mod);
+            if (channels == PublishChannels.None)
             {
-                await Dialogs.ShowMessageAsync(T("MarkUpToDateNotTracked", ("Mod", name)), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateNothingToMark", ("Mod", name)), "DW2 Mod Launcher");
                 return;
             }
-            if (mod.PublishStatus != PublishStatus.Changed)
-            {
-                await Dialogs.ShowMessageAsync(T("MarkUpToDateNothing", ("Mod", name), ("State", mod.PublishStatus)), "DW2 Mod Launcher");
-                return;
-            }
-            if (!await Dialogs.ConfirmAsync(T("ConfirmMarkUpToDate", ("Mod", name), ("Count", mod.UnpublishedChanges.Count)), T("MarkUpToDate"), T("MarkUpToDate"), T("Cancel"))) return;
+            int count = MarkUpToDate.ChangedFileCount(mod, channels);
+            if (!await Dialogs.ConfirmAsync(T(count > 0 ? "ConfirmMarkUpToDateCount" : "ConfirmMarkUpToDate", ("Mod", name), ("Targets", MarkUpToDateText.Targets(channels, key => T(key))), ("Count", count)), T("MarkUpToDate"), T("MarkUpToDate"), T("Cancel"))) return;
             string folder = mod.ContentRoot ?? mod.Folder;
-            try
+            List<(PublishChannels Channel, Exception Error)> failures = MarkUpToDate.Apply(mod, channels, folder);
+            foreach ((PublishChannels channel, Exception error) in failures) Logger.LogException("Mark " + name + " up to date (" + channel + ")", error);
+            Logger.Log("Mark up to date", name + ": recorded " + folder + " as what " + (channels & ~failures.Aggregate(PublishChannels.None, (all, f) => all | f.Channel)) + " has");
+            FreshenPublishState(mod);
+            ShowDetails();
+            if (failures.Count > 0)
             {
-                PublishedState.MarkCurrent(id, folder);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogException("Mark " + name + " up to date", ex);
-                await Dialogs.ShowMessageAsync(T("MarkUpToDateFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateFailed", ("Problem", string.Join("\n", failures.Select(f => f.Error.Message)))), "DW2 Mod Launcher");
                 return;
             }
-            Logger.Log("Mark up to date", name + " (" + id + "): recorded " + folder + " in " + PublishedState.GetRecordPath(id));
-            ShowDetails();
-            if (mod.PublishStatus != PublishStatus.Current)
+            // The records were just taken from this folder, so anything still listed changed since (or the folder it compares is not the one recorded).
+            List<string> still = new List<string>();
+            if (channels.HasFlag(PublishChannels.Steam) && mod.PublishStatus != PublishStatus.Current) still.AddRange(mod.UnpublishedChanges);
+            if (channels.HasFlag(PublishChannels.GitHub) && mod.GitHubStatus != PublishStatus.Current) still.AddRange(mod.GitHubChanges);
+            if (still.Count > 0)
             {
-                // The record was just taken from this folder, so anything still listed changed since (or the folder it compares is not the one recorded).
-                await Dialogs.ShowMessageAsync(T("MarkUpToDateStillChanged", ("Mod", name), ("Files", string.Join("\n", mod.UnpublishedChanges))), "DW2 Mod Launcher");
+                await Dialogs.ShowMessageAsync(T("MarkUpToDateStillChanged", ("Mod", name), ("Files", string.Join("\n", still.Distinct()))), "DW2 Mod Launcher");
                 return;
             }
             SetStatus(T("MarkedUpToDateStatus", ("Mod", name)));
@@ -1941,7 +1957,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -2031,7 +2047,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -2168,8 +2184,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             publishRunning = true;
             PublishCommand.RaiseCanExecuteChanged();
             SetStatus(T("PublishRunning"));
+            SteamLinkPlan linkPlan = SteamLinks.Plan(mod, AllMods.ToList(), settings.LinkOptionalModsOnSteam);
             ModPublishRequest request = new ModPublishRequest
             {
+                DependencyIds = linkPlan.Wanted,
+                TrimDependencies = settings.TrimSteamLinks,
                 ContentFolder = contentFolder,
                 Title = metadata.DisplayName,
                 // Null leaves the Steam page's description untouched.
@@ -2233,6 +2252,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 string message = T("PublishCapturedIdMessage", ("Id", result.WorkshopId.Value), ("Url", url));
                 if (release != null) message += "\n\n" + release.Text;
                 if (result.NeedsWorkshopAgreement) message += "\n\n" + T("PublishNeedsWorkshopAgreement");
+                string linkReport = SteamLinkReport(result, linkPlan, AllMods.ToList());
+                if (linkReport != null) message += "\n\n" + linkReport;
                 if (stampProblem != null) message += "\n\n" + stampProblem;
                 if (recordProblem != null) message += "\n\n" + recordProblem;
                 if (carryOver.Problems.Count > 0) message += "\n\n" + T("PublishCarryOverFailed", ("Problem", string.Join("\n", carryOver.Problems)));
@@ -2243,7 +2264,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     message += "\n\n" + T("PublishVisibilityDiffers", ("Requested", T(PublishDialogViewModel.LabelKey(requested.Value))), ("Actual", T(PublishDialogViewModel.LabelKey(actual.Value))));
                 SetStatus(T("WorkshopIdSaved"));
                 string workshopId = result.WorkshopId.Value.ToString();
-                bool hasWarnings = (release != null && release.NeedsAttention) || result.NeedsWorkshopAgreement || stampProblem != null || recordProblem != null || carryOver.Problems.Count > 0
+                bool hasWarnings = (release != null && release.NeedsAttention) || result.NeedsWorkshopAgreement || result.LinkProblems.Count > 0 || linkPlan.Unlinkable.Count > 0 || stampProblem != null || recordProblem != null || carryOver.Problems.Count > 0
                     || (requested.HasValue && actual.HasValue && actual != requested);
                 switch (LauncherSettings.OpenSteamPageAfterPublish)
                 {
@@ -2275,6 +2296,27 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 PublishCommand.RaiseCanExecuteChanged();
                 ForgetVisibility(mod);
             }
+        }
+
+        /// <summary>What the publish did to the Steam page's dependency links, as whole sentences; null when there is nothing to say.</summary>
+        private string SteamLinkReport(ModPublishResult result, SteamLinkPlan plan, IList<ModInfo> all)
+        {
+            List<string> lines = new List<string>();
+            if (result.LinkedIds.Count > 0) lines.Add(T("PublishLinked", ("Mods", NamesOf(result.LinkedIds, all))));
+            if (result.UnlinkedIds.Count > 0) lines.Add(T("PublishUnlinked", ("Mods", NamesOf(result.UnlinkedIds, all))));
+            if (plan.Unlinkable.Count > 0) lines.Add(T("PublishUnlinkable", ("Mods", string.Join(", ", plan.Unlinkable))));
+            foreach (string problem in result.LinkProblems) lines.Add(T("PublishLinkProblem", ("Problem", problem)));
+            return lines.Count == 0 ? null : string.Join("\n", lines);
+        }
+
+        private static string NamesOf(IEnumerable<long> ids, IList<ModInfo> all)
+        {
+            return string.Join(", ", ids.Select(id =>
+            {
+                string text = id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                ModInfo known = all.FirstOrDefault(m => m != null && (m.IsWorkshop ? m.Id : m.WorkshopId)?.Trim() == text);
+                return known == null ? text : known.DisplayName ?? known.Id;
+            }));
         }
 
         /// <summary>What a GitHub release attempt has to say, and whether the author must read it.</summary>
@@ -2377,6 +2419,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     : result.Outcome == ReleaseOutcome.AlreadyCurrent ? "ReleaseAlreadyCurrent" : "ReleaseDeclined";
                 string text = T(key, ("Tag", result.Tag), ("Repo", result.Repo));
                 if (result.Warnings.Count > 0) text += "\n\n" + string.Join("\n", result.Warnings);
+                if (result.Outcome != ReleaseOutcome.Declined)
+                {
+                    // the folder now matches what GitHub holds: the second dot beside the mod's name turns green
+                    try
+                    {
+                        PublishedState.RecordGitHub(meta.uid, contentFolder, metadata.Version);
+                        FreshenPublishState(mod);
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+                    {
+                        Logger.LogException("Record GitHub release of " + name, ex);
+                        text += "\n\n" + T("PublishStateRecordFailed", ("Problem", ex.Message));
+                    }
+                }
                 return new ReleaseReport { Text = text, NeedsAttention = result.Warnings.Count > 0 || result.Outcome == ReleaseOutcome.Declined, Released = result.Outcome != ReleaseOutcome.Declined };
             }
             catch (Exception ex) when (ex is ReleaseHostException || ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)

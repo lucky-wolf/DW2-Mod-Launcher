@@ -321,6 +321,27 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Build_RecordsEveryEnabledMod_WithVersion_InLoadOrder()
+        {
+            string first = MakeModDir();
+            string second = MakeModDir();
+            try
+            {
+                ModInfo a = ModAt(first);
+                a.Version = "1.2.3";
+                ModInfo b = ModAt(second);
+                b.Version = "";
+
+                LoaderManifest manifest = LoaderManifestBuilder.Build(new List<ModInfo> { a, b });
+
+                Assert.Equal(new[] { Path.GetFileName(first), Path.GetFileName(second) }, manifest.InstalledMods.ConvertAll(m => m.Folder));
+                Assert.Equal(new[] { "1.2.3", "" }, manifest.InstalledMods.ConvertAll(m => m.Version));
+                Assert.All(manifest.InstalledMods, m => Assert.False(m.HasCode));
+            }
+            finally { Directory.Delete(first, true); Directory.Delete(second, true); }
+        }
+
+        [Fact]
         public void Build_KeepsPatchSets_InModLoadOrder_AndSkipsModsWithoutPatches()
         {
             string first = MakeModDir();

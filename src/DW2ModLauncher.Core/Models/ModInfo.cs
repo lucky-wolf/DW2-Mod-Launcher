@@ -70,6 +70,12 @@ namespace DW2ModLauncher.Core.Models
         public System.DateTime? PublishedUtc { get; set; }
         /// <summary>When <see cref="PublishStatus"/> is Changed, the changed files, each marked + (added), - (removed) or ≠ (modified).</summary>
         public List<string> UnpublishedChanges { get; set; } = new List<string>();
+        /// <summary>The same comparison for the mod's GitHub release (see PublishedState.EvaluateGitHub): NotApplicable for a Workshop copy and for a mod that names no release repository or has no uid, Unknown when it names one but no release was recorded here, else Current or Changed.</summary>
+        public PublishStatus GitHubStatus { get; set; }
+        /// <summary>When the last recorded GitHub release happened (UTC), or null when there is no record.</summary>
+        public System.DateTime? GitHubPublishedUtc { get; set; }
+        /// <summary>When <see cref="GitHubStatus"/> is Changed, the files that differ from the last GitHub release, each marked + (added), - (removed) or ≠ (modified).</summary>
+        public List<string> GitHubChanges { get; set; } = new List<string>();
         public List<string> IncludedTools { get; set; }
         public List<string> IncludedDocuments { get; set; }
         /// <summary>dw2modlauncher.json "minLauncherVersion", or null/empty when the mod names no floor.</summary>

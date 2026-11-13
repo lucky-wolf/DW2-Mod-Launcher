@@ -81,7 +81,11 @@ The launcher adds `"Language": "<code>"` (and `"TranslationFiles"` when packs su
 
 ## Translating the game
 
-**Create Mod... > Localization Mod** builds a mod holding all player-visible game text as patch files and `.txt` files. When the language you type is the code or display name of a launcher pack, it also records `language` in the new mod's `dw2modlauncher.json`. Details, the font and Galactopedia rules: [xml-patching.md](xml-patching.md#translating-the-game-the-localization-mod-shortcut).
+**Create Mod... > Localization Mod** builds, in one step, a mod for the base game and for any mods you choose, holding only their player-visible text as patch files (keyed by entity `id`) and `.txt` files. The patches overwrite just those keys when the game reads its XML, in load order, so the base game and the mods can change over time and the translation keeps applying; the other data is untouched. When the language you type is the code or display name of a launcher pack, it also records `language` in the new mod's `dw2modlauncher.json`. Details, the font and Galactopedia rules: [xml-patching.md](xml-patching.md#translating-the-game-the-localization-mod-shortcut).
+
+### Making your own mod translatable
+
+The shortcut can only help a translator as much as the mod's text allows. Write a mod's text the way the launcher's packs are written (see [the launcher's language packs](#the-launchers-language-packs)): whole sentences, with named placeholders for anything that varies (`{Mod}`, `{Count}`), never fragments the code glues together. A translator can then reorder the sentence to be grammatical in their language (case, word order, separable verbs in German, and so on). DW2-XL and its code mods are written this way.
 
 ## Translating the documentation
 

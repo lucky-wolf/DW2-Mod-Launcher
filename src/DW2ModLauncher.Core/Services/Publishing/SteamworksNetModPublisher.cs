@@ -147,6 +147,13 @@ namespace DW2ModLauncher.Core.Services.Publishing
                     return result;
                 }
                 result.NeedsWorkshopAgreement |= submitted.m_bUserNeedsToAcceptWorkshopLegalAgreement;
+
+                // The update took; the dependency links are separate Steam calls and never undo it, so their failures are reported beside the success.
+                if (request.DependencyIds != null && !metadataOnly)
+                {
+                    stage = "linking the dependencies (SteamUGC.AddDependency)";
+                    SyncDependencies(fileId, request, result);
+                }
             }
             catch (Exception ex)
             {
@@ -158,6 +165,74 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 if (initialized) Disconnect();
             }
             return result;
+        }
+
+        // Makes the item's page list the wanted dependencies: reads what it lists now, adds the missing ones and, when asked, removes the others.
+        private static void SyncDependencies(PublishedFileId_t item, ModPublishRequest request, ModPublishResult result)
+        {
+            List<long> listed = ReadDependencies(item, result);
+            if (listed == null) return;
+            SteamLinks.Diff(request.DependencyIds, listed, request.TrimDependencies, out List<long> add, out List<long> remove);
+            foreach (long id in add)
+            {
+                AddUGCDependencyResult_t answer;
+                ModPublishResult wait = new ModPublishResult();
+                if (!Await(SteamUGC.AddDependency(item, new PublishedFileId_t((ulong)id)), out answer, wait, request.Cancel, QueryTimeout))
+                    result.LinkProblems.Add("Could not link Workshop item " + id + " as a dependency: " + wait.ErrorMessage);
+                else if (answer.m_eResult != EResult.k_EResultOK)
+                    result.LinkProblems.Add("Steam would not link Workshop item " + id + " as a dependency: " + answer.m_eResult + " (" + (int)answer.m_eResult + "). It may be private, unlisted or deleted.");
+                else result.LinkedIds.Add(id);
+            }
+            foreach (long id in remove)
+            {
+                RemoveUGCDependencyResult_t answer;
+                ModPublishResult wait = new ModPublishResult();
+                if (!Await(SteamUGC.RemoveDependency(item, new PublishedFileId_t((ulong)id)), out answer, wait, request.Cancel, QueryTimeout))
+                    result.LinkProblems.Add("Could not remove the dependency link to Workshop item " + id + ": " + wait.ErrorMessage);
+                else if (answer.m_eResult != EResult.k_EResultOK)
+                    result.LinkProblems.Add("Steam would not remove the dependency link to Workshop item " + id + ": " + answer.m_eResult + " (" + (int)answer.m_eResult + ").");
+                else result.UnlinkedIds.Add(id);
+            }
+        }
+
+        // The Workshop ids the item's page lists as required items, or null (with a problem noted) when Steam could not say.
+        private static List<long> ReadDependencies(PublishedFileId_t item, ModPublishResult result)
+        {
+            UGCQueryHandle_t query = SteamUGC.CreateQueryUGCDetailsRequest(new[] { item }, 1);
+            try
+            {
+                if (!SteamUGC.SetReturnChildren(query, true))
+                {
+                    result.LinkProblems.Add("Steam would not list the item's current dependencies, so none were changed.");
+                    return null;
+                }
+                SteamUGCQueryCompleted_t completed;
+                ModPublishResult wait = new ModPublishResult();
+                if (!Await(SteamUGC.SendQueryUGCRequest(query), out completed, wait, CancellationToken.None, QueryTimeout))
+                {
+                    result.LinkProblems.Add("Could not read the item's current dependencies, so none were changed: " + wait.ErrorMessage);
+                    return null;
+                }
+                SteamUGCDetails_t details;
+                if (completed.m_eResult != EResult.k_EResultOK || completed.m_unNumResultsReturned < 1 || !SteamUGC.GetQueryUGCResult(query, 0, out details) || details.m_eResult != EResult.k_EResultOK)
+                {
+                    result.LinkProblems.Add("Steam did not return the item's current dependencies (" + completed.m_eResult + "), so none were changed.");
+                    return null;
+                }
+                List<long> listed = new List<long>();
+                if (details.m_unNumChildren > 0)
+                {
+                    PublishedFileId_t[] children = new PublishedFileId_t[details.m_unNumChildren];
+                    if (!SteamUGC.GetQueryUGCChildren(query, 0, children, details.m_unNumChildren))
+                    {
+                        result.LinkProblems.Add("Steam would not list the item's current dependencies, so none were changed.");
+                        return null;
+                    }
+                    listed.AddRange(children.Select(c => (long)c.m_PublishedFileId));
+                }
+                return listed;
+            }
+            finally { SteamUGC.ReleaseQueryUGCRequest(query); }
         }
 
         public ModVisibility? GetVisibility(long workshopId)

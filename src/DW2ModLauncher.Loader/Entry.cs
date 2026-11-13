@@ -71,7 +71,7 @@ namespace DW2ModLauncher.Loader
             InstallFontBundles(manifest, logDir);
             InstallTextFiles(manifest, logDir);
             InstallTitleLookup(manifest, logDir);
-            InstallGameState(logDir);
+            InstallGameState(logDir, manifest);
 
             foreach (LoaderManifestEntry entry in manifest?.Entries ?? new System.Collections.Generic.List<LoaderManifestEntry>())
                 LoadOne(entry);
@@ -151,11 +151,11 @@ namespace DW2ModLauncher.Loader
 
         // Own method for the same reason as InstallXmlPatching. Before the mods, so GameState.Generation is already there when a mod asks.
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void InstallGameState(string baseDir)
+        private static void InstallGameState(string baseDir, LoaderManifest manifest)
         {
             try
             {
-                GameState.Install(baseDir);
+                GameState.Install(baseDir, manifest?.InstalledMods);
             }
             catch (Exception ex)
             {

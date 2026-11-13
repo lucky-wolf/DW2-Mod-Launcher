@@ -19,6 +19,7 @@ A `dependencies` section in `dw2modlauncher.json`, one entry per mod depended on
 |---|---|
 | `mod` | The other mod, matched by id, display name, folder or token, case-insensitively. |
 | `required` | `true`: the mod does not work without it. `false` (default): the entry only applies when the other mod is present and enabled. |
+| `steamLink` | `true`/`false`: link the other mod on this mod's Steam page as a Workshop dependency, or never. Absent: a required mod is linked, an optional one by the Settings choice "Link optional mods too" (on by default). "Remove links it no longer lists" (off by default) also deletes page links the list lacks. Done by `SteamLinks` + `SteamworksNetModPublisher.SyncDependencies` after a successful publish. |
 | `minVersion` | The oldest version of the other mod that works, compared with its `mod.json` `version`. |
 | `loadAfter` / `loadBefore` | Order against the other mod, applied only when it is present. |
 

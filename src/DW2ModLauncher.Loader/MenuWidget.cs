@@ -212,12 +212,101 @@ namespace DW2ModLauncher.Loader
                 string version = loader.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? loader.GetName().Version?.ToString() ?? "unknown";
                 int plus = version.IndexOf('+');
                 if (plus > 0) version = version.Substring(0, plus);
-                string text = StatusStrings.Get("WidgetAbout", ("Version", version), ("Loaded", ModStatus.Registry.Snapshot().Count));
-                _m.ShowAbout("DW2 MOD LAUNCHER", text, _m.ScreenWidth(), _m.ScreenHeight());
+                // the same list, in the same order, that GameState.ModManifest stamps into saved games
+                List<ModStatusSnapshot> mods = ModStatus.Registry.Snapshot();
+                int shown = _m.AboutModLines(mods.Count, _m.ScreenHeight());
+                var lines = new System.Text.StringBuilder();
+                for (int i = 0; i < Math.Min(shown, mods.Count); i++)
+                {
+                    ModStatusSnapshot mod = mods[i];
+                    if (i > 0) lines.Append('\n');
+                    lines.Append(i + 1).Append(". ").Append(mod.Name).Append("  ").Append(mod.Version ?? "?");
+                    if (mod.LoadError != null) lines.Append("  ").Append(StatusStrings.Get("WidgetFailedToLoad", ("Problem", mod.LoadError)));
+                }
+                if (shown < mods.Count) lines.Append('\n').Append(StatusStrings.Get("WidgetMoreMods", ("Count", mods.Count - shown)).Trim());
+                string text = StatusStrings.Get("WidgetAbout", ("Version", version), ("Loaded", mods.Count), ("Mods", lines.ToString()));
+                _m.ShowAbout("DW2 MOD LAUNCHER", text, _m.ScreenWidth(), _m.ScreenHeight(), Math.Min(shown, mods.Count), nameof(OnAboutClose),
+                    StatusStrings.Get("WidgetGameDataButton"), nameof(OnGameDataOpen));
             }
             catch (Exception ex)
             {
                 _log("ERROR mods menu: could not show the launcher dialog: " + ex);
+            }
+        }
+
+        // The Game data dialog: every mod (XML-only ones included) that built the running game's data, with the version each had when the game was
+        // created, from the list Positronic Matrix stored in the galaxy. Ok goes back to the launcher dialog.
+        static void OpenGameData()
+        {
+            try
+            {
+                string stored = GameState.CreatedWith(out bool gameReady);
+                string text;
+                int shownLines = 1;
+                if (!gameReady)
+                {
+                    text = StatusStrings.Get("WidgetCreatedWithNoGame");
+                }
+                else if (string.IsNullOrEmpty(stored))
+                {
+                    text = StatusStrings.Get("WidgetCreatedWithNone");
+                }
+                else
+                {
+                    List<string> rows = new List<string>();
+                    foreach (string line in stored.Split('\n'))
+                    {
+                        // installed|folder|name|version|code-or-data
+                        string[] part = line.Split('|');
+                        if (part.Length != 5 || part[0] != "installed")
+                        {
+                            _log("ERROR mods menu: the game's created-with list has a line that is not 'installed|folder|name|version|kind': " + line);
+                            continue;
+                        }
+                        rows.Add(rows.Count + 1 + ". " + part[2] + "  " + part[3]);
+                    }
+                    shownLines = _m.AboutModLines(rows.Count, _m.ScreenHeight());
+                    var lines = new System.Text.StringBuilder();
+                    for (int i = 0; i < Math.Min(shownLines, rows.Count); i++)
+                    {
+                        if (i > 0) lines.Append('\n');
+                        lines.Append(rows[i]);
+                    }
+                    if (shownLines < rows.Count) lines.Append('\n').Append(StatusStrings.Get("WidgetMoreMods", ("Count", rows.Count - shownLines)).Trim());
+                    text = StatusStrings.Get("WidgetCreatedWith", ("Count", rows.Count), ("Mods", lines.ToString()));
+                    shownLines = Math.Min(shownLines, rows.Count);
+                }
+                _m.ShowAbout("DW2 MOD LAUNCHER", text, _m.ScreenWidth(), _m.ScreenHeight(), shownLines, nameof(OnGameDataClose));
+            }
+            catch (Exception ex)
+            {
+                _log("ERROR mods menu: could not show the game data dialog: " + ex);
+            }
+        }
+
+        static void OnGameDataOpen(object sender, object args)
+        {
+            try
+            {
+                _m?.HideAbout();
+                OpenGameData();
+            }
+            catch (Exception ex)
+            {
+                _log("ERROR mods menu: could not open the game data dialog: " + ex);
+            }
+        }
+
+        static void OnGameDataClose(object sender, object args)
+        {
+            try
+            {
+                _m?.HideAbout();
+                OpenStatusFromMenu();
+            }
+            catch (Exception ex)
+            {
+                _log("ERROR mods menu: could not return to the launcher dialog: " + ex);
             }
         }
 
@@ -430,15 +519,33 @@ namespace DW2ModLauncher.Loader
                 _showCentered.Invoke(dialog, new object[] { screenWidth, screenHeight, size });
             }
 
+            // the About dialog is the base height plus a line per mod (a line of the game's normal text is about 24 units at 1080p)
+            const float AboutBaseHeight = 250f;
+            const float AboutLineHeight = 24f;
+
+            // How many mod lines fit in the About dialog on this screen (the whole list when it fits, with a line spare for "+N more" when not).
+            public int AboutModLines(int count, int screenHeight)
+            {
+                int fit = (int)((screenHeight * 0.9f / Scaled(1f) - AboutBaseHeight) / AboutLineHeight) - 1;
+                return fit >= count ? count : Math.Max(fit, 1);
+            }
+
             // A message dialog with an Ok button. The game draws it at layer 20000, under the Game Menu (22000), so it and its children
             // are raised for as long as it is up (HideMessageDialog puts the dialog itself back).
-            public void ShowAbout(string title, string text, int screenWidth, int screenHeight)
+            // okHandler names the static method Ok runs; secondLabel/secondHandler add a second button (the message dialog's "no" button) when given.
+            public void ShowAbout(string title, string text, int screenWidth, int screenHeight, int modLines, string okHandler, string secondLabel = null, string secondHandler = null)
             {
                 Game g = _game;
-                Delegate close = Delegate.CreateDelegate(_clickType, typeof(StatusWidget).GetMethod(nameof(OnAboutClose), BindingFlags.NonPublic | BindingFlags.Static));
+                Delegate close = Delegate.CreateDelegate(_clickType, typeof(StatusWidget).GetMethod(okHandler, BindingFlags.NonPublic | BindingFlags.Static));
                 object ok = _buttonData.Invoke(new object[] { "", "Ok", close, null });
-                object size = g.Vec2(Scaled(400f), Scaled(220f));
-                _showMessage.Invoke(null, new object[] { null, title, text, true, ok, null, screenWidth, screenHeight, size });
+                object second = null;
+                if (secondLabel != null)
+                {
+                    Delegate click = Delegate.CreateDelegate(_clickType, typeof(StatusWidget).GetMethod(secondHandler, BindingFlags.NonPublic | BindingFlags.Static));
+                    second = _buttonData.Invoke(new object[] { "", secondLabel, click, null });
+                }
+                object size = g.Vec2(Scaled(400f), Scaled(AboutBaseHeight + AboutLineHeight * modLines));
+                _showMessage.Invoke(null, new object[] { null, title, text, true, ok, second, screenWidth, screenHeight, size });
                 object dialog = _messageDialog.GetStatic();
                 g.Layer.Set(dialog, 22600f);
                 RaiseChildren(dialog, 22600f);

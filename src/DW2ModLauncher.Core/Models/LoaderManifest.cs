@@ -17,6 +17,9 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Folder names (the game's /mods/Name/ or /steam/Id/) of every enabled mod, in load order; a patch set's Order is an index into it.</summary>
         public List<string> ModFolders { get; set; } = new List<string>();
 
+        /// <summary>Every enabled mod with the version it has installed, in load order, code or not: what the loader stamps into a new game (and every save) so the game says which mods made its data.</summary>
+        public List<LoaderManifestInstalledMod> InstalledMods { get; set; } = new List<LoaderManifestInstalledMod>();
+
         /// <summary>Font bundles declared by enabled mods (dw2modlauncher.json "font"), in load order; the last one is the one passed to the game as --font.</summary>
         public List<LoaderManifestFont> Fonts { get; set; } = new List<LoaderManifestFont>();
 
@@ -95,5 +98,15 @@ namespace DW2ModLauncher.Core.Models
         public string ModVersion { get; set; }
         /// <summary>The mod's content folder as the game process sees it: a Harmony patch whose code lives below it belongs to the mod.</summary>
         public string ModFolder { get; set; }
+    }
+
+    /// <summary>One enabled mod as the loader records it in saved games. Version is blank when the mod declares none.</summary>
+    public class LoaderManifestInstalledMod
+    {
+        public string Folder { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Version { get; set; } = "";
+        public string WorkshopId { get; set; } = "";
+        public bool HasCode { get; set; }
     }
 }

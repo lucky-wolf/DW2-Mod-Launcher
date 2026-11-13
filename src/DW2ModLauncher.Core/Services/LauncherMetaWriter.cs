@@ -135,27 +135,81 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>
-        /// Adds "workshopId" to the "dependencies" entries named in <paramref name="idsByDependency"/> (index in the array to Workshop id), placed right after
-        /// the entry's "mod". An entry that already has an id is left alone. Throws if the existing file cannot be parsed.
+        /// Sets "dependencies" to <paramref name="dependencies"/>, in the order given. Each entry is written with the fields it uses ("required" always;
+        /// "steamLink", "minVersion", "loadAfter" and "loadBefore" only when set). An empty list removes the key, and writes nothing when there is no file.
+        /// Throws if the existing file cannot be parsed, so a file with other content in it is never replaced.
         /// </summary>
-        public static void AddDependencyWorkshopIds(string modFolder, IDictionary<int, long> idsByDependency)
+        public static void SetDependencies(string modFolder, IList<Models.LauncherDependency> dependencies)
+        {
+            const string field = "dependencies";
+            List<Models.LauncherDependency> list = (dependencies ?? new List<Models.LauncherDependency>()).Where(d => d != null).ToList();
+            string path = Path.Combine(modFolder, FileName);
+            if (list.Count == 0 && !File.Exists(path)) return;
+            JsonObject root = Load(path);
+            string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals(field, StringComparison.OrdinalIgnoreCase));
+            // Keep the key where it was in the file; a new one goes after the existing fields.
+            List<KeyValuePair<string, JsonNode>> items = root.Select(kv => new KeyValuePair<string, JsonNode>(kv.Key, kv.Value)).ToList();
+            root.Clear();
+            bool placed = false;
+            JsonArray array = new JsonArray();
+            foreach (Models.LauncherDependency dep in list) array.Add(DependencyNode(dep));
+            foreach (KeyValuePair<string, JsonNode> item in items)
+            {
+                if (key != null && item.Key == key)
+                {
+                    if (list.Count > 0) root[field] = array;
+                    placed = true;
+                }
+                else root[item.Key] = item.Value;
+            }
+            if (!placed && list.Count > 0) root[field] = array;
+            Save(path, root);
+        }
+
+        private static JsonObject DependencyNode(Models.LauncherDependency dep)
+        {
+            JsonObject node = new JsonObject();
+            if (!string.IsNullOrWhiteSpace(dep.mod)) node["mod"] = dep.mod.Trim();
+            if (!string.IsNullOrWhiteSpace(dep.uid)) node["uid"] = dep.uid.Trim();
+            if (dep.workshopId.HasValue) node["workshopId"] = dep.workshopId.Value;
+            node["required"] = dep.required;
+            if (dep.steamLink.HasValue) node["steamLink"] = dep.steamLink.Value;
+            if (!string.IsNullOrWhiteSpace(dep.minVersion)) node["minVersion"] = dep.minVersion.Trim();
+            if (dep.loadAfter) node["loadAfter"] = true;
+            if (dep.loadBefore) node["loadBefore"] = true;
+            return node;
+        }
+
+        /// <summary>
+        /// Adds "uid" and/or "workshopId" to the "dependencies" entries named in <paramref name="idsByDependency"/> (index in the array to the ids to add; a null id is
+        /// not added), placed right after the entry's "mod" (first when it has none), uid before workshopId. An id the entry already has is left alone, and no id is ever
+        /// removed. Throws if the existing file cannot be parsed.
+        /// </summary>
+        public static void AddDependencyIds(string modFolder, IDictionary<int, (string Uid, long? WorkshopId)> idsByDependency)
         {
             string path = Path.Combine(modFolder, FileName);
             JsonObject root = Load(path);
             string key = root.Select(kv => kv.Key).FirstOrDefault(k => k.Equals("dependencies", StringComparison.OrdinalIgnoreCase));
             JsonArray array = key == null ? null : root[key] as JsonArray;
             if (array == null) throw new InvalidDataException(path + " has no \"dependencies\" array.");
-            foreach (KeyValuePair<int, long> pair in idsByDependency)
+            foreach (KeyValuePair<int, (string Uid, long? WorkshopId)> pair in idsByDependency)
             {
                 JsonObject entry = pair.Key >= 0 && pair.Key < array.Count ? array[pair.Key] as JsonObject : null;
                 if (entry == null) throw new InvalidDataException(path + " dependency " + pair.Key + " is not an object.");
-                if (entry.Any(kv => kv.Key.Equals("workshopId", StringComparison.OrdinalIgnoreCase))) continue;
+                bool hasUid = entry.Any(kv => kv.Key.Equals("uid", StringComparison.OrdinalIgnoreCase));
+                bool hasId = entry.Any(kv => kv.Key.Equals("workshopId", StringComparison.OrdinalIgnoreCase));
+                List<KeyValuePair<string, JsonNode>> added = new List<KeyValuePair<string, JsonNode>>();
+                if (!hasUid && !string.IsNullOrWhiteSpace(pair.Value.Uid)) added.Add(new KeyValuePair<string, JsonNode>("uid", pair.Value.Uid.Trim()));
+                if (!hasId && pair.Value.WorkshopId.HasValue) added.Add(new KeyValuePair<string, JsonNode>("workshopId", pair.Value.WorkshopId.Value));
+                if (added.Count == 0) continue;
                 List<KeyValuePair<string, JsonNode>> items = entry.Select(kv => new KeyValuePair<string, JsonNode>(kv.Key, kv.Value)).ToList();
                 entry.Clear();
+                bool hasName = items.Any(i => i.Key.Equals("mod", StringComparison.OrdinalIgnoreCase));
+                if (!hasName) foreach (KeyValuePair<string, JsonNode> a in added) entry[a.Key] = a.Value;
                 foreach (KeyValuePair<string, JsonNode> item in items)
                 {
                     entry[item.Key] = item.Value;
-                    if (item.Key.Equals("mod", StringComparison.OrdinalIgnoreCase)) entry["workshopId"] = pair.Value;
+                    if (item.Key.Equals("mod", StringComparison.OrdinalIgnoreCase)) foreach (KeyValuePair<string, JsonNode> a in added) entry[a.Key] = a.Value;
                 }
             }
             Save(path, root);
