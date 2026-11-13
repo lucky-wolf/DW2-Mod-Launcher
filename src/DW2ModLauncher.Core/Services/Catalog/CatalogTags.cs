@@ -8,7 +8,7 @@ namespace DW2ModLauncher.Core.Services.Catalog
     /// <summary>
     /// The rule for a mod's topic tags (music, art, icons ...): free-form, but written one way so "Music", " music " and "MUSIC" are one tag.
     /// A tag is lower case with the white space in it collapsed to single spaces; an empty tag is dropped and a repeat is listed once.
-    /// release-mod.py applies the same rule when it writes the manifest.
+    /// The release packager applies this rule when it writes the manifest.
     /// </summary>
     public static class CatalogTags
     {

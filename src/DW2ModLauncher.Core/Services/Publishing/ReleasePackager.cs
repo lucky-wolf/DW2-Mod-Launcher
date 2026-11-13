@@ -35,8 +35,8 @@ namespace DW2ModLauncher.Core.Services.Publishing
 
     /// <summary>
     /// Builds the files of a mod's GitHub release (docs/plans/mod-catalog.md, section 2): the zip with the mod's published files under one
-    /// root folder, its checksum, the manifest the catalog reads, the preview image and the release notes. The format is the one DW2-XL's
-    /// scripts/release-mod.py writes, so releases made either way look the same to the catalog. Anything that would make the catalog reject
+    /// root folder, its checksum, the manifest the catalog reads, the preview image and the release notes. This is the one place
+    /// the release format is defined, and the catalog reads it. Anything that would make the catalog reject
     /// the release is refused here, naming what is wrong; nothing is guessed or filled in.
     /// </summary>
     public static class ReleasePackager
