@@ -267,3 +267,19 @@ If it differs, something is varying; compare the two DLLs with a binary diff to 
 ## Publishing
 
 Use the launcher's Publish dialog. It uploads the content folder, proposes the next version, sends `description.bbcode` and the `Unreleased` lines of `changelog.txt` as the change note, records the folder for change detection, and stamps `changelog.txt` with the version and date. Keep your Steam client running and logged in.
+
+### Publishing to GitHub releases
+
+The Publish dialog can also send a mod to a GitHub release, to Steam, or to both. A GitHub release makes the mod installable from the launcher's Browse window, including by players without Steam.
+
+**What it does.** It zips the mod folder as it is at that moment, adds a checksum, a manifest (name, version, author, `uid`, kinds, tags, dependencies, size, hash) and the mod's preview image, uses the changelog section for the version as the release notes, and creates a release tagged `<Mod-name>-v<version>`. The catalog picks it up at its next indexing (daily). With Steam ticked too, the Steam upload happens first; a GitHub failure never undoes it, and publishing again with only GitHub ticked retries just that step. The same version with the same files does nothing. The same version with changed files asks first, because replacing deletes the release and its download count.
+
+**To enable it:**
+
+1. Install the GitHub CLI (`gh`) and log in with `gh auth login`. The launcher keeps no credentials and uses your machine's login.
+2. Create a public GitHub repository for your releases and give it the topic `dw2-mod`; the catalog finds releases by that topic, and the launcher warns if it is missing.
+3. In Settings, set your **Author name** (the catalog lists only mods with an author), and under Mod authoring > *Publish to* tick **GitHub releases** (off by default).
+4. Name the repository on the mod, in the Publish or Edit Properties dialog or by hand in `dw2modlauncher.json`: `"releaseRepo": "owner/name"`. The launcher also writes the mod's `uid` there, which the catalog needs.
+5. Open Publish, tick GitHub releases and publish. Publish stays disabled, with the reason shown, if GitHub is ticked without a valid repository.
+
+Optional: `tags` in `dw2modlauncher.json`, a preview image under 8 MiB, a `changelog.txt` section per version, and dependencies listed by `mod` name with `required` set. The launcher refuses a mod the catalog would reject (no author or `uid`, a dependency without a `mod` name) and says why. Limits: 2 GiB for the zip, 8 MiB for the preview.
