@@ -15,19 +15,28 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>Whether a dependency entry names a mod at all: by Workshop id, by name, or both.</summary>
         public static bool NamesAMod(LauncherDependency dep)
         {
-            return dep != null && (dep.workshopId.HasValue || !string.IsNullOrWhiteSpace(dep.mod));
+            return dep != null && (!string.IsNullOrWhiteSpace(dep.uid) || dep.workshopId.HasValue || !string.IsNullOrWhiteSpace(dep.mod));
         }
 
-        /// <summary>How a message calls the mod a dependency points at: its name when given, else its Workshop id.</summary>
+        /// <summary>How a message calls the mod a dependency points at: its name when given, else its Workshop id, else its uid.</summary>
         public static string Label(LauncherDependency dep)
         {
-            return !string.IsNullOrWhiteSpace(dep.mod) ? dep.mod.Trim() : dep.workshopId.ToString();
+            if (!string.IsNullOrWhiteSpace(dep.mod)) return dep.mod.Trim();
+            return dep.workshopId.HasValue ? dep.workshopId.ToString() : dep.uid.Trim();
         }
 
-        /// <summary>The mod a dependency points at. A Workshop id wins: when the entry has one, the name is not looked at, and no mod with that id means no mod (never a guess from the name). Without an id the name is matched against id, display name, token or folder name, ignoring case.</summary>
+        /// <summary>The mod a dependency points at. A uid wins: a mod with that uid is the one; otherwise only a mod that has no uid yet can still match by the Workshop id or name beside it (a mod with another uid is a different mod). A Workshop id wins over the name the same way. Without either the name is matched against id, display name, token or folder name, ignoring case.</summary>
         public static ModInfo Find(IEnumerable<ModInfo> mods, LauncherDependency dep)
         {
             if (dep == null) return null;
+            if (!string.IsNullOrWhiteSpace(dep.uid))
+            {
+                string wantedUid = ModUid.Normalize(dep.uid);
+                ModInfo byUid = mods.FirstOrDefault(m => m != null && ModUid.Same(m.Uid, wantedUid));
+                if (byUid != null || wantedUid == null) return byUid;
+                // As in the catalog, only a mod installed before identities (no uid yet) is still matched by the Workshop id or name beside it.
+                mods = mods.Where(m => m != null && m.Uid == null);
+            }
             if (dep.workshopId.HasValue)
             {
                 string wanted = dep.workshopId.Value.ToString();
@@ -65,6 +74,7 @@ namespace DW2ModLauncher.Core.Services
             foreach (LauncherDependency dep in mod.Dependencies ?? new List<LauncherDependency>())
             {
                 if (!NamesAMod(dep)) { problems.Add(NamedText.Fill(t("DependencyNamesNoMod"), ("Mod", Name(mod)))); continue; }
+                if (!string.IsNullOrWhiteSpace(dep.uid) && ModUid.Normalize(dep.uid) == null) problems.Add(NamedText.Fill(t("DependencyBadUid"), ("Mod", Name(mod)), ("Target", Label(dep)), ("Uid", dep.uid)));
                 if (dep.loadAfter && dep.loadBefore) problems.Add(NamedText.Fill(t("DependencyBothOrders"), ("Mod", Name(mod)), ("Target", Label(dep))));
                 ModInfo target = Find(enabled, dep);
                 if (target == null || target == mod)

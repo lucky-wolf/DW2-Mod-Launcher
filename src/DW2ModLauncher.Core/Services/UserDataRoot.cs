@@ -54,6 +54,25 @@ namespace DW2ModLauncher.Core.Services
         }
 
         /// <summary>
+        /// Where data that can be fetched again lives (the catalog's previews, downloads and saved index): the per-user local folder
+        /// (<c>%LocalAppData%\DW2ModLauncher</c>, <c>~/.local/share/DW2ModLauncher</c>), which unlike <see cref="Get"/> (the roaming folder, for
+        /// settings) is never roamed or backed up. With <see cref="Flag"/> it is the <c>Cache</c> folder inside the moved root, so a test copy stays apart.
+        /// </summary>
+        public static string GetCache()
+        {
+            if (Override != null)
+            {
+                string moved = Path.Combine(Override, "Cache");
+                Directory.CreateDirectory(moved);
+                return moved;
+            }
+            string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create);
+            string root = Path.Combine(local, "DW2ModLauncher");
+            Directory.CreateDirectory(root);
+            return root;
+        }
+
+        /// <summary>
         /// Where launcher_settings.json, Profiles\, WorkshopBackups\ and the log live: the per-user config
         /// folder on every OS, since the install folder (or an AppImage/package location) is not a place to
         /// write user data. Anything left next to the binary by an older version is moved over once.

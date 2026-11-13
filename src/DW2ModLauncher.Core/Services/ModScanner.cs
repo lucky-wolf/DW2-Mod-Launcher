@@ -160,10 +160,16 @@ namespace DW2ModLauncher.Core.Services
             m.DescriptionOverride = ReadDescriptionFile(m.ContentRoot, descriptionFile) ?? ReadDescriptionFile(m.ContentRoot, "description.bbcode") ?? ReadDescriptionFile(m.ContentRoot, "description.txt");
             m.IncludedTools = FindIncludedTools(m.ContentRoot);
             m.IncludedDocuments = FindIncludedDocuments(m.ContentRoot);
-            LauncherMeta launcherMeta = LauncherMetaReader.Read(m);
+            LauncherMeta launcherMeta = LauncherMetaReader.TryRead(m, out string launcherJsonError);
+            if (launcherJsonError != null)
+            {
+                Logger.Log("Parse dw2modlauncher.json", m.Folder + ": " + launcherJsonError);
+                m.LauncherJsonError = launcherJsonError;
+            }
             m.MinLauncherVersion = launcherMeta?.minLauncherVersion?.Trim();
             m.Author = launcherMeta?.author?.Trim();
             m.Uid = ModUid.Normalize(launcherMeta?.uid);
+            m.ReleaseRepo = string.IsNullOrWhiteSpace(launcherMeta?.releaseRepo) ? null : launcherMeta.releaseRepo.Trim();
             m.Dependencies = launcherMeta?.dependencies ?? new List<LauncherDependency>();
             m.Provides = launcherMeta?.provides ?? new List<LauncherProvision>();
             m.Receives = launcherMeta?.receives ?? new List<string>();

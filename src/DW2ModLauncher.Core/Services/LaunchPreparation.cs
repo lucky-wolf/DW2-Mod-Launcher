@@ -91,7 +91,7 @@ namespace DW2ModLauncher.Core.Services
         /// </summary>
         public static Result Prepare(string gameRoot, string outDir, IList<string> extraMods)
         {
-            if (!SteamLocator.IsGameRoot(gameRoot)) throw new InvalidOperationException(gameRoot + " is not a Distant Worlds 2 folder.");
+            if (!GameFolder.IsGameRoot(gameRoot)) throw new InvalidOperationException(gameRoot + " is not a Distant Worlds 2 folder.");
             Result result = new Result();
             Func<string, string> t = key => Localization.Get("en", key);
 
@@ -101,7 +101,8 @@ namespace DW2ModLauncher.Core.Services
             settings.GameRoot = gameRoot;
             settings.ManagedModsRoot = Path.Combine(gameRoot, "mods");
             LauncherSettingsStore.Normalize(settings);
-            foreach (InstalledLanguagePacks.Problem problem in Localization.UseInstalledPacks(settings.ManagedModsRoot, settings.WorkshopRoot))
+            SteamSwitch.Resolve(settings);
+            foreach (InstalledLanguagePacks.Problem problem in Localization.UseInstalledPacks(settings.ManagedModsRoot, settings.EffectiveWorkshopRoot))
                 result.Problems.Add("⚠ " + problem.File + ": " + problem.Message);
             if (!Localization.AvailableLanguageCodes().Contains(settings.Language)) settings.Language = "en";
 
@@ -110,8 +111,9 @@ namespace DW2ModLauncher.Core.Services
             if (!modOrder.FileFound) result.Problems.Add("⚠ " + Path.Combine(settings.ManagedModsRoot, "mods.json") + " does not exist, so no mod is enabled.");
 
             List<ModInfo> installed = ModScanner.ScanMods(settings.ManagedModsRoot, false, t);
-            installed.AddRange(ModScanner.ScanMods(settings.WorkshopRoot, true, t));
+            installed.AddRange(ModScanner.ScanMods(settings.EffectiveWorkshopRoot, true, t));
             foreach (ModInfo bad in installed.Where(m => m.ModJsonError != null)) result.Problems.Add("⚠ " + bad.DisplayName + ": " + bad.ModJsonError);
+            foreach (ModInfo bad in installed.Where(m => m.LauncherJsonError != null)) result.Problems.Add("⚠ " + bad.DisplayName + ": dw2modlauncher.json is not valid: " + bad.LauncherJsonError);
 
             List<ModInfo> enabled = GameLauncher.OrderedEnabled(installed, modOrder, settings);
             // mods.json is not written here (that is the caller's file), so the dependency order is applied to this launch only

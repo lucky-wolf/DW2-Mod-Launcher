@@ -55,7 +55,7 @@ Making a mod? Start with the [Mod author README](Mod%20Author%20README.md).
 
 - Windows, or Linux (the game runs under Proton; see [Linux](#linux))
 - Distant Worlds 2
-- Steam version recommended
+- Steam is optional: the launcher also works with the GOG version or a copy bought directly (see [Initial Setup](#initial-setup)); on Linux, playing from the launcher needs Steam
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) for building (the only SDK you need)
 
 The launcher itself targets .NET 10 and is released self-contained, so players need no .NET install. The
@@ -126,6 +126,10 @@ Steam\steamapps\common\Distant Worlds 2
 ```
 
 The actual drive and Steam Library location may be different on your system.
+
+The launcher looks for the game in your Steam libraries, then the GOG install, then the entry a direct purchase leaves in Windows' list of installed programs. If it finds none, it says so and asks you to choose the folder containing `DistantWorlds2.exe`.
+
+Without Steam, untick **Use Steam** in Settings (it is unticked for you when no Steam install is found). The launcher then never contacts Steam and ignores Workshop mods and the Workshop folder; the mod catalog and publishing to GitHub work as usual.
 
 ## Linux
 

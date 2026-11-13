@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using DW2ModLauncher.Core.Diagnostics;
 using DW2ModLauncher.Core.Models;
 using DW2ModLauncher.Core.Services;
+using DW2ModLauncher.Core.Services.Catalog;
 using DW2ModLauncher.Core.Services.Publishing;
 
 namespace DW2ModLauncher.Avalonia.ViewModels
@@ -84,7 +85,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Launching the game first deletes its crashed-last-session marker so it does not ask.</summary>
         public bool ClearCrashIndication { get { return clearCrashIndication; } set { Set(ref clearCrashIndication, value); } }
         private bool skipSplash;
+        private bool catalogEnabled = true;
+        private bool steamEnabled = true;
+        private bool publishToGitHub;
+        private string catalogUrl = "";
         /// <summary>The game starts with its --skip-splash switch, so the splash screen is not shown.</summary>
+        public bool SteamEnabled { get { return steamEnabled; } set { Set(ref steamEnabled, value); } }
+        public bool PublishToGitHub { get { return publishToGitHub; } set { Set(ref publishToGitHub, value); } }
+        public bool CatalogEnabled { get { return catalogEnabled; } set { Set(ref catalogEnabled, value); } }
+        /// <summary>The catalog address box; empty means the built-in address.</summary>
+        public string CatalogUrl { get { return catalogUrl; } set { Set(ref catalogUrl, value ?? ""); } }
+        public string CatalogDefaultUrl { get { return CatalogClient.DefaultUrl; } }
         public bool SkipSplash { get { return skipSplash; } set { if (Set(ref skipSplash, value)) Raise(nameof(CommandPreview)); } }
         private string gameMonitor = "";
         private List<string> monitorLabels = new List<string>();
@@ -209,6 +220,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             SteamHelperProcess = s.SteamHelperProcessEnabled;
             ClearCrashIndication = s.ClearCrashIndication;
             SkipSplash = s.SkipSplash;
+            CatalogEnabled = s.CatalogEnabled;
+            SteamEnabled = s.SteamEnabled == true;
+            PublishToGitHub = s.PublishToGitHub;
+            CatalogUrl = s.CatalogUrl ?? "";
             gameMonitor = (s.GameMonitor ?? "").Trim();
             monitorLabels = DisplayChoices.Labels(DisplayEnumerator.List());
             Raise(nameof(GameMonitorChoices));
@@ -235,7 +250,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string game = (gameRoot ?? "").Trim();
             string workshop = (workshopRoot ?? "").Trim();
             string managed = (managedRoot ?? "").Trim();
-            switch (LauncherSettingsStore.Validate(game, workshop, managed, (logFolder ?? "").Trim()))
+            switch (LauncherSettingsStore.Validate(game, workshop, managed, (logFolder ?? "").Trim(), steamEnabled))
             {
                 case SettingsProblem.LogFolderMissing: await main.Dialogs.ShowMessageAsync(main.T("LogFolderMissing"), "DW2 Mod Launcher"); return false;
                 case SettingsProblem.GameFolderInvalid: await main.Dialogs.ShowMessageAsync(main.T("SelectGameFolderHint"), "DW2 Mod Launcher"); return false;
@@ -246,16 +261,29 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             LauncherSettings s = main.LauncherSettings;
             string extension = ModDescriptionFile.NormalizeExtension(descriptionExtension);
             DescriptionExtension = extension;
-            bool pathsSame = game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory;
+            bool pathsSame = steamEnabled == (s.SteamEnabled == true) && game == s.GameRoot && workshop == s.WorkshopRoot && managed == s.ManagedModsRoot && log == s.LogDirectory;
             string author = (authorName ?? "").Trim();
             AuthorName = author;
-            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription && openSteamPage == s.OpenSteamPageAfterPublish && autoSaveProfileOnExit == s.AutoSaveProfileOnExit && autoSaveProfileOnLaunch == s.AutoSaveProfileOnLaunch && steamHelperProcess == s.SteamHelperProcessEnabled && clearCrashIndication == s.ClearCrashIndication && gameMonitor == (s.GameMonitor ?? "")) return true;
+            string catalog = (catalogUrl ?? "").Trim();
+            if (catalog.Length > 0 && !(Uri.TryCreate(catalog, UriKind.Absolute, out Uri catalogUri) && catalogUri.Scheme == Uri.UriSchemeHttps))
+            {
+                await main.Dialogs.ShowMessageAsync(main.T("SettingsCatalogUrlInvalid", ("Url", catalog)), "DW2 Mod Launcher");
+                return false;
+            }
+            CatalogUrl = catalog;
+            if (pathsSame && extension == ModDescriptionFile.NormalizeExtension(s.DescriptionExtension) && author == (s.AuthorName ?? "") && autoUpdateDescription == s.AutoUpdateDescription && openSteamPage == s.OpenSteamPageAfterPublish && autoSaveProfileOnExit == s.AutoSaveProfileOnExit && autoSaveProfileOnLaunch == s.AutoSaveProfileOnLaunch && steamHelperProcess == s.SteamHelperProcessEnabled && clearCrashIndication == s.ClearCrashIndication && skipSplash == s.SkipSplash && catalogEnabled == s.CatalogEnabled && publishToGitHub == s.PublishToGitHub && catalog == (s.CatalogUrl ?? "") && gameMonitor == (s.GameMonitor ?? "")) return true;
             s.ClearCrashIndication = clearCrashIndication;
             s.SkipSplash = skipSplash;
+            s.CatalogEnabled = catalogEnabled;
+            s.SteamEnabled = steamEnabled;
+            s.PublishToGitHub = publishToGitHub;
+            s.CatalogUrl = catalog.Length == 0 ? null : catalog;
+            main.CatalogSettingChanged();
             s.GameMonitor = gameMonitor;
             s.AutoSaveProfileOnLaunch = autoSaveProfileOnLaunch;
             s.SteamHelperProcessEnabled = steamHelperProcess;
             ModPublisherFactory.UseHelperProcess = steamHelperProcess;
+            ModPublisherFactory.Enabled = steamEnabled;
             s.OpenSteamPageAfterPublish = openSteamPage;
             s.AutoSaveProfileOnExit = autoSaveProfileOnExit;
             s.DescriptionExtension = extension;
@@ -270,6 +298,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             s.WorkshopRoot = workshop;
             s.ManagedModsRoot = managed;
             s.LogDirectory = log;
+            PathDetector.Detect(s, false);
             main.SaveSettings();
             main.Refresh();
             return true;

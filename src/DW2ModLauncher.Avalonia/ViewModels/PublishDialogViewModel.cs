@@ -120,13 +120,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null, IEnumerable<string> knownCatalogTags = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null, IEnumerable<string> knownCatalogTags = null, bool publishToSteam = true, bool publishToGitHub = false, bool githubEnabled = true, bool steamEnabled = true)
         {
             this.dialogs = dialogs;
+            this.githubEnabled = githubEnabled;
+            this.steamEnabled = steamEnabled;
+            toSteam = publishToSteam && steamEnabled;
+            toGitHub = publishToGitHub;
             // every installed mod (this one too): what a "Compatible with" entry can name, and what the entries are checked against
             installedMods = (otherMods ?? new List<ModInfo>()).Where(m => m != null).ToList();
             compatibleEntries = new List<string>((mod.HooksCoordinatedWith ?? new List<string>()).Where(e => !string.IsNullOrWhiteSpace(e)).Select(e => e.Trim()));
             savedCompatible = new List<string>(compatibleEntries);
+            savedReleaseRepo = mod.ReleaseRepo ?? "";
+            releaseRepo = savedReleaseRepo;
             savedTags = new List<string>(mod.Tags ?? new List<string>());
             tagNames = new List<string>(savedTags);
             // what the tag picker offers: the suggested words, the tags of the mods installed, and the catalog's (once Browse has loaded it)
@@ -160,7 +166,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             this.isUpdate = isUpdate;
             this.autoUpdateDescription = autoUpdateDescription;
-            WindowTitle = l[propertiesOnly ? "EditPropertiesTitle" : "PublishToWorkshop"] + " - " + (mod.DisplayName ?? mod.Id);
+            WindowTitle = l[propertiesOnly ? "EditPropertiesTitle" : "PublishTitle"] + " - " + (mod.DisplayName ?? mod.Id);
             // Shown as the Publish button's tooltip. Properties-only editing saves mod.json and never talks to Steam, so it has no note.
             Note = propertiesOnly ? null : l[isUpdate ? "PublishAboutToRunUpdate" : "PublishAboutToRunFirstTime"];
             WorkshopIdText = string.IsNullOrWhiteSpace(mod.WorkshopId) ? l["PublishWorkshopIdUnpublished"] : mod.WorkshopId.Trim();
@@ -169,7 +175,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // Updating a published item proposes the next version per the mod's launcher-side policy (default: patch); nothing is
             // written to mod.json until the author accepts.
             bumpPolicy = bumpPolicy ?? new VersionBumpPolicy();
-            proposesBump = isUpdate;
+            proposesBump = isUpdate || publishToGitHub;
             BumpLevels.Add(new BumpLevelOption { Value = "none", Label = l["VersionLevelNone"] });
             foreach (VersionBumpLevel level in new[] { VersionBumpLevel.Patch, VersionBumpLevel.Minor, VersionBumpLevel.Major })
                 BumpLevels.Add(new BumpLevelOption { Value = ModVersion.LevelName(level), Label = l["VersionLevel" + level] });
@@ -205,6 +211,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             canPushVisibility = workshopId != null && (propertiesOnly ? currentVisibility.HasValue : isUpdate);
             VisibilityEnabled = !propertiesOnly || canPushVisibility;
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage);
+            CopyUidCommand = new RelayCommand(CopyUidAsync, () => HasUid);
             MarkUpToDateCommand = new RelayCommand(MarkUpToDateAsync);
             SaveCommand = new RelayCommand(SaveAsync);
             PullSteamDescriptionCommand = new RelayCommand(PullSteamDescriptionAsync);
@@ -425,6 +432,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get
             {
                 if (Note == null) return null;
+                if (!toSteam) return L["PublishAboutToRunGitHub"];
                 string line = ReplaceDescription ? L["PublishNoteDescriptionSent"]
                     : !autoUpdateDescription ? L["PublishNoteDescriptionOff"]
                     : L["PublishNoteDescriptionSame"];
@@ -501,8 +509,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool NoInjectedDlls { get { return InjectedDlls.Count == 0; } }
         public List<VisibilityOption> Visibilities { get; } = new List<VisibilityOption>();
         /// <summary>The Steam page and "pull description" buttons only make sense once the item has a Workshop id.</summary>
-        public bool HasWorkshopId { get { return workshopId != null; } }
+        public bool HasWorkshopId { get { return steamEnabled && workshopId != null; } }
         public RelayCommand OpenSteamPageCommand { get; }
+        /// <summary>The mod's permanent identity (dw2modlauncher.json "uid"); none until the mod's first publish (or Create Mod) stamps one.</summary>
+        public bool HasUid { get { return !string.IsNullOrWhiteSpace(mod.Uid); } }
+        public string UidText { get { return HasUid ? mod.Uid.Trim() : L["PublishUniqueIdNone"]; } }
+        public RelayCommand CopyUidCommand { get; }
+
+        private async Task CopyUidAsync()
+        {
+            try { await dialogs.CopyTextAsync(mod.Uid.Trim()); }
+            catch (Exception ex)
+            {
+                DW2ModLauncher.Core.Diagnostics.Logger.LogException("Copy the mod's unique ID", ex);
+                await dialogs.ShowMessageAsync(ex.Message, "DW2 Mod Launcher");
+            }
+        }
         public RelayCommand PullSteamDescriptionCommand { get; }
         public RelayCommand PushSteamDescriptionCommand { get; }
         public RelayCommand BrowsePreviewCommand { get; }
@@ -520,6 +542,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         // The catalog tags (dw2modlauncher.json "tags"): as typed in the dialog (comma separated), and as last read or saved.
         private readonly List<string> tagNames;
         private readonly List<string> knownTags;
+        private string savedReleaseRepo;
+        private string releaseRepo;
+        private readonly bool githubEnabled;
+        private readonly bool steamEnabled;
+        private bool toSteam;
+        private bool toGitHub;
         private List<string> savedTags;
 
         public RelayCommand AddCompatibleCommand { get; }
@@ -669,10 +697,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
         /// <summary>The primary button: publishing is always allowed; the Properties "Save" only once something changed.</summary>
         /// <summary>The publish dialog has nothing to send: the mod is recorded as up to date and nothing here was edited, so its one button reads Close.</summary>
-        public bool NothingToPublish { get { return !propertiesOnly && mod.PublishStatus == PublishStatus.Current && !HasUnsavedEdits; } }
+        public bool NothingToPublish { get { return !propertiesOnly && toSteam && !toGitHub && mod.PublishStatus == PublishStatus.Current && !HasUnsavedEdits; } }
         /// <summary>Edit Properties keeps a separate Cancel/Close next to Save; the publish dialog has just its one button (Esc or the window's X leave).</summary>
         public bool ShowCancel { get { return propertiesOnly; } }
-        public bool CanPrimary { get { return !propertiesOnly || IsModified; } }
+        public bool CanPrimary { get { return propertiesOnly ? IsModified : PublishBlockedReason.Length == 0; } }
         /// <summary>Something typed or chosen in this dialog has not been saved: leaving now would throw it away.</summary>
         private bool HasUnsavedEdits
         {
@@ -884,6 +912,43 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (!knownTags.Contains(pick.Tag)) knownTags.Add(pick.Tag);
             Raise(nameof(TagChips));
             RaiseModified();
+        }
+        /// <summary>The GitHub repository (OWNER/NAME) that holds this mod's releases for the catalog; empty for none. Saved in dw2modlauncher.json.</summary>
+        public string ReleaseRepo { get { return releaseRepo; } set { if (Set(ref releaseRepo, value ?? "")) { Raise(nameof(CanRelease)); Raise(nameof(ReleaseRepoInvalid)); RaiseTargets(); RaiseModified(); } } }
+        public bool CanRelease { get { return GitHubReleaseHost.IsRepo((releaseRepo ?? "").Trim()); } }
+        public bool ReleaseRepoInvalid { get { return (releaseRepo ?? "").Trim().Length > 0 && !CanRelease; } }
+        /// <summary>Where this publish goes. Both start as the Settings choice and can be changed for this one publish; Edit Properties has neither.</summary>
+        public bool ToSteam { get { return toSteam; } set { if (Set(ref toSteam, value)) RaiseTargets(); } }
+        public bool ToGitHub { get { return toGitHub; } set { if (Set(ref toGitHub, value)) RaiseTargets(); } }
+        public bool ShowTargets { get { return !propertiesOnly; } }
+        public bool ShowSteamTarget { get { return ShowTargets && steamEnabled; } }
+        public bool ShowGitHubTarget { get { return ShowTargets && githubEnabled; } }
+        /// <summary>The fixed strip above the footer: the targets (and the repository box); in Edit Properties just the repository box, and nothing when GitHub is off.</summary>
+        public bool ShowPublishStrip { get { return ShowTargets || ShowReleaseRepo; } }
+        /// <summary>GitHub publishing is switched on in Settings; off hides the GitHub box and the repository.</summary>
+        public bool GitHubEnabled { get { return githubEnabled; } }
+        /// <summary>The Workshop id and visibility only matter when the publish goes to Steam (Edit Properties always shows them).</summary>
+        public bool ShowSteamFields { get { return steamEnabled && (toSteam || propertiesOnly); } }
+        /// <summary>Steam is switched on in Settings; off hides the Steam box, the Workshop id and every Steam button.</summary>
+        public bool SteamOffered { get { return steamEnabled; } }
+        public bool ShowReleaseRepo { get { return githubEnabled && (toGitHub || propertiesOnly); } }
+        /// <summary>Why Publish cannot be pressed (nowhere to publish, or GitHub without a repository); empty when it can.</summary>
+        public string PublishBlockedReason
+        {
+            get
+            {
+                if (propertiesOnly) return "";
+                if (!toSteam && !toGitHub) return L["PublishTargetsNone"];
+                if (toGitHub && !CanRelease) return L["PublishRepoRequired"];
+                return "";
+            }
+        }
+        public bool HasBlockedReason { get { return PublishBlockedReason.Length > 0; } }
+        private void RaiseTargets()
+        {
+            Raise(nameof(ToSteam)); Raise(nameof(ToGitHub)); Raise(nameof(ShowSteamFields)); Raise(nameof(ShowReleaseRepo)); Raise(nameof(ShowPublishStrip));
+            Raise(nameof(PublishBlockedReason)); Raise(nameof(HasBlockedReason)); Raise(nameof(CanPrimary)); Raise(nameof(NothingToPublish));
+            Raise(nameof(PrimaryButtonText)); Raise(nameof(PublishTooltip));
         }
         public string ShortDescription { get { return shortDescription; } set { if (Set(ref shortDescription, value)) RaiseModified(); } }
         public VisibilityOption Visibility
@@ -1249,6 +1314,16 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 catch (Exception ex)
                 {
                     DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write dw2modlauncher.json tags", ex);
+                    return ex.Message;
+                }
+            }
+            string typedRepo = (releaseRepo ?? "").Trim();
+            if (typedRepo != savedReleaseRepo)
+            {
+                try { LauncherMetaWriter.SetReleaseRepo(mod.Folder, typedRepo); savedReleaseRepo = typedRepo; }
+                catch (Exception ex)
+                {
+                    DW2ModLauncher.Core.Diagnostics.Logger.LogException("Write dw2modlauncher.json release repository", ex);
                     return ex.Message;
                 }
             }

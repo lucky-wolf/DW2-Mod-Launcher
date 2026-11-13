@@ -65,11 +65,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             settingsStore = new LauncherSettingsStore(Path.Combine(appRoot, "launcher_settings.json"));
             settings = settingsStore.Load();
             LauncherSettingsStore.Normalize(settings);
+            SteamSwitch.Resolve(settings);
             ModPublisherFactory.UseHelperProcess = settings.SteamHelperProcessEnabled;
+            ModPublisherFactory.Enabled = settings.SteamEnabled == true;
             // before the language is checked: a saved language may be one that only an installed mod supplies
             var installedPackProblems = Localization.UseInstalledPacks(
                 string.IsNullOrWhiteSpace(settings.ManagedModsRoot) && !string.IsNullOrWhiteSpace(settings.GameRoot) ? Path.Combine(settings.GameRoot, "mods") : settings.ManagedModsRoot,
-                settings.WorkshopRoot);
+                settings.EffectiveWorkshopRoot);
             NormalizeSettings();
             Views.ModColumnLayout.Set(settings.ModListColumnOrder);
             if (string.IsNullOrWhiteSpace(settings.ManagedModsRoot))
@@ -100,6 +102,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             ConflictCallout.ReportText = CautionCallout.ReportText = T("HookFullReportButton");
             OpenAboutCommand = new RelayCommand(() => Dialogs.ShowAboutAsync(this));
             BrowseCatalogCommand = new RelayCommand(() => Dialogs.ShowCatalogAsync(new CatalogViewModel(this)));
+            ChooseGameFolderCommand = new RelayCommand(ChooseGameFolderAsync);
             RefreshCommand = new RelayCommand(() => { Refresh(); var _ = RefreshSteamStatusAsync(); });
             ClearCommand = new RelayCommand(ClearAsync);
             EnableAllCommand = new RelayCommand(EnableAllAsync);
@@ -135,7 +138,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             CheckUpdatesCommand = new RelayCommand(() => BeginWorkshopUpdateCheck(true), () => !updateCheckRunning && workshopMods.Count > 0);
             CreateModCommand = new RelayCommand(CreateModAsync);
             DeleteModCommand = new RelayCommand(DeleteModAsync, () => selectedRow != null && LocalModManager.CanDelete(selectedRow.Mod, settings.ManagedModsRoot));
-            UnsubscribeCommand = new RelayCommand(UnsubscribeAsync, () => selectedRow != null && selectedRow.Mod.IsWorkshop && SteamPageId(selectedRow) != null && !IsGameRunning && !unsubscribeRunning);
+            UnsubscribeCommand = new RelayCommand(UnsubscribeAsync, () => selectedRow != null && SteamEnabled && selectedRow.Mod.IsWorkshop && SteamPageId(selectedRow) != null && !IsGameRunning && !unsubscribeRunning);
             AddTranslationCommand = new RelayCommand(AddTranslationAsync, () => selectedRow != null && !selectedRow.Mod.IsWorkshop && !string.IsNullOrWhiteSpace(selectedRow.Mod.ModJsonPath));
             RenameModCommand = new RelayCommand(RenameModAsync, () => selectedRow != null && LocalModManager.CanRename(selectedRow.Mod, settings.ManagedModsRoot));
             NewIdentityCommand = new RelayCommand(NewIdentityAsync, () => selectedRow != null && LocalModManager.CanRename(selectedRow.Mod, settings.ManagedModsRoot));
@@ -161,6 +164,26 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         public RelayCommand OpenSettingsCommand { get; }
         public RelayCommand OpenAboutCommand { get; }
+        /// <summary>True while the saved game folder is not a Distant Worlds 2 folder (never found, or gone): the main window then shows a notice with <see cref="ChooseGameFolderCommand"/>.</summary>
+        public bool NoGameFolder { get { return !GameFolder.IsGameRoot(settings.GameRoot); } }
+        /// <summary>Asks for the game folder, checks it holds DistantWorlds2.exe (saying so if not), saves it and rescans.</summary>
+        public RelayCommand ChooseGameFolderCommand { get; }
+
+        private async Task ChooseGameFolderAsync()
+        {
+            string picked = await Dialogs.PickFolderAsync(T("SelectGameFolderHint"), settings.GameRoot);
+            if (picked == null) return;
+            picked = picked.Trim();
+            if (!GameFolder.IsGameRoot(picked))
+            {
+                await Dialogs.ShowMessageAsync(T("GameFolderNotValid", ("Folder", picked)), "DW2 Mod Launcher");
+                return;
+            }
+            settings.GameRoot = picked;
+            PathDetector.Detect(settings, false);
+            SaveSettings();
+            Refresh();
+        }
         /// <summary>The tags the mod catalog has, once Browse has loaded it this session; the tag picker offers them beside the suggested words. Empty until then.</summary>
         public List<string> KnownCatalogTags { get; set; } = new List<string>();
         /// <summary>Opens the Browse window over the mod catalog.</summary>
@@ -465,6 +488,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         public LauncherSettings LauncherSettings { get { return settings; } }
+        /// <summary>The master Steam switch: false means nothing in the launcher may ask Steam or show Steam things.</summary>
+        public bool SteamEnabled { get { return settings.SteamEnabled == true; } }
+        /// <summary>Whether the Mods list shows the Browse Mod Catalog button (a setting).</summary>
+        public bool CatalogEnabled { get { return settings.CatalogEnabled; } }
+        public void CatalogSettingChanged() { Raise(nameof(CatalogEnabled)); }
         public LauncherSettingsStore SettingsStore { get { return settingsStore; } }
         /// <summary>DW2's own named profiles, next to mods.json.</summary>
         public GameProfileStore GameProfiles { get { return new GameProfileStore(Path.GetDirectoryName(ModsJsonPath() ?? "")); } }
@@ -512,7 +540,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         // A never-set Author name (null) becomes the handle of the Steam account that logged in last on this machine. A name the user typed, or cleared on purpose (blank), is left alone.
         private void DetectAuthorName()
         {
-            if (settings.AuthorName != null) return;
+            if (settings.AuthorName != null || !SteamEnabled) return;
             try
             {
                 SteamLoginAccount account = SteamLoginUser.FindMostRecent();
@@ -592,7 +620,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 AddProblem(T("ModsFolderUnreadable", ("Folder", settings.ManagedModsRoot), ("Problem", ex.Message)));
                 managedMods = new List<ModInfo>();
             }
-            try { workshopMods = ModScanner.ScanMods(settings.WorkshopRoot, true, key => T(key)) ?? new List<ModInfo>(); }
+            try { workshopMods = ModScanner.ScanMods(settings.EffectiveWorkshopRoot, true, key => T(key)) ?? new List<ModInfo>(); }
             catch (Exception ex)
             {
                 Logger.LogException("Scan Workshop mods", ex);
@@ -601,6 +629,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             foreach (ModInfo bad in managedMods.Concat(workshopMods).Where(m => m.ModJsonError != null))
                 AddProblem(T("LaunchDiagModJson", ("Mod", bad.DisplayName), ("Problem", bad.ModJsonError)));
+            foreach (ModInfo bad in managedMods.Concat(workshopMods).Where(m => m.LauncherJsonError != null))
+                AddProblem(T("LaunchDiagLauncherJson", ("Mod", bad.DisplayName), ("Problem", bad.LauncherJsonError)));
             ModLibrary.RestoreWorkshopRuntimeState(workshopMods, workshopState);
             SteamAuthors.Apply(workshopMods, settings.SteamNames ?? new Dictionary<string, string>());
             List<string> identityProblems = LocalModIdentity.Adopt(managedMods, settings, modOrder, ModsJsonPath(), out bool identityChanged);
@@ -610,7 +640,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (ModsJsonPath() != null)
             {
                 MissingModReferences.Result missingMods = MissingModReferences.Prune(new GameProfileStore(Path.GetDirectoryName(ModsJsonPath())), modOrder, ModsJsonPath(),
-                    settings.ManagedModsRoot, settings.WorkshopRoot, settings.GameRoot);
+                    settings.ManagedModsRoot, settings.EffectiveWorkshopRoot, settings.GameRoot);
                 foreach (string problem in missingMods.Problems) AddProblem(problem);
                 if (missingMods.Removed.Count > 0)
                 {
@@ -628,10 +658,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach (ModInfo unscanned in AllMods.Where(m => m.ScanError != null))
                 AddProblem(T("ModFilesNotScanned", ("Mod", unscanned.DisplayName ?? unscanned.Id), ("Problem", unscanned.ScanError)));
             RebuildRows();
+            Raise(nameof(NoGameFolder));
             SyncEnabledModSettings();
             Settings.LoadFromSettings();
             UpdateStatus();
-            folderWatcher.Watch(settings.ManagedModsRoot, settings.WorkshopRoot);
+            folderWatcher.Watch(settings.ManagedModsRoot, settings.EffectiveWorkshopRoot);
             ReportProblems();
         }
 
@@ -1015,7 +1046,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             DetailVersion = string.IsNullOrWhiteSpace(mod.Version) ? "" : T("VersionLine", ("Version", mod.Version));
             DetailText = ModDetails.BuildText(mod, selected, key => T(key));
             DetailSource = T("SourceLine", ("Source", ModDetails.SourceText(mod, settings.ManagedModsRoot)));
-            DetailWorkshopId = T("WorkshopIdLine", ("Id", ModDetails.WorkshopId(mod) ?? "—"));
+            DetailWorkshopId = SteamEnabled ? T("WorkshopIdLine", ("Id", ModDetails.WorkshopId(mod) ?? "—")) : "";
             DetailLinks = ModDetails.BuildLinkLines(mod, OrderedEnabledMods(), key => T(key), m => HookFiles.ReadManifest(m, key => T(key)).Manifest, observedHooks);
             (List<string> conflicts, List<string> cautions) = ModDetails.BuildProblemGroups(mod, severity, key => T(key));
             ConflictCallout.Show(conflicts.Count == 0 ? "" : ProblemsHeader("HealthConflict", conflicts.Count, mod.HookConflictMods, mod.HookConflictMethods, mod.HookConflictNotes.Count, mod.HighRiskConflictCount > 0 ? mod : null),
@@ -1051,7 +1082,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void StartVisibilityLookup(ModInfo mod)
         {
             string id = mod.IsWorkshop ? null : ModDetails.WorkshopId(mod);
-            if (id == null || !long.TryParse(id, out long itemId) || mod.Visibility.HasValue || publishRunning || steamUnavailable || !visibilityLookups.Add(id)) return;
+            if (id == null || !long.TryParse(id, out long itemId) || mod.Visibility.HasValue || !SteamEnabled || publishRunning || steamUnavailable || !visibilityLookups.Add(id)) return;
             var _ = LookupVisibilityAsync(id, itemId);
         }
 
@@ -1136,9 +1167,9 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         /// <summary>The Workshop item id behind a row: the folder name for a Workshop copy, or the id written into mod.json by a publish.</summary>
-        private static string SteamPageId(ModRowViewModel row)
+        private string SteamPageId(ModRowViewModel row)
         {
-            if (row == null) return null;
+            if (row == null || !SteamEnabled) return null;
             string id = row.Mod.IsWorkshop ? row.Mod.Id : row.Mod.WorkshopId;
             return long.TryParse(id, out long _) ? id : null;
         }
@@ -1826,7 +1857,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// </summary>
         private async Task RefreshSteamStatusAsync()
         {
-            if (publishRunning || refreshingSteamStatus) return;
+            if (!SteamEnabled || publishRunning || refreshingSteamStatus) return;
             List<ModInfo> published = managedMods.Where(m => !string.IsNullOrWhiteSpace(m.WorkshopId) && !string.IsNullOrWhiteSpace(m.ModJsonPath)).ToList();
             List<long> ids = published.Select(m => long.TryParse(m.WorkshopId, out long id) ? id : 0).Where(id => id != 0).Distinct().ToList();
             if (ids.Count == 0) return;
@@ -1905,12 +1936,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 return;
             }
             bool isPublished = !string.IsNullOrWhiteSpace(mod.WorkshopId);
-            ModVisibility? currentVisibility = isPublished ? await ReadVisibilityAsync(mod) : null;
-            string steamDescription = isPublished ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
+            ModVisibility? currentVisibility = isPublished && SteamEnabled ? await ReadVisibilityAsync(mod) : null;
+            string steamDescription = isPublished && SteamEnabled ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -1994,13 +2025,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 mod = managedMods.FirstOrDefault(m => string.Equals(m.Folder, folder, StringComparison.OrdinalIgnoreCase)) ?? mod;
             }
             bool isUpdate = !string.IsNullOrWhiteSpace(mod.WorkshopId);
-            ModVisibility? currentVisibility = isUpdate ? await ReadVisibilityAsync(mod) : null;
+            ModVisibility? currentVisibility = isUpdate && SteamEnabled ? await ReadVisibilityAsync(mod) : null;
             // On an update, ask Steam what the description says now, to tell whether someone edited it there since we last sent it.
-            string steamDescription = isUpdate ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
+            string steamDescription = isUpdate && SteamEnabled ? await Task.Run(() => WorkshopApiClient.FetchDescription(mod.WorkshopId.Trim())) : null;
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -2015,6 +2046,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // Accepting the dialog wrote the (possibly bumped) version to mod.json; any exit below that doesn't publish undoes it.
             string versionBefore = editor.OriginalVersion;
             string versionWritten = metadata.Version;
+            // Not going to Steam for this publish: no Steam checks or upload, just the identity stamp, the release and the changelog stamp.
+            if (!editor.ToSteam)
+            {
+                await PublishToGitHubOnlyAsync(mod, metadata, versionBefore, versionWritten);
+                return;
+            }
 
             // Publishing a version that already went out, without raising it, replaces that version's content for everyone who has it: make sure that is meant.
             if (isUpdate && VersionAlreadyPublished(mod, metadata.Version))
@@ -2152,7 +2189,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 IModPublisher publisher = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
                 ModPublishResult result;
                 // Stay modal until Steam answers; Cancel only appears if that takes a while.
-                using (Dialogs.ShowBusy(T("PublishRunning"), T("PublishToWorkshop"), T("Cancel"), TimeSpan.FromSeconds(15), cancel))
+                using (Dialogs.ShowBusy(T("PublishRunning"), T("PublishTitle"), T("Cancel"), TimeSpan.FromSeconds(15), cancel))
                     result = await Task.Run(() => publisher.Publish(request));
                 if (cancel.IsCancellationRequested)
                 {
@@ -2188,8 +2225,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     Logger.LogException("Record published state of " + mod.DisplayName, ex);
                     recordProblem = T("PublishStateRecordFailed", ("Problem", ex.Message));
                 }
+                // The same folder, now exactly as uploaded, is released on GitHub when asked. A failure here never undoes the Steam publish.
+                ReleaseReport release = editor.ToGitHub
+                    ? await ReleaseToGitHubAsync(mod, metadata, contentFolder, result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), true)
+                    : null;
                 string url = "https://steamcommunity.com/sharedfiles/filedetails/?id=" + result.WorkshopId.Value;
                 string message = T("PublishCapturedIdMessage", ("Id", result.WorkshopId.Value), ("Url", url));
+                if (release != null) message += "\n\n" + release.Text;
                 if (result.NeedsWorkshopAgreement) message += "\n\n" + T("PublishNeedsWorkshopAgreement");
                 if (stampProblem != null) message += "\n\n" + stampProblem;
                 if (recordProblem != null) message += "\n\n" + recordProblem;
@@ -2201,20 +2243,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     message += "\n\n" + T("PublishVisibilityDiffers", ("Requested", T(PublishDialogViewModel.LabelKey(requested.Value))), ("Actual", T(PublishDialogViewModel.LabelKey(actual.Value))));
                 SetStatus(T("WorkshopIdSaved"));
                 string workshopId = result.WorkshopId.Value.ToString();
-                bool hasWarnings = result.NeedsWorkshopAgreement || stampProblem != null || recordProblem != null || carryOver.Problems.Count > 0
+                bool hasWarnings = (release != null && release.NeedsAttention) || result.NeedsWorkshopAgreement || stampProblem != null || recordProblem != null || carryOver.Problems.Count > 0
                     || (requested.HasValue && actual.HasValue && actual != requested);
                 switch (LauncherSettings.OpenSteamPageAfterPublish)
                 {
                     case OpenSteamPageAfterPublish.Always:
                         OpenSteamPage(workshopId);
                         // Problems still need reading; a plain success does not.
-                        if (hasWarnings) await Dialogs.ShowMessageAsync(message, T("PublishToWorkshop"));
+                        if (hasWarnings) await Dialogs.ShowMessageAsync(message, T("PublishTitle"));
                         break;
                     case OpenSteamPageAfterPublish.Never:
-                        if (hasWarnings) await Dialogs.ShowMessageAsync(message, T("PublishToWorkshop"));
+                        if (hasWarnings) await Dialogs.ShowMessageAsync(message, T("PublishTitle"));
                         break;
                     default:
-                        if (await Dialogs.ConfirmAsync(message, T("PublishToWorkshop"), T("SteamPage"), T("Close")))
+                        if (await Dialogs.ConfirmAsync(message, T("PublishTitle"), T("SteamPage"), T("Close")))
                             OpenSteamPage(workshopId);
                         break;
                 }
@@ -2232,6 +2274,115 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 publishRunning = false;
                 PublishCommand.RaiseCanExecuteChanged();
                 ForgetVisibility(mod);
+            }
+        }
+
+        /// <summary>What a GitHub release attempt has to say, and whether the author must read it.</summary>
+        private class ReleaseReport
+        {
+            public string Text;
+            public bool NeedsAttention;
+            /// <summary>The release exists on GitHub with these files (made now, replaced, or already there).</summary>
+            public bool Released;
+        }
+
+        /// <summary>
+        /// A publish that does not go to Steam (the Publish dialog's Steam box is off): stamp the author and identity, make the GitHub release,
+        /// then stamp the changelog. Anything that stops the release puts the version back, as a failed Steam upload does.
+        /// </summary>
+        private async Task PublishToGitHubOnlyAsync(ModInfo mod, ModPublishMetadata metadata, string versionBefore, string versionWritten)
+        {
+            string contentFolder = mod.ContentRoot ?? mod.Folder;
+            try
+            {
+                LauncherMetaWriter.StampAuthor(mod.Folder, settings.AuthorName, true);
+                LauncherMetaWriter.StampUid(mod.Folder);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Stamp author and uid in " + mod.Folder, ex);
+                RollBackVersion(mod, versionBefore, versionWritten);
+                await Dialogs.ShowMessageAsync(T("AuthorStampFailed", ("Problem", ex.Message)), "DW2 Mod Launcher");
+                return;
+            }
+            publishRunning = true;
+            PublishCommand.RaiseCanExecuteChanged();
+            ReviewCarryOver carryOver = ReviewCarryOver.Apply(settings, mod, AllMods.ToList(), versionBefore, metadata.Version);
+            if (carryOver.SettingsChanged) SaveSettings();
+            try
+            {
+                ReleaseReport report = await ReleaseToGitHubAsync(mod, metadata, contentFolder, mod.WorkshopId, false);
+                if (!report.Released)
+                {
+                    RollBackVersion(mod, versionBefore, versionWritten);
+                    await Dialogs.ShowMessageAsync(report.Text, T("PublishTitle"));
+                    SetStatus(T("PublishFailedStatus"));
+                    return;
+                }
+                carryOver.PruneOld();
+                string text = report.Text;
+                bool attention = report.NeedsAttention;
+                try { ModChangelog.Stamp(contentFolder, metadata.Version, DateTime.Now); }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Stamp changelog of " + mod.DisplayName, ex);
+                    text += "\n\n" + T("PublishChangelogStampFailed", ("Problem", ex.Message));
+                    attention = true;
+                }
+                if (carryOver.Problems.Count > 0)
+                {
+                    text += "\n\n" + T("PublishCarryOverFailed", ("Problem", string.Join("\n", carryOver.Problems)));
+                    attention = true;
+                }
+                if (attention) await Dialogs.ShowMessageAsync(text, T("PublishTitle"));
+                else SetStatus(text);
+                Refresh();
+            }
+            finally
+            {
+                publishRunning = false;
+                PublishCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        /// <summary>
+        /// Makes the mod's GitHub release (ReleasePublisher) behind a busy dialog; reports every expected failure in the result instead of throwing.
+        /// <paramref name="afterSteam"/> words a failure as "the Steam upload worked, but...".
+        /// </summary>
+        private async Task<ReleaseReport> ReleaseToGitHubAsync(ModInfo mod, ModPublishMetadata metadata, string contentFolder, string workshopId, bool afterSteam)
+        {
+            string name = mod.DisplayName ?? mod.Id ?? "";
+            string FailureText(string problem) => T(afterSteam ? "ReleaseFailedSteamDone" : "ReleaseFailed", ("Problem", problem));
+            LauncherMeta meta = LauncherMetaReader.TryRead(mod, out string metaError);
+            if (metaError != null) return new ReleaseReport { Text = FailureText(T("ReleaseLauncherJson", ("Mod", name), ("Problem", metaError))), NeedsAttention = true };
+            string repo = (meta?.releaseRepo ?? "").Trim();
+            if (repo.Length == 0) return new ReleaseReport { Text = FailureText(T("ReleaseNoRepo", ("Mod", name))), NeedsAttention = true };
+            string work = Path.Combine(UserDataRoot.GetCache(), "Releases");
+            try
+            {
+                SetStatus(T("ReleaseRunning"));
+                // gh runs off the UI thread; the question about replacing a release is put to the player on it.
+                Func<string, IList<string>, bool> confirmReplace = (tag, differences) =>
+                {
+                    string list = string.Join("\n", differences.Take(12)) + (differences.Count > 12 ? "\n..." : "");
+                    return global::Avalonia.Threading.Dispatcher.UIThread
+                        .InvokeAsync(() => Dialogs.ConfirmAsync(T("ReleaseReplaceConfirm", ("Tag", tag), ("Differences", list)), "DW2 Mod Launcher", T("Yes"), T("No")))
+                        .GetAwaiter().GetResult();
+                };
+                ReleaseResult result;
+                using (Dialogs.ShowBusy(T("ReleaseRunning"), T("PublishTitle"), T("Cancel"), TimeSpan.FromMinutes(10), new CancellationTokenSource()))
+                    result = await Task.Run(() => ReleasePublisher.Publish(new GitHubReleaseHost(), repo, contentFolder, work, metadata, meta, workshopId, DateTime.UtcNow, confirmReplace));
+                string key = result.Outcome == ReleaseOutcome.Created ? "ReleaseCreated"
+                    : result.Outcome == ReleaseOutcome.Replaced ? "ReleaseReplaced"
+                    : result.Outcome == ReleaseOutcome.AlreadyCurrent ? "ReleaseAlreadyCurrent" : "ReleaseDeclined";
+                string text = T(key, ("Tag", result.Tag), ("Repo", result.Repo));
+                if (result.Warnings.Count > 0) text += "\n\n" + string.Join("\n", result.Warnings);
+                return new ReleaseReport { Text = text, NeedsAttention = result.Warnings.Count > 0 || result.Outcome == ReleaseOutcome.Declined, Released = result.Outcome != ReleaseOutcome.Declined };
+            }
+            catch (Exception ex) when (ex is ReleaseHostException || ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.LogException("GitHub release of " + name, ex);
+                return new ReleaseReport { Text = FailureText(ex.Message), NeedsAttention = true };
             }
         }
 
@@ -2418,7 +2569,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             SetStatus(T("CheckingSteamWorkshopUpdates"));
             try
             {
-                string root = settings.WorkshopRoot;
+                string root = settings.EffectiveWorkshopRoot;
                 List<ModInfo> snapshot = workshopMods.ToList();
                 WorkshopUpdateCheckResult result = await Task.Run(() => WorkshopUpdateService.Check(root, snapshot));
                 int updates = WorkshopUpdateService.Apply(result, workshopMods);
@@ -2533,7 +2684,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
             }
             if (GameProcess.IsRunning(settings.GameRoot)) { SetGameState(GameState.Running); return; }
-            if (!SteamLocator.IsGameRoot(settings.GameRoot))
+            if (!GameLauncher.CanStart(SteamEnabled))
+            {
+                await Dialogs.ShowMessageAsync(T("LinuxPlayNeedsSteam"), "DW2 Mod Launcher");
+                return;
+            }
+            if (!GameFolder.IsGameRoot(settings.GameRoot))
             {
                 await Dialogs.ShowMessageAsync(T("GameExeNotFound"), "DW2 Mod Launcher");
                 return;

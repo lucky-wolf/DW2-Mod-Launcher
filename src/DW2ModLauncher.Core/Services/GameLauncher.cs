@@ -22,6 +22,17 @@ namespace DW2ModLauncher.Core.Services
             return BuildStartInfo(gameRoot, arguments, OperatingSystem.IsWindows());
         }
 
+        /// <summary>Whether the launcher can start the game here: always on Windows (the exe), on Linux only through Steam (Proton). Without Steam on Linux the player starts it their own way.</summary>
+        public static bool CanStart(bool steamEnabled)
+        {
+            return CanStart(steamEnabled, OperatingSystem.IsWindows());
+        }
+
+        internal static bool CanStart(bool steamEnabled, bool hostIsWindows)
+        {
+            return hostIsWindows || steamEnabled;
+        }
+
         internal static ProcessStartInfo BuildStartInfo(string gameRoot, string arguments, bool hostIsWindows)
         {
             ProcessStartInfo psi = new ProcessStartInfo();

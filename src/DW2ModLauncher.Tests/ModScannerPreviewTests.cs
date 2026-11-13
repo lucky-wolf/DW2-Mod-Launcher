@@ -31,6 +31,21 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void UnparseableLauncherJson_IsReportedOnTheMod_NotSilentlyDropped()
+        {
+            ModInfo mod = Scan("{ \"displayName\": \"M\" }", out string root);
+            try
+            {
+                Assert.Null(mod.LauncherJsonError);
+                File.WriteAllText(Path.Combine(root, "My Mod", "dw2modlauncher.json"), "{ \"tags\": [ oops ");
+                ModInfo again = Assert.Single(ModScanner.ScanMods(root, false, key => key));
+                Assert.NotNull(again.LauncherJsonError);
+                Assert.Empty(again.Dependencies);
+            }
+            finally { Directory.Delete(root, true); }
+        }
+
+        [Fact]
         public void PreviewNamingAMissingFile_HasNoPreview_NotSomeOtherImage()
         {
             ModInfo mod = Scan("{ \"displayName\": \"M\", \"previewImage\": \"Gone.png\" }", out string root);

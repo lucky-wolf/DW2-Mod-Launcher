@@ -52,7 +52,7 @@ Steam Workshopから導入したMODと、ゲーム本体のMODフォルダーに
 
 - Windows、またはLinux（ゲームはProtonで動作します。[Linux](#linux)を参照）
 - Distant Worlds 2
-- Steam版を推奨
+- Steamは必須ではありません。GOG版や直接購入版でも動作します（[初期設定](#初期設定)を参照）。Linuxでランチャーからプレイするには Steam が必要です
 - ビルドには [.NET 10 SDK](https://dotnet.microsoft.com/download) が必要です（必要なSDKはこれだけです）
 
 ランチャー本体は.NET 10を対象とし、自己完結型で配布されるため、プレイヤー側で.NETをインストールする必要はありません。
@@ -126,6 +126,10 @@ Steam\steamapps\common\Distant Worlds 2
 ```
 
 環境によってドライブやSteamライブラリの場所は異なります。
+
+ランチャーは、Steamライブラリ、GOGのインストール先、直接購入版がWindowsのインストール済みプログラム一覧に残す情報の順でゲームを探します。見つからない場合はその旨を表示し、`DistantWorlds2.exe` があるフォルダーの選択を求めます。
+
+Steamを使わない場合は、設定で **Use Steam** のチェックを外してください（Steamが見つからない場合は自動的に外れます）。この場合ランチャーはSteamに一切接続せず、Workshop MODとWorkshopフォルダーを無視します。MODカタログとGitHubへの公開は通常どおり使えます。
 
 ## Linux
 

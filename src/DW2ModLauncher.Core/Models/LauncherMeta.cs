@@ -25,6 +25,9 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>Topics the author gives the mod for the mod catalog's search and filter (music, art, icons ...). Free-form; the launcher writes them lower case with single spaces (CatalogTags).</summary>
         public List<string> tags { get; set; }
 
+        /// <summary>The GitHub repository (OWNER/NAME) that holds this mod's releases for the mod catalog. Publishing from the launcher makes the release there with the machine's <c>gh</c> login.</summary>
+        public string releaseRepo { get; set; }
+
         /// <summary>"replace": this mod's Galactopedia articles replace those of the game and of the mods before it (instead of being added to them). For translations.</summary>
         public string galactopedia { get; set; }
 
@@ -62,6 +65,9 @@ namespace DW2ModLauncher.Core.Models
     {
         /// <summary>The other mod by name, matched against its id, display name, folder name or token, ignoring case. Optional when <see cref="workshopId"/> is given; ignored when it is.</summary>
         public string mod { get; set; }
+
+        /// <summary>The other mod by identity (its dw2modlauncher.json "uid"). Optional; wins over <see cref="workshopId"/> and <see cref="mod"/> when given, and is the only way to name a mod that has no Workshop item.</summary>
+        public string uid { get; set; }
 
         /// <summary>The other mod by Workshop id (its mod.json "workshopId", or the folder of a subscribed Workshop mod). Optional when <see cref="mod"/> is given; wins over it when both are.</summary>
         [System.Text.Json.Serialization.JsonNumberHandling(System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString)]

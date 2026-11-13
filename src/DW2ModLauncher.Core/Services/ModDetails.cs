@@ -266,6 +266,7 @@ namespace DW2ModLauncher.Core.Services
             if (LauncherRequirement.IsUnmet(mod)) conflicts.Add(NamedText.Fill(t("LauncherTooOld"), ("Required", mod.MinLauncherVersion), ("Current", AppVersion.Display)));
             foreach (string problem in mod.DependencyProblems ?? new List<string>()) cautions.Add(problem);
             if (mod.ModJsonError != null) cautions.Add(NamedText.Fill(t("ModJsonNotValid"), ("Problem", mod.ModJsonError)));
+            if (mod.LauncherJsonError != null) cautions.Add(NamedText.Fill(t("LauncherJsonNotValid"), ("Problem", mod.LauncherJsonError)));
             return (conflicts, cautions);
         }
 
@@ -322,6 +323,7 @@ namespace DW2ModLauncher.Core.Services
             if (LauncherRequirement.IsUnmet(mod)) lines.Add(NamedText.Fill(t("LauncherTooOld"), ("Required", mod.MinLauncherVersion), ("Current", AppVersion.Display)));
             foreach (string problem in mod.DependencyProblems ?? new List<string>()) lines.Add(problem);
             if (mod.ModJsonError != null) lines.Add(NamedText.Fill(t("ModJsonNotValid"), ("Problem", mod.ModJsonError)));
+            if (mod.LauncherJsonError != null) lines.Add(NamedText.Fill(t("LauncherJsonNotValid"), ("Problem", mod.LauncherJsonError)));
             return lines;
         }
     }

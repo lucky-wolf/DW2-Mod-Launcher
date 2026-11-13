@@ -1,4 +1,7 @@
 ## Unreleased
+- Works without Steam: Use Steam setting; GOG and direct-purchase games are found
+- No game found: a notice asks you to choose the game folder
+- Publish dialog shows the unique ID; publish targets sit above the buttons
 - A Browse button lists mods from the public mod catalog
 - Catalog mods can be downloaded and updated in place from Browse
 - Mod authors can tag their mods in Edit Properties for catalog search
@@ -7,6 +10,11 @@
 - Browse Mod Catalog sorts by total downloads, or subscribers when Steam answers
 - Every mod gets a permanent identity; the catalog and duplicate check use it
 - Right-click Make This a New Mod gives a copy its own identity
+- Downloading a catalog mod can also fetch its required mods, if you choose
+- Browse shows the last saved catalog when offline
+- Settings can hide the catalog button or use another catalog address
+- A dw2modlauncher.json that cannot be read is now reported
+- Publish is one dialog: tick Steam, GitHub releases, or both
 
 ## 1.0.39 (2026-11-12)
 - Linux launcher update no longer fails with a missing Updates/new folder
