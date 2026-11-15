@@ -123,6 +123,30 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Compare_IgnoresHowJsonIsWritten_AndTheVersionInModJson()
+        {
+            string modJson = Path.Combine(Content, "mod.json");
+            string other = Path.Combine(Content, "dw2modlauncher.json");
+            File.WriteAllText(modJson, "{\"workshopId\":1,\"version\":\"1.0.2\",\"displayName\":\"A\"}");
+            File.WriteAllText(other, "{\"uid\":\"x\",\"author\":\"me\"}");
+            PublishedManifest manifest = PublishedState.Capture(Content);
+
+            // another layout, key order, a byte order mark and no final newline; a new version number in mod.json
+            File.WriteAllText(modJson, "{\n  \"displayName\": \"A\",\n  \"version\": \"1.0.3\",\n  \"workshopId\": 1\n}\n");
+            File.WriteAllText(other, "﻿{ \"author\": \"me\", \"uid\": \"x\" }");
+            File.SetLastWriteTimeUtc(modJson, DateTime.UtcNow.AddHours(1));
+            File.SetLastWriteTimeUtc(other, DateTime.UtcNow.AddHours(1));
+            Assert.True(PublishedState.Compare(Content, manifest).IsClean);
+
+            // a real change still counts: a value, and a version in a json that is not the root mod.json
+            File.WriteAllText(modJson, "{\"workshopId\":1,\"version\":\"1.0.3\",\"displayName\":\"B\"}");
+            File.WriteAllText(other, "{\"uid\":\"y\",\"author\":\"me\"}");
+            File.SetLastWriteTimeUtc(modJson, DateTime.UtcNow.AddHours(2));
+            File.SetLastWriteTimeUtc(other, DateTime.UtcNow.AddHours(2));
+            Assert.Equal(new[] { "dw2modlauncher.json", "mod.json" }, PublishedState.Compare(Content, manifest).Modified);
+        }
+
+        [Fact]
         public void Load_ReturnsNull_WithoutRecord_AndRoundTripsARecord()
         {
             Assert.Null(PublishedState.Load("123", Data));
