@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
+             x:Class="DW2ModLauncher.Avalonia.Views.CompatibleListView"
+             x:DataType="vm:CompatibleListViewModel">
+  <!-- The hooks of this mod that overlap another mod's. A tick means the author investigated the hook and it is marked compatible (a hook claim in
+       dw2modlauncher.hooks.json); hover a row for what was seen, the copy icon takes the same text to the clipboard. -->
+      <Border Background="{StaticResource Dw2Void}" BorderBrush="{StaticResource Dw2Steel}" BorderThickness="1" Padding="6,6">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="muted" IsVisible="{Binding NoCompatible}" Text="{Binding CompatibleNoneText}" TextWrapping="Wrap" />
+          <StackPanel Spacing="2" IsVisible="{Binding HasCompatible}">
+            <!-- column titles, laid out like the rows below -->
+            <Grid ColumnDefinitions="28,22,2*,3*,44,80" Margin="8,0,8,0">
+              <TextBlock Grid.Column="2" Classes="muted" Text="{Binding L[PublishCompatibleColMod]}" />
+              <TextBlock Grid.Column="3" Classes="muted" Text="{Binding L[PublishCompatibleColHook]}" />
+              <TextBlock Grid.Column="4" Classes="muted" HorizontalAlignment="Right" Text="{Binding L[PublishCompatibleColArgs]}" />
+              <TextBlock Grid.Column="5" Classes="muted" HorizontalAlignment="Center" Text="{Binding L[PublishCompatibleColDetails]}" />
+            </Grid>
+            <ListBox ItemsSource="{Binding CompatibleRows}" MaxHeight="220" ScrollViewer.VerticalScrollBarVisibility="Auto">
+              <ListBox.Styles>
+                <Style Selector="ListBoxItem">
+                  <Setter Property="Padding" Value="8,2" />
+                  <Setter Property="MinHeight" Value="0" />
+                </Style>
+              </ListBox.Styles>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:CompatibleRow">
+                  <Grid ColumnDefinitions="28,22,2*,3*,44,80,Auto" Opacity="{Binding Opacity}" ToolTip.Tip="{Binding Summary}" Background="Transparent">
+                    <CheckBox Grid.Column="0" MinWidth="0" Padding="0" IsChecked="{Binding IsChecked}" IsEnabled="{Binding CanCheck}" IsVisible="{Binding CanEdit}" ToolTip.Tip="{Binding CheckTooltip}" />
+                    <!-- severity if the hook is not marked: red for a conflict, orange for a caution -->
+                    <PathIcon Grid.Column="1" Width="14" Height="14" Foreground="Red" IsVisible="{Binding IsConflict}" ToolTip.Tip="{Binding SeverityTooltip}"
+                              Data="M13 13h-2V7h2m0 10h-2v-2h2M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2z" />
+                    <PathIcon Grid.Column="1" Width="14" Height="14" Foreground="Orange" IsVisible="{Binding IsCaution}" ToolTip.Tip="{Binding SeverityTooltip}" Data="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z" />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" TextTrimming="CharacterEllipsis" Text="{Binding Partner}" />
+                    <TextBlock Grid.Column="3" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Method}" />
+                    <TextBlock Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Right" Classes="muted" Text="{Binding Args}" />
+                    <TextBlock Grid.Column="6" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="Orange" Text="{Binding Note}" IsVisible="{Binding HasNote}" />
+                    <!-- copies this hook's details, to hand to an LLM or another author for the investigation -->
+                    <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                      <!-- "information-outline" icon, Material Design Icons, Apache-2.0: hover for everything that was seen (the same text the copy button takes) -->
+                      <PathIcon Width="14" Height="14" VerticalAlignment="Center" Background="Transparent" ToolTip.Tip="{Binding Details}"
+                                Data="M11 9h2V7h-2m1 13c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8m0-18A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2m-1 15h2v-6h-2v6z" />
+                      <Button Padding="5,3" Command="{Binding Copy}" ToolTip.Tip="{Binding CopyTooltip}">
+                        <Panel>
+                          <!-- "content-copy" icon, Material Design Icons, Apache-2.0 -->
+                          <PathIcon Width="12" Height="12" IsVisible="{Binding NotCopied}" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                          <!-- "check" icon, Material Design Icons, Apache-2.0 -->
+                          <PathIcon Width="12" Height="12" Foreground="{StaticResource Dw2Green}" IsVisible="{Binding Copied}" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                        </Panel>
+                      </Button>
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+</UserControl>

@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
+        xmlns:views="using:DW2ModLauncher.Avalonia.Views"
+        x:Class="DW2ModLauncher.Avalonia.Views.HookReviewDialog"
+        x:DataType="vm:CompatibleListViewModel"
+        Width="720" Height="480" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="16" RowSpacing="12">
+    <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding CanEdit}" Text="{Binding L[PublishCompatibleWithTooltip]}" />
+    <views:CompatibleListView Grid.Row="1" />
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+      <Button Name="SaveButton" MinWidth="100" IsDefault="True" IsVisible="{Binding CanEdit}" Content="{Binding L[Save]}" />
+      <Button Name="CancelButton" MinWidth="100" IsCancel="True" />
+    </StackPanel>
+  </Grid>
+</Window>

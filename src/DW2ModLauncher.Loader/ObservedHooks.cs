@@ -123,7 +123,8 @@ namespace DW2ModLauncher.Loader
                     Priority = patch.priority,
                     Before = patch.before?.ToList() ?? new List<string>(),
                     After = patch.after?.ToList() ?? new List<string>(),
-                    Method = code == null ? null : Describe(code)
+                    Method = code == null ? null : Describe(code),
+                    Signature = code == null ? null : SignatureOf(code)
                 });
             }
         }
@@ -187,6 +188,19 @@ namespace DW2ModLauncher.Loader
             return type + ":" + method.Name + "(" + string.Join(",", method.GetParameters().Select(p => p.ParameterType.FullName ?? p.ParameterType.Name)) + ")";
         }
 
+        // The patch method's shape as a claim sees it: "(ref System.Int32 amount, DistantWorlds.Types.Galaxy __instance) -> System.Boolean".
+        internal static string SignatureOf(MethodInfo code)
+        {
+            string Param(ParameterInfo p)
+            {
+                Type type = p.ParameterType;
+                bool byRef = type.IsByRef;
+                if (byRef) type = type.GetElementType();
+                return (byRef ? "ref " : "") + (type.FullName ?? type.Name) + " " + p.Name;
+            }
+            return "(" + string.Join(", ", code.GetParameters().Select(Param)) + ") -> " + (code.ReturnType.FullName ?? code.ReturnType.Name);
+        }
+
         static string GameVersion()
         {
             try { return Process.GetCurrentProcess().MainModule?.FileVersionInfo.FileVersion; }
@@ -231,6 +245,7 @@ namespace DW2ModLauncher.Loader
             public List<string> Before { get; set; } = new List<string>();
             public List<string> After { get; set; } = new List<string>();
             public string Method { get; set; }
+            public string Signature { get; set; }
         }
     }
 }

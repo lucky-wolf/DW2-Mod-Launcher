@@ -180,6 +180,11 @@ namespace DW2ModLauncher.Avalonia.Services
             mainWindow().Close();
         }
 
+        public Task<bool> EditCompatibleAsync(CompatibleListViewModel list)
+        {
+            return new HookReviewDialog(list).ShowDialog<bool>(owner());
+        }
+
         public async Task<bool> EditPublishAsync(PublishDialogViewModel editor)
         {
             PublishDialog dialog = new PublishDialog(editor, this);

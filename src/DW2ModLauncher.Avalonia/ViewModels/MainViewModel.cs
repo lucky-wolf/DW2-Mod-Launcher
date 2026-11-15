@@ -91,14 +91,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Settings = new SettingsViewModel(this);
             OpenSettingsCommand = new RelayCommand(() => Dialogs.ShowSettingsAsync(Settings));
             HookReportCommand = new RelayCommand(() => ShowHookReportAsync(selectedRow?.Mod, null), () => selectedRow != null);
-            SelectedConflictReportCommand = new RelayCommand(() => ShowHookReportAsync(selectedRow?.Mod, HookSeverity.Conflict), () => selectedRow != null);
-            SelectedCautionReportCommand = new RelayCommand(() => ShowHookReportAsync(selectedRow?.Mod, HookSeverity.Caution), () => selectedRow != null);
+            ShowHooksCommand = new RelayCommand(ShowHooksAsync, () => selectedRow != null);
             ConflictCallout.Expanded = settings.ConflictsExpanded;
             CautionCallout.Expanded = settings.CautionsExpanded;
             ConflictCallout.ExpandedChanged = open => { settings.ConflictsExpanded = open; SaveSettings(); };
             CautionCallout.ExpandedChanged = open => { settings.CautionsExpanded = open; SaveSettings(); };
-            ConflictCallout.ReportCommand = SelectedConflictReportCommand;
-            CautionCallout.ReportCommand = SelectedCautionReportCommand;
+            ConflictCallout.ReportCommand = ShowHooksCommand;
+            CautionCallout.ReportCommand = ShowHooksCommand;
             ConflictCallout.ReportText = CautionCallout.ReportText = T("HookFullReportButton");
             OpenAboutCommand = new RelayCommand(() => Dialogs.ShowAboutAsync(this));
             BrowseCatalogCommand = new RelayCommand(() => Dialogs.ShowCatalogAsync(new CatalogViewModel(this)));
@@ -197,9 +196,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>Zips the recent logs with the summary into the Downloads folder and opens it, for posting in the Discord mods channel.</summary>
         public RelayCommand CreateBugReportCommand { get; }
         public RelayCommand HookReportCommand { get; }
-        /// <summary>The hooks report for the selected mod alone, at one level: only its conflicts or only its cautions, and acknowledging covers only those.</summary>
-        public RelayCommand SelectedConflictReportCommand { get; }
-        public RelayCommand SelectedCautionReportCommand { get; }
+        /// <summary>The Details button of the Conflict and Caution bars: the list of the selected mod's overlapping hooks.</summary>
+        public RelayCommand ShowHooksCommand { get; }
 
         /// <summary>The report of every game method patched by more than one mod; its button either acknowledges what is listed or, once everything is acknowledged, forgets the acknowledgements.</summary>
         private async Task ShowHookReportAsync(ModInfo only, HookSeverity? level)
@@ -449,6 +447,22 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private IReadOnlyList<DetailLine> detailLinks = new List<DetailLine>();
         /// <summary>What the selected mod provides, receives and depends on, with who is on the other end (ModDetails.BuildLinks).</summary>
+        /// <summary>
+        /// Opens the list of the selected mod's hooks that overlap another mod's (the Details button of the Conflict and Caution bars): every row has a copy icon
+        /// for a report or a question. The author of a local mod also gets the ticks to mark a hook compatible and Save; anyone else a read-only list of what still clashes.
+        /// </summary>
+        private async Task ShowHooksAsync()
+        {
+            ModInfo mod = selectedRow?.Mod;
+            if (mod == null) return;
+            CompatibleListViewModel list = new CompatibleListViewModel(Dialogs, L, mod, AllMods.ToList(), HookAnalysis, readOnly: mod.IsWorkshop);
+            bool saved = await Dialogs.EditCompatibleAsync(list);
+            if (!saved) return;
+            string problem = list.Commit();
+            if (problem != null) await Dialogs.ShowMessageAsync(problem, "DW2 Mod Launcher");
+            Refresh();
+        }
+
         public IReadOnlyList<DetailLine> DetailLinks { get { return detailLinks; } private set { if (Set(ref detailLinks, value)) { Raise(nameof(HasLinks)); Raise(nameof(HasUnmetLinks)); } } }
         public bool HasLinks { get { return detailLinks.Count > 0; } }
         /// <summary>Something the mod needs is missing (a red line), so the folded links section still says so.</summary>
@@ -726,6 +740,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             (ObservedHooksFile observed, string observedError) = HookFiles.UpdateObservedHistory(HookFiles.ObservedPath(), HookFiles.HistoryPath(), key => T(key));
             if (observedError != null) AddProblem(observedError);
             observedHooks = observed;
+            // version-pinned "Compatible with" entries become claims about the hooks themselves, as soon as both sides' patches are known in full
+            HookClaimMigrationResult migrated = HookClaimMigration.Run(AllMods.ToList(), observed, key => T(key), DateTime.Now);
+            foreach (string problem in migrated.Problems) AddProblem(problem);
+            foreach ((ModInfo mod, int claims) in migrated.Written) Logger.Log("Hook claims", (mod.DisplayName ?? mod.Id) + ": " + claims + " hook claims made from its Compatible with entries");
             HookAnalysis = HookOverlapAnalyzer.Analyze(OrderedEnabledMods(), observed, HookFiles.SettingIsOn, new HashSet<string>(settings.AcknowledgedHooks ?? new List<string>()), key => T(key),
                 notEnabled: AllMods.Where(m => !IsSelected(m)));
             HookOverlapAnalyzer.Apply(AllMods, HookAnalysis, key => T(key));
@@ -1971,7 +1989,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -2061,7 +2079,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);

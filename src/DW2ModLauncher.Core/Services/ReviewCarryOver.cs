@@ -12,6 +12,7 @@ namespace DW2ModLauncher.Core.Services
     /// collisions, and the pinned "Name@1.2.3" entries of other mods' "hooksCoordinatedWith". All three are moved on before the publish, so
     /// nothing is sent out (or shown) as unreviewed; the old-version pins go once the publish has gone through.
     /// </summary>
+    // PHASE-OUT: the old whole-mod "Compatible with" (hooksCoordinatedWith) goes about three releases after hook claims ship; checklist in docs/plans/hook-compatibility-claims.md.
     public sealed class ReviewCarryOver
     {
         private readonly ModInfo mod;
