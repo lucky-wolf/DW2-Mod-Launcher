@@ -60,12 +60,56 @@ namespace DW2ModLauncher.Core.Services
                     }
                     if (document.RootElement.TryGetProperty("_layouts", out JsonElement layouts))
                         ReadLayouts(layouts, schema, path);
-                    return schema.Groups.Count > 0 ? schema : null;
+                    if (document.RootElement.TryGetProperty("_moved", out JsonElement moved))
+                        ReadMoved(moved, schema, path);
+                    ValidateMovedFrom(schema, path);
+                    // a mod that gave away every setting still has to say so, or the players' values could not follow
+                    return schema.Groups.Count > 0 || schema.Moved.Count > 0 ? schema : null;
                 }
             }
             catch (JsonException ex)
             {
                 throw new InvalidDataException("settings.schema.json is not valid: " + path + "\n" + ex.Message, ex);
+            }
+        }
+
+        // "_moved": { "OldKey": { "mod": "<receiving mod's uid>", "key": "NewKey" } }
+        // A key this schema still declares cannot also be given away, and the receiver must be named by a real uid; both are errors, not guesses.
+        private static void ReadMoved(JsonElement moved, ModSettingsSchema schema, string path)
+        {
+            const string where = "settings.schema.json: ";
+            if (moved.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException(where + "_moved must be an object of moved settings: " + path);
+            foreach (JsonProperty entry in moved.EnumerateObject())
+            {
+                if (entry.Value.ValueKind != JsonValueKind.Object)
+                    throw new InvalidDataException(where + "_moved '" + entry.Name + "' must be an object with \"mod\" and \"key\": " + path);
+                ModSettingMoveTarget target = entry.Value.Deserialize<ModSettingMoveTarget>(Options);
+                string uid = ModUid.Normalize(target.Mod);
+                if (uid == null)
+                    throw new InvalidDataException(where + "_moved '" + entry.Name + "' needs the receiving mod's \"mod\" as its uid (a UUID), not \"" + target.Mod + "\": " + path);
+                if (string.IsNullOrWhiteSpace(target.Key))
+                    throw new InvalidDataException(where + "_moved '" + entry.Name + "' has no \"key\", the name the setting has in the receiving mod: " + path);
+                if (schema.Fields.Any(f => string.Equals(f.Key, entry.Name, StringComparison.Ordinal)))
+                    throw new InvalidDataException(where + "_moved lists '" + entry.Name + "', but this schema still declares that setting: " + path);
+                target.Mod = uid;
+                schema.Moved[entry.Name] = target;
+            }
+        }
+
+        private static void ValidateMovedFrom(ModSettingsSchema schema, string path)
+        {
+            foreach (ModSettingsField field in schema.Fields)
+            {
+                foreach (ModSettingMoveSource source in field.MovedFrom ?? new List<ModSettingMoveSource>())
+                {
+                    string uid = ModUid.Normalize(source?.Mod);
+                    if (uid == null)
+                        throw new InvalidDataException("settings.schema.json: movedFrom of '" + field.Key + "' needs the giving mod's \"mod\" as its uid (a UUID), not \"" + source?.Mod + "\": " + path);
+                    if (string.IsNullOrWhiteSpace(source.Key))
+                        throw new InvalidDataException("settings.schema.json: movedFrom of '" + field.Key + "' has no \"key\", the name the setting had in the giving mod: " + path);
+                    source.Mod = uid;
+                }
             }
         }
 

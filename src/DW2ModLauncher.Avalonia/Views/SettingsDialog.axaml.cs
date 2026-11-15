@@ -11,6 +11,7 @@ namespace DW2ModLauncher.Avalonia.Views
         public SettingsDialog()
         {
             InitializeComponent();
+            ScreenFit.Attach(this);
             OkButton.Click += async delegate
             {
                 if (DataContext is SettingsViewModel settings && !await settings.TrySaveAsync()) return;

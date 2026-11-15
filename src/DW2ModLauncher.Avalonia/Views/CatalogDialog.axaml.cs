@@ -9,6 +9,7 @@ namespace DW2ModLauncher.Avalonia.Views
         public CatalogDialog()
         {
             InitializeComponent();
+            ScreenFit.Attach(this);
             CloseButton.Click += delegate { Close(); };
         }
 

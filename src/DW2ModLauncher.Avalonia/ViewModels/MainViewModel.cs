@@ -659,6 +659,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 AddProblem(T("DependencyIdsNotWritten", ("Mod", mod), ("Problem", problem)));
             managedMods = ModLibrary.OrderForDisplay(managedMods, modOrder);
             workshopMods = ModLibrary.OrderForDisplay(workshopMods, modOrder);
+            // settings a mod gave to another follow the player, after the identities above are known and before any mod's settings are completed
+            foreach (string problem in MigrateModSettings(managedMods.Concat(workshopMods).ToList())) AddProblem(problem);
 
             Analyze();
             foreach (ModInfo unscanned in AllMods.Where(m => m.ScanError != null))
@@ -670,6 +672,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             UpdateStatus();
             folderWatcher.Watch(settings.ManagedModsRoot, settings.EffectiveWorkshopRoot);
             ReportProblems();
+        }
+
+        /// <summary>Lets every enabled mod take the settings other mods gave it (docs/Settings Migration.md). Returns what the player should be told.</summary>
+        private List<string> MigrateModSettings(IEnumerable<ModInfo> mods)
+        {
+            return ModSettingsMigration.Run(mods, IsSelected, key => T(key)).Problems;
         }
 
         /// <summary>Completes the settings file of every enabled mod (keys added by a mod update appear at their defaults).</summary>
@@ -919,6 +927,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     SetStatus(snapNote.Length > 0 ? T("DW2ModSettingsSavedAndMoved", ("Mod", snapNote)) : T("DW2ModSettingsSaved"));
                     if (result.SettingsError != null)
                         await Dialogs.ShowMessageAsync(T("ModEnabledSettingsFailed", ("Mod", row.Mod.DisplayName), ("Problem", result.SettingsError.Message)), "DW2 Mod Launcher");
+                    // the mod just enabled may be the one that was given settings
+                    if (enable)
+                    {
+                        List<string> migrationProblems = MigrateModSettings(AllMods);
+                        if (migrationProblems.Count > 0) await Dialogs.ShowMessageAsync(string.Join("\n\n", migrationProblems), "DW2 Mod Launcher");
+                    }
                     break;
             }
             Analyze();

@@ -11,6 +11,7 @@ namespace DW2ModLauncher.Avalonia.Views
         public PublishDialog()
         {
             InitializeComponent();
+            ScreenFit.Attach(this);
         }
 
         public PublishDialog(PublishDialogViewModel editor, IDialogService dialogs) : this()

@@ -10,6 +10,7 @@ namespace DW2ModLauncher.Avalonia.Views
         public ModSettingsDialog()
         {
             InitializeComponent();
+            ScreenFit.Attach(this);
         }
 
         public ModSettingsDialog(ModSettingsEditorViewModel editor) : this()
