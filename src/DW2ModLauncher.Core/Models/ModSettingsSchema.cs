@@ -13,6 +13,12 @@ namespace DW2ModLauncher.Core.Models
     {
         public List<ModSettingsGroup> Groups { get; set; } = new List<ModSettingsGroup>();
 
+        /// <summary>
+        /// The settings this mod gave to another mod, from the root "_moved" object ({"OldKey": {"mod": "receiver uid", "key": "NewKey"}}), by the key this mod used to have.
+        /// The launcher keeps a player's value for such a key (see ModSettingsStore.RetireMoved) until the receiver, which must name this mod back, takes it. Empty when the mod gave nothing away.
+        /// </summary>
+        public Dictionary<string, ModSettingMoveTarget> Moved { get; set; } = new Dictionary<string, ModSettingMoveTarget>(StringComparer.Ordinal);
+
         /// <summary>Every field of every group, in file order.</summary>
         public List<ModSettingsField> Fields { get { return Groups.SelectMany(g => g.Fields).ToList(); } }
 
@@ -87,5 +93,21 @@ namespace DW2ModLauncher.Core.Models
         public bool Hidden { get; set; }
         // "localOnly": the older name for "hidden", still accepted.
         public bool LocalOnly { get { return Hidden; } set { if (value) Hidden = true; } }
+        /// <summary>"movedFrom": [{"mod": "giver uid", "key": "OldKey"}] - where a player's value for this setting may have lived before it moved here, in the order to try. The value comes over only when that mod's own schema says it gave the key to this mod and key.</summary>
+        public List<ModSettingMoveSource> MovedFrom { get; set; } = new List<ModSettingMoveSource>();
+    }
+
+    /// <summary>Where a setting used to live: the giving mod's uid and the key it had there.</summary>
+    public class ModSettingMoveSource
+    {
+        public string Mod { get; set; }
+        public string Key { get; set; }
+    }
+
+    /// <summary>Where a setting went: the receiving mod's uid and the key it has there.</summary>
+    public class ModSettingMoveTarget
+    {
+        public string Mod { get; set; }
+        public string Key { get; set; }
     }
 }

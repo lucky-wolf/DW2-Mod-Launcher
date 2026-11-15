@@ -162,8 +162,12 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
     inputs = freshness.build_inputs(repo_root)
     stamp = repo_root / "temp" / f"validated-{config}.stamp"
     exe = executable_path(repo_root, ui, config)
-    # What a build produces: the exe and the Loader DLL copied beside it (not updated while the game holds it, so not an output then).
-    outputs = [exe] if game_open else [exe, exe.parent / "Loader" / "DW2ModLauncher.Loader.dll"]
+    # MSBuild is incremental: it leaves the exe and the Loader DLL copy untouched when their own inputs did not change, so their
+    # times say nothing about whether a build is due. A stamp written after each successful build does. The exe and Loader DLL
+    # must still exist (the Loader copy is not updated while the game holds it, so it is not required then). A build made with the
+    # game open skipped the Loader copy, so it has its own stamp and does not vouch for a build with the game closed.
+    required = [exe] if game_open else [exe, exe.parent / "Loader" / "DW2ModLauncher.Loader.dll"]
+    build_stamp = repo_root / "temp" / f"built-{config}{'-no-loader' if game_open else ''}.stamp"
 
     # Format and tests only matter when a source changed since they last passed (the stamp is written when both succeeded).
     validate_reason = freshness.stale_reason([stamp], inputs) if validate else None
@@ -179,7 +183,8 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
         output.ok("dotnet format")
         inputs = freshness.build_inputs(repo_root)  # format may have rewritten sources
 
-    build_reason = freshness.stale_reason(outputs, inputs)
+    # existence only (inputs=[]), then the stamp against the sources
+    build_reason = freshness.stale_reason(required, []) or freshness.stale_reason([build_stamp], inputs)
     if force or build_reason is not None:
         require_launcher_closed()  # only a build overwrites the launcher's exe, so a run with nothing to build does not need it closed
         if not run_validate:
@@ -191,6 +196,7 @@ def build(repo_root: Path, ui: Ui, config: str, validate: bool, dry_run: bool = 
             build_args.append("-p:SkipLoaderCopy=true")
         proc.run(repo_root, f"dotnet build {ui.project}", build_args)
         output.ok("dotnet build")
+        freshness.touch(build_stamp)
     else:
         output.info(f"{exe.name} is up to date (nothing is newer than the build output); not building")
 

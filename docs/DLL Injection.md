@@ -332,6 +332,8 @@ with no remembered defaults yet just records its current ones as the baseline, s
 the first time. A user who deliberately picked a value equal to the old default is
 indistinguishable from one who never touched it, and follows the new default too.
 
+A setting that a mod gave to another mod keeps the player's value: see [Settings Migration](Settings%20Migration.md) (`_moved` in the giver's schema, `movedFrom` in the receiver's).
+
 `LoaderManifestBuilder` inlines each mod's resolved settings JSON directly into its manifest
 entry when a schema is present, so nothing needs to be written into Workshop content at launch
 time either.

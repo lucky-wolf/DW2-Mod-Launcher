@@ -79,24 +79,25 @@
         <Border BorderBrush="{StaticResource Dw2Steel}" BorderThickness="0,0,0,1" Padding="0,0,0,4">
           <TextBlock Classes="subheading" Text="{Binding L[SettingsSectionAuthoring]}" />
         </Border>
-        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
-          <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsPublishTo]}" ToolTip.Tip="{Binding L[SettingsPublishToTooltip]}" />
-          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="24">
-            <CheckBox IsChecked="{Binding PublishToGitHub}" Content="{Binding L[SettingsPublishToGitHub]}" ToolTip.Tip="{Binding L[SettingsPublishToTooltip]}" />
-          </StackPanel>
+        <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="10">
+          <!-- Author name and description file type share a line, as do Publish to and After publishing. -->
           <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsAuthorName]}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
-          <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" Width="300" Text="{Binding AuthorName}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
-          <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsDescriptionExtension]}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
-          <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="Auto,*">
-            <ComboBox Grid.Column="0" IsEditable="True" Width="200" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
-            <CheckBox Grid.Column="1" HorizontalAlignment="Right" IsChecked="{Binding AutoUpdateDescription}" Content="{Binding L[SettingsAutoUpdateDescription]}" ToolTip.Tip="{Binding L[SettingsAutoUpdateDescriptionTooltip]}" />
-          </Grid>
-          <TextBlock IsVisible="{Binding SteamEnabled}" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsOpenSteamPage]}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
-          <ComboBox IsVisible="{Binding SteamEnabled}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding OpenSteamPageChoices}" SelectedIndex="{Binding OpenSteamPageIndex}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
-          <TextBlock IsVisible="{Binding SteamEnabled}" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsSteamLinks]}" ToolTip.Tip="{Binding L[SettingsSteamLinksTooltip]}" />
-          <StackPanel IsVisible="{Binding SteamEnabled}" Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="24">
+          <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+            <TextBox Width="300" Text="{Binding AuthorName}" ToolTip.Tip="{Binding L[SettingsAuthorNameTooltip]}" />
+            <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="{Binding L[SettingsDescriptionExtension]}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
+            <ComboBox IsEditable="True" Width="130" ItemsSource="{Binding DescriptionExtensions}" Text="{Binding DescriptionExtension}" ToolTip.Tip="{Binding L[SettingsDescriptionExtensionTooltip]}" />
+          </StackPanel>
+          <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsPublishTo]}" ToolTip.Tip="{Binding L[SettingsPublishToTooltip]}" />
+          <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+            <CheckBox Width="300" IsChecked="{Binding PublishToGitHub}" Content="{Binding L[SettingsPublishToGitHub]}" ToolTip.Tip="{Binding L[SettingsPublishToTooltip]}" />
+            <TextBlock IsVisible="{Binding SteamEnabled}" Margin="14,0,0,0" VerticalAlignment="Center" Text="{Binding L[SettingsOpenSteamPage]}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
+            <ComboBox IsVisible="{Binding SteamEnabled}" Width="200" ItemsSource="{Binding OpenSteamPageChoices}" SelectedIndex="{Binding OpenSteamPageIndex}" ToolTip.Tip="{Binding L[SettingsOpenSteamPageTooltip]}" />
+          </StackPanel>
+          <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{Binding L[SettingsSteamLinks]}" ToolTip.Tip="{Binding L[SettingsSteamLinksTooltip]}" IsVisible="{Binding SteamEnabled}" />
+          <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="24" IsVisible="{Binding SteamEnabled}">
             <CheckBox IsChecked="{Binding LinkOptionalMods}" Content="{Binding L[SettingsLinkOptionalMods]}" ToolTip.Tip="{Binding L[SettingsLinkOptionalModsTooltip]}" />
             <CheckBox IsChecked="{Binding TrimSteamLinks}" Content="{Binding L[SettingsTrimSteamLinks]}" ToolTip.Tip="{Binding L[SettingsTrimSteamLinksTooltip]}" />
+            <CheckBox IsChecked="{Binding AutoUpdateDescription}" Content="{Binding L[SettingsAutoUpdateDescription]}" ToolTip.Tip="{Binding L[SettingsAutoUpdateDescriptionTooltip]}" />
           </StackPanel>
         </Grid>
       </StackPanel>
