@@ -19,6 +19,12 @@ namespace DW2ModLauncher.Core.Models
         /// </summary>
         public Dictionary<string, ModSettingMoveTarget> Moved { get; set; } = new Dictionary<string, ModSettingMoveTarget>(StringComparer.Ordinal);
 
+        /// <summary>
+        /// Which switches each setting needs, from the root "_enables" object ({"Enabler": ["Setting", ...]}): the setting key maps to the keys of the bool settings that must all be on.
+        /// A setting whose enabler is itself dependent is available only when the whole chain is on. Keys compare ignoring case.
+        /// </summary>
+        public Dictionary<string, List<string>> EnabledBy { get; set; } = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
         /// <summary>Every field of every group, in file order.</summary>
         public List<ModSettingsField> Fields { get { return Groups.SelectMany(g => g.Fields).ToList(); } }
 

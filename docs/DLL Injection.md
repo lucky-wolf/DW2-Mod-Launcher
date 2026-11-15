@@ -226,6 +226,15 @@ then only has to say what that one switch changes). The names are matched ignori
 }
 ```
 
+A bool setting can be a **master switch** for other settings, in any groups: a root `_enables` object maps the switch's key to the keys it enables. While the switch is off, those rows are drawn disabled (dark) and keep their values, so no tooltip has to say "only applies when X is on". Switches layer: list a sub-switch under the master and its own settings under it, and a setting is available only when every switch above it is on. A key that is not a setting of the schema, an enabler that is not a `bool`, a switch listing itself and a loop of switches are errors when the dialog opens. The launcher only draws the dependency; the mod still decides what an off switch means for the values it reads.
+
+```json
+{
+  "Staging": [ {"key": "Staging", "type": "bool", "default": true}, {"key": "StagingPlayer", "type": "bool", "default": true}, {"key": "StagingRatio", "type": "float", "default": 1.5} ],
+  "_enables": { "Staging": ["StagingPlayer", "StagingRatio"], "StagingPlayer": ["StagingRatio"] }
+}
+```
+
 A group can be drawn as a **ladder matrix** instead of the two-column list: a root `_layouts` object maps a group's name to `{ "kind": "ladder", "none": "<option>", "short": { "<option>": "<heading>" } }`. Every field of the group must be an `enum`; the columns are the longest option list, and a field may offer fewer of them (same order, none reordered or added): its missing cells are blocked out and cannot be clicked (non-aggression has no "Never", say), and `none` names the option that selects nothing. Each field becomes a row and each option a column, drawn in the order the options are listed, left to right. `none` must be the first or the last option; it is a column of its own (filled only while the row holds it), and the bar grows from its end: with `none` first the bar grows from the left, with `none` last from the right. Any other cell is filled from the column next to `none` out to the field's value (the gold tip). The order in the file is the order on screen, so there is nothing to reverse. Clicking a cell selects that column (nothing happens if it already is), and choosing nothing means clicking the `none` column. The selected column, the tip of the bar, is gold, and each row has its own reset button (live while the value differs from the default). The stored values stay the ordinary enum keys, so the mod reads them exactly as it would from the list. `short` gives narrow column headings (the full option text becomes the tooltip); options without an entry show in full (the `none` column can have one too). A layout the launcher cannot draw (unknown group, different options, a `none` that is not the first or last option) is reported when the dialog opens. A sidecar translates the headings with `"layouts": { "Group": { "short": { "Option": "…" } } }`, and column text otherwise comes from the first field's option translations.
 
 ```json

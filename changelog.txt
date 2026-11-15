@@ -5,6 +5,7 @@
 - Settings a mod hands to another mod keep your saved values
 - Dialogs no longer grow taller than the screen
 - Settings dialog is shorter: related options share a line
+- Master switches grey out the settings that depend on them
 
 ## 1.0.40 (2026-11-13)
 - Code mods get a GameReady event with the galaxy of each real game
