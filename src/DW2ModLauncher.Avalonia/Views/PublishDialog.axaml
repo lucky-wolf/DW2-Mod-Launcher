@@ -45,6 +45,44 @@
             </Button>
           </StackPanel>
         </StackPanel>
+        <!-- Identity and picture. The unique ID is the mod's permanent identity: read-only, copyable, assigned by the first publish if it has none. -->
+        <Grid ColumnDefinitions="1*,16,1*">
+          <StackPanel Grid.Column="0" Spacing="6">
+            <TextBlock Text="{Binding L[PublishUniqueId]}" />
+            <Grid ColumnDefinitions="*,6,Auto">
+              <TextBox Grid.Column="0" Text="{Binding UidText, Mode=OneWay}" IsReadOnly="True" />
+              <Button Grid.Column="2" Command="{Binding CopyUidCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishCopyUniqueId]}">
+                <!-- "content copy" icon, Material Design Icons, Apache-2.0 -->
+                <PathIcon Width="16" Height="16" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+              </Button>
+            </Grid>
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="{Binding L[PublishInfoPreviewImage]}" />
+              <TextBlock Grid.Column="1" Classes="muted" HorizontalAlignment="Right" Text="{Binding PreviewImageSize}" />
+            </Grid>
+            <!-- The name is read-only (it can still be selected and copied); the folder button opens the file picker. -->
+            <Grid ColumnDefinitions="*,6,Auto">
+              <TextBox Grid.Column="0" Text="{Binding PreviewImage}" IsReadOnly="True" />
+              <Button Grid.Column="2" Command="{Binding BrowsePreviewCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishInfoPreviewImage]}">
+                <!-- "folder open" icon, Material Design Icons, Apache-2.0 -->
+                <PathIcon Width="16" Height="16" Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
+              </Button>
+            </Grid>
+          </StackPanel>
+        </Grid>
+        <!-- Steam only: shown when Steam is enabled and ticked for this publish (always in Edit Properties). -->
+        <Grid ColumnDefinitions="1*,16,1*" IsVisible="{Binding ShowSteamFields}">
+          <StackPanel Grid.Column="0" Spacing="6">
+            <TextBlock Text="{Binding L[PublishWorkshopId]}" />
+            <TextBox Text="{Binding WorkshopIdText, Mode=OneWay}" IsReadOnly="True" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="6">
+            <TextBlock Text="{Binding L[PublishVisibility]}" />
+            <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" IsEnabled="{Binding VisibilityEnabled}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+        </Grid>
         <Grid ColumnDefinitions="Auto,24,*,24,*">
           <StackPanel Grid.Column="0" Spacing="6">
             <TextBlock Text="{Binding L[Version]}" />
@@ -92,44 +130,13 @@
             <TextBox Text="{Binding LastPublished, Mode=OneWay}" IsReadOnly="True" />
           </StackPanel>
         </Grid>
-        <!-- Identity and picture. The unique ID is the mod's permanent identity: read-only, copyable, assigned by the first publish if it has none. -->
-        <Grid ColumnDefinitions="1*,16,1*">
-          <StackPanel Grid.Column="0" Spacing="6">
-            <TextBlock Text="{Binding L[PublishUniqueId]}" />
-            <Grid ColumnDefinitions="*,6,Auto">
-              <TextBox Grid.Column="0" Text="{Binding UidText, Mode=OneWay}" IsReadOnly="True" />
-              <Button Grid.Column="2" Command="{Binding CopyUidCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishCopyUniqueId]}">
-                <!-- "content copy" icon, Material Design Icons, Apache-2.0 -->
-                <PathIcon Width="16" Height="16" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
-              </Button>
-            </Grid>
-          </StackPanel>
-          <StackPanel Grid.Column="2" Spacing="6">
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" Text="{Binding L[PublishInfoPreviewImage]}" />
-              <TextBlock Grid.Column="1" Classes="muted" HorizontalAlignment="Right" Text="{Binding PreviewImageSize}" />
-            </Grid>
-            <!-- The name is read-only (it can still be selected and copied); the folder button opens the file picker. -->
-            <Grid ColumnDefinitions="*,6,Auto">
-              <TextBox Grid.Column="0" Text="{Binding PreviewImage}" IsReadOnly="True" />
-              <Button Grid.Column="2" Command="{Binding BrowsePreviewCommand}" Padding="10,6" ToolTip.Tip="{Binding L[PublishInfoPreviewImage]}">
-                <!-- "folder open" icon, Material Design Icons, Apache-2.0 -->
-                <PathIcon Width="16" Height="16" Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
-              </Button>
-            </Grid>
-          </StackPanel>
-        </Grid>
-        <!-- Steam only: shown when Steam is enabled and ticked for this publish (always in Edit Properties). -->
-        <Grid ColumnDefinitions="1*,16,1*" IsVisible="{Binding ShowSteamFields}">
-          <StackPanel Grid.Column="0" Spacing="6">
-            <TextBlock Text="{Binding L[PublishWorkshopId]}" />
-            <TextBox Text="{Binding WorkshopIdText, Mode=OneWay}" IsReadOnly="True" />
-          </StackPanel>
-          <StackPanel Grid.Column="2" Spacing="6">
-            <TextBlock Text="{Binding L[PublishVisibility]}" />
-            <ComboBox ItemsSource="{Binding Visibilities}" SelectedItem="{Binding Visibility}" IsEnabled="{Binding VisibilityEnabled}" HorizontalAlignment="Stretch" />
-          </StackPanel>
-        </Grid>
+        <!-- What the update will send as its change note: the Unreleased lines of changelog.txt. Folded to "Change notes: N" until opened. Right under the version, above the description. -->
+        <Expander IsVisible="{Binding ShowChangeNotes}" IsExpanded="{Binding ChangeNotesExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
+          <Expander.Header>
+            <TextBlock Text="{Binding ChangeNotesHeader}" ToolTip.Tip="{Binding L[PublishChangeNotesHint]}" />
+          </Expander.Header>
+          <TextBox Text="{Binding ChangeNotes}" AcceptsReturn="True" TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" MinLines="{Binding ChangeNotesLines}" MaxLines="{Binding ChangeNotesLines}" />
+        </Expander>
         <!-- Folded by default: the arrow edits the description here, the pencil in your own editor. The buttons sit in the header and do not toggle it. -->
         <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
           <Expander.Header>
@@ -267,13 +274,6 @@
             </Grid>
           </Expander.Header>
           <views:CompatibleListView />
-        </Expander>
-        <!-- What the update will send as its change note: the Unreleased lines of changelog.txt. Folded to "Change notes: N" until opened. -->
-        <Expander IsVisible="{Binding ShowChangeNotes}" IsExpanded="{Binding ChangeNotesExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0">
-          <Expander.Header>
-            <TextBlock Text="{Binding ChangeNotesHeader}" ToolTip.Tip="{Binding L[PublishChangeNotesHint]}" />
-          </Expander.Header>
-          <TextBox Text="{Binding ChangeNotes}" AcceptsReturn="True" TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" MinLines="{Binding ChangeNotesLines}" MaxLines="{Binding ChangeNotesLines}" />
         </Expander>
         <!-- Folded to the one status line by default; the choice is remembered. Unfolded it lists every changed file. -->
         <Expander IsVisible="{Binding HasPublishStatus}" IsExpanded="{Binding StatusExpanded}" Header="{Binding PublishStatusLine}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="16,4,0,0">

@@ -1,5 +1,11 @@
 ## Unreleased
 
+## 1.0.42 (2026-11-15)
+- Publish shows Compatible with for the version being published
+- Publish dialog puts change notes right under the version
+- Publishing to Steam and GitHub shows both steps in one box with checks
+- JSON layout and a new mod.json version no longer mark a mod modified
+
 ## 1.0.41 (2026-11-15)
 - Hook compatibility is checked against the hooks, not mod versions
 - Conflict details list the shared hooks, with copy buttons

@@ -88,7 +88,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
                 FileInfo info = new FileInfo(Path.Combine(contentFolder, file));
                 if (info.Length == recorded.Size && info.LastWriteTimeUtc.Ticks == recorded.ModifiedUtcTicks) continue;
                 // No size shortcut here: a text file saved with other line endings has another size and the same hash.
-                if (HashFile(info.FullName) != recorded.Hash && ChangelogHash(info.FullName) != recorded.Hash) changes.Modified.Add(file);
+                if (HashFile(info.FullName) != recorded.Hash && ChangelogHash(info.FullName) != recorded.Hash && JsonHash(info.FullName, file) != recorded.Hash) changes.Modified.Add(file);
             }
             foreach (string file in manifest.Files.Keys)
                 if (!seen.Contains(file) && !IsMetadata(file)) changes.Removed.Add(file);
@@ -256,7 +256,56 @@ namespace DW2ModLauncher.Core.Services.Publishing
         private static PublishedFile Describe(string contentFolder, string relativePath)
         {
             FileInfo info = new FileInfo(Path.Combine(contentFolder, relativePath));
-            return new PublishedFile { Size = info.Length, ModifiedUtcTicks = info.LastWriteTimeUtc.Ticks, Hash = ChangelogHash(info.FullName) ?? HashFile(info.FullName) };
+            return new PublishedFile { Size = info.Length, ModifiedUtcTicks = info.LastWriteTimeUtc.Ticks, Hash = ChangelogHash(info.FullName) ?? JsonHash(info.FullName, relativePath) ?? HashFile(info.FullName) };
+        }
+
+        /// <summary>
+        /// For a .json file only (null for any other, and for one that is not valid JSON, which is then compared as plain text): the hash of
+        /// what the JSON says, not how it is written, so whitespace, line endings, a byte order mark, a trailing newline, the order of the keys
+        /// and comments are not changes. In the root mod.json the "version" key is left out as well: a publish stamps it, so the number
+        /// alone says nothing about what the item holds. Records made before this hold the plain hash, which <see cref="Compare"/> still accepts.
+        /// </summary>
+        private static string JsonHash(string path, string relativePath)
+        {
+            if (!path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return null;
+            bool modJson = string.Equals(relativePath, "mod.json", StringComparison.OrdinalIgnoreCase);
+            JsonDocumentOptions lenient = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
+            JsonDocument document;
+            try { document = JsonDocument.Parse(File.ReadAllText(path, Encoding.UTF8), lenient); }
+            catch (JsonException) { return null; }
+            using (document)
+            using (MemoryStream canonical = new MemoryStream())
+            {
+                using (Utf8JsonWriter writer = new Utf8JsonWriter(canonical))
+                    WriteCanonical(writer, document.RootElement, modJson);
+                return Convert.ToHexString(SHA256.HashData(canonical.ToArray()));
+            }
+        }
+
+        private static void WriteCanonical(Utf8JsonWriter writer, JsonElement element, bool skipVersion)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    writer.WriteStartObject();
+                    foreach (JsonProperty property in element.EnumerateObject()
+                        .Where(p => !(skipVersion && string.Equals(p.Name, "version", StringComparison.OrdinalIgnoreCase)))
+                        .OrderBy(p => p.Name, StringComparer.Ordinal))
+                    {
+                        writer.WritePropertyName(property.Name);
+                        WriteCanonical(writer, property.Value, false);
+                    }
+                    writer.WriteEndObject();
+                    break;
+                case JsonValueKind.Array:
+                    writer.WriteStartArray();
+                    foreach (JsonElement item in element.EnumerateArray()) WriteCanonical(writer, item, false);
+                    writer.WriteEndArray();
+                    break;
+                default:
+                    element.WriteTo(writer);
+                    break;
+            }
         }
 
         /// <summary>The files a publish sends, as paths relative to the content folder with '/' separators (the hook manifest, being metadata, is not among them). A GitHub release holds exactly these.</summary>

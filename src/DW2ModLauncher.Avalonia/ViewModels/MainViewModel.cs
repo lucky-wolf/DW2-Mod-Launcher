@@ -751,6 +751,23 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach (HookNote note in HookAnalysis.Notes.Where(n => n.Error)) AddProblem(note.Text);
         }
 
+        /// <summary>
+        /// The code-overlap analysis as it will read once <paramref name="mod"/> is at <paramref name="version"/>. A session record of a mod's patches only holds
+        /// for the exact version that ran, so a publish that changes the version makes the launcher read the mod's hooks file instead; the Publish dialog
+        /// asks here so it shows (and warns about) what the author will see afterwards, not what the old version's record says.
+        /// </summary>
+        private HookAnalysis AnalyzeAsVersion(ModInfo mod, string version)
+        {
+            string installed = mod.Version;
+            mod.Version = version;
+            try
+            {
+                return HookOverlapAnalyzer.Analyze(OrderedEnabledMods(), observedHooks, HookFiles.SettingIsOn, new HashSet<string>(settings.AcknowledgedHooks ?? new List<string>()), key => T(key),
+                    notEnabled: AllMods.Where(m => !IsSelected(m)));
+            }
+            finally { mod.Version = installed; }
+        }
+
         private void ApplySourceNames()
         {
             foreach (ModInfo mod in managedMods) mod.SourceName = T("GameModFolder");
@@ -2079,7 +2096,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam, analyzeAsVersion: v => AnalyzeAsVersion(mod, v)); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -2235,13 +2252,26 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // The new version inherits what was already reviewed for the old one (acknowledged overlaps, "Compatible with" pins), before anything goes out.
             ReviewCarryOver carryOver = ReviewCarryOver.Apply(settings, mod, AllMods.ToList(), versionBefore, metadata.Version);
             if (carryOver.SettingsChanged) SaveSettings();
+            // With a GitHub release to follow, one box lists both steps (hourglass, spinner, then a check) and stays open across them.
+            IStepsHandle steps = null;
             try
             {
                 IModPublisher publisher = ModPublisherFactory.Create(uint.Parse(SteamLocator.AppId));
                 ModPublishResult result;
                 // Stay modal until Steam answers; Cancel only appears if that takes a while.
-                using (Dialogs.ShowBusy(T("PublishRunning"), T("PublishTitle"), T("Cancel"), TimeSpan.FromSeconds(15), cancel))
-                    result = await Task.Run(() => publisher.Publish(request));
+                steps = editor.ToGitHub ? Dialogs.ShowSteps(new[] { T("PublishRunning"), T("ReleaseRunning") }, T("PublishTitle"), T("Cancel"), TimeSpan.FromSeconds(15), cancel) : null;
+                steps?.Set(0, StepState.Running);
+                IDisposable busy = steps == null ? Dialogs.ShowBusy(T("PublishRunning"), T("PublishTitle"), T("Cancel"), TimeSpan.FromSeconds(15), cancel) : null;
+                try { result = await Task.Run(() => publisher.Publish(request)); }
+                finally { busy?.Dispose(); }
+                bool steamWorked = !cancel.IsCancellationRequested && result.WorkshopId.HasValue && string.IsNullOrEmpty(result.ErrorMessage);
+                steps?.Set(0, steamWorked ? StepState.Done : StepState.Failed);
+                if (steamWorked) steps?.HideCancel();
+                else
+                {
+                    steps?.Dispose();
+                    steps = null;
+                }
                 if (cancel.IsCancellationRequested)
                 {
                     if (result.WorkshopId.HasValue) ModJsonWorkshopIdWriter.Write(mod.ModJsonPath, result.WorkshopId.Value);
@@ -2278,8 +2308,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 }
                 // The same folder, now exactly as uploaded, is released on GitHub when asked. A failure here never undoes the Steam publish.
                 ReleaseReport release = editor.ToGitHub
-                    ? await ReleaseToGitHubAsync(mod, metadata, contentFolder, result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), true)
+                    ? await ReleaseToGitHubAsync(mod, metadata, contentFolder, result.WorkshopId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), true, steps)
                     : null;
+                steps?.Dispose();
+                steps = null;
                 string url = "https://steamcommunity.com/sharedfiles/filedetails/?id=" + result.WorkshopId.Value;
                 string message = T("PublishCapturedIdMessage", ("Id", result.WorkshopId.Value), ("Url", url));
                 if (release != null) message += "\n\n" + release.Text;
@@ -2324,6 +2356,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
             finally
             {
+                steps?.Dispose();
                 publishRunning = false;
                 PublishCommand.RaiseCanExecuteChanged();
                 ForgetVisibility(mod);
@@ -2423,7 +2456,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// Makes the mod's GitHub release (ReleasePublisher) behind a busy dialog; reports every expected failure in the result instead of throwing.
         /// <paramref name="afterSteam"/> words a failure as "the Steam upload worked, but...".
         /// </summary>
-        private async Task<ReleaseReport> ReleaseToGitHubAsync(ModInfo mod, ModPublishMetadata metadata, string contentFolder, string workshopId, bool afterSteam)
+        private async Task<ReleaseReport> ReleaseToGitHubAsync(ModInfo mod, ModPublishMetadata metadata, string contentFolder, string workshopId, bool afterSteam, IStepsHandle steps = null)
         {
             string name = mod.DisplayName ?? mod.Id ?? "";
             string FailureText(string problem) => T(afterSteam ? "ReleaseFailedSteamDone" : "ReleaseFailed", ("Problem", problem));
@@ -2444,8 +2477,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                         .GetAwaiter().GetResult();
                 };
                 ReleaseResult result;
-                using (Dialogs.ShowBusy(T("ReleaseRunning"), T("PublishTitle"), T("Cancel"), TimeSpan.FromMinutes(10), new CancellationTokenSource()))
-                    result = await Task.Run(() => ReleasePublisher.Publish(new GitHubReleaseHost(), repo, contentFolder, work, metadata, meta, workshopId, DateTime.UtcNow, confirmReplace));
+                // After a Steam upload the steps box (its second line) is already open; on its own the release gets a busy box.
+                IDisposable busy = steps == null ? Dialogs.ShowBusy(T("ReleaseRunning"), T("PublishTitle"), T("Cancel"), TimeSpan.FromMinutes(10), new CancellationTokenSource()) : null;
+                steps?.Set(1, StepState.Running);
+                try { result = await Task.Run(() => ReleasePublisher.Publish(new GitHubReleaseHost(), repo, contentFolder, work, metadata, meta, workshopId, DateTime.UtcNow, confirmReplace)); }
+                finally { busy?.Dispose(); }
+                steps?.Set(1, result.Outcome == ReleaseOutcome.Declined ? StepState.Failed : StepState.Done);
                 string key = result.Outcome == ReleaseOutcome.Created ? "ReleaseCreated"
                     : result.Outcome == ReleaseOutcome.Replaced ? "ReleaseReplaced"
                     : result.Outcome == ReleaseOutcome.AlreadyCurrent ? "ReleaseAlreadyCurrent" : "ReleaseDeclined";
@@ -2470,6 +2507,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             catch (Exception ex) when (ex is ReleaseHostException || ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
             {
                 Logger.LogException("GitHub release of " + name, ex);
+                steps?.Set(1, StepState.Failed);
                 return new ReleaseReport { Text = FailureText(ex.Message), NeedsAttention = true };
             }
         }

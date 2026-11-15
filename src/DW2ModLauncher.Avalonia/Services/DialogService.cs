@@ -168,6 +168,13 @@ namespace DW2ModLauncher.Avalonia.Services
             public void Dispose() { dialog.Finish(); }
         }
 
+        public IStepsHandle ShowSteps(IReadOnlyList<string> labels, string title, string cancelText, TimeSpan cancelAfter, CancellationTokenSource cancel)
+        {
+            StepsDialog dialog = new StepsDialog(title, labels, cancelText, cancelAfter, cancel);
+            var shown = dialog.ShowDialog(owner());
+            return dialog;
+        }
+
         public IProgressHandle ShowProgress(string message, string title, string cancelText, CancellationTokenSource cancel)
         {
             ProgressDialog dialog = new ProgressDialog(message, title, cancelText, cancel);

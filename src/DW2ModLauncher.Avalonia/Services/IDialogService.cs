@@ -13,6 +13,17 @@ namespace DW2ModLauncher.Avalonia.Services
         void Report(double? fraction, string detail);
     }
 
+    /// <summary>Where one step of a multi-step job stands.</summary>
+    public enum StepState { Waiting, Running, Done, Failed }
+
+    /// <summary>An open steps box. Call <see cref="Set"/> on the UI thread.</summary>
+    public interface IStepsHandle : IDisposable
+    {
+        void Set(int index, StepState state);
+        /// <summary>Takes the Cancel button away (and keeps it away) once nothing left can be cancelled.</summary>
+        void HideCancel();
+    }
+
     /// <summary>The few things view models need from the windowing layer, kept out of the view models themselves.</summary>
     public interface IDialogService
     {
@@ -60,6 +71,11 @@ namespace DW2ModLauncher.Avalonia.Services
         /// after <paramref name="cancelAfter"/> and, when clicked, cancels <paramref name="cancel"/>.
         /// </summary>
         IDisposable ShowBusy(string message, string title, string cancelText, TimeSpan cancelAfter, CancellationTokenSource cancel);
+        /// <summary>
+        /// Shows a modal box listing <paramref name="labels"/>, one per step, each with a mark the caller moves through <see cref="IStepsHandle.Set"/>
+        /// (all start waiting); dispose the result to close it. Cancel behaves as in <see cref="ShowBusy"/>.
+        /// </summary>
+        IStepsHandle ShowSteps(IReadOnlyList<string> labels, string title, string cancelText, TimeSpan cancelAfter, CancellationTokenSource cancel);
         /// <summary>
         /// Shows a modal progress bar with a Cancel button that cancels <paramref name="cancel"/>; dispose the result to close it.
         /// </summary>

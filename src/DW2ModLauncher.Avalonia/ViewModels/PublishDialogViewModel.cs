@@ -185,7 +185,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null, IEnumerable<string> knownCatalogTags = null, bool publishToSteam = true, bool publishToGitHub = false, bool githubEnabled = true, bool steamEnabled = true, bool linkOptionalOnSteam = true, HookAnalysis hookAnalysis = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null, IEnumerable<string> knownCatalogTags = null, bool publishToSteam = true, bool publishToGitHub = false, bool githubEnabled = true, bool steamEnabled = true, bool linkOptionalOnSteam = true, HookAnalysis hookAnalysis = null, Func<string, HookAnalysis> analyzeAsVersion = null)
         {
             this.linkOptionalOnSteam = linkOptionalOnSteam;
             this.dialogs = dialogs;
@@ -196,6 +196,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // every installed mod (this one too): what a "Compatible with" entry can name, and what the entries are checked against
             installedMods = (otherMods ?? new List<ModInfo>()).Where(m => m != null).ToList();
             // the hooks this mod's author has marked compatible (hook claims in its own hooks file), edited as a copy and written on save
+            this.analyzeAsVersion = analyzeAsVersion;
             Compatible = new CompatibleListViewModel(dialogs, l, mod, installedMods, hookAnalysis ?? new HookAnalysis());
             Compatible.Changed += RaiseModified;
             dependencies = new List<LauncherDependency>((mod.Dependencies ?? new List<LauncherDependency>()).Where(d => d != null).Select(SteamLinks.Clone));
@@ -252,6 +253,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             bumpLevel = BumpLevels.First(o => o.Value == wanted);
             proposedVersion = ProposeVersion();
             version = proposedVersion;
+            RefreshCompatibleForVersion();
             LoadChangeNotesFor(version);
             AdjustVersionCommand = RelayCommand.WithParameter(AdjustVersion);
             IsSemver = ModVersion.TryParseSemver(version, out _, out _, out _);
@@ -705,7 +707,30 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private List<string> savedTags;
 
         /// <summary>The "Compatible with" list: this mod's hooks that overlap another mod's, ticked when investigated.</summary>
-        public CompatibleListViewModel Compatible { get; }
+        public CompatibleListViewModel Compatible { get; private set; }
+
+        private readonly Func<string, HookAnalysis> analyzeAsVersion;
+        // whether Compatible was built from the analysis as of the version being published (true) or of the installed one (false, how it starts)
+        private bool compatibleForNewVersion;
+
+        /// <summary>
+        /// The session record of a mod's patches only holds for the exact version that ran, so the moment a publish changes the version the launcher reads
+        /// the mod's hooks file instead, and the overlaps can differ. The list is therefore built for the version this publish will send, so what it
+        /// shows (and warns about before publishing) is what the author sees afterwards. Rebuilt when the version box moves between the two cases.
+        /// </summary>
+        private void RefreshCompatibleForVersion()
+        {
+            if (propertiesOnly || analyzeAsVersion == null) return;
+            string wanted = (version ?? "").Trim();
+            bool changes = wanted.Length > 0 && !string.Equals(wanted, (OriginalVersion ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+            if (changes == compatibleForNewVersion) return;
+            compatibleForNewVersion = changes;
+            Compatible.Changed -= RaiseModified;
+            Compatible = new CompatibleListViewModel(dialogs, L, mod, installedMods, analyzeAsVersion(changes ? wanted : (OriginalVersion ?? "").Trim()));
+            Compatible.Changed += RaiseModified;
+            Raise(nameof(Compatible));
+            RaiseModified();
+        }
 
         /// <summary>The hooks that overlap another mod's and are not marked, as lines; empty when only editing properties.</summary>
         public List<string> UnmarkedOverlaps() { return propertiesOnly ? new List<string>() : Compatible.UnmarkedOverlaps(); }
@@ -783,6 +808,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (!Set(ref version, value)) return;
                 LoadChangeNotesFor(value);
                 UpdateIsSemver();
+                RefreshCompatibleForVersion();
                 RaiseModified();
             }
         }
