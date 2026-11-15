@@ -139,6 +139,37 @@ namespace DW2ModLauncher.Tests
             finally { Directory.Delete(dir, true); }
         }
 
+        private const string EnableFields = @"""Main"": [
+            { ""key"": ""Master"", ""type"": ""bool"", ""default"": true },
+            { ""key"": ""Sub"", ""type"": ""bool"", ""default"": true },
+            { ""key"": ""A"", ""type"": ""int"", ""default"": 1 },
+            { ""key"": ""B"", ""type"": ""int"", ""default"": 1 }
+        ]";
+
+        [Fact]
+        public void Read_ParsesLayeredEnables()
+        {
+            var schema = ReadSchema("{ " + EnableFields + @", ""_enables"": { ""master"": [""Sub"", ""A""], ""Sub"": [""A"", ""B""] } }");
+
+            Assert.Equal(new[] { "Master" }, schema.EnabledBy["Sub"]);
+            Assert.Equal(new[] { "Master", "Sub" }, schema.EnabledBy["A"]);
+            Assert.Equal(new[] { "Sub" }, schema.EnabledBy["B"]);
+            Assert.False(schema.EnabledBy.ContainsKey("Master"));
+        }
+
+        [Theory]
+        [InlineData(@"""_enables"": { ""Nope"": [""A""] }", "not a setting")]
+        [InlineData(@"""_enables"": { ""Master"": [""Nope""] }", "not a setting")]
+        [InlineData(@"""_enables"": { ""A"": [""B""] }", "only a bool")]
+        [InlineData(@"""_enables"": { ""Master"": [""Master""] }", "lists itself")]
+        [InlineData(@"""_enables"": { ""Master"": [""Sub""], ""Sub"": [""Master""] }", "loops")]
+        [InlineData(@"""_enables"": { ""Master"": ""A"" }", "array")]
+        public void Read_RejectsBadEnables(string enables, string expected)
+        {
+            var ex = Assert.Throws<InvalidDataException>(() => ReadSchema("{ " + EnableFields + ", " + enables + " }"));
+            Assert.Contains(expected, ex.Message);
+        }
+
         private const string LadderGroup = @"""Rules"": [
             { ""key"": ""A"", ""type"": ""enum"", ""options"": [""Never"", ""High"", ""Low""], ""default"": ""Low"" },
             { ""key"": ""B"", ""type"": ""enum"", ""options"": [""Never"", ""High"", ""Low""], ""default"": ""High"" }

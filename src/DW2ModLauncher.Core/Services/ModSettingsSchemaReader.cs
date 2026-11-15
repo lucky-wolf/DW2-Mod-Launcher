@@ -63,6 +63,8 @@ namespace DW2ModLauncher.Core.Services
                     if (document.RootElement.TryGetProperty("_moved", out JsonElement moved))
                         ReadMoved(moved, schema, path);
                     ValidateMovedFrom(schema, path);
+                    if (document.RootElement.TryGetProperty("_enables", out JsonElement enables))
+                        ReadEnables(enables, schema, path);
                     // a mod that gave away every setting still has to say so, or the players' values could not follow
                     return schema.Groups.Count > 0 || schema.Moved.Count > 0 ? schema : null;
                 }
@@ -94,6 +96,49 @@ namespace DW2ModLauncher.Core.Services
                     throw new InvalidDataException(where + "_moved lists '" + entry.Name + "', but this schema still declares that setting: " + path);
                 target.Mod = uid;
                 schema.Moved[entry.Name] = target;
+            }
+        }
+
+        // "_enables": { "Enabler": ["Setting", "OtherSetting"] }
+        // Every named key must be a setting of this schema, an enabler must be a bool, and the chains must not loop; each is an error naming the key, not a guess.
+        private static void ReadEnables(JsonElement enables, ModSettingsSchema schema, string path)
+        {
+            const string where = "settings.schema.json: ";
+            if (enables.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException(where + "_enables must be an object of {\"Enabler\": [settings]}: " + path);
+            foreach (JsonProperty entry in enables.EnumerateObject())
+            {
+                ModSettingsField enabler = schema.Fields.Find(f => string.Equals(f.Key, entry.Name, StringComparison.OrdinalIgnoreCase));
+                if (enabler == null)
+                    throw new InvalidDataException(where + "_enables names '" + entry.Name + "', which is not a setting of this schema: " + path);
+                if (!string.Equals(enabler.Type, "bool", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException(where + "_enables '" + entry.Name + "' is a " + enabler.Type + ", but only a bool can switch other settings on and off: " + path);
+                if (entry.Value.ValueKind != JsonValueKind.Array)
+                    throw new InvalidDataException(where + "_enables '" + entry.Name + "' must list the settings it enables as an array of keys: " + path);
+                foreach (JsonElement item in entry.Value.EnumerateArray())
+                {
+                    string key = item.ValueKind == JsonValueKind.String ? item.GetString() : null;
+                    if (key == null || !schema.Fields.Any(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase)))
+                        throw new InvalidDataException(where + "_enables '" + entry.Name + "' lists '" + (key ?? item.ToString()) + "', which is not a setting of this schema: " + path);
+                    if (string.Equals(key, entry.Name, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException(where + "_enables '" + entry.Name + "' lists itself: " + path);
+                    if (!schema.EnabledBy.TryGetValue(key, out List<string> needs)) schema.EnabledBy[key] = needs = new List<string>();
+                    if (!needs.Contains(enabler.Key, StringComparer.OrdinalIgnoreCase)) needs.Add(enabler.Key);
+                }
+            }
+            // follow every chain up; meeting the starting key again means the switches wait on each other
+            foreach (string start in schema.EnabledBy.Keys)
+            {
+                HashSet<string> visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                Stack<string> pending = new Stack<string>(schema.EnabledBy[start]);
+                while (pending.Count > 0)
+                {
+                    string key = pending.Pop();
+                    if (string.Equals(key, start, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException(where + "_enables loops: '" + start + "' is switched by a chain of settings that includes itself: " + path);
+                    if (!visited.Add(key) || !schema.EnabledBy.TryGetValue(key, out List<string> next)) continue;
+                    foreach (string n in next) pending.Push(n);
+                }
             }
         }
 

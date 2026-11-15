@@ -165,6 +165,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             Raise(nameof(IsModified));
         }
 
+        private bool isAvailable = true;
+        /// <summary>False while a switch this setting depends on (the schema's "_enables") is off, directly or further up the chain: the row is drawn disabled and keeps its value.</summary>
+        public bool IsAvailable { get { return isAvailable; } set { Set(ref isAvailable, value); } }
+
         private bool boolValue;
         public bool BoolValue { get { return boolValue; } set { if (Set(ref boolValue, value)) { Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
@@ -434,9 +438,31 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 if (g.HasHeading && collapsed.Contains(g.Heading ?? "")) g.IsExpanded = false;
                 Groups.Add(g);
             }
+            WireEnablers(schema);
             // Hidden fields are developer controls: only a local mod that has some gets the toggle (Workshop copies never see them).
             CanShowHidden = mod != null && !mod.IsWorkshop && Groups.Any(g => g.AllFields.Any(f => f.IsHiddenField));
             ShowHidden = showHidden;
+        }
+
+        // A setting is available when every switch it needs is on and is itself available (the schema's "_enables"; the reader has already rejected loops and unknown keys).
+        // Dependents are looked up by key, so a hidden or Workshop-hidden enabler still counts by its value.
+        private void WireEnablers(ModSettingsSchema schema)
+        {
+            if (schema.EnabledBy.Count == 0) return;
+            Dictionary<string, SettingFieldViewModel> byKey = Groups.SelectMany(g => g.AllFields).ToDictionary(f => f.Key, System.StringComparer.OrdinalIgnoreCase);
+            bool Available(string key)
+            {
+                if (!schema.EnabledBy.TryGetValue(key, out List<string> needs)) return true;
+                return needs.All(n => byKey.TryGetValue(n, out SettingFieldViewModel enabler) && enabler.BoolValue && Available(n));
+            }
+            void Update()
+            {
+                foreach (string key in schema.EnabledBy.Keys)
+                    if (byKey.TryGetValue(key, out SettingFieldViewModel row)) row.IsAvailable = Available(key);
+            }
+            foreach (SettingFieldViewModel row in byKey.Values)
+                row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.BoolValue)) Update(); };
+            Update();
         }
 
         public bool CanShowHidden { get; }

@@ -20,13 +20,17 @@
       <Setter Property="Background" Value="{StaticResource Dw2Void}" />
       <Setter Property="Opacity" Value="0.5" />
     </Style>
+    <!-- A row whose master switch is off (the schema's "_enables"): the label keeps a fixed gold, so the whole row is dimmed, not just the controls. -->
+    <Style Selector="Grid.unavailable">
+      <Setter Property="Opacity" Value="0.35" />
+    </Style>
     <Style Selector="Button.ladderCell.selected">
       <Setter Property="Background" Value="{StaticResource Dw2Gold}" />
     </Style>
   </Window.Styles>
   <Window.Resources>
     <DataTemplate x:Key="LadderRowTemplate" x:DataType="vm:LadderRowViewModel">
-      <Grid Margin="0,0,0,4" Background="Transparent" ToolTip.Tip="{Binding Field.Tooltip}">
+      <Grid Margin="0,0,0,4" Background="Transparent" ToolTip.Tip="{Binding Field.Tooltip}" IsEnabled="{Binding Field.IsAvailable}" Classes.unavailable="{Binding !Field.IsAvailable}">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" SharedSizeGroup="LadderLabel" />
           <ColumnDefinition Width="Auto" />
@@ -74,7 +78,7 @@
       </StackPanel>
     </DataTemplate>
     <DataTemplate x:Key="FieldTemplate" x:DataType="vm:SettingFieldViewModel">
-              <Grid ColumnDefinitions="*,230,Auto" Margin="0,0,16,6" Background="Transparent" ToolTip.Tip="{Binding Tooltip}">
+              <Grid ColumnDefinitions="*,230,Auto" Margin="0,0,16,6" Background="Transparent" ToolTip.Tip="{Binding Tooltip}" IsEnabled="{Binding IsAvailable}" Classes.unavailable="{Binding !IsAvailable}">
                 <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Margin="0,6,10,0" Text="{Binding Label}" />
                 <Panel Grid.Column="1" VerticalAlignment="Top">
                   <CheckBox IsVisible="{Binding IsBool}" IsChecked="{Binding BoolValue}" />
