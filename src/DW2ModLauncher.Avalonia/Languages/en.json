@@ -72,6 +72,8 @@
   "ModSettingsResetGroup": "Reset this section to defaults",
   "ModSettingsLadderSet": "{Setting}: set to {Option}",
   "ModSettingsLadderBlocked": "{Setting}: {Option} is not possible",
+  "ModSettingsPreviewMissing": "Preview image not found: {Path}",
+  "ModSettingsPreviewUnreadable": "Preview image could not be read: {Path}",
   "ModSettingsShowHidden": "Show hidden",
   "Save": "Save",
   "ConflictWarningIntro": "Selected mods contain files with the same relative path.",

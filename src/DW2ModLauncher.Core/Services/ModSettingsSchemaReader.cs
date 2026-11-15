@@ -65,6 +65,8 @@ namespace DW2ModLauncher.Core.Services
                     ValidateMovedFrom(schema, path);
                     if (document.RootElement.TryGetProperty("_enables", out JsonElement enables))
                         ReadEnables(enables, schema, path);
+                    if (document.RootElement.TryGetProperty("_previews", out JsonElement previews))
+                        ReadPreviews(previews, schema, path);
                     // a mod that gave away every setting still has to say so, or the players' values could not follow
                     return schema.Groups.Count > 0 || schema.Moved.Count > 0 ? schema : null;
                 }
@@ -97,6 +99,56 @@ namespace DW2ModLauncher.Core.Services
                 target.Mod = uid;
                 schema.Moved[entry.Name] = target;
             }
+        }
+
+        private static readonly string[] PreviewExtensions = { ".png", ".jpg", ".jpeg", ".webp" };
+
+        // "_previews": { "Setting": "a.png", "EnumSetting": { "Option": "b.png" } }
+        // Each value is a bare file name, found only in the mod's "_previews" folder; whether the file exists is the editor's to report when the image is wanted.
+        private static void ReadPreviews(JsonElement previews, ModSettingsSchema schema, string path)
+        {
+            const string where = "settings.schema.json: ";
+            if (previews.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException(where + "_previews must be an object of {\"Setting\": image file name}: " + path);
+            foreach (JsonProperty entry in previews.EnumerateObject())
+            {
+                ModSettingsField field = schema.Fields.Find(f => string.Equals(f.Key, entry.Name, StringComparison.OrdinalIgnoreCase));
+                if (field == null)
+                    throw new InvalidDataException(where + "_previews names '" + entry.Name + "', which is not a setting of this schema: " + path);
+                if (entry.Value.ValueKind == JsonValueKind.String)
+                {
+                    field.Preview = ValidatePreviewPath(entry.Name, entry.Value.GetString(), path);
+                }
+                else if (entry.Value.ValueKind == JsonValueKind.Object)
+                {
+                    if (!string.Equals(field.Type, "enum", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException(where + "_previews '" + entry.Name + "' gives an image per option, but the setting is a " + field.Type + ", not an enum: " + path);
+                    foreach (JsonProperty option in entry.Value.EnumerateObject())
+                    {
+                        if (field.Options == null || !field.Options.Contains(option.Name, StringComparer.OrdinalIgnoreCase))
+                            throw new InvalidDataException(where + "_previews '" + entry.Name + "' names option '" + option.Name + "', which the setting does not have: " + path);
+                        if (option.Value.ValueKind != JsonValueKind.String)
+                            throw new InvalidDataException(where + "_previews '" + entry.Name + "' option '" + option.Name + "' must be an image file name: " + path);
+                        field.OptionPreviews[option.Name] = ValidatePreviewPath(entry.Name + "/" + option.Name, option.Value.GetString(), path);
+                    }
+                }
+                else
+                {
+                    throw new InvalidDataException(where + "_previews '" + entry.Name + "' must be an image file name, or an object of option: image file name: " + path);
+                }
+            }
+        }
+
+        private static string ValidatePreviewPath(string name, string value, string path)
+        {
+            string head = "settings.schema.json: _previews '" + name + "' ";
+            if (string.IsNullOrWhiteSpace(value))
+                throw new InvalidDataException(head + "has an empty image file name: " + path);
+            if (value.IndexOfAny(new[] { '/', '\\', ':' }) >= 0 || value == "." || value == "..")
+                throw new InvalidDataException(head + "must be just an image file name, looked up in the mod's " + ModSettingsField.PreviewFolder + " folder, not '" + value + "': " + path);
+            if (!PreviewExtensions.Contains(Path.GetExtension(value), StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException(head + "must be a PNG, JPG or WebP image, not '" + value + "': " + path);
+            return value;
         }
 
         // "_enables": { "Enabler": ["Setting", "OtherSetting"] }

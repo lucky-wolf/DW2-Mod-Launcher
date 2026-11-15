@@ -30,7 +30,7 @@
   </Window.Styles>
   <Window.Resources>
     <DataTemplate x:Key="LadderRowTemplate" x:DataType="vm:LadderRowViewModel">
-      <Grid Margin="0,0,0,4" Background="Transparent" ToolTip.Tip="{Binding Field.Tooltip}" IsEnabled="{Binding Field.IsAvailable}" Classes.unavailable="{Binding !Field.IsAvailable}">
+      <Grid Margin="0,0,0,4" Background="Transparent" ToolTip.Tip="{Binding Field.Tip}" IsEnabled="{Binding Field.IsAvailable}" Classes.unavailable="{Binding !Field.IsAvailable}">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" SharedSizeGroup="LadderLabel" />
           <ColumnDefinition Width="Auto" />
@@ -78,11 +78,18 @@
       </StackPanel>
     </DataTemplate>
     <DataTemplate x:Key="FieldTemplate" x:DataType="vm:SettingFieldViewModel">
-              <Grid ColumnDefinitions="*,230,Auto" Margin="0,0,16,6" Background="Transparent" ToolTip.Tip="{Binding Tooltip}" IsEnabled="{Binding IsAvailable}" Classes.unavailable="{Binding !IsAvailable}">
+              <Grid ColumnDefinitions="*,230,Auto" Margin="0,0,16,6" Background="Transparent" ToolTip.Tip="{Binding Tip}" IsEnabled="{Binding IsAvailable}" Classes.unavailable="{Binding !IsAvailable}">
                 <TextBlock Grid.Column="0" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Margin="0,6,10,0" Text="{Binding Label}" />
                 <Panel Grid.Column="1" VerticalAlignment="Top">
                   <CheckBox IsVisible="{Binding IsBool}" IsChecked="{Binding BoolValue}" />
-                  <ComboBox IsVisible="{Binding IsChoice}" ItemsSource="{Binding ChoiceOptions}" SelectedItem="{Binding SelectedChoice}" HorizontalAlignment="Stretch" />
+                  <ComboBox IsVisible="{Binding IsChoice}" ItemsSource="{Binding ChoiceOptions}" SelectedItem="{Binding SelectedChoice}" HorizontalAlignment="Stretch">
+                    <!-- Each entry carries its own preview image as a tooltip while the list is open (null shows nothing). -->
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ChoiceOption">
+                        <TextBlock Text="{Binding Display}" ToolTip.Tip="{Binding Tip}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
                   <NumericUpDown IsVisible="{Binding IsNumber}" Value="{Binding NumberValue}" Minimum="{Binding MinValue}" Maximum="{Binding MaxValue}"
                                  Increment="{Binding Increment}" FormatString="{Binding NumberFormat}" HorizontalAlignment="Stretch" />
                   <Grid IsVisible="{Binding IsTextBox}" ColumnDefinitions="*,Auto">

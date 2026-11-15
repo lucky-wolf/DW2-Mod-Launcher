@@ -99,6 +99,15 @@ namespace DW2ModLauncher.Core.Models
         public bool Hidden { get; set; }
         // "localOnly": the older name for "hidden", still accepted.
         public bool LocalOnly { get { return Hidden; } set { if (value) Hidden = true; } }
+        /// <summary>The one folder, under the mod's content root, that preview images are looked up in.</summary>
+        public const string PreviewFolder = "_previews";
+
+        /// <summary>From the schema's root "_previews": the file name of the image (in <see cref="PreviewFolder"/>) shown while the pointer is over this setting; null when the author gave none. Never read from the field itself.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string Preview { get; set; }
+        /// <summary>From "_previews" as a map: an image per option of an enum, by option text (ignoring case). It wins over <see cref="Preview"/> for the options it names.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public Dictionary<string, string> OptionPreviews { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         /// <summary>"movedFrom": [{"mod": "giver uid", "key": "OldKey"}] - where a player's value for this setting may have lived before it moved here, in the order to try. The value comes over only when that mod's own schema says it gave the key to this mod and key.</summary>
         public List<ModSettingMoveSource> MovedFrom { get; set; } = new List<ModSettingMoveSource>();
     }

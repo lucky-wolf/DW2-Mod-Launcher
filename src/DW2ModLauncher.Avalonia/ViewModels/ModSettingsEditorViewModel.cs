@@ -12,14 +12,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
     /// <summary>One entry of a choice field: the text stored in the settings (the schema's option) and the text shown (possibly translated).</summary>
     public class ChoiceOption
     {
-        public ChoiceOption(string value, string display)
+        private readonly System.Func<object> tip;
+
+        public ChoiceOption(string value, string display, System.Func<object> tip = null)
         {
             Value = value;
             Display = display;
+            this.tip = tip;
         }
 
         public string Value { get; }
         public string Display { get; }
+        /// <summary>What hovering this entry in the drop-down shows (its preview image), or null for nothing; the image loads on first hover.</summary>
+        public object Tip { get { return tip?.Invoke(); } }
 
         public override string ToString() { return Display; }
     }
@@ -36,17 +41,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly string savedJson;
         private readonly string gameRoot;
 
-        public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs, LocalizedStrings l, ModSettingsTranslation translation = null, string gameRoot = null)
+        private readonly SettingPreviewImages previewImages;
+
+        public SettingFieldViewModel(ModSettingsField field, JsonNode current, IDialogService dialogs, LocalizedStrings l, ModSettingsTranslation translation = null, string gameRoot = null, SettingPreviewImages previewImages = null)
         {
             translation = translation ?? ModSettingsTranslation.None;
             this.gameRoot = gameRoot;
+            this.previewImages = previewImages;
             schemaField = field;
             this.dialogs = dialogs;
             this.l = l;
             Kind = ModSettingsValues.KindOf(field);
             Label = translation.Label(field.Key, string.IsNullOrWhiteSpace(field.Label) ? field.Key : field.Label);
             Description = translation.Description(field.Key, field.Description ?? "");
-            ChoiceOptions = (field.Options ?? new List<string>()).Select(o => new ChoiceOption(o, translation.Option(field.Key, o))).ToList();
+            ChoiceOptions = (field.Options ?? new List<string>()).Select(o => new ChoiceOption(o, translation.Option(field.Key, o), () => OptionTip(o))).ToList();
             MinValue = ModSettingsValues.MinOf(field);
             MaxValue = ModSettingsValues.MaxOf(field);
             // Remember what the schema's default looks like once it has passed through the same conversions as an edited value,
@@ -72,6 +80,30 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string Description { get; }
         /// <summary>Row tooltip: the description, or null (no tooltip) when the schema gives none.</summary>
         public string Tooltip { get { return string.IsNullOrWhiteSpace(Description) ? null : Description; } }
+
+        /// <summary>The schema's image for this option: the option's own entry, else the setting's single image; null when the mod gave neither (or the launcher has no image source).</summary>
+        private string PreviewPathFor(string option)
+        {
+            if (previewImages == null) return null;
+            if (option != null && schemaField.OptionPreviews.TryGetValue(option, out string own)) return own;
+            return schemaField.Preview;
+        }
+
+        /// <summary>What the row's tooltip shows: the preview image of the current value with the description under it, or just the description text when the mod gave no preview.</summary>
+        public object Tip
+        {
+            get
+            {
+                string path = PreviewPathFor(Kind == ModSettingKind.Choice ? textValue : null);
+                return path == null ? Tooltip : previewImages.Get(path, Tooltip);
+            }
+        }
+
+        private object OptionTip(string option)
+        {
+            string path = PreviewPathFor(option);
+            return path == null ? null : previewImages.Get(path, null);
+        }
         public List<ChoiceOption> ChoiceOptions { get; }
         /// <summary>The selected entry of a choice field; the stored value stays the schema's option text whatever is shown.</summary>
         public ChoiceOption SelectedChoice
@@ -173,7 +205,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool BoolValue { get { return boolValue; } set { if (Set(ref boolValue, value)) { Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
         private string textValue = "";
-        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) { Raise(nameof(SelectedChoice)); Raise(nameof(IsInvalid)); Raise(nameof(PathProblemText)); Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
+        public string TextValue { get { return textValue; } set { if (Set(ref textValue, value)) { Raise(nameof(SelectedChoice)); Raise(nameof(Tip)); Raise(nameof(IsInvalid)); Raise(nameof(PathProblemText)); Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
 
         private decimal? numberValue = 0;
         public decimal? NumberValue { get { return numberValue; } set { if (Set(ref numberValue, value)) { Raise(nameof(CanReset)); Raise(nameof(IsModified)); } } }
@@ -416,6 +448,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             translation = translation ?? ModSettingsTranslation.None;
             HashSet<string> collapsed = new HashSet<string>(collapsedGroups ?? Enumerable.Empty<string>());
+            // the images live in the mod's own folder, so only a real mod has any to show
+            SettingPreviewImages previewImages = mod == null ? null : new SettingPreviewImages(mod.ContentRoot ?? mod.Folder, l);
             Title = title;
             L = l;
             this.values = values;
@@ -425,7 +459,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                 foreach (ModSettingsField field in group.Fields)
                 {
                     if (string.IsNullOrWhiteSpace(field.Key)) continue;
-                    SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs, l, translation, gameRoot);
+                    SettingFieldViewModel row = new SettingFieldViewModel(field, values[field.Key], dialogs, l, translation, gameRoot, previewImages);
                     row.PropertyChanged += (s, e) =>
                     {
                         if (e.PropertyName == nameof(SettingFieldViewModel.IsInvalid)) { Raise(nameof(AllValid)); Raise(nameof(CanSave)); }

@@ -65,6 +65,8 @@
   "ModSettingsResetGroup": "将此部分恢复为默认设置",
   "ModSettingsLadderSet": "{Setting}：设为 {Option}",
   "ModSettingsLadderBlocked": "{Setting}：无法选择 {Option}",
+  "ModSettingsPreviewMissing": "找不到预览图片：{Path}",
+  "ModSettingsPreviewUnreadable": "无法读取预览图片：{Path}",
   "ModSettingsShowHidden": "显示隐藏项",
   "Save": "保存",
   "ConflictWarningIntro": "所选模组包含相对路径相同的文件。",
