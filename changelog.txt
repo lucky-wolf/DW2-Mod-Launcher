@@ -1,4 +1,6 @@
 ## Unreleased
+
+## 1.0.41 (2026-11-15)
 - Hook compatibility is checked against the hooks, not mod versions
 - Conflict details list the shared hooks, with copy buttons
 - Authors tick investigated hooks in Compatible with
