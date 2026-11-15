@@ -116,6 +116,7 @@ namespace DW2ModLauncher.Core.Services
         /// Sets "hooksCoordinatedWith" (see LauncherMeta) to <paramref name="entries"/>, in the order given. An empty list removes the key, and
         /// writes nothing when there is no file. Throws if the existing file cannot be parsed, so a file with other content in it is never replaced.
         /// </summary>
+        // PHASE-OUT: the old whole-mod "Compatible with" (hooksCoordinatedWith) goes about three releases after hook claims ship; checklist in docs/plans/hook-compatibility-claims.md.
         public static void SetCoordinatedWith(string modFolder, IList<string> entries)
         {
             const string field = "hooksCoordinatedWith";

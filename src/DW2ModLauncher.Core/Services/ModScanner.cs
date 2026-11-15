@@ -173,6 +173,7 @@ namespace DW2ModLauncher.Core.Services
             m.Dependencies = launcherMeta?.dependencies ?? new List<LauncherDependency>();
             m.Provides = launcherMeta?.provides ?? new List<LauncherProvision>();
             m.Receives = launcherMeta?.receives ?? new List<string>();
+            // PHASE-OUT: the old whole-mod "Compatible with" (hooksCoordinatedWith) goes about three releases after hook claims ship; checklist in docs/plans/hook-compatibility-claims.md.
             m.HooksCoordinatedWith = launcherMeta?.hooksCoordinatedWith ?? new List<string>();
             m.Tags = Catalog.CatalogTags.Normalize(launcherMeta?.tags);
             return m;

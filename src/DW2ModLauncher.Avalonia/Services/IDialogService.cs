@@ -68,5 +68,7 @@ namespace DW2ModLauncher.Avalonia.Services
         void RequestExit();
         /// <summary>True if the user chose to publish.</summary>
         Task<bool> EditPublishAsync(PublishDialogViewModel editor);
+        /// <summary>The author's checkable list of a mod's overlapping hooks; true when saved.</summary>
+        Task<bool> EditCompatibleAsync(CompatibleListViewModel list);
     }
 }

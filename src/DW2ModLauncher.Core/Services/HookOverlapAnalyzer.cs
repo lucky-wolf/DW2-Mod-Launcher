@@ -28,6 +28,8 @@ namespace DW2ModLauncher.Core.Services
         public string Kind { get; set; }
         public string Effect { get; set; }
         public string HarmonyId { get; set; }
+        public int? Priority { get; set; }
+        public string Signature { get; set; }
         public List<string> Before { get; set; } = new List<string>();
         public List<string> After { get; set; } = new List<string>();
         /// <summary>True when it came from an observed game session, false when from the mod's declared manifest.</summary>
@@ -44,6 +46,12 @@ namespace DW2ModLauncher.Core.Services
         public HookSeverity Severity { get; set; }
         /// <summary>False when one of the two is not enabled: the pair is what enabling that mod would bring.</summary>
         public bool BothEnabled { get; set; } = true;
+        /// <summary>When a review of this pair on this target no longer matches the patches: what differs (the pair is graded as if never reviewed). Empty otherwise.</summary>
+        public List<string> ClaimChange { get; set; } = new List<string>();
+        /// <summary>How the pair would grade if no claim covered it (what <see cref="Severity"/> is unless a claim holds).</summary>
+        public HookSeverity Graded { get; set; }
+        /// <summary>The mod whose file holds the claim that keeps this pair at Info (null when no claim does).</summary>
+        public ModInfo ClaimHolder { get; set; }
     }
 
     public class HookOverlap
@@ -82,6 +90,10 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>Where a mod's declared manifest and the last session disagree: declared but not seen, seen but not declared.</summary>
         public List<HookNote> Drift { get; set; } = new List<HookNote>();        /// <summary>How many shared-target pairs are hidden because the player acknowledged them.</summary>
         public int AcknowledgedCount { get; set; }
+        /// <summary>Shared-target pairs held at Info because an author's claim still matches both sides' patches.</summary>
+        public int ClaimedCount { get; set; }
+        /// <summary>Every claim that is not in force, with what changed or why it cannot be checked.</summary>
+        public List<ClaimCheck> ClaimProblems { get; set; } = new List<ClaimCheck>();
         /// <summary>Declared or observed data that no longer matches the installed mod or game, and hooks files that could not be read.</summary>
         public List<HookNote> Notes { get; set; } = new List<HookNote>();
     }
@@ -115,6 +127,8 @@ namespace DW2ModLauncher.Core.Services
             readManifest = readManifest ?? (m => HookFiles.ReadManifest(m, t));
             Dictionary<string, List<HookParticipant>> byTarget = new Dictionary<string, List<HookParticipant>>(StringComparer.Ordinal);
             Dictionary<ModInfo, HookManifest> manifests = new Dictionary<ModInfo, HookManifest>();
+            // every mod's declared file that could hold a claim, enabled or not
+            Dictionary<ModInfo, HookManifest> claimFiles = new Dictionary<ModInfo, HookManifest>();
 
             // One mod's patches into byTarget: what an observed session recorded for the installed version, else what the mod declares.
             void Participate(ModInfo mod, HookManifest manifest, bool enabled)
@@ -129,6 +143,8 @@ namespace DW2ModLauncher.Core.Services
                                 Kind = patch.Kind,
                                 Effect = patch.Effect,
                                 HarmonyId = patch.HarmonyId,
+                                Priority = patch.Priority,
+                                Signature = patch.Signature,
                                 Before = patch.Before ?? new List<string>(),
                                 After = patch.After ?? new List<string>(),
                                 Observed = true,
@@ -142,7 +158,17 @@ namespace DW2ModLauncher.Core.Services
                         if (string.IsNullOrWhiteSpace(hook?.Target)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookNoTarget", ("Mod", Name(mod)), ("File", HookFiles.ManifestFileName)), Error = enabled }); continue; }
                         if (!HookEffects.IsKnown(hook.Effect)) { result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookUnknownEffect", ("Mod", Name(mod)), ("Hook", hook.Target), ("Effect", hook.Effect), ("Allowed", string.Join(t("ListSeparator"), HookEffects.All))), Error = enabled }); continue; }
                         if (enabled && !string.IsNullOrWhiteSpace(hook.Setting) && isSettingOn != null && !isSettingOn(mod, hook.Setting)) continue;
-                        Add(byTarget, hook.Target, new HookParticipant { Mod = mod, Kind = hook.Kind, Effect = hook.Effect.ToLowerInvariant(), Enabled = enabled });
+                        Add(byTarget, hook.Target, new HookParticipant
+                        {
+                            Mod = mod,
+                            Kind = hook.Kind,
+                            Effect = hook.Effect.ToLowerInvariant(),
+                            Priority = hook.Priority,
+                            Signature = hook.Signature,
+                            Before = hook.Before ?? new List<string>(),
+                            After = hook.After ?? new List<string>(),
+                            Enabled = enabled
+                        });
                     }
                 }
             }
@@ -161,7 +187,7 @@ namespace DW2ModLauncher.Core.Services
                 (HookManifest manifest, string error) = readManifest(mod);
                 NoteUnrunVersion(mod, manifest);
                 if (error != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookModError", ("Mod", Name(mod)), ("Problem", error)), Error = true });
-                if (manifest != null) manifests[mod] = manifest;
+                if (manifest != null) { manifests[mod] = manifest; claimFiles[mod] = manifest; }
                 if (manifest != null && !string.IsNullOrWhiteSpace(manifest.ModVersion) && !string.IsNullOrWhiteSpace(mod.Version)
                     && manifest.ModVersion.Trim() != mod.Version.Trim())
                     result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookStaleMod", ("Mod", Name(mod)), ("Declared", manifest.ModVersion), ("Installed", mod.Version)) });
@@ -179,6 +205,7 @@ namespace DW2ModLauncher.Core.Services
                 (HookManifest manifest, string error) = readManifest(mod);
                 if (error != null) result.Notes.Add(new HookNote { Mod = mod, Text = F(t, "HookModError", ("Mod", Name(mod)), ("Problem", error)) });
                 NoteUnrunVersion(mod, manifest);
+                if (manifest != null) claimFiles[mod] = manifest;
                 Participate(mod, manifest, false);
             }
 
@@ -197,14 +224,42 @@ namespace DW2ModLauncher.Core.Services
                         bool bothEnabled = result.Enabled.Contains(mods[i]) && result.Enabled.Contains(mods[j]);
                         if (!bothEnabled && !result.Enabled.Contains(mods[i]) && !result.Enabled.Contains(mods[j])) continue;
                         if (acknowledged != null && acknowledged.Contains(AcknowledgementKey(target.Key, mods[i], mods[j]))) { result.AcknowledgedCount++; continue; }
-                        HookSeverity severity = GradePair(target.Value.Where(p => p.Mod == mods[i]).ToList(), target.Value.Where(p => p.Mod == mods[j]).ToList(), mods[i], mods[j], everyone);
-                        overlap.Pairs.Add(new HookPair { A = mods[i], B = mods[j], Severity = severity, BothEnabled = bothEnabled });
+                        List<HookParticipant> sideA = target.Value.Where(p => p.Mod == mods[i]).ToList(), sideB = target.Value.Where(p => p.Mod == mods[j]).ToList();
+                        bool sameAuthor = SameAuthor(mods[i], mods[j]);
+                        ClaimCheck claim = sameAuthor ? null : HookClaims.Check(target.Key, mods[i], mods[j], sideA, sideB, claimFiles, everyone);
+                        HookPair pair = new HookPair { A = mods[i], B = mods[j], BothEnabled = bothEnabled };
+                        // a pair with claims of its own ignores the older version-pinned "Compatible with" entries
+                        pair.Graded = GradePair(sideA, sideB, mods[i], mods[j], everyone, usePins: !HookClaims.HasAny(mods[i], mods[j], claimFiles, everyone));
+                        if (claim != null && claim.Standing != ClaimStanding.Changed)
+                        {
+                            // a review still matches (or cannot be compared): the pair stays Info; an unverifiable one is said so
+                            pair.Severity = HookSeverity.Info;
+                            pair.ClaimHolder = claim.Holder;
+                            result.ClaimedCount++;
+                            if (claim.Standing == ClaimStanding.Unverified) result.ClaimProblems.Add(claim);
+                        }
+                        else
+                        {
+                            // a changed claim is graded as if it never was
+                            pair.Severity = pair.Graded;
+                            if (claim != null) { pair.ClaimChange = claim.Change; result.ClaimProblems.Add(claim); }
+                        }
+                        overlap.Pairs.Add(pair);
                     }
                 if (overlap.Pairs.Count == 0) continue;
                 overlap.Severity = overlap.Pairs.Max(p => p.Severity);
                 result.Overlaps.Add(overlap);
             }
             result.Overlaps = result.Overlaps.OrderByDescending(o => o.Severity).ThenByDescending(o => o.Participants.Count).ThenBy(o => o.Target, StringComparer.Ordinal).ToList();
+
+            // a review that no longer matches, or cannot be checked, is said on the mod that made it
+            foreach (ClaimCheck problem in result.ClaimProblems)
+            {
+                string[] names = { Name(problem.Holder), Name(problem.Partner) };
+                result.Notes.Add(problem.Standing == ClaimStanding.Changed
+                    ? new HookNote { Mod = problem.Holder, Text = F(t, "HookClaimChanged", ("Mod", names[0]), ("Other", names[1]), ("Target", problem.Claim.Target), ("Change", string.Join("; ", problem.Change))) }
+                    : new HookNote { Mod = problem.Holder, Text = F(t, "HookClaimUnverified", ("Mod", names[0]), ("Other", names[1]), ("Target", problem.Claim.Target)) });
+            }
 
             result.ChannelIssues.AddRange(ChannelIssues(orderedEnabled, manifests, observed, t));
             return result;
@@ -301,13 +356,15 @@ namespace DW2ModLauncher.Core.Services
                 && (m.Version ?? "") == (mod.Version ?? ""));
         }
 
-        private static HookSeverity GradePair(List<HookParticipant> a, List<HookParticipant> b, ModInfo modA, ModInfo modB, IList<ModInfo> enabled)
+        private static HookSeverity GradePair(List<HookParticipant> a, List<HookParticipant> b, ModInfo modA, ModInfo modB, IList<ModInfo> enabled, bool usePins = true)
         {
             // Mods by one author are coordinated by definition; an author nobody stated is not guessed to be the same.
             if (SameAuthor(modA, modB)) return HookSeverity.Info;
-            // ... and so are two mods either of which says it has coordinated with the other (dw2modlauncher.json "hooksCoordinatedWith")
+            // ... and so are two mods either of which says it has coordinated with the other (dw2modlauncher.json "hooksCoordinatedWith"),
+            // until the pair has claims of its own: then each target stands on its own claim
+            // PHASE-OUT: the old whole-mod "Compatible with" (hooksCoordinatedWith) goes about three releases after hook claims ship; checklist in docs/plans/hook-compatibility-claims.md.
             bool Says(ModInfo mod, ModInfo other) => (mod.HooksCoordinatedWith ?? new List<string>()).Any(entry => Coordinates(entry, other, enabled));
-            if (Says(modA, modB) || Says(modB, modA)) return HookSeverity.Info;
+            if (usePins && (Says(modA, modB) || Says(modB, modA))) return HookSeverity.Info;
             HookSeverity worst = HookSeverity.Info;
             foreach (HookParticipant pa in a)
                 foreach (HookParticipant pb in b)
@@ -325,6 +382,7 @@ namespace DW2ModLauncher.Core.Services
         /// One "hooksCoordinatedWith" entry: a mod name, or "Name@1.2.3" to cover only that version of it. A pinned entry says nothing
         /// about any other version, so an update brings the overlap back for the author to look at again (an unpinned entry never expires).
         /// </summary>
+        // PHASE-OUT: the old whole-mod "Compatible with" (hooksCoordinatedWith) goes about three releases after hook claims ship; checklist in docs/plans/hook-compatibility-claims.md.
         public static bool Coordinates(string entry, ModInfo other, IList<ModInfo> enabled)
         {
             if (string.IsNullOrWhiteSpace(entry)) return false;

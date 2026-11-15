@@ -13,6 +13,33 @@ namespace DW2ModLauncher.Core.Models
         public string GameVersion { get; set; }
         public List<DeclaredHook> Hooks { get; set; } = new List<DeclaredHook>();
         public List<DeclaredChannel> Channels { get; set; } = new List<DeclaredChannel>();
+        /// <summary>The reviews this mod's author made of its hooks against other mods' hooks (docs/plans/hook-compatibility-claims.md).</summary>
+        public List<HookClaim> Claims { get; set; } = new List<HookClaim>();
+    }
+
+    /// <summary>
+    /// "My patches on this target and that mod's patches on it were looked at and coexist." Holds for as long as both sides' patches are as they
+    /// were when it was made, whatever version either mod is. Lives in the file of the mod whose author made it.
+    /// </summary>
+    public class HookClaim
+    {
+        /// <summary>Harmony's spelling, as <see cref="DeclaredHook.Target"/>.</summary>
+        public string Target { get; set; }
+        /// <summary>The other mod, named the way a dependency names a mod.</summary>
+        public string Partner { get; set; }
+        /// <summary>The patches of the mod whose file holds the claim.</summary>
+        public ClaimSide Self { get; set; }
+        /// <summary>The patches of the partner.</summary>
+        public ClaimSide Other { get; set; }
+        public string Reviewed { get; set; }
+        public string Note { get; set; }
+    }
+
+    /// <summary>One mod's patches on a target as they were reviewed: a digest for transport, the facts it was made from so a change can be shown.</summary>
+    public class ClaimSide
+    {
+        public string Hash { get; set; }
+        public List<string> Facts { get; set; } = new List<string>();
     }
 
     public class DeclaredHook
@@ -28,6 +55,11 @@ namespace DW2ModLauncher.Core.Models
         public string Feature { get; set; }
         /// <summary>The settings key that switches the hook on; with the setting off the hook is not counted.</summary>
         public string Setting { get; set; }
+        /// <summary>The patch method's own signature, as the loader records it (see <see cref="ObservedPatchInfo.Signature"/>).</summary>
+        public string Signature { get; set; }
+        public int? Priority { get; set; }
+        public List<string> Before { get; set; }
+        public List<string> After { get; set; }
     }
 
     public class DeclaredChannel
@@ -75,6 +107,8 @@ namespace DW2ModLauncher.Core.Models
         public List<string> Before { get; set; } = new List<string>();
         public List<string> After { get; set; } = new List<string>();
         public string Method { get; set; }
+        /// <summary>The patch method's parameters (type and name, by-reference marked) and return type; part of a claim's facts. Null from a loader that did not record it.</summary>
+        public string Signature { get; set; }
     }
 
     public class ObservedChannelsInfo

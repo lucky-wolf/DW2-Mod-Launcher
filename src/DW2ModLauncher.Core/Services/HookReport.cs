@@ -26,6 +26,42 @@ namespace DW2ModLauncher.Core.Services
             return dot >= 0 ? head.Substring(dot + 1) : head;
         }
 
+        /// <summary>
+        /// Namespace.Type:Method(System.Int32,Ns.Other,...) as one line: Type.Method(Int32, Other, ...), namespaces dropped, a run of the same
+        /// argument type written once with a count (Single x21). For a tooltip; the full target stays in the details.
+        /// </summary>
+        public static string Spelled(string target)
+        {
+            int open = target.IndexOf('(');
+            if (open < 0) return Short(target).Replace(':', '.');
+            string name = Short(target.Substring(0, open)).Replace(':', '.');
+            int close = target.LastIndexOf(')');
+            string inner = target.Substring(open + 1, (close > open ? close : target.Length) - open - 1);
+            List<string> args = new List<string>();
+            int depth = 0, start = 0;
+            for (int i = 0; i <= inner.Length; i++)
+            {
+                char c = i < inner.Length ? inner[i] : ',';
+                if (c == '[' || c == '<') depth++;
+                else if (c == ']' || c == '>') depth--;
+                else if (c == ',' && depth == 0)
+                {
+                    string raw = inner.Substring(start, i - start).Trim();
+                    if (raw.Length > 0) args.Add(System.Text.RegularExpressions.Regex.Replace(raw, @"\b(?:[A-Za-z_][A-Za-z0-9_]*\.)+", ""));
+                    start = i + 1;
+                }
+            }
+            List<string> parts = new List<string>();
+            for (int i = 0; i < args.Count;)
+            {
+                int run = 1;
+                while (i + run < args.Count && args[i + run] == args[i]) run++;
+                parts.Add(run > 1 ? args[i] + " x" + run : args[i]);
+                i += run;
+            }
+            return name + "(" + string.Join(", ", parts) + ")";
+        }
+
         private static string Patches(IEnumerable<HookParticipant> patches, Func<string, string> t)
         {
             return string.Join(t("ListSeparator"), patches.Select(p => p.Kind + " " + p.Effect));

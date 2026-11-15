@@ -111,6 +111,7 @@ namespace DW2ModLauncher.Core.Models
         /// <summary>What is wrong with this mod's dw2modlauncher.json dependencies while it is enabled (a required mod missing, too old); set by the launcher's analysis, empty when all is met.</summary>
         public List<string> DependencyProblems { get; set; } = new List<string>();
         /// <summary>dw2modlauncher.json "hooksCoordinatedWith" (empty when the mod names none).</summary>
+        // PHASE-OUT: the old whole-mod "Compatible with" (hooksCoordinatedWith) goes about three releases after hook claims ship; checklist in docs/plans/hook-compatibility-claims.md.
         public List<string> HooksCoordinatedWith { get; set; } = new List<string>();
         /// <summary>dw2modlauncher.json "tags", normalized (empty when the mod has none).</summary>
         public List<string> Tags { get; set; } = new List<string>();
