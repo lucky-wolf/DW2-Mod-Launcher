@@ -1,7 +1,18 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
              x:Class="DW2ModLauncher.Avalonia.App"
              RequestedThemeVariant="Dark">
+  <Application.DataTemplates>
+    <!-- A setting's tooltip when the mod gave it a preview image (settings.schema.json "_previews"): the image, a note when it could not be shown, then the description. -->
+    <DataTemplate DataType="vm:SettingPreviewTip" x:DataType="vm:SettingPreviewTip">
+      <StackPanel Spacing="6" MaxWidth="480">
+        <Image IsVisible="{Binding HasImage}" Source="{Binding Image}" MaxWidth="480" MaxHeight="320" Stretch="Uniform" />
+        <TextBlock IsVisible="{Binding HasProblem}" Text="{Binding Problem}" TextWrapping="Wrap" Foreground="{StaticResource Dw2Gold}" />
+        <TextBlock IsVisible="{Binding HasDescription}" Text="{Binding Description}" TextWrapping="Wrap" />
+      </StackPanel>
+    </DataTemplate>
+  </Application.DataTemplates>
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>

@@ -65,6 +65,8 @@
   "ModSettingsResetGroup": "Сбросить этот раздел по умолчанию",
   "ModSettingsLadderSet": "{Setting}: установить «{Option}»",
   "ModSettingsLadderBlocked": "{Setting}: «{Option}» недоступно",
+  "ModSettingsPreviewMissing": "Изображение предпросмотра не найдено: {Path}",
+  "ModSettingsPreviewUnreadable": "Не удалось прочитать изображение предпросмотра: {Path}",
   "ModSettingsShowHidden": "Показать скрытые",
   "Save": "Сохранить",
   "ConflictWarningIntro": "Выбранные моды содержат файлы с одинаковыми относительными путями.",

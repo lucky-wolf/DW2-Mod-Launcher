@@ -170,6 +170,43 @@ namespace DW2ModLauncher.Tests
             Assert.Contains(expected, ex.Message);
         }
 
+        private const string PreviewFields = @"""Main"": [
+            { ""key"": ""Flag"", ""type"": ""bool"", ""default"": true },
+            { ""key"": ""Mode"", ""type"": ""enum"", ""options"": [""Sparse"", ""Dense""], ""default"": ""Sparse"" },
+            { ""key"": ""Count"", ""type"": ""int"", ""default"": 1 }
+        ]";
+
+        [Fact]
+        public void Read_ParsesPreviews_SingleImageAndPerOption()
+        {
+            var schema = ReadSchema("{ " + PreviewFields + @", ""_previews"": { ""flag"": ""flag.png"", ""Mode"": { ""dense"": ""dense.WEBP"" } } }");
+
+            Assert.Equal("flag.png", schema.Fields.Single(f => f.Key == "Flag").Preview);
+            ModSettingsField mode = schema.Fields.Single(f => f.Key == "Mode");
+            Assert.Null(mode.Preview);
+            Assert.Equal("dense.WEBP", mode.OptionPreviews["Dense"]);
+            Assert.Null(schema.Fields.Single(f => f.Key == "Count").Preview);
+        }
+
+        [Theory]
+        [InlineData(@"""_previews"": { ""Nope"": ""p/a.png"" }", "not a setting")]
+        [InlineData(@"""_previews"": { ""Flag"": { ""On"": ""a.png"" } }", "not an enum")]
+        [InlineData(@"""_previews"": { ""Mode"": { ""Huge"": ""a.png"" } }", "does not have")]
+        [InlineData(@"""_previews"": { ""Mode"": { ""Dense"": 3 } }", "image file name")]
+        [InlineData(@"""_previews"": { ""Flag"": 3 }", "image file name")]
+        [InlineData(@"""_previews"": { ""Flag"": """" }", "empty")]
+        [InlineData(@"""_previews"": { ""Flag"": ""../a.png"" }", "just an image file name")]
+        [InlineData(@"""_previews"": { ""Flag"": ""p\\a.png"" }", "just an image file name")]
+        [InlineData(@"""_previews"": { ""Flag"": ""_previews/a.png"" }", "just an image file name")]
+        [InlineData(@"""_previews"": { ""Flag"": ""C:a.png"" }", "just an image file name")]
+        [InlineData(@"""_previews"": { ""Flag"": ""a.gif"" }", "PNG, JPG or WebP")]
+        [InlineData(@"""_previews"": [ ]", "object")]
+        public void Read_RejectsBadPreviews(string previews, string expected)
+        {
+            var ex = Assert.Throws<InvalidDataException>(() => ReadSchema("{ " + PreviewFields + ", " + previews + " }"));
+            Assert.Contains(expected, ex.Message);
+        }
+
         private const string LadderGroup = @"""Rules"": [
             { ""key"": ""A"", ""type"": ""enum"", ""options"": [""Never"", ""High"", ""Low""], ""default"": ""Low"" },
             { ""key"": ""B"", ""type"": ""enum"", ""options"": [""Never"", ""High"", ""Low""], ""default"": ""High"" }

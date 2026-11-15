@@ -64,6 +64,8 @@
   "ModSettingsResetGroup": "このセクションを既定値に戻す",
   "ModSettingsLadderSet": "{Setting}：{Option}に設定",
   "ModSettingsLadderBlocked": "{Setting}：{Option}は選べません",
+  "ModSettingsPreviewMissing": "プレビュー画像が見つかりません：{Path}",
+  "ModSettingsPreviewUnreadable": "プレビュー画像を読み込めませんでした：{Path}",
   "ModSettingsBlankValue": "（空）",
   "ModSettingsShowHidden": "非表示の項目を表示",
   "Save": "保存",
