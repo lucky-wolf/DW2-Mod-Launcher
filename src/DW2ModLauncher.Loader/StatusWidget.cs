@@ -31,6 +31,9 @@ namespace DW2ModLauncher.Loader
         const string FlyoutName = "DW2ML_StatusFlyout";
         // in from the left of the screen; 5 past the old 10 to line up with the game's focus widget above it (matched by eye)
         const float IndentX = 23f;
+        // The line's box has 5 px of padding under its text; it is let down by 3 so the text sits nearer the bottom edge (the box's lower edge is 2 px off the screen)
+        // instead of crowding the widgets above. Code mods' clocks and the like use the same number (Settings Keeper's ScreenClock).
+        const float BottomDrop = 3f;
         const long RefreshMs = 500;
 
         static Action<string> _log;
@@ -147,7 +150,7 @@ namespace DW2ModLauncher.Loader
                 : marker + (worst == StatusLevel.Error ? " /!\\ " : " ") + line;
             object color = worst == StatusLevel.Error ? g.Bad : worst == StatusLevel.Warn ? g.Warn : g.Dim;
 
-            float lineTop = PlaceAboveEdge(_line, text, color, screenWidth * 0.8f, 0f, screenHeight - 1f);
+            float lineTop = PlaceAboveEdge(_line, text, color, screenWidth * 0.8f, 0f, screenHeight - 1f + BottomDrop);
 
             if (_expanded)
             {

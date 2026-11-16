@@ -28,7 +28,7 @@ A side is the sorted list of that mod's patches on the target (a mod can patch o
 
 Storing facts, not a digest, buys three things: the report can show **what changed** ("B's prefix now returns `bool`, so it can skip the original"), a changed fingerprint algorithm re-compares from the stored facts instead of mass-invalidating, and the claim file reads for itself in a diff.
 
-A claim is lost when, for either side on that target: a patch is added or removed (an extra prefix, a second transpiler), kind changes (postfix to prefix), effect changes, patch signature changes, priority or before/after changes. Ids are not part of it (Harmony ID is free-form); the owning mod's key is.
+A claim covers **every subset of the patches it was made with**: a patch that is missing now (the author switched a feature off, so the mod installs less) cannot create a conflict and does not drop the claim; the report lists it as "not installed now". Marking again over an earlier claim keeps the union of both, so a review made with a feature off does not lose what an earlier one covered. A claim is lost when, for either side on that target: a patch is added that the claim does not list (an extra prefix, a second transpiler), kind changes (postfix to prefix), effect changes, patch signature changes, priority or before/after changes. Ids are not part of it (Harmony ID is free-form); the owning mod's key is.
 
 Not part of the facts by default: the patch's method body. A body edit that changes nothing in the facts is a refactor far more often than a conflict, and counting it would put the claim back to per-release. See open question 1.
 

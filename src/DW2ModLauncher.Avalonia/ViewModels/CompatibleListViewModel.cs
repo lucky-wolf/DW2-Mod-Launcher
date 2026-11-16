@@ -244,6 +244,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             {
                 HookClaim claim = row.Item?.Claim ?? row.Claim;
                 if (claim == null) return;
+                // marked over an earlier mark of the pair, it keeps the patches that mark covered
+                HookClaim earlier = row.Claim ?? (row.Item == null ? null : compatibleClaims.FirstOrDefault(c => Marks(c, row.Item.Target, row.Item.Partner)));
+                if (earlier != null && row.Item?.Claim != null)
+                {
+                    claim = new HookClaim
+                    {
+                        Target = claim.Target,
+                        Partner = claim.Partner,
+                        Self = HookFacts.ToClaimSide(HookFacts.Union(earlier.Self, claim.Self?.Facts ?? new List<string>())),
+                        Other = HookFacts.ToClaimSide(HookFacts.Union(earlier.Other, claim.Other?.Facts ?? new List<string>())),
+                        Reviewed = claim.Reviewed,
+                        Note = string.IsNullOrEmpty(claim.Note) ? earlier.Note : claim.Note
+                    };
+                }
                 compatibleClaims.RemoveAll(c => ReferenceEquals(c, row.Claim) || (row.Item != null && Marks(c, row.Item.Target, row.Item.Partner)));
                 compatibleClaims.Add(claim);
                 row.Claim = claim;

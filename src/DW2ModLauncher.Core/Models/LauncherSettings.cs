@@ -95,6 +95,8 @@ namespace DW2ModLauncher.Core.Models
         public bool PublishStatusExpanded { get; set; }
         /// <summary>The publish dialog's change-notes section is unfolded (folded by default; remembered).</summary>
         public bool PublishChangeNotesExpanded { get; set; }
+        /// <summary>The publish dialog's dependencies section: null (never chosen) opens it when the mod has dependencies; once the owner opens or folds it, that stays.</summary>
+        public bool? PublishDependenciesExpanded { get; set; }
         /// <summary>True (default): every Steam call runs in a short-lived helper process, so Steam only sees DW2 running during the call. False: the launcher holds one Steam connection as DW2 for as long as it runs. (Stored under a new key; 1.0.36 saved the old inverted default as SteamHelperProcess, which is ignored.)</summary>
         public bool SteamHelperProcessEnabled { get; set; } = true;
         /// <summary>The folder the last preview image was picked from (outside any mod), offered when the next pick starts from a blank image field.</summary>

@@ -1,5 +1,10 @@
 ## Unreleased
 
+## 1.0.43 (2026-11-15)
+- The Dependencies section remembers whether you opened or folded it
+- Hook claims still hold when a mod installs fewer patches
+- The in-game status line sits 3 pixels lower
+
 ## 1.0.42 (2026-11-15)
 - Publish shows Compatible with for the version being published
 - Publish dialog puts change notes right under the version

@@ -185,7 +185,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private string lastArtFolder;
         private readonly Action<string> rememberArtFolder;
 
-        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null, IEnumerable<string> knownCatalogTags = null, bool publishToSteam = true, bool publishToGitHub = false, bool githubEnabled = true, bool steamEnabled = true, bool linkOptionalOnSteam = true, HookAnalysis hookAnalysis = null, Func<string, HookAnalysis> analyzeAsVersion = null)
+        public PublishDialogViewModel(IDialogService dialogs, LocalizedStrings l, ModInfo mod, ModPublishMetadata metadata, bool isUpdate, ModVisibility? currentVisibility = null, bool propertiesOnly = false, string steamDescription = null, VersionBumpPolicy bumpPolicy = null, string lastArtFolder = null, Action<string> rememberArtFolder = null, string descriptionExtension = null, bool statusExpanded = false, Action<bool> rememberStatusExpanded = null, bool changeNotesExpanded = false, Action<bool> rememberChangeNotesExpanded = null, bool? dependenciesExpanded = null, Action<bool> rememberDependenciesExpanded = null, bool autoUpdateDescription = true, IEnumerable<ModInfo> otherMods = null, IEnumerable<string> knownCatalogTags = null, bool publishToSteam = true, bool publishToGitHub = false, bool githubEnabled = true, bool steamEnabled = true, bool linkOptionalOnSteam = true, HookAnalysis hookAnalysis = null, Func<string, HookAnalysis> analyzeAsVersion = null)
         {
             this.linkOptionalOnSteam = linkOptionalOnSteam;
             this.dialogs = dialogs;
@@ -223,6 +223,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             this.rememberStatusExpanded = rememberStatusExpanded;
             notesOpen = changeNotesExpanded;
             this.rememberChangeNotesExpanded = rememberChangeNotesExpanded;
+            dependenciesOpen = dependenciesExpanded;
+            this.rememberDependenciesExpanded = rememberDependenciesExpanded;
             ShowChangeNotes = true;
             notesVersion = (metadata.Version ?? "").Trim();
             savedChangeNotes = ModChangelog.NotesText(contentFolder, notesVersion);
@@ -426,6 +428,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private readonly Action<bool> rememberStatusExpanded;
         /// <summary>Whether the modified-files section is unfolded; the choice is remembered for the next time.</summary>
         public bool StatusExpanded { get { return statusOpen; } set { if (Set(ref statusOpen, value)) rememberStatusExpanded?.Invoke(value); } }
+
+        // the dependencies section: open when the mod has any until the owner chooses, then as they left it
+        private bool? dependenciesOpen;
+        private readonly Action<bool> rememberDependenciesExpanded;
+        public bool DependenciesExpanded
+        {
+            get { return dependenciesOpen ?? HasDependencies; }
+            set
+            {
+                if (DependenciesExpanded == value) return;
+                dependenciesOpen = value;
+                Raise(nameof(DependenciesExpanded));
+                rememberDependenciesExpanded?.Invoke(value);
+            }
+        }
 
         private bool notesOpen;
         private readonly Action<bool> rememberChangeNotesExpanded;
@@ -652,7 +669,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         private void RaiseDependencies()
         {
             dependencyRows = null;
-            Raise(nameof(DependencyRows)); Raise(nameof(DependenciesHeader)); Raise(nameof(HasDependencies)); Raise(nameof(NoDependencies));
+            Raise(nameof(DependencyRows)); Raise(nameof(DependenciesHeader)); Raise(nameof(HasDependencies)); Raise(nameof(DependenciesExpanded)); Raise(nameof(NoDependencies));
             RaiseModified();
         }
 

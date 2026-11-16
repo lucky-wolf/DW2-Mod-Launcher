@@ -220,7 +220,7 @@
           </Border>
         </Expander>
         <!-- The mods this one needs or works better with (dw2modlauncher.json "dependencies"). The + adds one; each row sets whether it is required, the load order, the oldest version, and whether the Steam page links it. -->
-        <Expander IsExpanded="{Binding HasDependencies, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0">
+        <Expander IsExpanded="{Binding DependenciesExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0">
           <Expander.Header>
             <Grid ColumnDefinitions="*,Auto" ToolTip.Tip="{Binding L[PublishDependenciesTooltip]}">
               <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding DependenciesHeader}" />

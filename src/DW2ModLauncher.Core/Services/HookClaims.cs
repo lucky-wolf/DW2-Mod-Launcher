@@ -48,16 +48,23 @@ namespace DW2ModLauncher.Core.Services
             ClaimCheck check = new ClaimCheck { Claim = claim, Holder = holder, Partner = partner };
             List<string> nowMine = HookFacts.Side(mine), nowTheirs = HookFacts.Side(theirs);
             if (nowMine == null || nowTheirs == null) { check.Standing = ClaimStanding.Unverified; return check; }
-            bool sameMine = HookFacts.Same(claim.Self, nowMine), sameTheirs = HookFacts.Same(claim.Other, nowTheirs);
-            if (sameMine && sameTheirs) { check.Standing = ClaimStanding.InForce; return check; }
+            // a patch that is not there now cannot make a conflict: a claim covers every subset of the patches it was made with
+            bool sameMine = HookFacts.Covers(claim.Self, nowMine), sameTheirs = HookFacts.Covers(claim.Other, nowTheirs);
+            if (sameMine && sameTheirs)
+            {
+                check.Standing = ClaimStanding.InForce;
+                check.Absent.AddRange(HookFacts.Absent(claim.Self, nowMine).Select(l => Name(holder) + ": " + l));
+                check.Absent.AddRange(HookFacts.Absent(claim.Other, nowTheirs).Select(l => Name(partner) + ": " + l));
+                return check;
+            }
             check.Standing = ClaimStanding.Changed;
             if (!sameMine) check.Change.AddRange(HookFacts.Diff(claim.Self, nowMine).Select(l => Name(holder) + ": " + l));
             if (!sameTheirs) check.Change.AddRange(HookFacts.Diff(claim.Other, nowTheirs).Select(l => Name(partner) + ": " + l));
             return check;
         }
 
-        /// <summary>A claim as it would be made now, from the current patches of the two sides; null when either is not known in full.</summary>
-        public static HookClaim Make(string target, ModInfo holder, ModInfo partner, List<HookParticipant> mine, List<HookParticipant> theirs, string note, DateTime now)
+        /// <summary>A claim as it would be made now, from the current patches of the two sides (plus the patches an earlier claim of the pair covered); null when either is not known in full.</summary>
+        public static HookClaim Make(string target, ModInfo holder, ModInfo partner, List<HookParticipant> mine, List<HookParticipant> theirs, string note, DateTime now, HookClaim previous = null)
         {
             List<string> factsMine = HookFacts.Side(mine), factsTheirs = HookFacts.Side(theirs);
             if (factsMine == null || factsTheirs == null) return null;
@@ -65,8 +72,9 @@ namespace DW2ModLauncher.Core.Services
             {
                 Target = target,
                 Partner = Name(partner),
-                Self = HookFacts.ToClaimSide(factsMine),
-                Other = HookFacts.ToClaimSide(factsTheirs),
+                // made again over an earlier claim, it keeps what that one covered (a review done with a feature off must not lose the patches it had)
+                Self = HookFacts.ToClaimSide(HookFacts.Union(previous?.Self, factsMine)),
+                Other = HookFacts.ToClaimSide(HookFacts.Union(previous?.Other, factsTheirs)),
                 Reviewed = now.ToString("yyyy-MM-dd"),
                 Note = note
             };
