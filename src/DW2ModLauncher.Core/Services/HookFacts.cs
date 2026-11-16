@@ -28,6 +28,8 @@ namespace DW2ModLauncher.Core.Services
         public ModInfo Partner { get; set; }
         /// <summary>Facts the claim lists that are gone, then facts that are new, one per line, each prefixed by its mod; empty unless Changed.</summary>
         public List<string> Change { get; set; } = new List<string>();
+        /// <summary>Reviewed patches that are not installed now (a feature off), one per line prefixed by its mod; the claim still holds. Empty when all are there.</summary>
+        public List<string> Absent { get; set; } = new List<string>();
     }
 
     /// <summary>
@@ -79,6 +81,31 @@ namespace DW2ModLauncher.Core.Services
         public static bool Same(ClaimSide reviewed, List<string> now)
         {
             return reviewed != null && string.Equals(reviewed.Hash, Hash(now), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Whether every patch of the side now is one the review listed. A patch that is missing now (a mod's feature switched off) cannot add a conflict,
+        /// so the review still holds; a patch the review never saw, or one whose facts changed, does not.
+        /// </summary>
+        public static bool Covers(ClaimSide reviewed, List<string> now)
+        {
+            if (reviewed == null) return false;
+            if (Same(reviewed, now)) return true;
+            return reviewed.Facts != null && reviewed.Facts.Count > 0 && now.All(f => reviewed.Facts.Contains(f, StringComparer.Ordinal));
+        }
+
+        /// <summary>The reviewed facts the side does not have now, one per line.</summary>
+        public static List<string> Absent(ClaimSide reviewed, List<string> now)
+        {
+            return (reviewed?.Facts ?? new List<string>()).Except(now, StringComparer.Ordinal).ToList();
+        }
+
+        /// <summary>The facts of a side as reviewed before and as they are now, together, so a review made with a feature off does not drop what an earlier one covered.</summary>
+        public static List<string> Union(ClaimSide previous, List<string> now)
+        {
+            List<string> all = (previous?.Facts ?? new List<string>()).Concat(now).Distinct(StringComparer.Ordinal).ToList();
+            all.Sort(StringComparer.Ordinal);
+            return all;
         }
 
         /// <summary>Lines that are only in the reviewed list ("-"), then only in the current one ("+").</summary>

@@ -105,7 +105,7 @@ namespace DW2ModLauncher.Core.Services
         {
             if (!analysis.ByTarget.TryGetValue(claim.Target ?? "", out List<HookParticipant> patches)) return null;
             List<HookParticipant> mine = patches.Where(p => p.Mod == mod).ToList(), theirs = patches.Where(p => p.Mod == partner).ToList();
-            return mine.Count == 0 || theirs.Count == 0 ? null : HookClaims.Make(claim.Target, mod, partner, mine, theirs, claim.Note, now);
+            return mine.Count == 0 || theirs.Count == 0 ? null : HookClaims.Make(claim.Target, mod, partner, mine, theirs, claim.Note, now, claim);
         }
     }
 }

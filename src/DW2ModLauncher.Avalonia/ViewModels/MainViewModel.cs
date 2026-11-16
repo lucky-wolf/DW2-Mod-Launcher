@@ -589,6 +589,12 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             SaveSettings();
         }
 
+        private void RememberDependenciesExpanded(bool expanded)
+        {
+            settings.PublishDependenciesExpanded = expanded;
+            SaveSettings();
+        }
+
         private void RememberArtFolder(string folder)
         {
             settings.LastArtFolder = folder;
@@ -2006,7 +2012,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, dependenciesExpanded: settings.PublishDependenciesExpanded, rememberDependenciesExpanded: RememberDependenciesExpanded, knownCatalogTags: KnownCatalogTags, githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
@@ -2096,7 +2102,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam, analyzeAsVersion: v => AnalyzeAsVersion(mod, v)); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isUpdate, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, steamDescription: steamDescription, autoUpdateDescription: settings.AutoUpdateDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, dependenciesExpanded: settings.PublishDependenciesExpanded, rememberDependenciesExpanded: RememberDependenciesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam, analyzeAsVersion: v => AnalyzeAsVersion(mod, v)); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);

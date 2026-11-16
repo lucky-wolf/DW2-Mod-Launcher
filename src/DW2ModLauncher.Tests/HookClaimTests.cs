@@ -109,6 +109,34 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void AClaimStillHoldsWhenAPatchItListsIsNotInstalledNow()
+        {
+            ModInfo a = Mod("A"), b = Mod("B");
+            DeclaredHook ha = Hook(Target, "prefix", "skips-original"), hb = Hook(Target, "postfix", "changes-result"), hbt = Hook(Target, "transpiler", "rewrites");
+            HookClaim claim = HookClaims.Make(Target, b, a, new List<HookParticipant> { Part(hb), Part(hbt) }, new List<HookParticipant> { Part(ha) }, null, new DateTime(2026, 11, 15));
+            // B's feature with the transpiler is switched off in this run
+            HookAnalysis analysis = Run(new List<ModInfo> { a, b }, new Dictionary<string, HookManifest> { ["A"] = Manifest(new[] { ha }), ["B"] = Manifest(new[] { hb }, new[] { claim }) });
+            Assert.Equal(HookSeverity.Info, Assert.Single(analysis.Overlaps).Severity);
+            Assert.Empty(analysis.ClaimProblems);
+
+            // and the same claim does not cover a patch it never listed
+            DeclaredHook other = Hook(Target, "finalizer", "observes");
+            HookAnalysis added = Run(new List<ModInfo> { a, b }, new Dictionary<string, HookManifest> { ["A"] = Manifest(new[] { ha }), ["B"] = Manifest(new[] { hb, other }, new[] { claim }) });
+            Assert.True(Assert.Single(Assert.Single(added.Overlaps).Pairs).Severity > HookSeverity.Info);
+        }
+
+        [Fact]
+        public void MakingAClaimAgainKeepsWhatTheEarlierOneCovered()
+        {
+            ModInfo a = Mod("A"), b = Mod("B");
+            DeclaredHook ha = Hook(Target, "prefix", "skips-original"), hb = Hook(Target, "postfix", "changes-result"), hbt = Hook(Target, "transpiler", "rewrites");
+            HookClaim first = HookClaims.Make(Target, b, a, new List<HookParticipant> { Part(hb), Part(hbt) }, new List<HookParticipant> { Part(ha) }, null, new DateTime(2026, 11, 15));
+            HookClaim again = HookClaims.Make(Target, b, a, new List<HookParticipant> { Part(hb) }, new List<HookParticipant> { Part(ha) }, null, new DateTime(2026, 11, 16), first);
+            Assert.Equal(first.Self.Hash, again.Self.Hash);
+            Assert.Equal(2, again.Self.Facts.Count);
+        }
+
+        [Fact]
         public void AChangeInThePartnersPatchAlsoDropsIt()
         {
             ModInfo a = Mod("A"), b = Mod("B");
