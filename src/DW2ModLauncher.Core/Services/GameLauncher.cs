@@ -67,7 +67,7 @@ namespace DW2ModLauncher.Core.Services
         public static LoaderManifest WriteLoaderManifest(IEnumerable<ModInfo> orderedEnabledMods, string logDirectory = "", Dictionary<string, string> strings = null, string language = null, string gameRoot = null,
             string loaderDirectory = null, string observedHooksPath = null, string gameMonitor = null)
         {
-            LoaderManifest manifest = LoaderManifestBuilder.Build(orderedEnabledMods.ToList(), language, gameRoot);
+            LoaderManifest manifest = LoaderManifestBuilder.Build(orderedEnabledMods.ToList(), language, gameRoot, logDirectory);
             if (OperatingSystem.IsWindows() && !string.IsNullOrWhiteSpace(gameMonitor))
             {
                 string problem = DisplayChoices.Resolve(gameMonitor, DisplayEnumerator.List(), out string rect, out string adapter, out int refreshRate);

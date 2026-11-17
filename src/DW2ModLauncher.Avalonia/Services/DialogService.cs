@@ -100,9 +100,9 @@ namespace DW2ModLauncher.Avalonia.Services
             return new RenameDialog(title, intro, titleLabel, folderLabel, initialTitle, initialFolder, OkText, CancelText, folderFor, hint, folderInvalid).ShowDialog<string[]>(owner());
         }
 
-        public Task<TagPick> PickTagAsync(string title, string note, string placeholder, IList<string> known, Func<string, string> newText)
+        public Task<TagSelection> PickTagsAsync(string title, string note, string placeholder, IList<string> known, IList<string> selected, string addText)
         {
-            return new TagPickerDialog(title, note, placeholder, known, newText, OkText, CancelText).ShowDialog<TagPick>(owner());
+            return new TagPickerDialog(title, note, placeholder, known, selected, addText, OkText, CancelText).ShowDialog<TagSelection>(owner());
         }
 
         public async Task<string> PickFolderAsync(string title, string startFolder)

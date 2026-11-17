@@ -29,7 +29,7 @@ The launcher alone knows the machine's monitors and cards before the game starts
 
 ## Testing
 
-The harness (`DW2-XL`, `docs/Testing in the Game.md`) starts the Copy through `--prepare-launch` with its own data root (`DW2-XL/temp/Launcher Data`); put `"GameMonitor": "<label>"` in its `launcher_settings.json`. Verified at 125% with the main monitor on an AMD card and the second on an NVIDIA card: the window is created at the second monitor's rectangle (no flash on the main one), stays there after a forced `SetDisplay`, renders at its size, and the device is created on the NVIDIA card (the default adapter is the AMD one).
+The harness (`DW2-XL`, `docs/Test Harness Reference.md`) starts the Copy through `--prepare-launch` with its own data root (`DW2-XL/temp/Launcher Data`); put `"GameMonitor": "<label>"` in its `launcher_settings.json`. Verified at 125% with the main monitor on an AMD card and the second on an NVIDIA card: the window is created at the second monitor's rectangle (no flash on the main one), stays there after a forced `SetDisplay`, renders at its size, and the device is created on the NVIDIA card (the default adapter is the AMD one).
 
 Refresh rate (checked 2026-11-11, main monitor 60 Hz, second 144 Hz): the game's screen-mode question now answers 144 for the second monitor. The game's own saved refresh rate (`GraphicsResolutionRefreshRate`, 60) and its FPS limit setting (`GraphicsFpsLimit`, saved at 60 here, range 30 to 240) are the player's choices and are left alone: the swap chain's preferred rate is ignored in a borderless window (set to 144 and VSync off, the frame rate stayed 60), and the frame rate follows the FPS limit. So a high-refresh monitor needs the in-game FPS limit raised; the launcher does not change it.
 

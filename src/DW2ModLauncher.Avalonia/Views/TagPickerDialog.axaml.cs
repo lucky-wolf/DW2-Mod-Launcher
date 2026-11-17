@@ -7,59 +7,58 @@ using DW2ModLauncher.Core.Services.Catalog;
 
 namespace DW2ModLauncher.Avalonia.Views
 {
-    /// <summary>The tag the author picked in the tag picker, and whether it is one nobody has used before (the caller confirms those).</summary>
-    public class TagPick
+    /// <summary>The tags left checked in the tag picker, and which of them nobody has used before (the caller confirms those).</summary>
+    public class TagSelection
+    {
+        public List<string> Tags { get; set; } = new List<string>();
+        public List<string> NewTags { get; set; } = new List<string>();
+    }
+
+    /// <summary>One line of the tag picker: a tag and whether it is checked.</summary>
+    public class TagPickRow
     {
         public string Tag { get; set; }
+        public string Text { get; set; }
         public bool IsNew { get; set; }
+        public bool IsChecked { get; set; }
     }
 
     /// <summary>
-    /// Picks a topic tag. Typing narrows the list of known tags to those containing the text (the best match first), and a tag that
-    /// is not known is offered as an "add new tag" row. Closes with a <see cref="TagPick"/>, or null if cancelled.
+    /// Picks a mod's topic tags in one go. Every known tag is a check box (the mod's own tags start checked); typing narrows the
+    /// list, and the Add button (or Enter) adds the typed text as a new tag, already checked. Closes with a <see cref="TagSelection"/>,
+    /// or null if cancelled.
     /// </summary>
     public partial class TagPickerDialog : Window
     {
-        private sealed class Row
-        {
-            public string Tag;
-            public bool IsNew;
-            public string Text;
-            public override string ToString() { return Text; }
-        }
-
-        private readonly IList<string> known;
-        private readonly Func<string, string> newText;
+        private readonly List<TagPickRow> all = new List<TagPickRow>();
 
         public TagPickerDialog()
         {
             InitializeComponent();
         }
 
-        /// <param name="known">The tags already in use, normalized and without repeats.</param>
-        /// <param name="newText">The text of the "add new tag" row for a typed tag.</param>
-        public TagPickerDialog(string title, string note, string placeholder, IList<string> known, Func<string, string> newText, string okText, string cancelText) : this()
+        /// <param name="known">Every tag in use, normalized and without repeats.</param>
+        /// <param name="selected">The tags the mod has now; they start checked (any not in <paramref name="known"/> are added to the list).</param>
+        public TagPickerDialog(string title, string note, string placeholder, IList<string> known, IList<string> selected, string addText, string okText, string cancelText) : this()
         {
-            this.known = known;
-            this.newText = newText;
+            foreach (string tag in known.Concat(selected).Distinct().OrderBy(t => t, StringComparer.Ordinal))
+                all.Add(new TagPickRow { Tag = tag, Text = tag, IsNew = !known.Contains(tag), IsChecked = selected.Contains(tag) });
             Title = title;
             NoteText.Text = note;
             SearchBox.PlaceholderText = placeholder;
+            AddButton.Content = addText;
             OkButton.Content = okText;
             CancelButton.Content = cancelText;
             Opened += delegate { SearchBox.Focus(); };
             SearchBox.TextChanged += delegate { Refresh(); };
-            // the arrow keys move through the list while the cursor stays in the box
             SearchBox.KeyDown += (sender, e) =>
             {
-                if (e.Key != Key.Down && e.Key != Key.Up || Matches.ItemCount == 0) return;
-                int next = Matches.SelectedIndex + (e.Key == Key.Down ? 1 : -1);
-                Matches.SelectedIndex = Math.Max(0, Math.Min(Matches.ItemCount - 1, next));
+                if (e.Key != Key.Enter || CatalogTags.Normalize(SearchBox.Text).Length == 0) return;
+                AddTyped();
                 e.Handled = true;
             };
-            Matches.SelectionChanged += delegate { OkButton.IsEnabled = Matches.SelectedItem != null; };
-            Matches.DoubleTapped += delegate { Choose(); };
-            OkButton.Click += delegate { Choose(); };
+            AddButton.Click += delegate { AddTyped(); };
+            OkButton.Click += delegate { Close(Result()); };
             CancelButton.Click += delegate { Close(null); };
             Refresh();
         }
@@ -67,20 +66,34 @@ namespace DW2ModLauncher.Avalonia.Views
         private void Refresh()
         {
             string typed = CatalogTags.Normalize(SearchBox.Text);
-            List<Row> rows = known
-                .Where(k => typed.Length == 0 || k.Contains(typed, StringComparison.Ordinal))
-                .OrderBy(k => k == typed ? 0 : k.StartsWith(typed, StringComparison.Ordinal) ? 1 : 2)
-                .ThenBy(k => k, StringComparer.Ordinal)
-                .Select(k => new Row { Tag = k, Text = k })
+            Matches.ItemsSource = all
+                .Where(r => typed.Length == 0 || r.Tag.Contains(typed, StringComparison.Ordinal))
+                .OrderBy(r => r.Tag, StringComparer.Ordinal)
                 .ToList();
-            if (typed.Length > 0 && !known.Contains(typed)) rows.Add(new Row { Tag = typed, IsNew = true, Text = newText(typed) });
-            Matches.ItemsSource = rows;
-            Matches.SelectedIndex = rows.Count > 0 ? 0 : -1;
+            AddButton.IsEnabled = typed.Length > 0;
         }
 
-        private void Choose()
+        /// <summary>Checks the typed tag, adding it to the list first when it is new, then clears the box for the next one.</summary>
+        private void AddTyped()
         {
-            if (Matches.SelectedItem is Row row) Close(new TagPick { Tag = row.Tag, IsNew = row.IsNew });
+            string typed = CatalogTags.Normalize(SearchBox.Text);
+            if (typed.Length == 0) return;
+            TagPickRow row = all.FirstOrDefault(r => r.Tag == typed);
+            if (row == null)
+            {
+                row = new TagPickRow { Tag = typed, Text = typed, IsNew = true };
+                all.Add(row);
+            }
+            row.IsChecked = true;
+            SearchBox.Text = "";
+            Refresh();
+            Matches.ScrollIntoView(row);
+        }
+
+        private TagSelection Result()
+        {
+            List<TagPickRow> on = all.Where(r => r.IsChecked).ToList();
+            return new TagSelection { Tags = on.Select(r => r.Tag).ToList(), NewTags = on.Where(r => r.IsNew).Select(r => r.Tag).ToList() };
         }
     }
 }
