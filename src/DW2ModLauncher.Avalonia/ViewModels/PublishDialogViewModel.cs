@@ -969,7 +969,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get { return L["Description"] + ": " + (System.Text.Encoding.UTF8.GetByteCount(description ?? "") / 1024.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " KB"; }
         }
         /// <summary>The tags as chips, each with its own remove button.</summary>
-        public IEnumerable<TagChip> TagChips { get { return tagNames.Select(t => new TagChip { Text = t, RemoveTooltip = L["PublishTagRemove"], Remove = new RelayCommand(() => RemoveTag(t)) }).ToList(); } }
+        public IEnumerable<TagChip> TagChips { get { return tagNames.OrderBy(t => t, StringComparer.Ordinal).Select(t => new TagChip { Text = t, RemoveTooltip = L["PublishTagRemove"], Remove = new RelayCommand(() => RemoveTag(t)) }).ToList(); } }
         public RelayCommand AddTagCommand { get; }
 
         private void RemoveTag(string tag)
@@ -979,15 +979,24 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             RaiseModified();
         }
 
-        /// <summary>Asks which tag to add: one already in use, or a new one, which the author must confirm since every author is then offered it.</summary>
+        /// <summary>Opens the tag list with the mod's tags checked; whatever is checked on OK becomes the tags. A new tag must be confirmed, since every author is then offered it; one declined is left out.</summary>
         private async Task AddTagAsync()
         {
-            List<string> offered = knownTags.Where(t => !tagNames.Contains(t)).ToList();
-            Views.TagPick pick = await dialogs.PickTagAsync(L["PickTagTitle"], L["PickTagNote"], L["PickTagPlaceholder"], offered, typed => L.Format("PickTagNew", ("Tag", typed)));
-            if (pick == null || tagNames.Contains(pick.Tag)) return;
-            if (pick.IsNew && !await dialogs.ConfirmAsync(L.Format("PublishTagNewConfirm", ("Tag", pick.Tag)), L["PublishTagNewTitle"], L["PublishTagNewYes"], L["Cancel"])) return;
-            tagNames.Add(pick.Tag);
-            if (!knownTags.Contains(pick.Tag)) knownTags.Add(pick.Tag);
+            Views.TagSelection pick = await dialogs.PickTagsAsync(L["PickTagTitle"], L["PickTagNote"], L["PickTagPlaceholder"], knownTags, tagNames, L["PickTagAdd"]);
+            if (pick == null) return;
+            List<string> chosen = new List<string>();
+            foreach (string tag in pick.Tags)
+            {
+                if (pick.NewTags.Contains(tag) && !knownTags.Contains(tag))
+                {
+                    if (!await dialogs.ConfirmAsync(L.Format("PublishTagNewConfirm", ("Tag", tag)), L["PublishTagNewTitle"], L["PublishTagNewYes"], L["Cancel"])) continue;
+                    knownTags.Add(tag);
+                }
+                chosen.Add(tag);
+            }
+            if (chosen.SequenceEqual(tagNames)) return;
+            tagNames.Clear();
+            tagNames.AddRange(chosen);
             Raise(nameof(TagChips));
             RaiseModified();
         }

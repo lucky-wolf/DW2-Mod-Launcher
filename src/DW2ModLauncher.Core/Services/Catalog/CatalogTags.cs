@@ -18,7 +18,7 @@ namespace DW2ModLauncher.Core.Services.Catalog
         /// </summary>
         public static readonly string[] Suggested =
         {
-            "ai", "art", "balance", "diplomacy", "economy", "events", "galaxy", "icons", "music", "planets", "quality of life",
+            "ai", "art", "automation", "balance", "diplomacy", "economy", "events", "galaxy", "icons", "music", "planets", "quality of life",
             "races", "research", "ships", "sound effects", "ui", "weapons"
         };
 

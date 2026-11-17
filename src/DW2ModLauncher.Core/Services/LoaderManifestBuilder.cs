@@ -18,6 +18,9 @@ namespace DW2ModLauncher.Core.Services
         /// <summary>The key added to every code mod's options JSON: the language the mod's in-game text should speak.</summary>
         public const string LanguageKey = "Language";
 
+        /// <summary>The key added to every code mod's options JSON when the launcher's Log Folder setting is set: that folder (as the game sees it), the one place all code mods write their output. A mod's own output-folder setting still overrides it. Reserved like <see cref="LanguageKey"/>: never stored.</summary>
+        public const string ModOutputDirectoryKey = "ModOutputDirectory";
+
         /// <summary>The key added beside <see cref="LanguageKey"/> to a code mod's options JSON: the full paths (as the game sees them) of the translation files that enabled packs supply for the mod's in-game text, in the order they apply (<see cref="TranslationPacks"/>). Absent when there are none; a mod that does not know it ignores it.</summary>
         public const string TranslationFilesKey = "TranslationFiles";
 
@@ -26,8 +29,9 @@ namespace DW2ModLauncher.Core.Services
         /// options JSON carries it as <see cref="LanguageKey"/>, whether or not the mod has a settings schema; a schema field of the
         /// same name is overridden. Null leaves the options as they were.
         /// <paramref name="gameRoot"/> is the launcher's game folder, the meaning of %DW2% in a folder/file setting.
+        /// <paramref name="modOutputDirectory"/> is the launcher's Log Folder setting; when not blank it is handed to every code mod as <see cref="ModOutputDirectoryKey"/>.
         /// </summary>
-        public static LoaderManifest Build(List<ModInfo> orderedEnabledMods, string language = null, string gameRoot = null)
+        public static LoaderManifest Build(List<ModInfo> orderedEnabledMods, string language = null, string gameRoot = null, string modOutputDirectory = null)
         {
             LoaderManifest manifest = new LoaderManifest();
             HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -36,7 +40,7 @@ namespace DW2ModLauncher.Core.Services
                 string modRoot = mod.ContentRoot ?? mod.Folder;
                 manifest.ModFolders.Add(LeafName(mod.Folder ?? modRoot));
                 foreach (InjectionTarget target in InjectionScanner.TargetsFor(mod))
-                    AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint, orderedEnabledMods, language, gameRoot);
+                    AddEntry(manifest, seen, mod, modRoot, target.Dll, target.EntryPoint, orderedEnabledMods, language, gameRoot, modOutputDirectory);
                 AddPatches(manifest, mod, modRoot, manifest.ModFolders.Count - 1);
                 manifest.InstalledMods.Add(new LoaderManifestInstalledMod
                 {
@@ -209,7 +213,7 @@ namespace DW2ModLauncher.Core.Services
             return expanded;
         }
 
-        private static void AddEntry(LoaderManifest manifest, HashSet<string> seen, ModInfo mod, string modRoot, string dllRelative, string entryPoint, IList<ModInfo> enabled, string language, string gameRoot)
+        private static void AddEntry(LoaderManifest manifest, HashSet<string> seen, ModInfo mod, string modRoot, string dllRelative, string entryPoint, IList<ModInfo> enabled, string language, string gameRoot, string modOutputDirectory)
         {
             if (string.IsNullOrWhiteSpace(modRoot) || string.IsNullOrWhiteSpace(dllRelative) || string.IsNullOrWhiteSpace(entryPoint)) return;
             string full = Path.GetFullPath(Path.Combine(modRoot, dllRelative.Replace('/', Path.DirectorySeparatorChar)));
@@ -219,13 +223,19 @@ namespace DW2ModLauncher.Core.Services
             ModSettingsSchema schema = ModSettingsSchemaReader.Read(modRoot);
             if (schema != null)
                 settingsJson = ExpandPathSettings(mod, schema, ModSettingsStore.GetOrCreateValues(mod, schema), gameRoot).ToJsonString();
-            if (!string.IsNullOrWhiteSpace(language))
+            bool hasLanguage = !string.IsNullOrWhiteSpace(language);
+            bool hasOutput = !string.IsNullOrWhiteSpace(modOutputDirectory);
+            if (hasLanguage || hasOutput)
             {
                 JsonObject options = settingsJson == null ? new JsonObject() : JsonNode.Parse(settingsJson).AsObject();
-                options[LanguageKey] = language.Trim();
-                List<string> translations = TranslationPacks.FilesFor(enabled, mod, TranslationPacks.Status, language);
-                if (translations.Count > 0)
-                    options[TranslationFilesKey] = new JsonArray(translations.Select(f => (JsonNode)JsonValue.Create(GamePaths.ToGameVisiblePath(Path.GetFullPath(f)))).ToArray());
+                if (hasLanguage)
+                {
+                    options[LanguageKey] = language.Trim();
+                    List<string> translations = TranslationPacks.FilesFor(enabled, mod, TranslationPacks.Status, language);
+                    if (translations.Count > 0)
+                        options[TranslationFilesKey] = new JsonArray(translations.Select(f => (JsonNode)JsonValue.Create(GamePaths.ToGameVisiblePath(Path.GetFullPath(f)))).ToArray());
+                }
+                if (hasOutput) options[ModOutputDirectoryKey] = GamePaths.ToGameVisiblePath(modOutputDirectory.Trim());
                 settingsJson = options.ToJsonString();
             }
 

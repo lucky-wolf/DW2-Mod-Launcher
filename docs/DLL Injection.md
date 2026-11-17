@@ -182,6 +182,10 @@ At launch the launcher adds `"Language": "<code>"` (`en`, `ja`, `ru`, the code o
 
 A mod that wants to speak it reads the key and translates the text it shows in the game (its status-widget lines, for instance); a mod that does not care ignores it. The key is reserved: a schema field of the same name is overridden. The mod's settings values on disk never contain it.
 
+### The `ModOutputDirectory` option
+
+When the launcher's Log Folder setting (Settings, "Log Folder": where the game and its code mods write their logs) is set, the launcher adds `"ModOutputDirectory": "<path>"` to the options JSON of every code mod: the folder as the game sees it (`Z:\...` under Proton). It is the one place all code mods write their output, so moving it means changing one setting, not one per mod. A mod's own output-folder setting, when the player has set one, still overrides it, and a blank Log Folder sends nothing (the mod uses its own default, normally the game's `data/Logs`). The key is reserved like `Language` and never stored. The DW2-XL code mods read it in `ModHost.Start` (`dll/Shared/ModHost.cs`) and keep a folder per game under it, `Games/<Empire> - <Race> - <id>/` (DW2-XL `docs/plans/game-logs.md`). A test launch through `--prepare-launch` sends none, so a test copy keeps its own output settings.
+
 ### The `TranslationFiles` option
 
 Beside `Language` the launcher adds `"TranslationFiles": ["<path>", ...]` when enabled [translation packs](Localization.md#translation-packs) supply `translations/<language code>/<this mod>/status.json` for the in-game language: the full paths, as the game sees them (`Z:\...` under Proton), in the order they apply. A mod that translates its own in-game text reads each file after its own `status.<code>.json`, so a later file wins key by key, and the format is the mod's own (the launcher never reads the text). The key is absent when no pack supplies a file. It is reserved like `Language`, never stored, and a mod that does not know it ignores it.

@@ -123,6 +123,23 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void Build_AddsModOutputDirectoryToOptions_OnlyWhenGiven()
+        {
+            string plain = MakeModDir("Plain.dll");
+            try
+            {
+                LoaderManifest with = LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(plain) }, null, null, "C:/Logs/DW2 mods ");
+                System.Text.Json.Nodes.JsonNode options = System.Text.Json.Nodes.JsonNode.Parse(with.Entries[0].SettingsJson);
+                Assert.Equal(GamePaths.ToGameVisiblePath("C:/Logs/DW2 mods"), options["ModOutputDirectory"].GetValue<string>());
+                Assert.Null(options["Language"]);
+
+                LoaderManifest without = LoaderManifestBuilder.Build(new List<ModInfo> { ModAt(plain) }, null, null, "  ");
+                Assert.Null(without.Entries[0].SettingsJson);
+            }
+            finally { Directory.Delete(plain, true); }
+        }
+
+        [Fact]
         public void Build_AddsLanguageToOptions_WithAndWithoutSchema()
         {
             string plain = MakeModDir("Plain.dll");

@@ -1,5 +1,9 @@
 ## Unreleased
 
+## 1.0.44 (2026-11-17)
+- The tag picker is one checklist: check, uncheck, type to add
+- Code mods are told the Log Folder, so all their logs land in one place
+
 ## 1.0.43 (2026-11-15)
 - The Dependencies section remembers whether you opened or folded it
 - Hook claims still hold when a mod installs fewer patches
