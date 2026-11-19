@@ -170,6 +170,41 @@ namespace DW2ModLauncher.Tests
             Assert.Contains(expected, ex.Message);
         }
 
+        private const string EnumEnableFields = @"""Main"": [
+            { ""key"": ""Mode"", ""type"": ""enum"", ""options"": [""Galaxy"", ""Overlays"", ""Both""], ""default"": ""Galaxy"" },
+            { ""key"": ""Master"", ""type"": ""bool"", ""default"": true },
+            { ""key"": ""A"", ""type"": ""int"", ""default"": 1 },
+            { ""key"": ""B"", ""type"": ""int"", ""default"": 1 },
+            { ""key"": ""C"", ""type"": ""int"", ""default"": 1 }
+        ]";
+
+        [Fact]
+        public void Read_ParsesEnumEnables_ByOption()
+        {
+            var schema = ReadSchema("{ " + EnumEnableFields + @", ""_enables"": { ""mode"": { ""galaxy"": [""A"", ""B""], ""Overlays"": [""B"", ""C""] }, ""Master"": [""A""] } }");
+
+            Assert.Equal(new[] { "Mode", "Master" }, schema.EnabledBy["A"]);
+            Assert.Equal(new[] { "Mode" }, schema.EnabledBy["B"]);
+            Assert.Equal(new[] { "Galaxy" }, schema.EnabledWhen["A"]["Mode"]);
+            Assert.Equal(new[] { "Galaxy", "Overlays" }, schema.EnabledWhen["B"]["Mode"]);
+            Assert.Equal(new[] { "Overlays" }, schema.EnabledWhen["C"]["MODE"]);
+            Assert.False(schema.EnabledWhen.ContainsKey("Master"));
+        }
+
+        [Theory]
+        [InlineData(@"""_enables"": { ""Mode"": [""A""] }", "object of")]
+        [InlineData(@"""_enables"": { ""Master"": { ""Galaxy"": [""A""] } }", "must list the settings it enables as an array")]
+        [InlineData(@"""_enables"": { ""Mode"": { ""Nope"": [""A""] } }", "which the setting does not have")]
+        [InlineData(@"""_enables"": { ""Mode"": { ""Galaxy"": ""A"" } }", "array of keys")]
+        [InlineData(@"""_enables"": { ""Mode"": { ""Galaxy"": [""Nope""] } }", "not a setting")]
+        [InlineData(@"""_enables"": { ""Mode"": { ""Galaxy"": [""Mode""] } }", "lists itself")]
+        [InlineData(@"""_enables"": { ""Mode"": { ""Galaxy"": [""Master""] }, ""Master"": [""Mode""] }", "loops")]
+        public void Read_RejectsBadEnumEnables(string enables, string expected)
+        {
+            var ex = Assert.Throws<InvalidDataException>(() => ReadSchema("{ " + EnumEnableFields + ", " + enables + " }"));
+            Assert.Contains(expected, ex.Message);
+        }
+
         private const string PreviewFields = @"""Main"": [
             { ""key"": ""Flag"", ""type"": ""bool"", ""default"": true },
             { ""key"": ""Mode"", ""type"": ""enum"", ""options"": [""Sparse"", ""Dense""], ""default"": ""Sparse"" },

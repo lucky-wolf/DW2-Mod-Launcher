@@ -25,6 +25,12 @@ namespace DW2ModLauncher.Core.Models
         /// </summary>
         public Dictionary<string, List<string>> EnabledBy { get; set; } = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// For an enabler that is an enum ({"Enabler": {"Option": ["Setting", ...]}}): setting key, then the enum's key, maps to the options of that enum under which the setting is available.
+        /// The enum is also listed in <see cref="EnabledBy"/> (so chains and loops are followed alike); a bool enabler has no entry here and needs to be on.
+        /// </summary>
+        public Dictionary<string, Dictionary<string, List<string>>> EnabledWhen { get; set; } = new Dictionary<string, Dictionary<string, List<string>>>(StringComparer.OrdinalIgnoreCase);
+
         /// <summary>Every field of every group, in file order.</summary>
         public List<ModSettingsField> Fields { get { return Groups.SelectMany(g => g.Fields).ToList(); } }
 
