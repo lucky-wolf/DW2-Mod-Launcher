@@ -72,6 +72,7 @@ namespace DW2ModLauncher.Loader
             InstallTextFiles(manifest, logDir);
             InstallTitleLookup(manifest, logDir);
             InstallGameState(logDir, manifest);
+            LoadedMods.Install(manifest.InstalledMods); // before the mods, so one can ask whether another is there from its own entry point
 
             foreach (LoaderManifestEntry entry in manifest?.Entries ?? new System.Collections.Generic.List<LoaderManifestEntry>())
                 LoadOne(entry);

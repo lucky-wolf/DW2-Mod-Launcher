@@ -1,5 +1,11 @@
 ## Unreleased
 
+## 1.0.47 (2026-11-19)
+- Code mods can ask whether another mod is loaded, by name, uid or Workshop id
+- Publish and Edit Properties dialogs can be resized
+- Edit Properties lists grow to fit; no inner scroll bars
+- Publish dialog dependencies: one line each, no scroll bar
+
 ## 1.0.46 (2026-11-19)
 - Mods downloaded from the catalog now update automatically
 - Outdated catalog mods are marked in the mod list

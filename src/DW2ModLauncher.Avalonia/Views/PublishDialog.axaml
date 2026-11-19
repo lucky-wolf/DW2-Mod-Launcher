@@ -5,7 +5,7 @@
         xmlns:views="using:DW2ModLauncher.Avalonia.Views"
         x:Class="DW2ModLauncher.Avalonia.Views.PublishDialog"
         x:DataType="vm:PublishDialogViewModel"
-        Title="{Binding WindowTitle}" Width="830" Height="900" CanResize="False"
+        Title="{Binding WindowTitle}" Width="900" Height="900" MinWidth="900" MinHeight="300" CanResize="True"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Grid RowDefinitions="*,Auto,Auto">
     <ScrollViewer Grid.Row="0">
@@ -178,7 +178,7 @@
                 <TextBlock Grid.Column="2" Classes="eyebrow" HorizontalAlignment="Right" Text="{Binding L[PublishBundlesColumnSize]}" />
               </Grid>
               <TextBlock Classes="muted" IsVisible="{Binding NoBundles}" Text="{Binding L[PublishBundlesNone]}" />
-              <ScrollViewer MaxHeight="130" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasBundles}">
+              <ScrollViewer VerticalScrollBarVisibility="Disabled" IsVisible="{Binding HasBundles}">
                 <ItemsControl ItemsSource="{Binding BundleRows}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:BundleRow">
@@ -202,7 +202,7 @@
                 <TextBlock Grid.Column="2" Classes="eyebrow" Text="{Binding L[PublishInjectedDllsColumnEntry]}" />
               </Grid>
               <TextBlock Classes="muted" IsVisible="{Binding NoInjectedDlls}" Text="{Binding L[PublishInjectedDllsNone]}" />
-              <ScrollViewer MaxHeight="130" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasInjectedDlls}">
+              <ScrollViewer VerticalScrollBarVisibility="Disabled" IsVisible="{Binding HasInjectedDlls}">
                 <ItemsControl ItemsSource="{Binding InjectedDlls}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:InjectedDllRow">
@@ -233,30 +233,36 @@
           <Border Background="{StaticResource Dw2Void}" BorderBrush="{StaticResource Dw2Steel}" BorderThickness="1" Padding="10,8">
             <StackPanel Spacing="4">
               <TextBlock Classes="muted" IsVisible="{Binding NoDependencies}" Text="{Binding L[PublishDependencyNone]}" />
-              <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasDependencies}">
-                <ItemsControl ItemsSource="{Binding DependencyRows}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:DependencyRow">
-                      <StackPanel Spacing="4" Margin="0,4">
-                        <Grid ColumnDefinitions="*,Auto,Auto">
-                          <TextBlock Grid.Column="0" VerticalAlignment="Center" Foreground="{StaticResource Dw2Gold}" TextWrapping="Wrap" Text="{Binding Name}" />
-                          <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="Orange" Text="{Binding Note}" IsVisible="{Binding HasNote}" />
-                          <Button Grid.Column="2" Command="{Binding Remove}" Padding="6,4" ToolTip.Tip="{Binding RemoveTooltip}">
-                            <!-- "close" icon, Material Design Icons, Apache-2.0 -->
-                            <PathIcon Width="12" Height="12" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                          </Button>
-                        </Grid>
-                        <StackPanel Orientation="Horizontal" Spacing="16">
-                          <CheckBox IsChecked="{Binding Required}" Content="{Binding L[PublishDependencyRequired]}" ToolTip.Tip="{Binding L[PublishDependencyRequiredTooltip]}" />
-                          <CheckBox IsChecked="{Binding LinkOnSteam}" IsEnabled="{Binding SteamEnabled}" Content="{Binding L[PublishDependencySteamLink]}" ToolTip.Tip="{Binding L[PublishDependencySteamLinkTooltip]}" />
-                          <ComboBox Width="190" ItemsSource="{Binding OrderChoices}" SelectedIndex="{Binding OrderIndex}" ToolTip.Tip="{Binding L[PublishDependencyOrderTooltip]}" />
-                          <TextBox Width="110" Text="{Binding MinVersion}" PlaceholderText="{Binding L[PublishDependencyMinVersion]}" ToolTip.Tip="{Binding L[PublishDependencyMinVersionTooltip]}" />
-                        </StackPanel>
+              <!-- One line per dependency, as tall as the list needs (no scroll bar): remove, name, a warning when it is not usable here, then its options. The shared widths line the columns up. -->
+              <ItemsControl ItemsSource="{Binding DependencyRows}" IsVisible="{Binding HasDependencies}" Grid.IsSharedSizeScope="True">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DependencyRow">
+                    <Grid Margin="0,3">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="DependencyName" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <Button Grid.Column="0" Command="{Binding Remove}" Padding="6,4" Margin="0,0,10,0" VerticalAlignment="Center" ToolTip.Tip="{Binding RemoveTooltip}">
+                        <!-- "close" icon, Material Design Icons, Apache-2.0 -->
+                        <PathIcon Width="12" Height="12" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                      </Button>
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" MaxWidth="240" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Dw2Gold}" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                      <!-- "alert" icon, Material Design Icons, Apache-2.0; the reason is its tooltip. The column keeps its width when empty so the options line up. -->
+                      <Panel Grid.Column="2" Width="30" VerticalAlignment="Center">
+                        <PathIcon Width="16" Height="16" Foreground="Orange" IsVisible="{Binding HasNote}" ToolTip.Tip="{Binding Note}" Data="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z" />
+                      </Panel>
+                      <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="16">
+                        <CheckBox IsChecked="{Binding Required}" Content="{Binding L[PublishDependencyRequired]}" ToolTip.Tip="{Binding L[PublishDependencyRequiredTooltip]}" />
+                        <CheckBox IsChecked="{Binding LinkOnSteam}" IsEnabled="{Binding SteamEnabled}" Content="{Binding L[PublishDependencySteamLink]}" ToolTip.Tip="{Binding L[PublishDependencySteamLinkTooltip]}" />
+                        <ComboBox Width="190" ItemsSource="{Binding OrderChoices}" SelectedIndex="{Binding OrderIndex}" ToolTip.Tip="{Binding L[PublishDependencyOrderTooltip]}" />
+                        <TextBox Width="110" Text="{Binding MinVersion}" PlaceholderText="{Binding L[PublishDependencyMinVersion]}" ToolTip.Tip="{Binding L[PublishDependencyMinVersionTooltip]}" />
                       </StackPanel>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </ScrollViewer>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
             </StackPanel>
           </Border>
         </Expander>

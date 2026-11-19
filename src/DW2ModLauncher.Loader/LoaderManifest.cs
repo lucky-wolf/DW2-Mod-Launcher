@@ -42,6 +42,7 @@ namespace DW2ModLauncher.Loader
         public string Name { get; set; } = "";
         public string Version { get; set; } = "";
         public string WorkshopId { get; set; } = "";
+        public string Uid { get; set; } = "";
         public bool HasCode { get; set; }
     }
 
