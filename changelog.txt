@@ -1,5 +1,11 @@
 ## Unreleased
 
+## 1.0.46 (2026-11-19)
+- Mods downloaded from the catalog now update automatically
+- Outdated catalog mods are marked in the mod list
+- Browse has a checkbox to turn automatic catalog updates off
+- Browse Mod Catalog sits alone between the toolbar groups, and the window cannot shrink under it, in the Windows accent color; separators have more space; drag hint removed
+
 ## 1.0.45 (2026-11-18)
 - Setting preview images show up to 960x640, twice as large
 - A choice with preview images and few options shows as radio buttons

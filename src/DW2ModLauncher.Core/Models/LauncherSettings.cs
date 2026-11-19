@@ -84,6 +84,8 @@ namespace DW2ModLauncher.Core.Models
         public bool PublishToGitHub { get; set; }
         /// <summary>Show the Browse Mod Catalog button in the Mods list. On by default.</summary>
         public bool CatalogEnabled { get; set; } = true;
+        /// <summary>Update the mods installed from the catalog by itself when it has a newer release, as Steam does for subscriptions. On by default.</summary>
+        public bool CatalogAutoUpdate { get; set; } = true;
         /// <summary>The address of the catalog's index.json (a fork or a test catalog). Null or empty: the built-in <see cref="Services.Catalog.CatalogClient.DefaultUrl"/>.</summary>
         public string CatalogUrl { get; set; }
 

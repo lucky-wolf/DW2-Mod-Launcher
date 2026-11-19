@@ -182,6 +182,19 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>"All tags" and then every tag some mod in the loaded catalog has.</summary>
         public List<CatalogChoice> TagChoices { get { return tagChoices; } private set { Set(ref tagChoices, value); } }
         public ObservableCollection<CatalogRowViewModel> Rows { get; } = new ObservableCollection<CatalogRowViewModel>();
+        /// <summary>Update the mods installed from the catalog by itself (the launcher's setting; turning it on also installs what is waiting).</summary>
+        public bool AutoUpdate
+        {
+            get { return main.LauncherSettings.CatalogAutoUpdate; }
+            set
+            {
+                if (main.LauncherSettings.CatalogAutoUpdate == value) return;
+                main.LauncherSettings.CatalogAutoUpdate = value;
+                main.SaveSettings();
+                Raise(nameof(AutoUpdate));
+                if (value) { var _ = main.BeginCatalogUpdateCheckAsync(); }
+            }
+        }
         public RelayCommand OpenReleaseCommand { get; }
         public RelayCommand ReloadCommand { get; }
 
@@ -211,8 +224,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         public bool IsLoading { get { return loading; } private set { if (Set(ref loading, value)) ReloadCommand.RaiseCanExecuteChanged(); } }
-        /// <summary>How many mods are listed, shown under the list.</summary>
-        public string Summary { get { return summary; } private set { Set(ref summary, value); } }
+        /// <summary>How many mods are listed, as the window title.</summary>
+        public string Summary { get { return summary; } private set { if (Set(ref summary, value)) Raise(nameof(Title)); } }
+        /// <summary>The window's title: the count of mods shown once the catalog is listed, else just the name.</summary>
+        public string Title { get { return summary.Length > 0 ? summary : main.T("CatalogTitle"); } }
         /// <summary>Why the catalog could not be shown; empty when it loaded.</summary>
         public string Error { get { return error; } private set { if (Set(ref error, value)) Raise(nameof(HasError)); } }
         public bool HasError { get { return error.Length > 0; } }
@@ -310,7 +325,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             string previewFolder = System.IO.Path.Combine(UserDataRoot.GetCache(), "Catalog", "Previews");
             foreach (CatalogEntry entry in CatalogBrowse.Apply(index.Entries, filterText, (string)kind.Value, (CatalogSort)sort.Value, SubscribersOf, (string)tag.Value))
                 Rows.Add(new CatalogRowViewModel(entry, CatalogStatusFinder.Find(entry, installed), (key, args) => main.T(key, args), previewFolder, SubscribersOf(entry), InstallAsync));
-            Summary = main.T("CatalogSummary", ("Shown", Rows.Count), ("Total", index.Entries.Count));
+            Summary = main.T("CatalogTitleCount", ("Shown", Rows.Count), ("Total", index.Entries.Count));
             Selected = Rows.FirstOrDefault(r => r.Entry.Id == keep);
         }
 

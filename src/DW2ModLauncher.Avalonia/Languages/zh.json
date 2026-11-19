@@ -176,7 +176,6 @@
   "SaveCurrent": "保存",
   "ModProfiles": "模组配置方案",
   "IncludedDocuments": "附带文档：{Count} 份",
-  "DragRowsToChangeLoadOrder": "↕ 拖动列表行以调整加载顺序；右键点击模组可查看更多操作",
   "FilterModsPlaceholder": "按名称、作者或来源筛选",
   "LocalModsOnly": "仅显示本地模组",
   "LocalModsOnlyTooltip": "仅显示游戏 mods 文件夹中的模组，隐藏 Steam 创意工坊中的副本",

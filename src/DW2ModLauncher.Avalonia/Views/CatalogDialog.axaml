@@ -3,7 +3,7 @@
         xmlns:vm="using:DW2ModLauncher.Avalonia.ViewModels"
         x:Class="DW2ModLauncher.Avalonia.Views.CatalogDialog"
         x:DataType="vm:CatalogViewModel"
-        Title="{Binding L[CatalogTitle]}" Width="1060" Height="680" MinWidth="700" MinHeight="400"
+        Title="{Binding Title}" Width="1060" Height="680" MinWidth="700" MinHeight="400"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Grid RowDefinitions="*,Auto">
     <!-- The list takes the whole width of the window. -->
@@ -62,14 +62,14 @@
       </Panel>
       <StackPanel Grid.Row="2" Spacing="4">
         <TextBlock IsVisible="{Binding HasNotice}" Text="{Binding Notice}" TextWrapping="Wrap" Foreground="Orange" />
-        <TextBlock Classes="muted" Text="{Binding Summary}" />
       </StackPanel>
     </Grid>
 
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
-      <Grid ColumnDefinitions="Auto,*,Auto">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="16">
         <Button Grid.Column="0" Command="{Binding OpenReleaseCommand}" Content="{Binding L[CatalogOpenRelease]}" ToolTip.Tip="{Binding L[CatalogOpenReleaseTooltip]}" />
-        <Button Grid.Column="2" Name="CloseButton" IsCancel="True" IsDefault="True" Content="{Binding L[Close]}" MinWidth="125" />
+        <CheckBox Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding AutoUpdate}" Content="{Binding L[CatalogAutoUpdate]}" ToolTip.Tip="{Binding L[CatalogAutoUpdateTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0" />
+        <Button Grid.Column="3" Name="CloseButton" IsCancel="True" IsDefault="True" Content="{Binding L[Close]}" MinWidth="125" />
       </Grid>
     </Border>
   </Grid>
