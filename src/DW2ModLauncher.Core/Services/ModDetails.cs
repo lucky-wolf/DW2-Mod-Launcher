@@ -263,6 +263,7 @@ namespace DW2ModLauncher.Core.Services
             if (mod.EnabledCopyCount > 0) conflicts.Add(t("EnabledMoreThanOnce"));
             if (mod.IdenticalFileCount > 0) cautions.Add(NamedText.Fill(t("SamePathAndIdenticalContent"), ("Count", mod.IdenticalFileCount)));
             if (mod.IsWorkshop && mod.UpdateState == "update") cautions.Add(t("SteamWorkshopUpdateAvailable"));
+            if (mod.CatalogUpdateVersion != null) cautions.Add(NamedText.Fill(t("CatalogUpdateAvailable"), ("Version", mod.CatalogUpdateVersion)));
             if (LauncherRequirement.IsUnmet(mod)) conflicts.Add(NamedText.Fill(t("LauncherTooOld"), ("Required", mod.MinLauncherVersion), ("Current", AppVersion.Display)));
             foreach (string problem in mod.DependencyProblems ?? new List<string>()) cautions.Add(problem);
             if (mod.ModJsonError != null) cautions.Add(NamedText.Fill(t("ModJsonNotValid"), ("Problem", mod.ModJsonError)));
@@ -320,6 +321,7 @@ namespace DW2ModLauncher.Core.Services
             if (mod.EnabledCopyCount > 0) lines.Add(t("EnabledMoreThanOnce"));
             if (mod.IdenticalFileCount > 0) lines.Add(NamedText.Fill(t("SamePathAndIdenticalContent"), ("Count", mod.IdenticalFileCount)));
             if (mod.IsWorkshop && mod.UpdateState == "update") lines.Add(t("SteamWorkshopUpdateAvailable"));
+            if (mod.CatalogUpdateVersion != null) lines.Add(NamedText.Fill(t("CatalogUpdateAvailable"), ("Version", mod.CatalogUpdateVersion)));
             if (LauncherRequirement.IsUnmet(mod)) lines.Add(NamedText.Fill(t("LauncherTooOld"), ("Required", mod.MinLauncherVersion), ("Current", AppVersion.Display)));
             foreach (string problem in mod.DependencyProblems ?? new List<string>()) lines.Add(problem);
             if (mod.ModJsonError != null) lines.Add(NamedText.Fill(t("ModJsonNotValid"), ("Problem", mod.ModJsonError)));
