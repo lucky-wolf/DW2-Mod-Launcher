@@ -16,7 +16,7 @@
               <TextBlock Grid.Column="4" Classes="muted" HorizontalAlignment="Right" Text="{Binding L[PublishCompatibleColArgs]}" />
               <TextBlock Grid.Column="5" Classes="muted" HorizontalAlignment="Center" Text="{Binding L[PublishCompatibleColDetails]}" />
             </Grid>
-            <ListBox ItemsSource="{Binding CompatibleRows}" MaxHeight="220" ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListBox ItemsSource="{Binding CompatibleRows}" ScrollViewer.VerticalScrollBarVisibility="Disabled">
               <ListBox.Styles>
                 <Style Selector="ListBoxItem">
                   <Setter Property="Padding" Value="8,2" />
