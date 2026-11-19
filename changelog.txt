@@ -1,5 +1,10 @@
 ## Unreleased
 
+## 1.0.45 (2026-11-18)
+- Setting preview images show up to 960x640, twice as large
+- A choice with preview images and few options shows as radio buttons
+- An enum setting can enable or disable blocks of other settings per option
+
 ## 1.0.44 (2026-11-17)
 - The tag picker is one checklist: check, uncheck, type to add
 - Code mods are told the Log Folder, so all their logs land in one place

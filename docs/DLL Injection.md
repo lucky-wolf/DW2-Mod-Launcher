@@ -232,6 +232,14 @@ then only has to say what that one switch changes). The names are matched ignori
 
 A bool setting can be a **master switch** for other settings, in any groups: a root `_enables` object maps the switch's key to the keys it enables. While the switch is off, those rows are drawn disabled (dark) and keep their values, so no tooltip has to say "only applies when X is on". Switches layer: list a sub-switch under the master and its own settings under it, and a setting is available only when every switch above it is on. A key that is not a setting of the schema, an enabler that is not a `bool`, a switch listing itself and a loop of switches are errors when the dialog opens. The launcher only draws the dependency; the mod still decides what an off switch means for the values it reads.
 
+An `enum` can be a switch too, one block of settings per option: its entry is an object of option to keys, and a setting is available only while the enum is set to an option it is listed under (under several options, any of them counts). A setting listed under no option of that enum is not affected by it, and an enum and a bool can both gate the same setting (all must be satisfied). An option the enum does not have, an array where an enum needs an object (or the reverse) and the same errors as for a bool switch are reported when the dialog opens.
+
+```json
+{
+  "_enables": { "RefreshMode": { "Galaxy": ["GalaxyInterval"], "Overlays": ["OverlayInterval", "OverlayFade"], "Both": ["GalaxyInterval", "OverlayInterval", "OverlayFade"] } }
+}
+```
+
 ```json
 {
   "Staging": [ {"key": "Staging", "type": "bool", "default": true}, {"key": "StagingPlayer", "type": "bool", "default": true}, {"key": "StagingRatio", "type": "float", "default": 1.5} ],
@@ -239,7 +247,7 @@ A bool setting can be a **master switch** for other settings, in any groups: a r
 }
 ```
 
-A setting can have a **preview image** shown in its tooltip while the pointer is over its row, so a player sees what a value does before choosing it. A root `_previews` object maps a setting's key to an image file name; the launcher looks only in the mod's `_previews` folder for it (no paths), PNG, JPG or WebP, about 1 MB or less; they show at most about 480x320 with the aspect kept, so 16:9 is a good shape. One image is the normal case: draw the comparison into it (a diagonal split, off on the left and on on the right, say), and it serves a checkbox, a number or a drop-down alike; the launcher adds no overlay. For an `enum` the value can instead be an object of option to image, shown for the selected option and, in the open drop-down, for the entry under the pointer; an option with no entry shows no image. The setting's description sits under the image. A key that is not a setting, an option the setting does not have, a map on a setting that is not an enum, a name that is a path, and an extension that is not an image are errors when the dialog opens. An image that is missing or unreadable is logged and the tooltip says so in place of the picture.
+A setting can have a **preview image** shown in its tooltip while the pointer is over its row, so a player sees what a value does before choosing it. A root `_previews` object maps a setting's key to an image file name; the launcher looks only in the mod's `_previews` folder for it (no paths), PNG, JPG or WebP, about 3 MB or less (not enforced); they show at most 960x640 with the aspect kept and are never scaled up, so draw them at that size, in 16:9 or 3:2. One image is the normal case: draw the comparison into it (a diagonal split, off on the left and on on the right, say), and it serves a checkbox, a number or a drop-down alike; the launcher adds no overlay. For an `enum` the value can instead be an object of option to image, shown for the selected option and, in the open drop-down, for the entry under the pointer; an option with no entry shows no image. An `enum` with previews, at most 4 options and none longer than 24 characters is drawn as a row of **radio buttons** (a full-width block of its own, each button showing its option's image on hover) instead of a drop-down. The setting's description sits under the image. A key that is not a setting, an option the setting does not have, a map on a setting that is not an enum, a name that is a path, and an extension that is not an image are errors when the dialog opens. An image that is missing or unreadable is logged and the tooltip says so in place of the picture.
 
 ```json
 {

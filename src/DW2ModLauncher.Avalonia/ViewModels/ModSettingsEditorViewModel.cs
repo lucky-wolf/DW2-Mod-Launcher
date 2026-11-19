@@ -29,6 +29,30 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public override string ToString() { return Display; }
     }
 
+    /// <summary>One radio button of an expanded choice field. The field stays the single source of truth: checking this button stores its option, and the field's changes re-read every button.</summary>
+    public class RadioOptionViewModel : ViewModelBase
+    {
+        private readonly SettingFieldViewModel owner;
+        private readonly ChoiceOption option;
+
+        public RadioOptionViewModel(SettingFieldViewModel owner, ChoiceOption option)
+        {
+            this.owner = owner;
+            this.option = option;
+            owner.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.TextValue)) Raise(nameof(IsChecked)); };
+        }
+
+        public string Display { get { return option.Display; } }
+        /// <summary>This option's preview image (shown while the pointer is over the button), or null.</summary>
+        public object Tip { get { return option.Tip; } }
+        /// <summary>A radio button never unchecks itself: only checking another one (or reset) moves the choice.</summary>
+        public bool IsChecked
+        {
+            get { return owner.TextValue == option.Value; }
+            set { if (value) owner.TextValue = option.Value; }
+        }
+    }
+
     /// <summary>One editable value from a mod's settings.schema.json. Exactly one of the typed properties is used, per Kind.</summary>
     public class SettingFieldViewModel : ViewModelBase
     {
@@ -105,6 +129,29 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             return path == null ? null : previewImages.Get(path, null);
         }
         public List<ChoiceOption> ChoiceOptions { get; }
+
+        /// <summary>A choice with at most this many options is drawn as radio buttons instead of a drop-down (when it has preview images; see <see cref="IsRadio"/>).</summary>
+        public const int MaxRadioOptions = 4;
+        /// <summary>An option longer than this (as shown) keeps the drop-down, so the buttons fit on a line.</summary>
+        public const int MaxRadioOptionLength = 24;
+
+        /// <summary>
+        /// The choice is drawn as a block of radio buttons, every option in view at once: an enum with preview images (the schema's "_previews"),
+        /// at most <see cref="MaxRadioOptions"/> options, none longer than <see cref="MaxRadioOptionLength"/> characters as shown.
+        /// </summary>
+        public bool IsRadio
+        {
+            get
+            {
+                if (Kind != ModSettingKind.Choice || ChoiceOptions.Count == 0 || ChoiceOptions.Count > MaxRadioOptions) return false;
+                if (schemaField.Preview == null && schemaField.OptionPreviews.Count == 0) return false;
+                return ChoiceOptions.All(o => o.Display.Length <= MaxRadioOptionLength);
+            }
+        }
+
+        private List<RadioOptionViewModel> radioOptions;
+        public List<RadioOptionViewModel> RadioOptions { get { return radioOptions ?? (radioOptions = ChoiceOptions.Select(o => new RadioOptionViewModel(this, o)).ToList()); } }
+
         /// <summary>The selected entry of a choice field; the stored value stays the schema's option text whatever is shown.</summary>
         public ChoiceOption SelectedChoice
         {
@@ -430,13 +477,38 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public ObservableCollection<SettingFieldViewModel> Fields { get; } = new ObservableCollection<SettingFieldViewModel>();
         public bool IsShown { get { return Fields.Count > 0; } }
 
+        /// <summary>
+        /// What the field list is drawn from, in order: a <see cref="FieldRunViewModel"/> for each run of ordinary fields (the two-column grid) and a bare
+        /// <see cref="SettingFieldViewModel"/> for each choice drawn as radio buttons, which takes a full-width block of its own.
+        /// </summary>
+        public ObservableCollection<object> Blocks { get; } = new ObservableCollection<object>();
+
         public void Refresh(bool showHidden)
         {
             Fields.Clear();
             foreach (SettingFieldViewModel field in allFields)
                 if (showHidden || !field.IsHiddenField) Fields.Add(field);
             ladder?.Show(Fields);
+            Blocks.Clear();
+            FieldRunViewModel run = null;
+            foreach (SettingFieldViewModel field in Fields)
+            {
+                if (field.IsRadio)
+                {
+                    Blocks.Add(field);
+                    run = null;
+                    continue;
+                }
+                if (run == null) Blocks.Add(run = new FieldRunViewModel());
+                run.Fields.Add(field);
+            }
         }
+    }
+
+    /// <summary>A run of ordinary fields between radio blocks, drawn in the usual two-column grid.</summary>
+    public class FieldRunViewModel
+    {
+        public List<SettingFieldViewModel> Fields { get; } = new List<SettingFieldViewModel>();
     }
 
     public class ModSettingsEditorViewModel : ViewModelBase
@@ -484,10 +556,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             if (schema.EnabledBy.Count == 0) return;
             Dictionary<string, SettingFieldViewModel> byKey = Groups.SelectMany(g => g.AllFields).ToDictionary(f => f.Key, System.StringComparer.OrdinalIgnoreCase);
+            // a bool enabler must be on; an enum enabler must be set to one of the options the setting was listed under
+            bool Satisfied(string key, SettingFieldViewModel enabler)
+            {
+                if (schema.EnabledWhen.TryGetValue(key, out Dictionary<string, List<string>> byEnum) && byEnum.TryGetValue(enabler.Key, out List<string> options))
+                    return options.Contains(enabler.TextValue, System.StringComparer.OrdinalIgnoreCase);
+                return enabler.BoolValue;
+            }
             bool Available(string key)
             {
                 if (!schema.EnabledBy.TryGetValue(key, out List<string> needs)) return true;
-                return needs.All(n => byKey.TryGetValue(n, out SettingFieldViewModel enabler) && enabler.BoolValue && Available(n));
+                return needs.All(n => byKey.TryGetValue(n, out SettingFieldViewModel enabler) && Satisfied(key, enabler) && Available(n));
             }
             void Update()
             {
@@ -495,7 +574,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
                     if (byKey.TryGetValue(key, out SettingFieldViewModel row)) row.IsAvailable = Available(key);
             }
             foreach (SettingFieldViewModel row in byKey.Values)
-                row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.BoolValue)) Update(); };
+                row.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(SettingFieldViewModel.BoolValue) || e.PropertyName == nameof(SettingFieldViewModel.TextValue)) Update(); };
             Update();
         }
 

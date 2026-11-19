@@ -16,7 +16,7 @@ Root `_previews` object in `settings.schema.json`, like `_groups`, `_layouts` an
 - A string is one image for the whole setting (bool, enum, number).
 - A map gives one image per enum option; options without an entry fall back to nothing.
 - Values are bare image file names, looked up only in the mod's `_previews` folder; a name containing a path is an error. A missing file is logged and the tooltip says so.
-- PNG, JPG or WebP; about 1 MB soft cap; shown at most about 480x320, aspect kept. Recommend 16:9.
+- PNG, JPG or WebP; about 3 MB suggested, not enforced; shown at most 960x640, aspect kept, never scaled up. Recommend drawing at that size.
 - Keys compare ignoring case. No `_previews` means nothing changes.
 
 ## Display
@@ -31,6 +31,8 @@ Root `_previews` object in `settings.schema.json`, like `_groups`, `_layouts` an
 - Drawn as a full-width block (label and reset on top, `WrapPanel` of radios below), not in the 2-column `UniformGrid`. The group's fields split into blocks: runs of ordinary fields stay in the grid, each radio field is its own block.
 - Hint `"_layouts": { "Key": { "kind": "radio" } }` forces radios for 5 to 8 options (wraps to a second line). More than 8 options or very long labels stay a dropdown.
 - Booleans stay checkboxes.
+
+Built: the automatic radio set (`SettingFieldViewModel.IsRadio`, group `Blocks`, the radio template in `ModSettingsDialog.axaml`). Not built: the `_layouts` `"kind": "radio"` hint for 5 to 8 options.
 
 ## Work
 

@@ -163,19 +163,30 @@ namespace DW2ModLauncher.Core.Services
                 ModSettingsField enabler = schema.Fields.Find(f => string.Equals(f.Key, entry.Name, StringComparison.OrdinalIgnoreCase));
                 if (enabler == null)
                     throw new InvalidDataException(where + "_enables names '" + entry.Name + "', which is not a setting of this schema: " + path);
-                if (!string.Equals(enabler.Type, "bool", StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException(where + "_enables '" + entry.Name + "' is a " + enabler.Type + ", but only a bool can switch other settings on and off: " + path);
-                if (entry.Value.ValueKind != JsonValueKind.Array)
-                    throw new InvalidDataException(where + "_enables '" + entry.Name + "' must list the settings it enables as an array of keys: " + path);
-                foreach (JsonElement item in entry.Value.EnumerateArray())
+                bool isEnum = string.Equals(enabler.Type, "enum", StringComparison.OrdinalIgnoreCase);
+                if (!isEnum && !string.Equals(enabler.Type, "bool", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException(where + "_enables '" + entry.Name + "' is a " + enabler.Type + ", but only a bool or an enum can switch other settings on and off: " + path);
+                if (isEnum)
                 {
-                    string key = item.ValueKind == JsonValueKind.String ? item.GetString() : null;
-                    if (key == null || !schema.Fields.Any(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase)))
-                        throw new InvalidDataException(where + "_enables '" + entry.Name + "' lists '" + (key ?? item.ToString()) + "', which is not a setting of this schema: " + path);
-                    if (string.Equals(key, entry.Name, StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidDataException(where + "_enables '" + entry.Name + "' lists itself: " + path);
-                    if (!schema.EnabledBy.TryGetValue(key, out List<string> needs)) schema.EnabledBy[key] = needs = new List<string>();
-                    if (!needs.Contains(enabler.Key, StringComparer.OrdinalIgnoreCase)) needs.Add(enabler.Key);
+                    if (entry.Value.ValueKind != JsonValueKind.Object)
+                        throw new InvalidDataException(where + "_enables '" + entry.Name + "' is an enum, so it must list the settings each option enables as an object of {\"Option\": [settings]}: " + path);
+                    foreach (JsonProperty option in entry.Value.EnumerateObject())
+                    {
+                        string optionText = enabler.Options?.FirstOrDefault(o => string.Equals(o, option.Name, StringComparison.OrdinalIgnoreCase));
+                        if (optionText == null)
+                            throw new InvalidDataException(where + "_enables '" + entry.Name + "' names option '" + option.Name + "', which the setting does not have: " + path);
+                        if (option.Value.ValueKind != JsonValueKind.Array)
+                            throw new InvalidDataException(where + "_enables '" + entry.Name + "' option '" + option.Name + "' must list the settings it enables as an array of keys: " + path);
+                        foreach (string key in EnabledKeys(option.Value, entry.Name, schema, path))
+                            AddNeed(schema, key, enabler.Key, optionText);
+                    }
+                }
+                else
+                {
+                    if (entry.Value.ValueKind != JsonValueKind.Array)
+                        throw new InvalidDataException(where + "_enables '" + entry.Name + "' must list the settings it enables as an array of keys: " + path);
+                    foreach (string key in EnabledKeys(entry.Value, entry.Name, schema, path))
+                        AddNeed(schema, key, enabler.Key, null);
                 }
             }
             // follow every chain up; meeting the starting key again means the switches wait on each other
@@ -192,6 +203,34 @@ namespace DW2ModLauncher.Core.Services
                     foreach (string n in next) pending.Push(n);
                 }
             }
+        }
+
+        // The keys of an array under an enabler: each must be a setting of the schema other than the enabler itself.
+        private static List<string> EnabledKeys(JsonElement array, string enablerName, ModSettingsSchema schema, string path)
+        {
+            const string where = "settings.schema.json: ";
+            List<string> keys = new List<string>();
+            foreach (JsonElement item in array.EnumerateArray())
+            {
+                string key = item.ValueKind == JsonValueKind.String ? item.GetString() : null;
+                if (key == null || !schema.Fields.Any(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidDataException(where + "_enables '" + enablerName + "' lists '" + (key ?? item.ToString()) + "', which is not a setting of this schema: " + path);
+                if (string.Equals(key, enablerName, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException(where + "_enables '" + enablerName + "' lists itself: " + path);
+                keys.Add(key);
+            }
+            return keys;
+        }
+
+        // Records that a setting needs the enabler: on for a bool (option null), or set to one of the options it was listed under for an enum.
+        private static void AddNeed(ModSettingsSchema schema, string key, string enablerKey, string option)
+        {
+            if (!schema.EnabledBy.TryGetValue(key, out List<string> needs)) schema.EnabledBy[key] = needs = new List<string>();
+            if (!needs.Contains(enablerKey, StringComparer.OrdinalIgnoreCase)) needs.Add(enablerKey);
+            if (option == null) return;
+            if (!schema.EnabledWhen.TryGetValue(key, out Dictionary<string, List<string>> byEnum)) schema.EnabledWhen[key] = byEnum = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            if (!byEnum.TryGetValue(enablerKey, out List<string> options)) byEnum[enablerKey] = options = new List<string>();
+            if (!options.Contains(option, StringComparer.OrdinalIgnoreCase)) options.Add(option);
         }
 
         private static void ValidateMovedFrom(ModSettingsSchema schema, string path)
