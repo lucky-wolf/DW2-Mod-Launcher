@@ -1,5 +1,20 @@
 ## Unreleased
 
+## 1.0.48 (2026-11-19)
+- GitHub release accepts art-bundle mods; catalog gets an Art kind
+
+## 1.0.47 (2026-11-19)
+- Code mods can ask whether another mod is loaded, by name, uid or Workshop id
+- Publish and Edit Properties dialogs can be resized
+- Edit Properties lists grow to fit; no inner scroll bars
+- Publish dialog dependencies: one line each, no scroll bar
+
+## 1.0.46 (2026-11-19)
+- Mods downloaded from the catalog now update automatically
+- Outdated catalog mods are marked in the mod list
+- Browse has a checkbox to turn automatic catalog updates off
+- Browse Mod Catalog sits alone between the toolbar groups, and the window cannot shrink under it, in the Windows accent color; separators have more space; drag hint removed
+
 ## 1.0.45 (2026-11-18)
 - Setting preview images show up to 960x640, twice as large
 - A choice with preview images and few options shows as radio buttons

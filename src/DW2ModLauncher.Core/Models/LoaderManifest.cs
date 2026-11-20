@@ -107,6 +107,8 @@ namespace DW2ModLauncher.Core.Models
         public string Name { get; set; } = "";
         public string Version { get; set; } = "";
         public string WorkshopId { get; set; } = "";
+        /// <summary>dw2modlauncher.json "uid" in canonical form; blank when the mod has none.</summary>
+        public string Uid { get; set; } = "";
         public bool HasCode { get; set; }
     }
 }

@@ -146,6 +146,18 @@ The game loads its data and builds galaxies for more than the game itself: the m
 - `GameState.ModManifest` is the code mods this session loaded as plain text, in load order: first `loader|<version>`, then one `n|id|version|built|ok` line per mod (`failed` when the loader could not run it). Positronic Matrix stamps it into each real game's galaxy from `GameReady`, so a save says which mods, versions and order were running. The text ends with `GameState.InstalledManifest`: one `installed|folder|name|version|code` (or `data`) line per enabled mod, code or not, built from the manifest's `InstalledMods` (the launcher fills it from each mod's `mod.json` version; `unknown` when none). `GameState.StartedNew` (true for a new game, false for a loaded save; valid from `GameReady` on) lets a mod tell the two apart: Positronic Matrix stamps `InstalledManifest` once, at creation, as the game's "created with" list, because a game's XML is baked in then and never reloaded.
 - If the game's `StartGameNewGenerate`, `LoadGame` or `StartGameExisting` cannot be found (a game update) the loader says so on the status line and in its log.
 
+### Is a mod loaded? (`LoadedMods`)
+
+`DW2ModLauncher.Loader.LoadedMods` answers whether a given mod is in this game session, for any mod, whether or not it provides a channel.
+
+- `IsLoaded(name)`: an enabled mod has this display name (the launcher's name for it, case ignored).
+- `IsLoadedByUid(uid)`: an enabled mod has this `uid` (`dw2modlauncher.json`); any usual UUID spelling is accepted.
+- `IsLoadedByWorkshopId(id)`: an enabled mod has this Steam Workshop id (digits only; from `mod.json`'s `workshopId`, or the Workshop folder).
+- `Names()` and `Uids()` list the enabled mods, in load order.
+- **Loaded means enabled for this launch**, code or data only, taken from the manifest's `InstalledMods`. The list is complete before the first mod's entry point runs, so the answer does not depend on load order. Whether a code mod then started cleanly is its own status line's business.
+- A blank name, a uid that is not a UUID or a Workshop id that is not digits throws `ArgumentException`, never answers "no": a typo must not read as "not installed".
+- Static class, BCL-only signatures, reached by reflection like `LiveChannels`.
+
 `dll` is relative to the mod's content folder; `entryPoint` is the `Namespace.Type.Method` the loader
 invokes. `LoaderManifestBuilder.Build` gathers every enabled mod's targets, in load order,
 de-duplicated by `dll!entryPoint`, into a `DW2ModLauncher.Core.Models.LoaderManifest`.

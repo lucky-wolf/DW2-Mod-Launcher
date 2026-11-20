@@ -22,6 +22,7 @@ namespace DW2ModLauncher.Core.Services
             if (mod.HighRiskConflictCount > 0 || mod.HookConflictCount > 0 || mod.EnabledCopyCount > 0 || LauncherRequirement.IsUnmet(mod)) return 3;
             bool caution = mod.LowRiskConflictCount > 0 || mod.HookCautionCount > 0 || mod.IdenticalFileCount > 0 ||
                            (mod.IsWorkshop && mod.UpdateState == "update") ||
+                           mod.CatalogUpdateVersion != null ||
                            (mod.DependencyProblems != null && mod.DependencyProblems.Count > 0);
             return caution ? 2 : 1;
         }

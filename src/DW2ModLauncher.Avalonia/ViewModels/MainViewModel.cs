@@ -9,6 +9,7 @@ using DW2ModLauncher.Core.Diagnostics;
 using System.Text.Json.Nodes;
 using DW2ModLauncher.Core;
 using DW2ModLauncher.Core.Models;
+using DW2ModLauncher.Core.Services.Catalog;
 using DW2ModLauncher.Core.Services.Publishing;
 using DW2ModLauncher.Core.Services.Updates;
 using DW2ModLauncher.Core.Services;
@@ -496,8 +497,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get
             {
                 if (!SelectedIsLocal) return false;
-                string author = (selectedRow.Mod.Author ?? "").Trim();
-                return author.Length == 0 || string.Equals(author, (settings.AuthorName ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+                return CatalogAutoUpdate.IsOwn(selectedRow.Mod, settings.AuthorName);
             }
         }
 
@@ -678,6 +678,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             foreach ((string mod, string problem) in DependencyIds.Resolve(managedMods.Concat(workshopMods).ToList(), managedMods))
                 AddProblem(T("DependencyIdsNotWritten", ("Mod", mod), ("Problem", problem)));
             managedMods = ModLibrary.OrderForDisplay(managedMods, modOrder);
+            foreach (ModInfo mod in managedMods)
+                if (catalogUpdates.TryGetValue(mod.Folder, out string waiting) && UpdateChecker.IsNewer(waiting, mod.Version)) mod.CatalogUpdateVersion = waiting;
             workshopMods = ModLibrary.OrderForDisplay(workshopMods, modOrder);
             // settings a mod gave to another follow the player, after the identities above are known and before any mod's settings are completed
             foreach (string problem in MigrateModSettings(managedMods.Concat(workshopMods).ToList())) AddProblem(problem);
@@ -2741,6 +2743,77 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             AnalyzeHooks();
         }
 
+        // ---- Catalog updates (what Steam does for subscriptions, for mods installed from the catalog)
+
+        private bool catalogCheckRunning;
+        /// <summary>Mod folder to the catalog version waiting for it; reapplied to the mods after every scan (a scan makes new <see cref="ModInfo"/> objects).</summary>
+        private readonly Dictionary<string, string> catalogUpdates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Looks in the catalog for newer releases of the local mods someone else made, marks those mods, and (when the player has chosen automatic updates and the game is
+        /// not running) installs them. Needs the catalog switched on and at least one such mod, so a player who downloaded nothing never causes a request.
+        /// A mod's missing required mods are not fetched here; only Browse offers those.
+        /// </summary>
+        public async Task BeginCatalogUpdateCheckAsync()
+        {
+            if (catalogCheckRunning || !settings.CatalogEnabled) return;
+            string modsRoot = settings.ManagedModsRoot;
+            if (string.IsNullOrWhiteSpace(modsRoot) || !CatalogAutoUpdate.HasCandidates(managedMods, settings.AuthorName)) return;
+            catalogCheckRunning = true;
+            try
+            {
+                string url = CatalogClient.ResolveUrl(settings.CatalogUrl);
+                CatalogLoad load;
+                try { load = await CatalogClient.LoadAsync(url, Path.Combine(UserDataRoot.GetCache(), "Catalog"), CancellationToken.None); }
+                catch (Exception ex)
+                {
+                    Logger.LogException("Check the mod catalog for updates " + url, ex);
+                    SetStatus(T("CatalogCheckFailed", ("Problem", ex.Message)));
+                    return;
+                }
+                List<CatalogPendingUpdate> pending = CatalogAutoUpdate.Find(load.Index, managedMods, modsRoot, settings.AuthorName, AppVersion.Current);
+                catalogUpdates.Clear();
+                foreach (CatalogPendingUpdate p in pending)
+                {
+                    catalogUpdates[p.Installed.Folder] = p.Entry.Version;
+                    p.Installed.CatalogUpdateVersion = p.Entry.Version;
+                }
+                RefreshRowStates();
+                if (pending.Count == 0) return;
+                if (!settings.CatalogAutoUpdate) { SetStatus(T("CatalogUpdatesAvailableStatus", ("Count", pending.Count))); return; }
+                if (GameProcess.IsRunning(settings.GameRoot)) { SetStatus(T("CatalogUpdatesWaitForGame", ("Count", pending.Count))); return; }
+
+                string work = Path.Combine(UserDataRoot.GetCache(), "Catalog", "Downloads");
+                int updated = 0;
+                foreach (CatalogPendingUpdate p in pending)
+                {
+                    string zip = null;
+                    try
+                    {
+                        SetStatus(T("CatalogUpdatingStatus", ("Mod", p.Entry.Name), ("Version", p.Entry.Version)));
+                        zip = await CatalogInstaller.DownloadAsync(p.Entry, AppVersion.Current, work, null, CancellationToken.None);
+                        string stage = Path.Combine(work, "stage");
+                        string folder = await Task.Run(() => CatalogInstaller.Install(zip, p.Entry.Name, modsRoot, p.Installed.Folder, stage, p.Entry));
+                        LauncherMetaWriter.StampAuthor(folder, p.Entry.Author, false);
+                        catalogUpdates.Remove(p.Installed.Folder);
+                        updated++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogException("Update catalog mod " + p.Entry.Id, ex);
+                        AddProblem(T("CatalogInstallFailed", ("Mod", p.Entry.Name), ("Problem", ex.Message)));
+                    }
+                    finally
+                    {
+                        if (zip != null && File.Exists(zip)) File.Delete(zip);
+                    }
+                }
+                Refresh();
+                if (updated > 0) SetStatus(T("CatalogAutoUpdatedStatus", ("Count", updated)));
+            }
+            finally { catalogCheckRunning = false; }
+        }
+
         private async Task BackupAsync(List<ModInfo> mods)
         {
             string root = Path.Combine(appRoot, "WorkshopBackups", DateTime.Now.ToString("yyyyMMdd_HHmmss"));
@@ -2758,7 +2831,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private void UpdateStatus()
         {
-            int updates = workshopMods.Count(m => m.UpdateState == "update");
+            int updates = workshopMods.Count(m => m.UpdateState == "update") + managedMods.Count(m => m.CatalogUpdateVersion != null);
             int selected = AllMods.Count(IsSelected);
             string conflictText = collisions.Count == 0 ? T("NoConflictsStatus") : T("ConflictFiles", ("Count", collisions.Count));
             string updateText = updates == 0 ? T("NoUpdatesUnchecked") : T("Updates", ("Count", updates));

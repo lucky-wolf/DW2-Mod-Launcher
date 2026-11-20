@@ -5,7 +5,7 @@
         x:Class="DW2ModLauncher.Avalonia.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/icon.png"
-        Width="1280" Height="800" MinWidth="500" MinHeight="500"
+        Width="1280" Height="800" MinWidth="920" MinHeight="500"
         WindowStartupLocation="CenterScreen">
   <Grid RowDefinitions="Auto,*,Auto">
     <!-- Header -->

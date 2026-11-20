@@ -48,6 +48,7 @@ namespace DW2ModLauncher.Core.Services
                     Name = mod.DisplayName ?? mod.Id ?? LeafName(mod.Folder ?? modRoot),
                     Version = mod.Version ?? "",
                     WorkshopId = mod.WorkshopId ?? "",
+                    Uid = mod.Uid ?? "",
                     HasCode = InjectionScanner.TargetsFor(mod).Any()
                 });
             }

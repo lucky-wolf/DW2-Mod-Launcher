@@ -30,6 +30,7 @@ namespace DW2ModLauncher.Avalonia
                 main.WindowShown();
                 main.CleanUpFinishedUpdate();
                 await main.BeginWorkshopUpdateCheck(false);
+                await main.BeginCatalogUpdateCheckAsync();
                 await main.CheckForLauncherUpdateAsync(false);
             };
             // Edits made in an editor or by Steam while the launcher sat behind it show up as soon as it comes back.

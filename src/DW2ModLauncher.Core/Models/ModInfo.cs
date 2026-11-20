@@ -39,6 +39,8 @@ namespace DW2ModLauncher.Core.Models
         public long LocalWorkshopTimeUpdated { get; set; }
         public long RemoteWorkshopTimeUpdated { get; set; }
         public string UpdateState { get; set; }
+        /// <summary>The version of a newer catalog release of this local mod that has not been installed yet, or null.</summary>
+        public string CatalogUpdateVersion { get; set; }
         public int ConflictCount { get; set; }
         public List<string> ConflictFiles { get; set; }
         public List<string> ConflictMods { get; set; }
