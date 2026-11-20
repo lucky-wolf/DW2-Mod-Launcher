@@ -101,6 +101,14 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void KindsOf_AssetBundlesAreArt_ButAFontBundleIsOnlyAFont()
+        {
+            Assert.Equal(new[] { "art" }, ReleasePackager.KindsOf(new[] { "mod.json", "DW2R_Resources.bundle", "DW2R_Resources.65320eb9.bundle" }, Meta()));
+            LauncherMeta font = Meta(); font.font = "RussianFont";
+            Assert.Equal(new[] { "font" }, ReleasePackager.KindsOf(new[] { "mod.json", "RussianFont.bundle" }, font));
+        }
+
+        [Fact]
         public void IdentityProblem_ADependencyNeedsAModName()
         {
             LauncherMeta meta = Meta();

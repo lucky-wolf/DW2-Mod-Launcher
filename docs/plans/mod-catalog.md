@@ -25,7 +25,7 @@ The launcher reads a public `index.json`, rebuilt daily by a GitHub Action in th
 `{ "schema": 1, "generated": "<utc>", "mods": [ ... ] }`, sorted by name. Each entry:
 
 - `id` (a label, also the release file names), `uid` (**required**: the mod's identity, a lower-case hyphenated UUID, unique in the index), `name` (the mod's folder name), `version`, `author` (**required**), `shortDescription`, `workshopId` (number or null), `minLauncherVersion`, `dependencies` (`mod` required, `uid`, `workshopId`, `required`).
-- `kinds`: non-empty, any of `code` (a .dll beside mod.json), `xml` (any .xml file), `translation` (a `language` in dw2modlauncher.json or a `translations/` folder), `font`. A mod may have several. Detected from the published files (`ReleasePackager.KindsOf`).
+- `kinds`: non-empty, any of `code` (a .dll beside mod.json), `xml` (any .xml file), `translation` (a `language` in dw2modlauncher.json or a `translations/` folder), `font`, `art` (any `.bundle` other than the font's own). A mod may have several. Detected from the published files (`ReleasePackager.KindsOf`).
 - `tags`: the author's topics from `tags` in dw2modlauncher.json, lower case, single spaces (`CatalogTags.Normalize`). May be empty.
 - `size`, `sha256` (of the zip), `downloadUrl`, `releaseUrl`, `previewUrl` (null when none), `publishedAt`.
 - `downloads` (total over all releases of the mod), `peakDownloads` (unused by the launcher now), `latestDownloads`; all null on GitLab.
