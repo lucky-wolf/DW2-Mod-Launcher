@@ -13,7 +13,7 @@ namespace DW2ModLauncher.Core.Services.Catalog
     public static class CatalogParser
     {
         public const int SupportedSchema = 1;
-        private static readonly string[] Kinds = { "code", "xml", "translation", "font" };
+        private static readonly string[] Kinds = { "code", "xml", "translation", "font", "art" };
 
         public static CatalogIndex Parse(string json)
         {

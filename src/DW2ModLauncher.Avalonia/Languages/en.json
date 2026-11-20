@@ -490,6 +490,7 @@
   "CatalogKind_xml": "XML mod",
   "CatalogKind_translation": "Translation",
   "CatalogKind_font": "Font",
+  "CatalogKind_art": "Art",
   "CatalogSortSubscribers": "Most subscribers",
   "CatalogSortDownloads": "Most downloads",
   "CatalogSortRecent": "Recently released",

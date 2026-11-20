@@ -153,7 +153,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             this.main = main;
             KindChoices = new List<CatalogChoice> { new CatalogChoice { Text = main.T("CatalogKindAll"), Value = null } };
-            foreach (string k in new[] { "code", "xml", "translation", "font" })
+            foreach (string k in new[] { "code", "xml", "translation", "font", "art" })
                 KindChoices.Add(new CatalogChoice { Text = main.T("CatalogKind_" + k), Value = k });
             subscribersChoice = new CatalogChoice { Text = main.T("CatalogSortSubscribers"), Value = CatalogSort.MostSubscribers };
             downloadsChoice = new CatalogChoice { Text = main.T("CatalogSortDownloads"), Value = CatalogSort.MostDownloads };

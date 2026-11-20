@@ -465,6 +465,7 @@
   "CatalogKind_xml": "XML-мод",
   "CatalogKind_translation": "Перевод",
   "CatalogKind_font": "Шрифт",
+  "CatalogKind_art": "Графика",
   "CatalogSortRecent": "Недавно выпущенные",
   "CatalogSortName": "По названию",
   "CatalogStateUpToDate": "Установлен",

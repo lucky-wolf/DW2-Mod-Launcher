@@ -77,7 +77,14 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return null;
         }
 
-        /// <summary>What the mod holds, from its files: code (a .dll beside mod.json), xml (any .xml), translation (a language, or a translations/ folder) and font. A mod may be several; one that is none cannot be listed.</summary>
+        private static bool IsFontBundle(string file, string font)
+        {
+            if (string.IsNullOrWhiteSpace(font)) return false;
+            string name = Path.GetFileName(file);
+            return name.Equals(font + ".bundle", StringComparison.OrdinalIgnoreCase) || name.StartsWith(font + ".", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>What the mod holds, from its files: code (a .dll beside mod.json), xml (any .xml), translation (a language, or a translations/ folder), font and art (asset bundles). A mod may be several; one that is none cannot be listed.</summary>
         public static List<string> KindsOf(IEnumerable<string> files, LauncherMeta meta)
         {
             List<string> list = files.ToList();
@@ -85,7 +92,10 @@ namespace DW2ModLauncher.Core.Services.Publishing
             if (list.Any(f => !f.Contains('/') && f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))) kinds.Add("code");
             if (list.Any(f => f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))) kinds.Add("xml");
             if (!string.IsNullOrWhiteSpace(meta?.language) || list.Any(f => f.StartsWith("translations/", StringComparison.OrdinalIgnoreCase))) kinds.Add("translation");
-            if (!string.IsNullOrWhiteSpace(meta?.font)) kinds.Add("font");
+            string font = meta?.font?.Trim();
+            if (!string.IsNullOrWhiteSpace(font)) kinds.Add("font");
+            // Art: any asset bundle other than the font's own (a mod of nothing but replacement images and models, like the Refreshed series).
+            if (list.Any(f => f.EndsWith(".bundle", StringComparison.OrdinalIgnoreCase) && !IsFontBundle(f, font))) kinds.Add("art");
             return kinds;
         }
 
@@ -106,7 +116,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
             List<string> files = PublishedState.ContentFiles(root).OrderBy(f => f, StringComparer.Ordinal).ToList();
             if (File.Exists(Path.Combine(root, HooksFile)) && !files.Contains(HooksFile)) files.Add(HooksFile);
             List<string> kinds = KindsOf(files, meta);
-            if (kinds.Count == 0) throw new InvalidDataException(name + " holds no code, XML, translation or font, so it cannot be classified for the catalog.");
+            if (kinds.Count == 0) throw new InvalidDataException(name + " holds no code, XML, translation, font or art bundle, so it cannot be classified for the catalog.");
 
             ReleasePackage package = new ReleasePackage { Tag = tag, Version = version, Title = (metadata.DisplayName ?? name) + " " + version };
             string dir = Path.Combine(outFolder, tag);

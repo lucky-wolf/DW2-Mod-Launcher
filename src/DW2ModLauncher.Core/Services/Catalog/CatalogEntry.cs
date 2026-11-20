@@ -22,7 +22,7 @@ namespace DW2ModLauncher.Core.Services.Catalog
         /// <summary>The mod's identity, the UUID in its dw2modlauncher.json "uid". Always present: the catalog lists no mod without one.</summary>
         public string Uid { get; set; }
         public string Name { get; set; }
-        /// <summary>What the mod holds, at least one of "code" (a .dll), "xml" (data or patches), "translation" or "font". Anything can contain anything, so a mod may have several.</summary>
+        /// <summary>What the mod holds, at least one of "code" (a .dll), "xml" (data or patches), "translation", "font" or "art" (asset bundles). Anything can contain anything, so a mod may have several.</summary>
         public List<string> Kinds { get; } = new List<string>();
         /// <summary>Topics the author gave the mod (music, art, icons ...), written the way <see cref="CatalogTags"/> says. May be empty.</summary>
         public List<string> Tags { get; } = new List<string>();

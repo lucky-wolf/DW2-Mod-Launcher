@@ -465,6 +465,7 @@
   "CatalogKind_xml": "XMLのMod",
   "CatalogKind_translation": "翻訳",
   "CatalogKind_font": "フォント",
+  "CatalogKind_art": "アート",
   "CatalogSortRecent": "公開が新しい順",
   "CatalogSortName": "名前順",
   "CatalogStateUpToDate": "インストール済み",

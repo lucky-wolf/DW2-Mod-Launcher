@@ -1,5 +1,8 @@
 ## Unreleased
 
+## 1.0.48 (2026-11-19)
+- GitHub release accepts art-bundle mods; catalog gets an Art kind
+
 ## 1.0.47 (2026-11-19)
 - Code mods can ask whether another mod is loaded, by name, uid or Workshop id
 - Publish and Edit Properties dialogs can be resized
