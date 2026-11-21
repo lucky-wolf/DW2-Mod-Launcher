@@ -37,14 +37,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool IsMatch { get { return isMatch; } set { Set(ref isMatch, value); } }
 
         /// <summary>True when the row passes the filter: a blank needle matches all; otherwise name, author, source or folder name must contain it.</summary>
-        public bool Matches(string needle, bool localOnly)
+        public bool Matches(string needle, bool localOnly, bool modifiedOnly = false)
         {
             if (localOnly && Mod.IsWorkshop) return false;
+            if (modifiedOnly && !IsModified) return false;
             if (string.IsNullOrEmpty(needle)) return true;
             foreach (string field in new[] { Name, Author, Source, Mod.IsWorkshop ? null : Path.GetFileName(Mod.Folder ?? "") })
                 if (field != null && field.IndexOf(needle, System.StringComparison.CurrentCultureIgnoreCase) >= 0) return true;
             return false;
         }
+        /// <summary>A local mod with files changed since its last publish on a channel that is on (the same test as the list's gold dots).</summary>
+        public bool IsModified { get { return !Mod.IsWorkshop && ((SteamOn != null && SteamOn() && Mod.PublishStatus == PublishStatus.Changed) || (GitHubOn != null && GitHubOn() && Mod.GitHubStatus == PublishStatus.Changed)); } }
         public ICommand ToggleCommand { get; }
 
         public string Name { get { return Mod.DisplayName ?? Mod.Id ?? "Unknown"; } }

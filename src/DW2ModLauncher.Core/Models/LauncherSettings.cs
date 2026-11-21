@@ -34,6 +34,8 @@ namespace DW2ModLauncher.Core.Models
         public string AuthorName { get; set; }
         /// <summary>The mod list shows only mods from the game's mods folder, hiding Steam Workshop copies.</summary>
         public bool LocalModsOnly { get; set; }
+        /// <summary>The mod list shows only local mods whose files changed since the last publish (to Steam or GitHub).</summary>
+        public bool ModifiedModsOnly { get; set; }
         /// <summary>Whether the details pane's conflict list is open; one choice for every mod.</summary>
         public bool ConflictsExpanded { get; set; }
         /// <summary>Whether the details pane's caution list is open; one choice for every mod.</summary>

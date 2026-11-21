@@ -38,15 +38,17 @@ namespace DW2ModLauncher.Avalonia.Views
             ModList.AddHandler(PointerReleasedEvent, OnReleased, RoutingStrategies.Tunnel);
             ModList.AddHandler(PointerCaptureLostEvent, delegate { EndDrag(false); }, RoutingStrategies.Tunnel);
             ModList.AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+            // Escape in the search box clears it; with it already empty the key goes on to whatever is next.
+            FilterBox.KeyDown += (sender, e) => { if (e.Key == Key.Escape && !string.IsNullOrEmpty(FilterBox.Text)) { FilterBox.Text = ""; e.Handled = true; } };
             PreviewBorder.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.OpenSteamPageCommand.CanExecute(null)) m.OpenSteamPageCommand.Execute(null); };
             // Bring the remembered selection into view once the list has been laid out (a restored row can be far down).
-            Loaded += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(ScrollToSelection, global::Avalonia.Threading.DispatcherPriority.Background); };
+            Loaded += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(() => ScrollToSelection(true), global::Avalonia.Threading.DispatcherPriority.Background); };
             DataContextChanged += delegate
             {
                 if (DataContext is MainViewModel main)
                 {
                     main.CaptureListScroll = CaptureScroll;
-                    main.RevealSelectionRequested += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(ScrollToSelection, global::Avalonia.Threading.DispatcherPriority.Background); };
+                    main.RevealSelectionRequested += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(() => ScrollToSelection(false), global::Avalonia.Threading.DispatcherPriority.Background); };
                 }
             };
             ModList.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.ModSettingsCommand.CanExecute(null)) m.ModSettingsCommand.Execute(null); };
@@ -206,25 +208,37 @@ namespace DW2ModLauncher.Avalonia.Views
             };
         }
 
-        private void ScrollToSelection()
+        /// <summary>
+        /// Brings the selected row into view, centred as far as the list's ends allow. A row already fully on screen stays where it is, unless
+        /// <paramref name="always"/> (start-up: the remembered row is centred wherever it is). Waits for the list to be laid out first.
+        /// </summary>
+        private void ScrollToSelection(bool always, int attempt = 0)
         {
             if (DataContext is not MainViewModel m || m.SelectedRow == null) return;
-            // A row that is already fully on screen stays where it is (a publish re-selects the same mod; nothing needs to move).
             ScrollViewer view = ModList.FindDescendantOfType<ScrollViewer>();
+            if (view == null || view.Viewport.Height <= 0)
+            {
+                // not laid out yet (start-up): try again shortly rather than scrolling by numbers that are not real yet
+                if (attempt < 20) global::Avalonia.Threading.Dispatcher.UIThread.Post(() => ScrollToSelection(always, attempt + 1), global::Avalonia.Threading.DispatcherPriority.Background);
+                return;
+            }
             int current = m.VisibleMods.IndexOf(m.SelectedRow);
-            if (view != null && current >= 0 && ModList.ContainerFromIndex(current) is Control shown
+            if (!always && current >= 0 && ModList.ContainerFromIndex(current) is Control shown
                 && shown.TranslatePoint(new Point(0, 0), view) is Point at
                 && at.Y >= 0 && at.Y + shown.Bounds.Height <= view.Viewport.Height) return;
             ModList.ScrollIntoView(m.SelectedRow);
-            // Then centre the row in the viewport where there is room (the offset is clamped, so rows near either end just stay put).
-            ModList.UpdateLayout();
-            ScrollViewer scroller = ModList.FindDescendantOfType<ScrollViewer>();
-            int index = m.VisibleMods.IndexOf(m.SelectedRow);
-            if (scroller == null || index < 0 || ModList.ContainerFromIndex(index) is not Control row) return;
-            Point top = row.TranslatePoint(new Point(0, 0), scroller) ?? new Point(0, 0);
-            double target = scroller.Offset.Y + top.Y + row.Bounds.Height / 2 - scroller.Viewport.Height / 2;
-            double max = Math.Max(0, scroller.Extent.Height - scroller.Viewport.Height);
-            scroller.Offset = scroller.Offset.WithY(Math.Max(0, Math.Min(target, max)));
+            // Then centre the row in the viewport where there is room (the offset is clamped, so rows near either end just stay put). Rows of a
+            // virtualized list are measured as they appear, so the first pass can be off; a second pass settles it.
+            for (int pass = 0; pass < 2; pass++)
+            {
+                ModList.UpdateLayout();
+                int index = m.VisibleMods.IndexOf(m.SelectedRow);
+                if (index < 0 || ModList.ContainerFromIndex(index) is not Control row) return;
+                Point top = row.TranslatePoint(new Point(0, 0), view) ?? new Point(0, 0);
+                double target = view.Offset.Y + top.Y + row.Bounds.Height / 2 - view.Viewport.Height / 2;
+                double max = Math.Max(0, view.Extent.Height - view.Viewport.Height);
+                view.Offset = view.Offset.WithY(Math.Max(0, Math.Min(target, max)));
+            }
         }
 
         private static ModRowViewModel RowAt(Visual source)

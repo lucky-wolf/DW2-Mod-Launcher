@@ -160,9 +160,16 @@
       </Grid>
 
       <!-- Filter: under the list, out of the way. -->
-      <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
-        <TextBox Grid.Column="0" Text="{Binding FilterText}" Watermark="{Binding L[FilterModsPlaceholder]}" />
+      <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,10,0,0">
+        <TextBox Name="FilterBox" Grid.Column="0" Text="{Binding FilterText}" Watermark="{Binding L[FilterModsPlaceholder]}">
+          <TextBox.InnerRightContent>
+            <Button Name="ClearFilterButton" IsVisible="{Binding HasFilterText}" Command="{Binding ClearFilterCommand}" Background="Transparent" BorderThickness="0" Padding="6,4" Margin="0,0,2,0" VerticalAlignment="Center" Focusable="False" ToolTip.Tip="{Binding L[ClearFilterTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0">
+              <PathIcon Width="10" Height="10" Data="M1,1 L11,11 M11,1 L1,11" />
+            </Button>
+          </TextBox.InnerRightContent>
+        </TextBox>
         <CheckBox Grid.Column="1" Margin="14,0,0,0" IsChecked="{Binding LocalModsOnly}" Content="{Binding L[LocalModsOnly]}" ToolTip.Tip="{Binding L[LocalModsOnlyTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0" />
+        <CheckBox Grid.Column="2" Margin="14,0,0,0" IsChecked="{Binding ModifiedModsOnly}" Content="{Binding L[ModifiedModsOnly]}" ToolTip.Tip="{Binding L[ModifiedModsOnlyTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0" />
       </Grid>
     </Grid>
 
