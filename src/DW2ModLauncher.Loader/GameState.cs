@@ -93,7 +93,9 @@ namespace DW2ModLauncher.Loader
             }
         }
 
-        private static object _galaxy;
+        // The running game's galaxy, held weakly: a strong reference here would keep a finished game in memory (through the menu and into the next
+        // load) for as long as nothing replaced it. Cleared when the game goes back to the menu (ClearGalaxyPostfix).
+        private static readonly WeakReference<object> _galaxy = new WeakReference<object>(null);
 
         /// <summary>
         /// The "created with" list Positronic Matrix stored in the running game's galaxy (<c>GlobalVariables["mod.positronic-matrix.created-with"]</c>),
@@ -103,7 +105,7 @@ namespace DW2ModLauncher.Loader
         /// </summary>
         public static string CreatedWith(out bool gameReady)
         {
-            object galaxy = _galaxy;
+            _galaxy.TryGetTarget(out object galaxy);
             gameReady = galaxy != null;
             if (galaxy == null) return null;
             FieldInfo field = galaxy.GetType().GetField("GlobalVariables", BindingFlags.Public | BindingFlags.Instance)
@@ -149,6 +151,16 @@ namespace DW2ModLauncher.Loader
                 harmony.Patch(existing, postfix: new HarmonyMethod(typeof(GameState).GetMethod(nameof(GameReadyPostfix), BindingFlags.Static | BindingFlags.NonPublic)));
                 hooked++;
             }
+            MethodInfo clear = game.GetMethod("ClearGalaxy", BindingFlags.Public | BindingFlags.Instance);
+            if (clear == null)
+            {
+                Report("DWGame.ClearGalaxy");
+            }
+            else
+            {
+                harmony.Patch(clear, postfix: new HarmonyMethod(typeof(GameState).GetMethod(nameof(ClearGalaxyPostfix), BindingFlags.Static | BindingFlags.NonPublic)));
+                hooked++;
+            }
             return hooked;
         }
 
@@ -184,9 +196,15 @@ namespace DW2ModLauncher.Loader
 
         // __0 is StartGameExisting's first argument, the galaxy. The postfix runs only when the method returned, so a load that failed earlier
         // (LoadGame never reaches StartGameExisting then) raises nothing.
+        // The game goes back to the main menu (ScaledRenderer.SwitchToMenu, once per return): no real game is ready any more.
+        private static void ClearGalaxyPostfix()
+        {
+            _galaxy.SetTarget(null);
+        }
+
         private static void GameReadyPostfix(object __0)
         {
-            _galaxy = __0;
+            _galaxy.SetTarget(__0);
             Action<object> handlers = GameReady;
             if (handlers == null) return;
             Log("A real game is ready (generation " + _generation + "); telling " + handlers.GetInvocationList().Length + " subscriber(s).");

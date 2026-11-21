@@ -126,6 +126,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             OpenSelectedFolderCommand = new RelayCommand(OpenModFolder, () => selectedRow != null);
             OpenSaveGameFolderCommand = new RelayCommand(OpenSaveGameFolder);
             OpenLogFolderCommand = new RelayCommand(OpenLogFolder);
+            ClearFilterCommand = new RelayCommand(delegate { FilterText = ""; });
             CopyBugSummaryCommand = new RelayCommand(CopyBugSummaryAsync);
             CreateBugReportCommand = new RelayCommand(CreateBugReportAsync);
             OpenSteamPageCommand = new RelayCommand(OpenSteamPage, () => SteamPageId(selectedRow) != null);
@@ -192,6 +193,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public RelayCommand OpenSaveGameFolderCommand { get; }
         /// <summary>Opens the folder the game and code mods write their logs to.</summary>
         public RelayCommand OpenLogFolderCommand { get; }
+        public RelayCommand ClearFilterCommand { get; }
         /// <summary>Puts a short bug-report summary (versions, mods, the telling log lines) on the clipboard.</summary>
         public RelayCommand CopyBugSummaryCommand { get; }
         /// <summary>Zips the recent logs with the summary into the Downloads folder and opens it, for posting in the Discord mods channel.</summary>
@@ -882,9 +884,10 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             if (keep == null) return;
             // The list control clears its selection when rows move and may do so after this method returns (on its next layout pass),
             // which would drop the selection the user had: put it back once that has happened.
+            // Only when the list control dropped it (nothing selected): a row the user clicked in the meantime is their choice and stays.
             global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (Mods.Contains(keep) && selectedRow != keep) SelectedRow = keep;
+                if (Mods.Contains(keep) && selectedRow == null) SelectedRow = keep;
                 RaiseReveal();
             }, global::Avalonia.Threading.DispatcherPriority.Background);
         }
@@ -893,8 +896,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public string FilterText
         {
             get { return filterText; }
-            set { if (Set(ref filterText, value ?? "")) { ApplyFilter(); Raise(nameof(IsFiltering)); } }
+            set { if (Set(ref filterText, value ?? "")) { ApplyFilter(); Raise(nameof(IsFiltering)); Raise(nameof(HasFilterText)); } }
         }
+
+        /// <summary>The search box has text: the clear button shows.</summary>
+        public bool HasFilterText { get { return FilterText.Length > 0; } }
 
         /// <summary>Show only the mods in the game's mods folder (the ones the user makes), hiding Steam Workshop copies.</summary>
         public bool LocalModsOnly
@@ -911,13 +917,28 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             }
         }
 
+        /// <summary>Show only local mods changed since their last publish (Steam or GitHub, whichever channel is on).</summary>
+        public bool ModifiedModsOnly
+        {
+            get { return settings.ModifiedModsOnly; }
+            set
+            {
+                if (settings.ModifiedModsOnly == value) return;
+                settings.ModifiedModsOnly = value;
+                SaveSettings();
+                Raise();
+                ApplyFilter();
+                Raise(nameof(IsFiltering));
+            }
+        }
+
         /// <summary>Whether any filter hides rows; dragging is off then, since a drop position among hidden rows would be ambiguous.</summary>
-        public bool IsFiltering { get { return FilterText.Trim().Length > 0 || LocalModsOnly; } }
+        public bool IsFiltering { get { return FilterText.Trim().Length > 0 || LocalModsOnly || ModifiedModsOnly; } }
 
         private void ApplyFilter()
         {
             string needle = FilterText.Trim();
-            foreach (ModRowViewModel row in Mods) row.IsMatch = row.Matches(needle, LocalModsOnly);
+            foreach (ModRowViewModel row in Mods) row.IsMatch = row.Matches(needle, LocalModsOnly, ModifiedModsOnly);
             SyncVisibleMods();
             // Rows came or went around the selection: bring it back to the middle of the list.
             if (selectedRow != null && VisibleMods.Contains(selectedRow)) RaiseReveal();
@@ -1097,6 +1118,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // The author edits a local mod's folder at any time, so the selected mod is compared again each time its details are shown.
             EvaluatePublishState(mod);
             selectedRow.RefreshPublishState();
+            ReapplyModifiedFilter();
             MarkUpToDateCommand.RaiseCanExecuteChanged();
             DetailPublishState = ModDetails.PublishStatusShort(mod, key => T(key));
             DetailPublishTip = ModDetails.PublishStatusTooltip(mod, key => T(key));
@@ -1213,6 +1235,13 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         {
             EvaluatePublishState(mod);
             Mods.FirstOrDefault(r => ReferenceEquals(r.Mod, mod))?.RefreshPublishState();
+            ReapplyModifiedFilter();
+        }
+
+        /// <summary>A mod's publish state just changed: with the Modified filter on, rows may need to appear or go.</summary>
+        private void ReapplyModifiedFilter()
+        {
+            if (ModifiedModsOnly && Mods.Any(r => r.IsMatch != r.Matches(FilterText.Trim(), LocalModsOnly, true))) ApplyFilter();
         }
 
         /// <summary>
@@ -2014,7 +2043,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             FreshenPublishState(mod);
             string bumpKey = mod.StateKey;
             PublishDialogViewModel editor;
-            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, dependenciesExpanded: settings.PublishDependenciesExpanded, rememberDependenciesExpanded: RememberDependenciesExpanded, knownCatalogTags: KnownCatalogTags, githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
+            try { editor = new PublishDialogViewModel(Dialogs, L, mod, metadata, isPublished, currentVisibility, otherMods: AllMods.ToList(), hookAnalysis: HookAnalysis, propertiesOnly: true, steamDescription: steamDescription, bumpPolicy: BumpPolicyFor(mod, bumpKey), lastArtFolder: settings.LastArtFolder, rememberArtFolder: RememberArtFolder, descriptionExtension: settings.DescriptionExtension, statusExpanded: settings.PublishStatusExpanded, rememberStatusExpanded: RememberStatusExpanded, changeNotesExpanded: settings.PublishChangeNotesExpanded, rememberChangeNotesExpanded: RememberChangeNotesExpanded, dependenciesExpanded: settings.PublishDependenciesExpanded, rememberDependenciesExpanded: RememberDependenciesExpanded, knownCatalogTags: KnownCatalogTags, publishToSteam: settings.SteamEnabled == true, publishToGitHub: settings.PublishToGitHub && !string.IsNullOrWhiteSpace(mod.ReleaseRepo), githubEnabled: settings.PublishToGitHub, steamEnabled: SteamEnabled, linkOptionalOnSteam: settings.LinkOptionalModsOnSteam); }
             catch (IOException ex)
             {
                 Logger.LogException("Open publish dialog", ex);
