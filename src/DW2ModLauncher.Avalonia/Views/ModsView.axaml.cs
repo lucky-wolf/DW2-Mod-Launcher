@@ -322,6 +322,12 @@ namespace DW2ModLauncher.Avalonia.Views
             }
             // A rule (loadAfter / loadBefore) stops the row at the nearest place it may go; the nearest row it cannot pass in each direction is tinted.
             ClampToLimits();
+            // Only enabled mods are ordered, so an enabled mod gains nothing from going below the last other enabled one; the line stops there.
+            if (DataContext is MainViewModel ceiling && dragRow != null && ceiling.DragInsertCeiling(dragRow) is int maxInsert)
+            {
+                // Never above its own row (that would be a move with no effect on the order); at or after it the row stays put or moves down only that far.
+                if (insertIndex > maxInsert) insertIndex = Math.Max(maxInsert, ceiling.Mods.IndexOf(dragRow));
+            }
             // Only the two rows that bracket the allowed range are tinted: the nearest one above that it must follow, the nearest below that it must precede.
             ModRowViewModel upperLimit = null, lowerLimit = null;
             if (DataContext is MainViewModel limited)

@@ -164,7 +164,8 @@
         <TextBox Name="FilterBox" Grid.Column="0" Text="{Binding FilterText}" Watermark="{Binding L[FilterModsPlaceholder]}">
           <TextBox.InnerRightContent>
             <Button Name="ClearFilterButton" IsVisible="{Binding HasFilterText}" Command="{Binding ClearFilterCommand}" Background="Transparent" BorderThickness="0" Padding="6,4" Margin="0,0,2,0" VerticalAlignment="Center" Focusable="False" ToolTip.Tip="{Binding L[ClearFilterTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0">
-              <PathIcon Width="10" Height="10" Data="M1,1 L11,11 M11,1 L1,11" />
+              <!-- PathIcon only fills, and an X made of open lines has no area to fill, so stroke a Path instead. -->
+              <Path Width="10" Height="10" Stretch="Uniform" Data="M1,1 L11,11 M11,1 L1,11" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.5" />
             </Button>
           </TextBox.InnerRightContent>
         </TextBox>

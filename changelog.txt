@@ -1,4 +1,5 @@
 ## Unreleased
+- Fixed delete filter string button not showing
 
 ## 1.0.50 (2026-11-21)
 - A finished game no longer stays in memory after you leave it
