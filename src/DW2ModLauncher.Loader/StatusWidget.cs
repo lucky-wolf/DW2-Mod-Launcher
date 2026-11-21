@@ -368,12 +368,12 @@ namespace DW2ModLauncher.Loader
             _shownRevision = -1;
         }
 
-        // Puts the selected mod's details on the clipboard (for a bug report) and lets the next Refresh show the confirmation.
+        // Puts the selected mod's errors (or all its details when it has none) on the clipboard (for a bug report) and lets the next Refresh show the confirmation.
         static void CopyFlyout()
         {
             ModStatusSnapshot selected = StatusText.Ordered(ModStatus.Registry.Snapshot()).Find(m => m.Id == _selectedId);
             if (selected == null) return;
-            if (Clipboard.SetText(StatusText.Block(selected)))
+            if (Clipboard.SetText(StatusText.CopyText(selected)))
             {
                 _flyCopiedAt = Environment.TickCount64;
                 _shownRevision = -1;
