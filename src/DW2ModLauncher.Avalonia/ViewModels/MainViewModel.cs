@@ -1040,6 +1040,21 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             mustPrecede = Mods.Where(r => precede.Contains(r.Mod)).ToList();
         }
 
+        /// <summary>
+        /// The furthest insertion point (a gap index, before removing the row) that still changes an enabled mod's load order: just after the last other
+        /// enabled mod, since only enabled mods are ordered. Null for a disabled mod, which may go anywhere.
+        /// </summary>
+        public int? DragInsertCeiling(ModRowViewModel row)
+        {
+            if (!IsSelected(row.Mod)) return null;
+            int last = -1;
+            for (int i = 0; i < Mods.Count; i++)
+            {
+                if (Mods[i] != row && IsSelected(Mods[i].Mod)) last = i;
+            }
+            return last + 1;
+        }
+
         /// <summary>Moves a row (drag and drop) and writes the new load order.</summary>
         public void MoveRow(ModRowViewModel row, int toIndex)
         {
