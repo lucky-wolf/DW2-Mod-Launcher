@@ -209,5 +209,28 @@ namespace DW2ModLauncher.Tests
 
             Assert.Equal("M  ERROR\n  ! boom\n  ships: 12\n  ! cap: full\n  features: Hubs\n  log: C:\\logs\\m.log", StatusText.Block(m));
         }
+
+        [Fact]
+        public void CopyText_WithErrors_HasOnlyHeadingAndErrors()
+        {
+            ModStatusSnapshot m = Mod("M", StatusLevel.Error);
+            m.Errors.Add("boom");
+            m.Details.Add(new StatusDetail { Key = "ships", Text = "12", Level = StatusLevel.Ok });
+            m.Details.Add(new StatusDetail { Key = "cap", Text = "full", Level = StatusLevel.Warn });
+            m.Details.Add(new StatusDetail { Key = "hub", Text = "gone", Level = StatusLevel.Error });
+            m.Features.Add("Hubs");
+
+            Assert.Equal("M  ERROR\n  ! boom\n  ! hub: gone", StatusText.CopyText(m));
+        }
+
+        [Fact]
+        public void CopyText_WithoutErrors_IsTheWholeBlock()
+        {
+            ModStatusSnapshot m = Mod("M", StatusLevel.Warn);
+            m.Details.Add(new StatusDetail { Key = "cap", Text = "full", Level = StatusLevel.Warn });
+            m.Features.Add("Hubs");
+
+            Assert.Equal(StatusText.Block(m), StatusText.CopyText(m));
+        }
     }
 }
