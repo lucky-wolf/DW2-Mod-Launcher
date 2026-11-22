@@ -120,7 +120,7 @@ A mod is identified by its assembly name, which is also what the loader register
 
 - Click the line to open the dialog. It lists one row per mod (name, version, build time, state), mods with problems first. Click a row to open that mod's details in a flyout to the right of the list, level with the row; click the row again to close the flyout, or another row to switch. Click anywhere else (the line, the header, the dimmed screen) to close the dialog. Nothing underneath can be clicked while it is open.
 - The list height depends on the number of mods only. When they do not all fit above the line (small monitors), the list pages: `[More mods]` and `[Previous mods]` rows at the bottom turn pages and keep the dialog open.
-- Click the flyout to copy to the clipboard (for a bug report): just the heading and the errors when the mod has any (load failure, `Error`, error-level `Detail`), otherwise all of the mod's details. Its first line reads `[Copied to clipboard]` for two seconds.
+- Click the flyout to copy to the clipboard (for a bug report): just the heading (name, version, file date) and the problems when the mod has any (load failure, `Error`, `Warn`, warning- and error-level `Detail`), otherwise all of the mod's details. Its first line reads `[Copied to clipboard]` for two seconds.
 - The flyout is at most half the screen wide, wraps its text, and is pushed down if it would leave the top of the screen.
 - The widget hides with the rest of the game's interface.
 - `[+]` / `[-]` on the line shows whether the dialog is closed or open; `/!\` means at least one mod has an error.

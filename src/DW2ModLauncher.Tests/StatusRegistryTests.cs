@@ -211,7 +211,7 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
-        public void CopyText_WithErrors_HasOnlyHeadingAndErrors()
+        public void CopyText_WithProblems_HasOnlyHeadingAndProblems()
         {
             ModStatusSnapshot m = Mod("M", StatusLevel.Error);
             m.Errors.Add("boom");
@@ -220,14 +220,25 @@ namespace DW2ModLauncher.Tests
             m.Details.Add(new StatusDetail { Key = "hub", Text = "gone", Level = StatusLevel.Error });
             m.Features.Add("Hubs");
 
-            Assert.Equal("M  ERROR\n  ! boom\n  ! hub: gone", StatusText.CopyText(m));
+            Assert.Equal("M  ERROR\n  ! boom\n  ! cap: full\n  ! hub: gone", StatusText.CopyText(m));
         }
 
         [Fact]
-        public void CopyText_WithoutErrors_IsTheWholeBlock()
+        public void CopyText_WithOnlyAWarning_HasOnlyHeadingAndWarning()
         {
             ModStatusSnapshot m = Mod("M", StatusLevel.Warn);
+            m.Details.Add(new StatusDetail { Key = "ships", Text = "12", Level = StatusLevel.Ok });
             m.Details.Add(new StatusDetail { Key = "cap", Text = "full", Level = StatusLevel.Warn });
+            m.Features.Add("Hubs");
+
+            Assert.Equal("M  warning\n  ! cap: full", StatusText.CopyText(m));
+        }
+
+        [Fact]
+        public void CopyText_WithoutProblems_IsTheWholeBlock()
+        {
+            ModStatusSnapshot m = Mod("M", StatusLevel.Ok);
+            m.Details.Add(new StatusDetail { Key = "ships", Text = "12", Level = StatusLevel.Ok });
             m.Features.Add("Hubs");
 
             Assert.Equal(StatusText.Block(m), StatusText.CopyText(m));

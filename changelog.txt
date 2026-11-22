@@ -1,4 +1,5 @@
 ## Unreleased
+- In-game details copy only warnings and errors, not settings
 - Fixed delete filter string button not showing
 
 ## 1.0.50 (2026-11-21)
