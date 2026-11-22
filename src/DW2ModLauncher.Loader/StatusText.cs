@@ -85,8 +85,8 @@ namespace DW2ModLauncher.Loader
             return sb.ToString();
         }
 
-        // What clicking the flyout copies: just the heading and the errors when the mod has any (load failure, reported errors, error-level
-        // details), otherwise the whole block. Warnings alone do not narrow it.
+        // What clicking the flyout copies: just the heading and the problems when the mod has any (load failure, reported errors, warning- and
+        // error-level details), never the settings and other plain details; otherwise the whole block.
         public static string CopyText(ModStatusSnapshot m)
         {
             var lines = new List<string>();
@@ -94,7 +94,7 @@ namespace DW2ModLauncher.Loader
             foreach (string e in m.Errors) lines.Add("  ! " + e);
             foreach (StatusDetail d in m.Details)
             {
-                if (d.Level >= StatusLevel.Error) lines.Add("  ! " + d.Key + ": " + d.Text);
+                if (d.Level >= StatusLevel.Warn) lines.Add("  ! " + d.Key + ": " + d.Text);
             }
             if (lines.Count == 0) return Block(m);
             return StatusStrings.Get(StateKey(m), ("Heading", Heading(m))) + "\n" + string.Join("\n", lines);
