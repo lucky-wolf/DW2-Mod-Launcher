@@ -75,6 +75,8 @@
   "ModSettingsPreviewMissing": "Preview image not found: {Path}",
   "ModSettingsPreviewUnreadable": "Preview image could not be read: {Path}",
   "ModSettingsShowHidden": "Show hidden",
+  "ModSettingsSearchPlaceholder": "Search settings",
+  "ModSettingsNoMatches": "No settings match the search.",
   "Save": "Save",
   "ConflictWarningIntro": "Selected mods contain files with the same relative path.",
   "TheDW2ModFolderDoesNotExist": "The DW2 Mod folder does not exist.",

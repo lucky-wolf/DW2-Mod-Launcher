@@ -97,6 +97,14 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         }
 
         public string Key { get { return schemaField.Key; } }
+
+        /// <summary>The search text appears in the setting's name, key, description or one of its options (as shown).</summary>
+        public bool Matches(string needle)
+        {
+            bool Has(string text) { return text != null && text.Contains(needle, System.StringComparison.OrdinalIgnoreCase); }
+            return Has(Label) || Has(Key) || Has(Description) || ChoiceOptions.Any(o => Has(o.Display));
+        }
+
         /// <summary>The schema marks this a hidden (developer) field: only shown on request, and never for Workshop copies.</summary>
         public bool IsHiddenField { get { return schemaField.Hidden; } }
         public ModSettingKind Kind { get; }
@@ -441,8 +449,11 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// <summary>The group is drawn as a ladder matrix (rows = fields, columns = options) instead of the field list.</summary>
         public bool IsLadder { get { return ladder != null; } }
         public LadderViewModel Ladder { get { return ladder; } }
-        public bool ShowFieldList { get { return isExpanded && !IsLadder; } }
-        public bool ShowLadder { get { return isExpanded && IsLadder; } }
+        // While a search is on, every group with matches is drawn open (its collapsed state is kept for afterwards).
+        private bool searching;
+        private bool IsOpen { get { return isExpanded || searching; } }
+        public bool ShowFieldList { get { return IsOpen && !IsLadder; } }
+        public bool ShowLadder { get { return IsOpen && IsLadder; } }
 
         /// <summary>The schema's group name; also what the launcher remembers collapsed groups by.</summary>
         public string Heading { get; }
@@ -469,8 +480,8 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             get { return isExpanded; }
             set { if (Set(ref isExpanded, value)) { Raise(nameof(Chevron)); Raise(nameof(ShowDescription)); Raise(nameof(ShowFieldList)); Raise(nameof(ShowLadder)); } }
         }
-        public bool ShowDescription { get { return isExpanded && HasDescription; } }
-        public string Chevron { get { return isExpanded ? "▾" : "▸"; } }
+        public bool ShowDescription { get { return IsOpen && HasDescription; } }
+        public string Chevron { get { return IsOpen ? "▾" : "▸"; } }
         /// <summary>Every field of the group, shown or not.</summary>
         public IReadOnlyList<SettingFieldViewModel> AllFields { get { return allFields; } }
         /// <summary>The fields currently shown (hidden ones only while "Show hidden" is on).</summary>
@@ -483,11 +494,28 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         /// </summary>
         public ObservableCollection<object> Blocks { get; } = new ObservableCollection<object>();
 
-        public void Refresh(bool showHidden)
+        /// <summary>
+        /// Rebuilds the shown fields: hidden ones only with <paramref name="showHidden"/>, and with a search text only the fields that match it
+        /// (all of them when the group's own heading or description matches).
+        /// </summary>
+        public void Refresh(bool showHidden, string needle = "")
         {
+            needle = needle ?? "";
+            bool nowSearching = needle.Length > 0;
+            bool groupHit = nowSearching && (DisplayHeading?.Contains(needle, System.StringComparison.OrdinalIgnoreCase) == true
+                || Heading?.Contains(needle, System.StringComparison.OrdinalIgnoreCase) == true
+                || Description?.Contains(needle, System.StringComparison.OrdinalIgnoreCase) == true);
+            if (nowSearching != searching)
+            {
+                searching = nowSearching;
+                Raise(nameof(Chevron));
+                Raise(nameof(ShowDescription));
+                Raise(nameof(ShowFieldList));
+                Raise(nameof(ShowLadder));
+            }
             Fields.Clear();
             foreach (SettingFieldViewModel field in allFields)
-                if (showHidden || !field.IsHiddenField) Fields.Add(field);
+                if ((showHidden || !field.IsHiddenField) && (!nowSearching || groupHit || field.Matches(needle))) Fields.Add(field);
             ladder?.Show(Fields);
             Blocks.Clear();
             FieldRunViewModel run = null;
@@ -524,6 +552,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             SettingPreviewImages previewImages = mod == null ? null : new SettingPreviewImages(mod.ContentRoot ?? mod.Folder, l);
             Title = title;
             L = l;
+            ClearSearchCommand = new RelayCommand(delegate { SearchText = ""; });
             this.values = values;
             foreach (ModSettingsGroup group in schema.VisibleGroups(mod))
             {
@@ -596,15 +625,41 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             set
             {
                 if (!CanShowHidden || !Set(ref showHidden, value)) return;
-                foreach (SettingGroupViewModel group in Groups) group.Refresh(showHidden);
-                Raise(nameof(VisibleGroups));
-                Raise(nameof(AllValid));
-                Raise(nameof(CanSave));
+                RefreshGroups();
             }
         }
 
-        /// <summary>False while any shown folder/filename field holds a path that does not exist (Save is disabled).</summary>
-        public bool AllValid { get { return !Groups.SelectMany(g => g.Fields).Any(f => f.IsInvalid); } }
+        private string searchText = "";
+        /// <summary>The footer's search box: only settings (and groups) that match are listed.</summary>
+        public string SearchText
+        {
+            get { return searchText; }
+            set
+            {
+                if (!Set(ref searchText, value ?? "")) return;
+                Raise(nameof(HasSearchText));
+                RefreshGroups();
+            }
+        }
+
+        /// <summary>The search box has text: the clear button shows.</summary>
+        public bool HasSearchText { get { return searchText.Length > 0; } }
+        public RelayCommand ClearSearchCommand { get; private set; }
+        /// <summary>A search is on and nothing matches it.</summary>
+        public bool NoMatches { get { return HasSearchText && VisibleGroups.Count == 0; } }
+
+        private void RefreshGroups()
+        {
+            string needle = searchText.Trim();
+            foreach (SettingGroupViewModel group in Groups) group.Refresh(showHidden, needle);
+            Raise(nameof(VisibleGroups));
+            Raise(nameof(NoMatches));
+            Raise(nameof(AllValid));
+            Raise(nameof(CanSave));
+        }
+
+        /// <summary>False while any folder/filename field holds a path that does not exist (Save is disabled). A search never hides a bad path from this.</summary>
+        public bool AllValid { get { return !Groups.SelectMany(g => g.AllFields).Where(f => showHidden || !f.IsHiddenField).Any(f => f.IsInvalid); } }
 
         /// <summary>Any field (shown or not) differs from the values saved when the dialog opened.</summary>
         public bool IsModified { get { return Groups.SelectMany(g => g.AllFields).Any(f => f.IsModified); } }

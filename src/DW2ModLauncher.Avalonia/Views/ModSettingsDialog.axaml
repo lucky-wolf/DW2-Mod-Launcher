@@ -162,13 +162,22 @@
     <ScrollViewer Name="Scroller" Grid.Row="0">
       <StackPanel Margin="16" Spacing="4">
         <ItemsControl ItemsSource="{Binding VisibleGroups}" ItemTemplate="{StaticResource GroupTemplate}" />
+        <TextBlock IsVisible="{Binding NoMatches}" Text="{Binding L[ModSettingsNoMatches]}" Opacity="0.75" />
       </StackPanel>
     </ScrollViewer>
     <Border Grid.Row="1" Background="{StaticResource Dw2Void}" Padding="16,12">
-      <Grid ColumnDefinitions="*,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto">
         <CheckBox Grid.Column="0" IsVisible="{Binding CanShowHidden}" IsChecked="{Binding ShowHidden}" Content="{Binding L[ModSettingsShowHidden]}"
-                  FontSize="11" Opacity="0.75" VerticalAlignment="Center" HorizontalAlignment="Left" />
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                  FontSize="11" Opacity="0.75" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,16,0" />
+        <!-- Search: filters the settings to the ones that match; Escape or the X clears it. -->
+        <TextBox Name="SearchBox" Grid.Column="1" MaxWidth="420" HorizontalAlignment="Left" MinWidth="240" Text="{Binding SearchText}" Watermark="{Binding L[ModSettingsSearchPlaceholder]}">
+          <TextBox.InnerRightContent>
+            <Button IsVisible="{Binding HasSearchText}" Command="{Binding ClearSearchCommand}" Background="Transparent" BorderThickness="0" Padding="6,4" Margin="0,0,2,0" VerticalAlignment="Center" Focusable="False" ToolTip.Tip="{Binding L[ClearFilterTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0">
+              <Path Width="10" Height="10" Stretch="Uniform" Data="M1,1 L11,11 M11,1 L1,11" Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.5" />
+            </Button>
+          </TextBox.InnerRightContent>
+        </TextBox>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12">
         <Button Name="SaveButton" IsEnabled="{Binding CanSave}" Content="{Binding L[Save]}" MinWidth="125" />
         <Button Name="CancelButton" IsCancel="True" Content="{Binding L[Cancel]}" MinWidth="125" />
         </StackPanel>

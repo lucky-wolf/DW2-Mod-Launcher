@@ -1,6 +1,8 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using DW2ModLauncher.Avalonia.ViewModels;
 
 namespace DW2ModLauncher.Avalonia.Views
@@ -18,6 +20,20 @@ namespace DW2ModLauncher.Avalonia.Views
             DataContext = editor;
             SaveButton.Click += delegate { Close(true); };
             CancelButton.Click += delegate { Close(false); };
+            // Escape with a search on clears it (wherever the focus is) instead of cancelling the dialog; the next Escape cancels.
+            AddHandler(KeyDownEvent, (sender, e) =>
+            {
+                if (e.Key == Key.F && e.KeyModifiers == KeyModifiers.Control)
+                {
+                    SearchBox.Focus();
+                    SearchBox.SelectAll();
+                    e.Handled = true;
+                    return;
+                }
+                if (e.Key != Key.Escape || !editor.HasSearchText) return;
+                editor.SearchText = "";
+                e.Handled = true;
+            }, RoutingStrategies.Tunnel);
             RestoreScroll(editor.ScrollOffset);
             Closing += delegate { editor.ScrollOffset = Scroller.Offset.Y; };
         }
