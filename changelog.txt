@@ -1,5 +1,9 @@
 ## Unreleased
 
+## 1.0.52 (2026-11-23)
+- Mod settings dialog has a search box; Esc clears it
+- Ctrl+F jumps to the search box in the list and settings
+
 ## 1.0.51 (2026-11-22)
 - In-game details copy only warnings and errors, not settings
 - Fixed delete filter string button not showing

@@ -40,6 +40,18 @@ namespace DW2ModLauncher.Avalonia.Views
             ModList.AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
             // Escape in the search box clears it; with it already empty the key goes on to whatever is next.
             FilterBox.KeyDown += (sender, e) => { if (e.Key == Key.Escape && !string.IsNullOrEmpty(FilterBox.Text)) { FilterBox.Text = ""; e.Handled = true; } };
+            // Ctrl+F jumps to the search box with its text selected, wherever the focus is in the main window.
+            AttachedToVisualTree += (sender, e) =>
+            {
+                TopLevel top = TopLevel.GetTopLevel(this);
+                top?.AddHandler(KeyDownEvent, (s, args) =>
+                {
+                    if (args.Key != Key.F || args.KeyModifiers != KeyModifiers.Control || !IsEffectivelyVisible) return;
+                    FilterBox.Focus();
+                    FilterBox.SelectAll();
+                    args.Handled = true;
+                }, RoutingStrategies.Tunnel);
+            };
             PreviewBorder.DoubleTapped += delegate { if (DataContext is MainViewModel m && m.OpenSteamPageCommand.CanExecute(null)) m.OpenSteamPageCommand.Execute(null); };
             // Bring the remembered selection into view once the list has been laid out (a restored row can be far down).
             Loaded += delegate { global::Avalonia.Threading.Dispatcher.UIThread.Post(() => ScrollToSelection(true), global::Avalonia.Threading.DispatcherPriority.Background); };

@@ -68,6 +68,8 @@
   "ModSettingsPreviewUnreadable": "プレビュー画像を読み込めませんでした：{Path}",
   "ModSettingsBlankValue": "（空）",
   "ModSettingsShowHidden": "非表示の項目を表示",
+  "ModSettingsSearchPlaceholder": "設定を検索",
+  "ModSettingsNoMatches": "検索に一致する設定はありません。",
   "Save": "保存",
   "ConflictWarningIntro": "選択中のModに同じ相対パスのファイルが見つかりました。",
   "TheDW2ModFolderDoesNotExist": "DW2 Modフォルダーが見つかりません。",

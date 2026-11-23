@@ -68,6 +68,8 @@
   "ModSettingsPreviewMissing": "Изображение предпросмотра не найдено: {Path}",
   "ModSettingsPreviewUnreadable": "Не удалось прочитать изображение предпросмотра: {Path}",
   "ModSettingsShowHidden": "Показать скрытые",
+  "ModSettingsSearchPlaceholder": "Поиск по настройкам",
+  "ModSettingsNoMatches": "Нет настроек, соответствующих поиску.",
   "Save": "Сохранить",
   "ConflictWarningIntro": "Выбранные моды содержат файлы с одинаковыми относительными путями.",
   "TheDW2ModFolderDoesNotExist": "Папка модов DW2 не существует.",
