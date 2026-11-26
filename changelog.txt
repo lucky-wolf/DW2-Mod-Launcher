@@ -1,5 +1,9 @@
 ## Unreleased
 
+## 1.0.53 (2026-11-26)
+- Editing the GitHub releases repository now enables Save
+- Unticking Publish to GitHub clears the repository until saved or cancelled
+
 ## 1.0.52 (2026-11-23)
 - Mod settings dialog has a search box; Esc clears it
 - Ctrl+F jumps to the search box in the list and settings
