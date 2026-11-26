@@ -626,7 +626,7 @@ namespace DW2ModLauncher.Avalonia.ViewModels
 
         private string FieldsSnapshot()
         {
-            return string.Join("", new[] { title, version, previewImage, shortDescription, bumpLevel.Value }.Select(x => (x ?? "").Trim())) + "\n" + Compatible.Key + "\n" + string.Join("\n", tagNames) + "\n" + DependenciesKey();
+            return string.Join("", new[] { title, version, previewImage, shortDescription, bumpLevel.Value }.Select(x => (x ?? "").Trim())) + "\n" + Compatible.Key + "\n" + string.Join("\n", tagNames) + "\n" + DependenciesKey() + "\n" + (releaseRepo ?? "").Trim();
         }
 
         // The "Dependencies" list: dw2modlauncher.json "dependencies" as it stands in the dialog (copies), and its key as last read or saved.
@@ -1006,7 +1006,17 @@ namespace DW2ModLauncher.Avalonia.ViewModels
         public bool ReleaseRepoInvalid { get { return (releaseRepo ?? "").Trim().Length > 0 && !CanRelease; } }
         /// <summary>Where this publish goes. Both start as the Settings choice and can be changed for this one publish; Edit Properties has neither.</summary>
         public bool ToSteam { get { return toSteam; } set { if (Set(ref toSteam, value)) RaiseTargets(); } }
-        public bool ToGitHub { get { return toGitHub; } set { if (Set(ref toGitHub, value)) RaiseTargets(); } }
+        public bool ToGitHub
+        {
+            get { return toGitHub; }
+            set
+            {
+                if (!Set(ref toGitHub, value)) return;
+                // Unticking is how the repository is removed: the box empties, which counts as an edit (Save keeps it, Cancel brings it back).
+                if (!value) ReleaseRepo = "";
+                RaiseTargets();
+            }
+        }
         public bool ShowTargets { get { return !propertiesOnly; } }
         public bool ShowSteamTarget { get { return ShowTargets && steamEnabled; } }
         public bool ShowGitHubTarget { get { return ShowTargets && githubEnabled; } }
