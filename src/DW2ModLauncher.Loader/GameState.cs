@@ -7,7 +7,7 @@ using HarmonyLib;
 namespace DW2ModLauncher.Loader
 {
     /// <summary>
-    /// Tells code mods when a real game exists. The game loads its data and builds galaxies for more than the game itself: the menu's
+    /// Tells code mods when a real game exists (and when it is about to be saved). The game loads its data and builds galaxies for more than the game itself: the menu's
     /// background, the new-game wizard's preview. A mod that checks the game's data against its own expectations (and warns when they differ)
     /// would be judging data that is about to be replaced. A real game starts in exactly two places, <c>DWGame.StartGameNewGenerate</c> (a new
     /// game, after the data has been loaded for it, before its galaxy is generated) and <c>DWGame.LoadGame</c> (a saved game, before the save is
@@ -39,6 +39,17 @@ namespace DW2ModLauncher.Loader
         /// about that game.
         /// </summary>
         public static event Action<object> GameReady;
+
+        /// <summary>
+        /// Raised just before the game saves (a manual save or an autosave), with the game's <c>Galaxy</c> as the argument (typed <c>object</c>).
+        /// It comes from a prefix on <c>DWGame.BeginSaveGame</c>, which runs on the game's thread before the game waits for its own tasks and starts
+        /// writing the file on a background task: whatever a handler stores in the galaxy (Positronic Matrix's <c>saved-data.set</c>, say) is in the
+        /// file. The game's tasks may still be running, so a handler reads its own state under its own lock. Handlers run one after another on the
+        /// game's thread and the save waits for them, so they should be quick (milliseconds). Each handler is called on its own: one that throws is
+        /// reported on the status line and in the log, and the others still run. Only a real game raises it (the menu and the wizard's preview never
+        /// save). Subscribe at load time.
+        /// </summary>
+        public static event Action<object> GameSaving;
 
         /// <summary>
         /// The code mods this session loaded, in load order, one line each: <c>n|id|version|built|ok</c> (the last field is <c>failed</c> when the
@@ -151,6 +162,16 @@ namespace DW2ModLauncher.Loader
                 harmony.Patch(existing, postfix: new HarmonyMethod(typeof(GameState).GetMethod(nameof(GameReadyPostfix), BindingFlags.Static | BindingFlags.NonPublic)));
                 hooked++;
             }
+            MethodInfo saving = game.GetMethod("BeginSaveGame", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(string) }, null);
+            if (saving == null)
+            {
+                Report("DWGame.BeginSaveGame");
+            }
+            else
+            {
+                harmony.Patch(saving, prefix: new HarmonyMethod(typeof(GameState).GetMethod(nameof(GameSavingPrefix), BindingFlags.Static | BindingFlags.NonPublic)));
+                hooked++;
+            }
             MethodInfo clear = game.GetMethod("ClearGalaxy", BindingFlags.Public | BindingFlags.Instance);
             if (clear == null)
             {
@@ -219,6 +240,26 @@ namespace DW2ModLauncher.Loader
                 {
                     Log("ERROR: " + who + " failed while handling GameReady: " + ex);
                     HookStatus.Failed("gamestate-ready-" + who, StatusStrings.Get("WidgetGameReadyFailed", ("Mod", who), ("Problem", ex.Message)), _logPath);
+                }
+            }
+        }
+
+        // Before the game saves: tell the subscribers while the galaxy can still be written to. Nothing is raised without a real game (no galaxy held).
+        private static void GameSavingPrefix()
+        {
+            Action<object> handlers = GameSaving;
+            if (handlers == null || !_galaxy.TryGetTarget(out object galaxy) || galaxy == null) return;
+            foreach (Delegate handler in handlers.GetInvocationList())
+            {
+                string who = handler.Method.DeclaringType?.Assembly.GetName().Name ?? handler.Method.Name;
+                try
+                {
+                    ((Action<object>)handler)(galaxy);
+                }
+                catch (Exception ex)
+                {
+                    Log("ERROR: " + who + " failed while handling GameSaving: " + ex);
+                    HookStatus.Failed("gamestate-saving-" + who, StatusStrings.Get("WidgetGameSavingFailed", ("Mod", who), ("Problem", ex.Message)), _logPath);
                 }
             }
         }

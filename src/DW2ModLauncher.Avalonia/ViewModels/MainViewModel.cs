@@ -2163,6 +2163,20 @@ namespace DW2ModLauncher.Avalonia.ViewModels
             // Accepting the dialog wrote the (possibly bumped) version to mod.json; any exit below that doesn't publish undoes it.
             string versionBefore = editor.OriginalVersion;
             string versionWritten = metadata.Version;
+            // A mod that holds nothing the game loads is almost always a mistake to publish, so its first publish to a target needs a yes.
+            bool firstSteam = editor.ToSteam && !isUpdate;
+            bool firstGitHub = editor.ToGitHub && (mod.GitHubStatus == PublishStatus.Unpublished || mod.GitHubStatus == PublishStatus.Unknown);
+            if (firstSteam || firstGitHub)
+            {
+                LauncherMeta emptyMeta = LauncherMetaReader.TryRead(mod, out string emptyMetaError);
+                if (emptyMetaError == null && ReleasePackager.IsEmpty(mod.ContentRoot ?? mod.Folder, emptyMeta)
+                    && !await Dialogs.ConfirmAsync(T("PublishEmptyConfirm", ("Mod", mod.DisplayName ?? mod.Id ?? "")), "DW2 Mod Launcher", T("Yes"), T("No")))
+                {
+                    RollBackVersion(mod, versionBefore, versionWritten);
+                    return;
+                }
+            }
+
             // Not going to Steam for this publish: no Steam checks or upload, just the identity stamp, the release and the changelog stamp.
             if (!editor.ToSteam)
             {

@@ -84,7 +84,7 @@ namespace DW2ModLauncher.Core.Services.Publishing
             return name.Equals(font + ".bundle", StringComparison.OrdinalIgnoreCase) || name.StartsWith(font + ".", StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>What the mod holds, from its files: code (a .dll beside mod.json), xml (any .xml), translation (a language, or a translations/ folder), font and art (asset bundles). A mod may be several; one that is none cannot be listed.</summary>
+        /// <summary>What the mod holds, from its files: code (a .dll beside mod.json), xml (any .xml), translation (a language, or a translations/ folder), font and art (asset bundles). A mod may be several; one holding none of them (a placeholder that exists to be listed or depended on) is "empty".</summary>
         public static List<string> KindsOf(IEnumerable<string> files, LauncherMeta meta)
         {
             List<string> list = files.ToList();
@@ -96,7 +96,17 @@ namespace DW2ModLauncher.Core.Services.Publishing
             if (!string.IsNullOrWhiteSpace(font)) kinds.Add("font");
             // Art: any asset bundle other than the font's own (a mod of nothing but replacement images and models, like the Refreshed series).
             if (list.Any(f => f.EndsWith(".bundle", StringComparison.OrdinalIgnoreCase) && !IsFontBundle(f, font))) kinds.Add("art");
+            if (kinds.Count == 0) kinds.Add("empty");
             return kinds;
+        }
+
+        /// <summary>True when the mod's published files hold none of the five kinds, so the catalog lists it as "empty" (a placeholder). The same file list a release zips.</summary>
+        public static bool IsEmpty(string contentFolder, LauncherMeta meta)
+        {
+            string root = Path.GetFullPath(contentFolder);
+            List<string> files = PublishedState.ContentFiles(root).ToList();
+            if (File.Exists(Path.Combine(root, HooksFile)) && !files.Contains(HooksFile)) files.Add(HooksFile);
+            return KindsOf(files, meta).Contains("empty");
         }
 
         /// <summary>
@@ -116,7 +126,6 @@ namespace DW2ModLauncher.Core.Services.Publishing
             List<string> files = PublishedState.ContentFiles(root).OrderBy(f => f, StringComparer.Ordinal).ToList();
             if (File.Exists(Path.Combine(root, HooksFile)) && !files.Contains(HooksFile)) files.Add(HooksFile);
             List<string> kinds = KindsOf(files, meta);
-            if (kinds.Count == 0) throw new InvalidDataException(name + " holds no code, XML, translation, font or art bundle, so it cannot be classified for the catalog.");
 
             ReleasePackage package = new ReleasePackage { Tag = tag, Version = version, Title = (metadata.DisplayName ?? name) + " " + version };
             string dir = Path.Combine(outFolder, tag);

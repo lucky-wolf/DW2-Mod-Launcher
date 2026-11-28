@@ -66,6 +66,7 @@ namespace DW2ModLauncher.Loader
             ["WidgetTitlesMethodMissing"] = "translated titles are not matched: {Method} not found (game update?)",
             ["WidgetGameStateNotHooked"] = "the start of a game is not tracked: {Method} not found (game update?); mods that wait for a real game will not warn",
             ["WidgetGameReadyFailed"] = "{Mod} failed while starting the game: {Problem}",
+            ["WidgetGameSavingFailed"] = "{Mod} failed while saving the game: {Problem}",
             ["WidgetGameStateNotTracked"] = "the start of a game is not tracked: {Problem}; mods that wait for a real game will not warn",
             ["WidgetListSeparator"] = ", ",
             ["WidgetPatchesNoFileSystem"] = "XML patches are not applied: the game's file system was not found",
