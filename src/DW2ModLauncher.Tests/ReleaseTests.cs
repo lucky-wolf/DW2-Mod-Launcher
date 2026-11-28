@@ -109,6 +109,12 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
+        public void KindsOf_AModHoldingNoneOfThemIsEmpty()
+        {
+            Assert.Equal(new[] { "empty" }, ReleasePackager.KindsOf(new[] { "mod.json", "description.bbcode", "dw2modlauncher.json", "icon.png" }, Meta()));
+        }
+
+        [Fact]
         public void IdentityProblem_ADependencyNeedsAModName()
         {
             LauncherMeta meta = Meta();
@@ -163,13 +169,15 @@ namespace DW2ModLauncher.Tests
         }
 
         [Fact]
-        public void Package_AModWithNothingToClassify_IsRefused()
+        public void Package_AModWithNothingToClassify_IsListedAsEmpty()
         {
             string mod = Path.Combine(root, "mods", "Bare");
             Directory.CreateDirectory(mod);
             File.WriteAllText(Path.Combine(mod, "mod.json"), "{}");
 
-            Assert.Contains("cannot be classified", Assert.Throws<InvalidDataException>(() => Package(mod)).Message);
+            ReleasePackage package = Package(mod);
+
+            Assert.Equal(new[] { "empty" }, CatalogParser.Parse(IndexFor(File.ReadAllText(package.ManifestPath))).Entries.Single().Kinds);
         }
 
         [Fact]
