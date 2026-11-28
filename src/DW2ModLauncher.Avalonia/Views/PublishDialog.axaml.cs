@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using DW2ModLauncher.Avalonia.Services;
 using DW2ModLauncher.Avalonia.ViewModels;
 
@@ -14,10 +17,45 @@ namespace DW2ModLauncher.Avalonia.Views
             ScreenFit.Attach(this);
         }
 
+        // the hook section was last scrolled into view for a warning that still stands (cleared once nothing is unresolved, so a new warning scrolls again)
+        private bool hookIssuesRevealed;
+
+        /// <summary>
+        /// Unresolved hook issues sit near the bottom of a long form, out of sight, and can appear after the dialog opens (the list is rebuilt for the version being
+        /// published). The first time one shows, the hook section opens and scrolls to about the middle of the window.
+        /// </summary>
+        private void RevealHookIssues(PublishDialogViewModel editor)
+        {
+            if (!editor.Compatible.HasCompatibleCaution)
+            {
+                hookIssuesRevealed = false;
+                return;
+            }
+            if (hookIssuesRevealed) return;
+            hookIssuesRevealed = true;
+            Dispatcher.UIThread.Post(ScrollToHookSection, DispatcherPriority.Loaded);
+        }
+
+        private void ScrollToHookSection()
+        {
+            CompatibleExpander.IsExpanded = true;
+            ContentScroll.UpdateLayout();
+            if (ContentScroll.Content is not Visual content || CompatibleExpander.TranslatePoint(new Point(0, 0), content) is not Point at) return;
+            double viewport = ContentScroll.Viewport.Height;
+            double spare = Math.Max(0, viewport - CompatibleExpander.Bounds.Height);
+            double max = Math.Max(0, ContentScroll.Extent.Height - viewport);
+            ContentScroll.Offset = ContentScroll.Offset.WithY(Math.Clamp(at.Y - spare / 2, 0, max));
+        }
+
         public PublishDialog(PublishDialogViewModel editor, IDialogService dialogs) : this()
         {
             DataContext = editor;
             Closed += delegate { editor.Dispose(); };
+            Opened += delegate { RevealHookIssues(editor); };
+            editor.PropertyChanged += (sender, e) =>
+            {
+                if (e.PropertyName == nameof(PublishDialogViewModel.Compatible)) RevealHookIssues(editor);
+            };
             CancelButton.Click += delegate { Close(false); };
             editor.CloseRequested += delegate { Close(false); };
             KeyDown += (sender, e) =>

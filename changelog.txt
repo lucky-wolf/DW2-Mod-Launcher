@@ -1,10 +1,9 @@
 ## Unreleased
 
-## 1.0.54 (2026-11-27)
-- A mod with no code, data or art can be released as an empty placeholder
-- Publishing an empty mod for the first time asks you to confirm
-- Code mods can be told just before the game saves
+## 1.0.55 (2026-11-27)
+- The publish dialog scrolls to unresolved hook issues and flags them in its footer
 
+## 1.0.54 (2026-11-27)
 - Code mods can register to execute some pre-game-save code
 - A mod with no code, data or art can be released as an empty placeholder
 - Publishing an empty mod for the first time asks you to confirm

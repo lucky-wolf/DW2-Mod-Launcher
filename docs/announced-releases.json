@@ -1,5 +1,5 @@
 {
-  "announced": "1.0.53",
-  "last": "## DW2 Mod Launcher 1.0.53\n- Editing the GitHub releases repository now enables Save\n- Unticking Publish to GitHub clears the repository until saved or cancelled\n",
-  "recordedUtc": "2026-11-26T19:02:04+00:00"
+  "announced": "1.0.55",
+  "last": "## DW2 Mod Launcher 1.0.55\n- The publish dialog scrolls to unresolved hook issues and flags them in its footer\n",
+  "recordedUtc": "2026-11-28T02:35:07+00:00"
 }
