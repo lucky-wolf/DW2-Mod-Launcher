@@ -8,7 +8,7 @@
         Title="{Binding WindowTitle}" Width="900" Height="900" MinWidth="900" MinHeight="300" CanResize="True"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <Grid RowDefinitions="*,Auto,Auto">
-    <ScrollViewer Grid.Row="0">
+    <ScrollViewer Name="ContentScroll" Grid.Row="0">
       <StackPanel Margin="24" Spacing="14">
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding L[PublishInfoTitle]}" />
@@ -267,7 +267,7 @@
           </Border>
         </Expander>
         <!-- The hooks of this mod that overlap another mod's, ticked when the author investigated them (hook claims; see CompatibleListView). -->
-        <Expander DataContext="{Binding Compatible}" x:DataType="vm:CompatibleListViewModel" IsExpanded="{Binding HasCompatibleCaution, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0">
+        <Expander Name="CompatibleExpander" DataContext="{Binding Compatible}" x:DataType="vm:CompatibleListViewModel" IsExpanded="{Binding HasCompatibleCaution, Mode=OneTime}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0,8,0,0">
           <Expander.Header>
             <Grid ColumnDefinitions="*,Auto,*" ToolTip.Tip="{Binding L[PublishCompatibleWithTooltip]}">
               <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding Header}" />
@@ -310,6 +310,8 @@
          These two open above the button instead. ToolTip.VerticalOffset defaults to +20 and applies to every placement (it pushed a Top tooltip down over its own button), hence the explicit offset. -->
     <Border Grid.Row="2" Background="{StaticResource Dw2Void}" Padding="16,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+        <!-- unresolved hook issues (overlaps with another mod's hooks that are not marked compatible), kept in view while any remain; "alert" icon, Material Design Icons, Apache-2.0 -->
+        <PathIcon Width="20" Height="20" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="Orange" IsVisible="{Binding Compatible.HasCompatibleCaution}" ToolTip.Tip="{Binding L[PublishHookIssuesTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0" Data="M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z" />
         <Button IsVisible="{Binding CanMarkUpToDate}" Command="{Binding MarkUpToDateCommand}" Content="{Binding L[MarkUpToDate]}" MinWidth="125" ToolTip.Tip="{Binding L[MarkUpToDateTooltip]}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0" />
         <Button IsVisible="{Binding ShowSave}" IsEnabled="{Binding CanSave}" Command="{Binding SaveCommand}" Content="{Binding L[Save]}" MinWidth="125" />
         <Button Name="PublishButton" Classes="play" IsEnabled="{Binding CanPrimary}" Content="{Binding PrimaryButtonText}" MinWidth="170" FontSize="14" ToolTip.Tip="{Binding PublishTooltip}" ToolTip.Placement="Top" ToolTip.VerticalOffset="-8" ToolTip.HorizontalOffset="0" />
